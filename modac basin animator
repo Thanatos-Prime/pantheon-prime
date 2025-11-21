@@ -1,0 +1,195 @@
+“””
+MODAC Basin Dynamics — Manim Animation
+60-second visualization of moral transformation as stochastic escape
+
+Requirements:
+pip install manim
+
+Render command:
+manim -pql modac_basin.py MODACBasinScene
+
+For high quality:
+manim -pqh modac_basin.py MODACBasinScene
+“””
+
+from manim import *
+import numpy as np
+
+class MODACBasinScene(Scene):
+def construct(self):
+# Title sequence (0-5s)
+title = Text(“MODAC”, font_size=72, weight=BOLD)
+subtitle = Text(“Moral Dynamics via Stochastic Gradient Ascent”,
+font_size=24).next_to(title, DOWN)
+sigil = Text(“🜁”, font_size=96).next_to(title, UP, buff=0.5)
+
+```
+    self.play(FadeIn(sigil), run_time=1)
+    self.play(Write(title), run_time=1)
+    self.play(FadeIn(subtitle), run_time=1)
+    self.wait(2)
+    self.play(FadeOut(sigil), FadeOut(title), FadeOut(subtitle))
+    
+    # Setup axes (5-10s)
+    axes = Axes(
+        x_range=[-4, 4, 1],
+        y_range=[-2, 2, 0.5],
+        x_length=10,
+        y_length=6,
+        axis_config={"color": BLUE},
+    )
+    
+    labels = axes.get_axis_labels(
+        x_label=Tex(r"\gamma \text{ (moral state)}"),
+        y_label=Tex(r"V(\gamma) \text{ (potential)}")
+    )
+    
+    # Double-well potential: V(x) = x^4/4 - x^2
+    def potential(x):
+        return x**4 / 4 - x**2
+    
+    # Gradient (force): -dV/dx = x - x^3
+    def gradient(x):
+        return x - x**3
+    
+    # Plot potential landscape
+    potential_graph = axes.plot(
+        potential,
+        color=RED,
+        x_range=[-2.5, 2.5]
+    )
+    
+    pride_label = Text("Pride Basin", font_size=20, color=RED).move_to(
+        axes.c2p(-1.5, -0.8)
+    )
+    unity_label = Text("Unity Basin", font_size=20, color=GREEN).move_to(
+        axes.c2p(1.5, -0.8)
+    )
+    
+    self.play(Create(axes), Write(labels))
+    self.play(Create(potential_graph), run_time=2)
+    self.play(FadeIn(pride_label), FadeIn(unity_label))
+    self.wait(1)
+    
+    # Show equation (10-15s)
+    equation = MathTex(
+        r"\dot{\gamma}(t) = -\nabla V(\gamma) + \sqrt{2\beta^{-1}}\eta(t)",
+        font_size=36
+    ).to_edge(UP)
+    
+    self.play(Write(equation))
+    self.wait(2)
+    
+    # Particle trajectories (15-45s)
+    # Scenario 1: Trapped in pride basin (low noise)
+    dot_trapped = Dot(axes.c2p(-1.2, potential(-1.2)), color=RED)
+    trapped_label = Text("Low clarity (β=20)", font_size=18, color=RED).next_to(
+        dot_trapped, UP
+    )
+    
+    self.play(FadeIn(dot_trapped), Write(trapped_label))
+    
+    # Simulate trapped trajectory
+    trapped_path = []
+    x = -1.2
+    dt = 0.01
+    noise_scale = np.sqrt(2 / 20)  # β = 20
+    
+    for _ in range(300):
+        noise = np.random.randn() * noise_scale * np.sqrt(dt)
+        x += gradient(x) * dt + noise
+        x = np.clip(x, -2.5, 2.5)
+        trapped_path.append(axes.c2p(x, potential(x)))
+    
+    trapped_trace = TracedPath(
+        dot_trapped.get_center,
+        stroke_color=RED,
+        stroke_width=2
+    )
+    self.add(trapped_trace)
+    
+    self.play(
+        MoveAlongPath(dot_trapped, VMobject().set_points_as_corners(trapped_path)),
+        run_time=5,
+        rate_func=linear
+    )
+    self.wait(1)
+    
+    # Scenario 2: Escape via higher clarity
+    dot_escape = Dot(axes.c2p(-1.2, potential(-1.2)), color=GREEN)
+    escape_label = Text("Higher clarity (β=5)", font_size=18, color=GREEN).next_to(
+        dot_escape, DOWN
+    )
+    
+    self.play(
+        FadeOut(trapped_label),
+        FadeIn(dot_escape),
+        Write(escape_label)
+    )
+    
+    # Simulate escape trajectory
+    escape_path = []
+    x = -1.2
+    noise_scale = np.sqrt(2 / 5)  # β = 5 (more noise/grace)
+    
+    for _ in range(800):
+        noise = np.random.randn() * noise_scale * np.sqrt(dt)
+        x += gradient(x) * dt + noise
+        x = np.clip(x, -2.5, 2.5)
+        escape_path.append(axes.c2p(x, potential(x)))
+        
+        # Add "grace event" perturbation at step 400
+        if _ == 400:
+            x += 0.8  # Large perturbation
+    
+    escape_trace = TracedPath(
+        dot_escape.get_center,
+        stroke_color=GREEN,
+        stroke_width=2
+    )
+    self.add(escape_trace)
+    
+    self.play(
+        MoveAlongPath(dot_escape, VMobject().set_points_as_corners(escape_path)),
+        run_time=10,
+        rate_func=linear
+    )
+    
+    # Highlight final position
+    final_circle = Circle(radius=0.3, color=GREEN).move_to(dot_escape.get_center())
+    self.play(Create(final_circle), run_time=0.5)
+    self.wait(1)
+    
+    # Key insight (45-55s)
+    self.play(
+        FadeOut(dot_trapped),
+        FadeOut(trapped_trace),
+        FadeOut(escape_label),
+        FadeOut(equation)
+    )
+    
+    insight = VGroup(
+        Text("Clarity (β) increases escape rate", font_size=28),
+        Text("Noise (η) = free will + grace + circumstance", font_size=28),
+        Text("Micro-turns compound over time", font_size=28),
+    ).arrange(DOWN, aligned_edge=LEFT, buff=0.3).to_edge(UP)
+    
+    self.play(Write(insight), run_time=3)
+    self.wait(2)
+    
+    # Closing (55-60s)
+    self.play(FadeOut(insight), FadeOut(axes), FadeOut(labels), 
+             FadeOut(potential_graph), FadeOut(pride_label), 
+             FadeOut(unity_label), FadeOut(dot_escape), 
+             FadeOut(escape_trace), FadeOut(final_circle))
+    
+    closing_text = VGroup(
+        Text("We do not rise by leap, but by limit;", font_size=32),
+        Text("not by purity, but by derivative.", font_size=32, weight=BOLD),
+        Text("🜁", font_size=64),
+        Text("pantheon.link/modac", font_size=24, color=BLUE)
+    ).arrange(DOWN, buff=0.4)
+    
+    self.play(FadeIn(closing_text), run_time=2)
+    self.wait(3)
+```
