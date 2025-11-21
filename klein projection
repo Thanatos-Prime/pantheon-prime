@@ -1,0 +1,259 @@
+import React, { useEffect, useRef, useState } from ‘react’;
+import { Card, CardContent, CardHeader, CardTitle } from ‘@/components/ui/card’;
+
+const HoggeKleinBottle = () => {
+const canvasRef = useRef(null);
+const [balanceScore, setBalanceScore] = useState(0);
+const [visualization, setVisualization] = useState(‘yinyang’);
+
+useEffect(() => {
+const canvas = canvasRef.current;
+if (!canvas) return;
+
+```
+const ctx = canvas.getContext('2d');
+const width = canvas.width;
+const height = canvas.height;
+
+// Clear canvas
+ctx.fillStyle = '#1a1a1a';
+ctx.fillRect(0, 0, width, height);
+
+// Klein bottle projection function
+const kleinBottle = (u, v) => {
+  const x = (1 + Math.cos(v)) * Math.cos(u);
+  const y = (1 + Math.cos(v)) * Math.sin(u);
+  // S-curve perturbation for yin-yang shape
+  const yPerturb = 0.5 * Math.sin(2 * u) * Math.cos(v);
+  return [x, y + yPerturb];
+};
+
+// Generate points
+const resolution = 100;
+const points = [];
+let sumGradient = 0;
+
+for (let i = 0; i < resolution; i++) {
+  for (let j = 0; j < resolution; j++) {
+    const u = (i / resolution) * 2 * Math.PI;
+    const v = (j / resolution) * 2 * Math.PI;
+    const [x, y] = kleinBottle(u, v);
+    
+    // Calculate gradient based on visualization type
+    let gradient;
+    if (visualization === 'yinyang') {
+      gradient = Math.sin(u) * Math.cos(v);
+    } else if (visualization === 'wave') {
+      gradient = Math.sin(3 * u) * Math.sin(3 * v);
+    } else if (visualization === 'radial') {
+      gradient = Math.cos(Math.sqrt(u * u + v * v));
+    } else if (visualization === 'spiral') {
+      gradient = Math.sin(u + v) * Math.cos(u - v);
+    }
+    
+    points.push({ x, y, u, v, gradient });
+    sumGradient += gradient;
+  }
+}
+
+// Hogge equilibrium: center gradient at 0
+const meanGradient = sumGradient / points.length;
+let varianceSum = 0;
+
+points.forEach(p => {
+  p.gradient -= meanGradient;
+  varianceSum += p.gradient * p.gradient;
+});
+
+const variance = varianceSum / points.length;
+setBalanceScore(variance);
+
+// Scale and center for canvas
+const scale = Math.min(width, height) / 5;
+const centerX = width / 2;
+const centerY = height / 2;
+
+// Draw points
+points.forEach(p => {
+  const screenX = centerX + p.x * scale;
+  const screenY = centerY + p.y * scale;
+  
+  // Map gradient to color (red-blue spectrum centered at 0)
+  const normalized = (p.gradient + 2) / 4; // Normalize to [0, 1]
+  const clamped = Math.max(0, Math.min(1, normalized));
+  
+  // Seismic colormap: blue -> white -> red
+  let r, g, b;
+  if (clamped < 0.5) {
+    // Blue to white
+    const t = clamped * 2;
+    r = Math.floor(t * 255);
+    g = Math.floor(t * 255);
+    b = 255;
+  } else {
+    // White to red
+    const t = (clamped - 0.5) * 2;
+    r = 255;
+    g = Math.floor((1 - t) * 255);
+    b = Math.floor((1 - t) * 255);
+  }
+  
+  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+  ctx.fillRect(screenX - 1, screenY - 1, 2, 2);
+});
+
+// Draw axis lines (Hogge zero-line)
+ctx.strokeStyle = '#00ff00';
+ctx.lineWidth = 1;
+ctx.setLineDash([5, 5]);
+
+// Horizontal zero line
+ctx.beginPath();
+ctx.moveTo(0, centerY);
+ctx.lineTo(width, centerY);
+ctx.stroke();
+
+// Vertical zero line
+ctx.beginPath();
+ctx.moveTo(centerX, 0);
+ctx.lineTo(centerX, height);
+ctx.stroke();
+
+ctx.setLineDash([]);
+```
+
+}, [visualization]);
+
+const visualizations = [
+{ id: ‘yinyang’, name: ‘Yin-Yang (Original)’, desc: ‘sin(u)·cos(v)’ },
+{ id: ‘wave’, name: ‘Wave Interference’, desc: ‘sin(3u)·sin(3v)’ },
+{ id: ‘radial’, name: ‘Radial Symmetry’, desc: ‘cos(√(u²+v²))’ },
+{ id: ‘spiral’, name: ‘Spiral Flow’, desc: ‘sin(u+v)·cos(u-v)’ }
+];
+
+return (
+<div className="w-full max-w-4xl mx-auto p-4 space-y-4">
+<Card className="bg-gray-900 text-white">
+<CardHeader>
+<CardTitle className="text-2xl">Hogge-Balanced Klein Bottle Projections</CardTitle>
+<p className="text-sm text-gray-400">
+Topological visualization of Hogge Equilibrium: gradient always centered at 0
+</p>
+</CardHeader>
+<CardContent className="space-y-4">
+{/* Canvas */}
+<div className="flex justify-center">
+<canvas 
+ref={canvasRef} 
+width={600} 
+height={600}
+className="border border-gray-700 rounded"
+/>
+</div>
+
+```
+      {/* Balance Score */}
+      <div className="bg-gray-800 p-4 rounded-lg">
+        <div className="text-center">
+          <div className="text-sm text-gray-400">Hogge Balance Score (Variance)</div>
+          <div className="text-3xl font-bold text-green-400 mt-2">
+            {balanceScore.toFixed(4)}
+          </div>
+          <div className="text-xs text-gray-500 mt-2">
+            Lower variance = more uniform distribution around zero
+          </div>
+        </div>
+      </div>
+      
+      {/* Visualization Selector */}
+      <div className="space-y-2">
+        <div className="text-sm font-semibold text-gray-300">Gradient Function:</div>
+        <div className="grid grid-cols-2 gap-2">
+          {visualizations.map(vis => (
+            <button
+              key={vis.id}
+              onClick={() => setVisualization(vis.id)}
+              className={`p-3 rounded-lg border transition-all ${
+                visualization === vis.id
+                  ? 'bg-blue-600 border-blue-400'
+                  : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
+              }`}
+            >
+              <div className="font-semibold text-sm">{vis.name}</div>
+              <div className="text-xs text-gray-400 mt-1">{vis.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* Color Legend */}
+      <div className="bg-gray-800 p-4 rounded-lg">
+        <div className="text-sm font-semibold text-gray-300 mb-2">Color Mapping (Hogge-Balanced)</div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-blue-400">← Negative</div>
+          <div className="flex-1 mx-4 h-8 rounded" style={{
+            background: 'linear-gradient(to right, rgb(0,0,255), rgb(255,255,255), rgb(255,0,0))'
+          }}></div>
+          <div className="text-xs text-red-400">Positive →</div>
+        </div>
+        <div className="text-center mt-2">
+          <div className="text-xs text-green-400">⊕ Zero (Hogge Equilibrium) ⊕</div>
+        </div>
+      </div>
+      
+      {/* Explanation */}
+      <div className="bg-gray-800 p-4 rounded-lg space-y-2 text-sm">
+        <div className="font-semibold text-gray-300">🔬 What's Happening:</div>
+        <ul className="space-y-1 text-gray-400 list-disc list-inside">
+          <li><strong>Klein Bottle</strong>: 4D non-orientable surface projected to 2D</li>
+          <li><strong>Gradient Function</strong>: Computes color value at each point</li>
+          <li><strong>Hogge Balance</strong>: Subtract mean → center distribution at 0</li>
+          <li><strong>Blue/Red</strong>: Negative/positive deviations from equilibrium</li>
+          <li><strong>Green Lines</strong>: Axes showing zero-equilibrium reference</li>
+        </ul>
+        
+        <div className="mt-4 pt-4 border-t border-gray-700">
+          <div className="font-semibold text-gray-300">💡 Hogge Insight:</div>
+          <p className="text-gray-400 mt-1">
+            The <strong>mean is always zero</strong> (Hogge equilibrium), but the 
+            <strong> distribution around zero</strong> encodes the pattern. Same 
+            topology, different gradients = different visual encoding of the same 
+            mathematical structure.
+          </p>
+        </div>
+        
+        <div className="mt-4 pt-4 border-t border-gray-700">
+          <div className="font-semibold text-gray-300">🎨 Metaphor:</div>
+          <p className="text-gray-400 mt-1">
+            Like <strong>Yin-Yang</strong>: opposites balance (net = 0), but the 
+            <strong> dance between them</strong> creates all phenomena. The Klein 
+            bottle's non-orientable nature mirrors how inside/outside, 
+            positive/negative, form/void are all one continuous surface.
+          </p>
+        </div>
+      </div>
+      
+      {/* Mathematical Details */}
+      <div className="bg-gray-800 p-4 rounded-lg text-xs font-mono">
+        <div className="text-gray-400">
+          <div className="mb-2 text-sm font-semibold text-gray-300">Hogge Balance Transform:</div>
+          <div className="space-y-1 text-green-400">
+            <div>1. gradient(u,v) = f(u,v)  // Original function</div>
+            <div>2. mean = Σ gradient / N   // Compute mean</div>
+            <div>3. balanced = gradient - mean  // Center at 0</div>
+            <div>4. variance = Σ(balanced²) / N  // Measure spread</div>
+          </div>
+          <div className="mt-3 text-gray-500">
+            Result: Σ balanced = 0 (Hogge Equilibrium)
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</div>
+```
+
+);
+};
+
+export default HoggeKleinBottle;
