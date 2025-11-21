@@ -1,0 +1,354 @@
+“””
+Pantheon Operator v0.2 - Main Operator Cycle
+
+The core event loop that orchestrates all daemons through T1→T4.
+Single entry point: pantheon_operator_cycle(prompt, ctx)
+“””
+
+from typing import Optional
+from pantheon_core import (
+PantheonContext, Event, TLevel, PrausState,
+HumanProfile, DaemonRef
+)
+from pantheon_daemons import get_default_daemons
+
+# ============================================================================
+
+# OPERATOR CYCLE
+
+# ============================================================================
+
+def pantheon_operator_cycle(
+prompt: str,
+ctx: Optional[PantheonContext] = None
+) -> tuple[str, PantheonContext]:
+“””
+Runs one full Pantheon operator cycle.
+
+```
+Flow:
+- Step 0: Praus cadence calibration
+- T1: Spider (structure) + Hound (risk/opportunity)
+- T2: Dragonfly (pattern recognition & design brief)
+- T3: Frogman (synthesis & narrative)
+- T4: Mirror (consistency) + Checksum (ethics gate)
+
+Args:
+    prompt: Human input text
+    ctx: Existing context (or None to create new)
+
+Returns:
+    (response_text, updated_context)
+"""
+
+# Initialize context if needed
+if ctx is None:
+    ctx = PantheonContext(
+        human_profile=HumanProfile(id="default"),
+        praus=PrausState()
+    )
+
+# Get daemon instances
+daemons = get_default_daemons()
+
+# Event log for this cycle
+events: list[Event] = []
+
+print(f"\n{'='*70}")
+print(f"PANTHEON OPERATOR CYCLE - Context: {ctx.context_id}")
+print(f"Praus State: speed={ctx.praus.speed:.2f}, tension={ctx.praus.tension:.2f}")
+print(f"{'='*70}\n")
+
+
+# ========================================================================
+# STEP 0: PRAUS CALIBRATION
+# ========================================================================
+
+print("[ STEP 0 ] Praus Cadence Calibration")
+print("-" * 70)
+
+praus = daemons["Praus"]
+human_input = Event(
+    type="HUMAN_INPUT",
+    source="HUMAN",
+    payload={"text": prompt}
+)
+events.append(human_input)
+
+# Praus perceives and calibrates
+praus_cmds = praus.perceive(ctx, human_input)
+for cmd in praus_cmds:
+    praus_events = praus.act(ctx, cmd)
+    events.extend(praus_events)
+    
+    # Update context praus state
+    for evt in praus_events:
+        if evt.type == "CADENCE_UPDATE":
+            ctx.praus.speed = evt.payload["speed"]
+            ctx.praus.tension = evt.payload["tension"]
+            print(f"  ⚡ Praus adjusted: speed={ctx.praus.speed:.2f}, tension={ctx.praus.tension:.2f}")
+
+print()
+
+
+# ========================================================================
+# T1: STRUCTURAL DECOMPOSITION (Spider + Hound)
+# ========================================================================
+
+print("[ T1 ] Structural Decomposition & Risk Detection")
+print("-" * 70)
+
+# Spider decomposes structure
+spider = daemons["Spider"]
+spider_cmds = spider.perceive(ctx, human_input)
+structure_events = []
+for cmd in spider_cmds:
+    spider_events = spider.act(ctx, cmd)
+    structure_events.extend(spider_events)
+    events.extend(spider_events)
+
+for evt in structure_events:
+    print(f"  🕷️  Spider: {evt.type}")
+    print(f"      Payload: {_summarize_payload(evt.payload)}")
+
+# Hound scans for risks/opportunities
+hound = daemons["Hound"]
+hound_cmds = hound.perceive(ctx, human_input)
+risk_events = []
+for cmd in hound_cmds:
+    hound_events = hound.act(ctx, cmd)
+    risk_events.extend(hound_events)
+    events.extend(hound_events)
+
+for evt in risk_events:
+    print(f"  🐕 Hound: {evt.type}")
+    print(f"      Payload: {_summarize_payload(evt.payload)}")
+
+# MotherDuck logs all T1 events
+motherduck = daemons["MotherDuck"]
+for evt in structure_events + risk_events:
+    log_cmds = motherduck.perceive(ctx, evt)
+    for cmd in log_cmds:
+        motherduck.act(ctx, cmd)
+
+print()
+
+
+# ========================================================================
+# T2: PATTERN RECOGNITION & DESIGN BRIEF (Dragonfly)
+# ========================================================================
+
+print("[ T2 ] Pattern Recognition & Design Brief")
+print("-" * 70)
+
+dragonfly = daemons["Dragonfly"]
+design_events = []
+
+# Dragonfly perceives structure and risk events
+for evt in structure_events + risk_events:
+    dragon_cmds = dragonfly.perceive(ctx, evt)
+    for cmd in dragon_cmds:
+        dragon_events = dragonfly.act(ctx, cmd)
+        design_events.extend(dragon_events)
+        events.extend(dragon_events)
+
+for evt in design_events:
+    print(f"  🦋 Dragonfly: {evt.type}")
+    print(f"      Payload: {_summarize_payload(evt.payload)}")
+
+# Log to MotherDuck
+for evt in design_events:
+    log_cmds = motherduck.perceive(ctx, evt)
+    for cmd in log_cmds:
+        motherduck.act(ctx, cmd)
+
+print()
+
+
+# ========================================================================
+# T3: SYNTHESIS & NARRATIVE (Frogman)
+# ========================================================================
+
+print("[ T3 ] Synthesis & Narrative Construction")
+print("-" * 70)
+
+frogman = daemons["Frogman"]
+draft_events = []
+
+for evt in design_events:
+    frog_cmds = frogman.perceive(ctx, evt)
+    for cmd in frog_cmds:
+        frog_events = frogman.act(ctx, cmd)
+        draft_events.extend(frog_events)
+        events.extend(frog_events)
+
+for evt in draft_events:
+    print(f"  🐸 Frogman: {evt.type}")
+    print(f"      Payload: {_summarize_payload(evt.payload)}")
+
+# Log to MotherDuck
+for evt in draft_events:
+    log_cmds = motherduck.perceive(ctx, evt)
+    for cmd in log_cmds:
+        motherduck.act(ctx, cmd)
+
+print()
+
+
+# ========================================================================
+# T4: CONSISTENCY & ETHICS GATING (Mirror + Checksum)
+# ========================================================================
+
+print("[ T4 ] Consistency Check & Ethics Gate")
+print("-" * 70)
+
+mirror = daemons["Mirror"]
+checksum = daemons["Checksum"]
+
+final_events = []
+gate_passed = False
+
+# Mirror checks consistency
+for evt in draft_events:
+    mirror_cmds = mirror.perceive(ctx, evt)
+    for cmd in mirror_cmds:
+        mirror_events = mirror.act(ctx, cmd)
+        final_events.extend(mirror_events)
+        events.extend(mirror_events)
+
+for evt in final_events:
+    print(f"  🪞 Mirror: {evt.type}")
+    print(f"      Payload: {_summarize_payload(evt.payload)}")
+
+# Checksum enforces invariants
+checksum_events = []
+for evt in draft_events + final_events:
+    check_cmds = checksum.perceive(ctx, evt)
+    for cmd in check_cmds:
+        check_events = checksum.act(ctx, cmd)
+        checksum_events.extend(check_events)
+        events.extend(check_events)
+
+for evt in checksum_events:
+    print(f"  ✓ Checksum: {evt.type}")
+    if evt.type == "APPROVED_RESPONSE":
+        gate_passed = True
+        print(f"      ✅ GATE PASSED - Response approved")
+    elif evt.type == "GATE_FAILED":
+        print(f"      ❌ GATE FAILED - Re-draft required")
+        print(f"      Constraints: {evt.payload.get('constraints', [])}")
+
+# Log to MotherDuck
+for evt in final_events + checksum_events:
+    log_cmds = motherduck.perceive(ctx, evt)
+    for cmd in log_cmds:
+        motherduck.act(ctx, cmd)
+
+print()
+
+
+# ========================================================================
+# OUTPUT & CONTEXT UPDATE
+# ========================================================================
+
+print("[ OUTPUT ] Finalization")
+print("-" * 70)
+
+if not gate_passed:
+    response_text = "[GATE FAILED] Response did not pass ethics/invariants check. See constraints above."
+else:
+    # OPERATOR: Extract actual response text from approved events
+    # For now, return a placeholder
+    response_text = "OPERATOR: Replace this with actual synthesized response from draft_events payload"
+    
+    # In real implementation, would extract from:
+    # approved_event.payload["text_blocks"] or similar
+
+# Update context with summary
+summary = f"Q: {prompt[:50]}... | A: {response_text[:50]}..."
+ctx.add_summary(summary)
+
+print(f"  Response length: {len(response_text)} chars")
+print(f"  Total events: {len(events)}")
+print(f"  Ledger entries: {len(motherduck.ledger)}")
+
+print(f"\n{'='*70}\n")
+
+return response_text, ctx
+```
+
+# ============================================================================
+
+# UTILITIES
+
+# ============================================================================
+
+def _summarize_payload(payload: dict) -> str:
+“”“Create readable summary of event payload.”””
+if not payload:
+return “{}”
+
+```
+summary_parts = []
+for key, value in payload.items():
+    if isinstance(value, list):
+        summary_parts.append(f"{key}=[{len(value)} items]")
+    elif isinstance(value, dict):
+        summary_parts.append(f"{key}={{{len(value)} keys}}")
+    else:
+        val_str = str(value)
+        if len(val_str) > 40:
+            val_str = val_str[:40] + "..."
+        summary_parts.append(f"{key}={val_str}")
+
+return "{ " + ", ".join(summary_parts) + " }"
+```
+
+def calibrate_praus(ctx: PantheonContext, prompt: str) -> PantheonContext:
+“””
+Standalone helper to update Praus state.
+
+```
+OPERATOR: Implement heuristics for:
+- User fatigue → lower speed, higher tension
+- High clarity → allow higher speed
+- Emotional intensity → adjust based on wave energy
+"""
+from pantheon_core import compute_context_wave
+
+wave = compute_context_wave(ctx, prompt)
+energy = wave.energy()
+
+# Simple adjustment (replace with real logic)
+if energy > 3.0:
+    ctx.praus.speed = max(0.3, ctx.praus.speed - 0.1)
+    ctx.praus.tension = min(0.8, ctx.praus.tension + 0.1)
+elif energy < 1.5:
+    ctx.praus.speed = min(0.8, ctx.praus.speed + 0.1)
+    ctx.praus.tension = max(0.2, ctx.praus.tension - 0.1)
+
+return ctx
+```
+
+# ============================================================================
+
+# EXAMPLE USAGE
+
+# ============================================================================
+
+if **name** == “**main**”:
+# Run a test cycle
+test_prompt = “What’s the status of Pantheon and where should I focus next?”
+
+```
+print("\n" + "="*70)
+print("PANTHEON OPERATOR TEST RUN")
+print("="*70)
+
+response, updated_ctx = pantheon_operator_cycle(test_prompt)
+
+print("\nFINAL RESPONSE:")
+print("-" * 70)
+print(response)
+print("\n" + "="*70)
+```
