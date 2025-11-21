@@ -1,0 +1,300 @@
+import time
+import json
+from typing import Any, Dict, Optional, List, Tuple
+from dataclasses import dataclass, asdict
+from collections import defaultdict
+
+@dataclass
+class MemoryTrace:
+“”“Individual memory with metadata.”””
+value: Any
+intensity: float
+timestamp: float
+access_count: int = 0
+
+class PhosphorescentMemory:
+“””
+Memory system for AI models that simulates phosphorescence:
+- Recent/important memories glow brighter
+- Unused memories naturally fade
+- Repeated access reinforces memories
+“””
+
+```
+def __init__(self, decay_rate=0.01, importance_boost=1.5, time_based_decay=True):
+    """
+    Args:
+        decay_rate: How quickly memories fade (0-1, lower = slower)
+        importance_boost: Multiplier for high-importance memories
+        time_based_decay: If True, apply decay based on actual elapsed time
+    """
+    self.store: Dict[str, MemoryTrace] = {}
+    self.decay_rate = decay_rate
+    self.importance_boost = importance_boost
+    self.time_based_decay = time_based_decay
+    self.last_glow_time = time.time()
+    
+def charge(self, key: str, value: Any, intensity: float = 1.0, 
+           importance: str = "normal") -> None:
+    """
+    Store or reinforce a memory.
+    
+    Args:
+        key: Memory identifier (e.g., "user_intent", "context:conversation_topic")
+        value: The actual memory content
+        intensity: Initial strength (0-infinity, typically 0.5-2.0)
+        importance: "low", "normal", "high", "critical"
+    """
+    importance_map = {
+        "low": 0.5,
+        "normal": 1.0,
+        "high": self.importance_boost,
+        "critical": self.importance_boost * 2
+    }
+    
+    adjusted_intensity = intensity * importance_map.get(importance, 1.0)
+    
+    if key in self.store:
+        # Reinforce existing memory (additive)
+        self.store[key].intensity += adjusted_intensity
+        self.store[key].value = value  # Update with latest value
+        self.store[key].access_count += 1
+    else:
+        # Create new memory
+        self.store[key] = MemoryTrace(
+            value=value,
+            intensity=adjusted_intensity,
+            timestamp=time.time()
+        )
+
+def glow(self, threshold: float = 1e-6) -> Dict[str, Any]:
+    """
+    Retrieve all active memories and apply decay.
+    
+    Returns:
+        Dict of {key: value} for memories above threshold
+    """
+    current_time = time.time()
+    emission = {}
+    
+    # Calculate time-based decay if enabled
+    if self.time_based_decay:
+        time_delta = current_time - self.last_glow_time
+        effective_decay = 1 - (1 - self.decay_rate) ** time_delta
+    else:
+        effective_decay = self.decay_rate
+    
+    self.last_glow_time = current_time
+    
+    # Emit and decay
+    for key in list(self.store.keys()):
+        trace = self.store[key]
+        
+        if trace.intensity >= threshold:
+            emission[key] = trace.value
+            # Apply decay
+            trace.intensity *= (1 - effective_decay)
+        else:
+            # Memory too dim, forget it
+            del self.store[key]
+    
+    return emission
+
+def recall(self, key: str, reinforce: bool = True, 
+           reinforce_amount: float = 0.1) -> Optional[Any]:
+    """
+    Retrieve a specific memory (optionally reinforcing it).
+    
+    Args:
+        key: Memory identifier
+        reinforce: If True, accessing the memory strengthens it
+        reinforce_amount: How much to boost intensity on access
+        
+    Returns:
+        Memory value or None if forgotten/dim
+    """
+    if key not in self.store:
+        return None
+    
+    trace = self.store[key]
+    trace.access_count += 1
+    
+    if reinforce:
+        trace.intensity += reinforce_amount
+    
+    return trace.value
+
+def get_bright_memories(self, top_k: int = 5) -> List[Tuple[str, Any, float]]:
+    """
+    Get the brightest (most active) memories.
+    
+    Returns:
+        List of (key, value, intensity) tuples, sorted by brightness
+    """
+    sorted_memories = sorted(
+        self.store.items(),
+        key=lambda x: x[1].intensity,
+        reverse=True
+    )
+    return [(k, v.value, v.intensity) for k, v in sorted_memories[:top_k]]
+
+def get_context_summary(self, max_memories: int = 10) -> str:
+    """
+    Generate a text summary of active memories for AI context.
+    
+    Returns:
+        Formatted string of current memory state
+    """
+    bright = self.get_bright_memories(top_k=max_memories)
+    
+    if not bright:
+        return "No active memories."
+    
+    lines = ["Active Memory Context:"]
+    for key, value, intensity in bright:
+        brightness = "●" * min(5, int(intensity) + 1)
+        lines.append(f"  {brightness} {key}: {value}")
+    
+    return "\n".join(lines)
+
+def boost(self, key: str, amount: float = 0.5) -> bool:
+    """
+    Manually boost a memory's intensity.
+    
+    Returns:
+        True if memory exists and was boosted
+    """
+    if key in self.store:
+        self.store[key].intensity += amount
+        return True
+    return False
+
+def fade(self, key: str, amount: float = 0.5) -> bool:
+    """
+    Manually fade a memory's intensity.
+    
+    Returns:
+        True if memory exists and was faded
+    """
+    if key in self.store:
+        self.store[key].intensity = max(0, self.store[key].intensity - amount)
+        return True
+    return False
+
+def clear_category(self, prefix: str) -> int:
+    """
+    Remove all memories matching a key prefix.
+    
+    Example: clear_category("temp:") removes all temporary memories
+    
+    Returns:
+        Number of memories cleared
+    """
+    keys_to_remove = [k for k in self.store.keys() if k.startswith(prefix)]
+    for key in keys_to_remove:
+        del self.store[key]
+    return len(keys_to_remove)
+
+def save_state(self, filepath: str) -> None:
+    """Save memory state to JSON file."""
+    state = {
+        key: {
+            "value": trace.value,
+            "intensity": trace.intensity,
+            "timestamp": trace.timestamp,
+            "access_count": trace.access_count
+        }
+        for key, trace in self.store.items()
+    }
+    with open(filepath, 'w') as f:
+        json.dump(state, f, indent=2)
+
+def load_state(self, filepath: str) -> None:
+    """Load memory state from JSON file."""
+    with open(filepath, 'r') as f:
+        state = json.load(f)
+    
+    self.store = {
+        key: MemoryTrace(**data)
+        for key, data in state.items()
+    }
+
+def __len__(self) -> int:
+    return len(self.store)
+
+def __repr__(self) -> str:
+    return f"PhosphorescentMemory({len(self.store)} active memories)"
+```
+
+# ============================================
+
+# Example Usage for AI Models
+
+# ============================================
+
+if **name** == “**main**”:
+# Initialize memory system
+memory = PhosphorescentMemory(decay_rate=0.05)
+
+```
+print("=== AI Conversation Simulation ===\n")
+
+# Turn 1: User asks about weather
+print("Turn 1: User asks 'What's the weather like?'")
+memory.charge("topic:current", "weather", intensity=1.0, importance="high")
+memory.charge("user_intent", "information_seeking", intensity=0.8)
+memory.charge("context:location_needed", True, intensity=1.2)
+
+print(memory.get_context_summary())
+print()
+
+# Turn 2: User provides location
+print("\nTurn 2: User says 'I'm in Seattle'")
+memory.charge("user_location", "Seattle", intensity=1.5, importance="critical")
+memory.charge("topic:current", "weather_seattle", intensity=1.0, importance="high")
+# Recall and reinforce previous context
+if memory.recall("context:location_needed"):
+    memory.fade("context:location_needed", amount=1.0)  # No longer needed
+
+print(memory.get_context_summary())
+print()
+
+# Turn 3: Decay happens (simulate time passing)
+print("\nTurn 3: After responding to weather...")
+memory.glow()  # Apply decay
+memory.charge("topic:current", "general_chat", intensity=0.5)
+
+print(memory.get_context_summary())
+print()
+
+# Turn 4: User references previous topic
+print("\nTurn 4: User says 'Is it always this rainy there?'")
+# AI recalls location context
+location = memory.recall("user_location", reinforce=True)
+print(f"AI recalls location: {location}")
+memory.boost("topic:current")  # Conversation back to weather
+
+print(memory.get_context_summary())
+print()
+
+# Turn 5: Much later - most memories faded
+print("\nTurn 5-10: Several exchanges about other topics...")
+for _ in range(5):
+    memory.glow()  # Apply decay multiple times
+
+print(memory.get_context_summary())
+print("\nOnly strongly reinforced memories remain!")
+
+# Demonstrate category clearing
+print("\n=== Clearing temporary memories ===")
+memory.charge("temp:calculation", "42", intensity=1.0)
+memory.charge("temp:intermediate", "step_data", intensity=1.0)
+memory.charge("persistent:user_name", "Alice", intensity=2.0)
+
+print(f"Memories before clear: {len(memory)}")
+cleared = memory.clear_category("temp:")
+print(f"Cleared {cleared} temporary memories")
+print(f"Memories after clear: {len(memory)}")
+
+print("\n" + memory.get_context_summary())
+```
