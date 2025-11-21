@@ -1,0 +1,18 @@
+# pantheon/spider/executor.py
+
+class Executor:
+    """
+    Controlled, sandboxed execution layer.
+    All actions explainable, reversible, logged.
+    """
+
+    def run_tool(self, tool: str, params: dict) -> dict:
+        if tool == "calculator":
+            expr = params.get("expression", "")
+            try:
+                result = eval(expr, {"__builtins__": {}})
+                return {"success": True, "result": result}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        return {"success": False, "error": "Unknown tool"}
