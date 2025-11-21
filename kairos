@@ -1,0 +1,18 @@
+# pantheon/kairos/kairos_engine.py
+
+class KairosEngine:
+    """
+    Computes temporal sensitivity windows (ts, tk, te)
+    without prediction or directional advice.
+    """
+
+    def evaluate(self, signal: float, noise: float, intuition: float) -> dict:
+        ts = max(0, signal - noise)
+        tk = ts * intuition
+        te = tk * 0.8
+
+        return {
+            "t_s": round(ts, 3),
+            "t_k": round(tk, 3),
+            "t_e": round(te, 3)
+        }
