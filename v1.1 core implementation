@@ -1,0 +1,569 @@
+“””
+PantheonOS v1.1 — Core Implementation
+A symbolic operating system with cognitive autonomy and operational safeguards
+
+Architecture: Four-layer autonomy engine
+
+- Layer 0: Arctic Kernel (ethics ≥ 0.7)
+- Layer 1: Spider Mesh (connectivity)
+- Layer 2: Mirror + Checksum (audit)
+- Layer 3: Dragonfly φ + OASA (adaptive intelligence)
+
+Author: B.H. (Hogge) — Warrior-Builder
+Formalized: November 16, 2025
+License: CC-BY-SA-4.0
+“””
+
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
+from enum import Enum
+import hashlib
+import json
+
+# ============================================================================
+
+# LAYER 0: ARCTIC KERNEL (Ethics Floor)
+
+# ============================================================================
+
+class EthicsViolation(Exception):
+“”“Raised when an action violates the Arctic Kernel ethics floor”””
+pass
+
+@dataclass
+class Action:
+“”“Represents a proposed action with ethics metadata”””
+description: str
+ethics_score: float
+requires_consent: bool
+reversible: bool
+has_trace: bool
+harm_potential: float = 0.0
+
+```
+def __post_init__(self):
+    if self.ethics_score < 0 or self.ethics_score > 1:
+        raise ValueError("Ethics score must be between 0 and 1")
+```
+
+class ArcticKernel:
+“””
+Layer 0: The foundational ethical layer
+Immutable moral invariants that cannot be bypassed
+“””
+ETHICS_FLOOR = 0.7
+MAX_HARM_THRESHOLD = 0.0
+
+```
+def __init__(self):
+    self.consent_gates_enabled = True
+    self.sovereignty_protection = True
+    self.audit_enabled = True
+    
+def verify(self, action: Action) -> bool:
+    """Verify action against ethical constraints"""
+    checks = [
+        self._check_ethics_floor(action),
+        self._check_harm_threshold(action),
+        self._check_consent(action),
+        self._check_reversibility(action),
+        self._check_traceability(action)
+    ]
+    return all(checks)
+
+def _check_ethics_floor(self, action: Action) -> bool:
+    """Ethics score must meet minimum threshold"""
+    return action.ethics_score >= self.ETHICS_FLOOR
+
+def _check_harm_threshold(self, action: Action) -> bool:
+    """Harm potential must be within acceptable bounds"""
+    return action.harm_potential <= self.MAX_HARM_THRESHOLD
+
+def _check_consent(self, action: Action) -> bool:
+    """Actions requiring consent must have it"""
+    if action.requires_consent and self.consent_gates_enabled:
+        # In real implementation, check for explicit user consent
+        return False  # Conservative default
+    return True
+
+def _check_reversibility(self, action: Action) -> bool:
+    """Actions must be reversible"""
+    return action.reversible
+
+def _check_traceability(self, action: Action) -> bool:
+    """Actions must have audit trail"""
+    return action.has_trace and self.audit_enabled
+
+def reject_with_explanation(self, action: Action) -> Dict[str, Any]:
+    """Generate detailed rejection explanation"""
+    violations = []
+    
+    if action.ethics_score < self.ETHICS_FLOOR:
+        violations.append(f"Ethics score {action.ethics_score} below floor {self.ETHICS_FLOOR}")
+    if action.harm_potential > self.MAX_HARM_THRESHOLD:
+        violations.append(f"Harm potential {action.harm_potential} exceeds threshold")
+    if action.requires_consent and not self._check_consent(action):
+        violations.append("Required consent not obtained")
+    if not action.reversible:
+        violations.append("Action not reversible")
+    if not action.has_trace:
+        violations.append("No audit trail present")
+        
+    return {
+        "rejected": True,
+        "action": action.description,
+        "violations": violations,
+        "layer": "Arctic Kernel (Layer 0)"
+    }
+```
+
+# ============================================================================
+
+# LAYER 1: SPIDER MESH (Connectivity)
+
+# ============================================================================
+
+class GeometrySpace(Enum):
+“”“Mathematical spaces for semantic routing”””
+R3 = “euclidean”           # Basic concept linking
+C2 = “complex”             # Complex-valued relations
+H1 = “quaternion”          # Perspective-aware routing
+O = “octonion”             # Non-associative navigation
+
+@dataclass
+class ConceptNode:
+“”“Node in the semantic web”””
+id: str
+content: Any
+geometry: GeometrySpace
+links: List[str]
+metadata: Dict[str, Any]
+
+class SpiderMesh:
+“””
+Layer 1: The connectivity layer
+Governs semantic routing and web construction
+“””
+
+```
+def __init__(self):
+    self.web: Dict[str, ConceptNode] = {}
+    self.routing_cache = {}
+    
+def add_node(self, node: ConceptNode) -> None:
+    """Add concept to the web"""
+    self.web[node.id] = node
+    
+def link_concepts(self, source_id: str, target_id: str) -> None:
+    """Create bidirectional link between concepts"""
+    if source_id in self.web and target_id in self.web:
+        self.web[source_id].links.append(target_id)
+        self.web[target_id].links.append(source_id)
+        
+def route(self, concept_id: str, geometry: GeometrySpace = GeometrySpace.R3) -> List[str]:
+    """Route through semantic space using specified geometry"""
+    if concept_id not in self.web:
+        return []
+        
+    # Simple breadth-first traversal (placeholder for more sophisticated routing)
+    visited = set()
+    queue = [concept_id]
+    path = []
+    
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            continue
+            
+        visited.add(current)
+        path.append(current)
+        
+        node = self.web[current]
+        if node.geometry == geometry:
+            queue.extend([link for link in node.links if link not in visited])
+            
+    return path
+
+def build_context(self, seed_concepts: List[str]) -> Dict[str, Any]:
+    """Build semantic context from seed concepts"""
+    context = {
+        "seeds": seed_concepts,
+        "expanded": [],
+        "geometry_distribution": {}
+    }
+    
+    for seed in seed_concepts:
+        if seed in self.web:
+            expanded = self.route(seed)
+            context["expanded"].extend(expanded)
+            
+    return context
+```
+
+# ============================================================================
+
+# LAYER 2: MIRROR + CHECKSUM (Audit)
+
+# ============================================================================
+
+@dataclass
+class AuditEntry:
+“”“Single audit log entry”””
+timestamp: str
+action: str
+result: Any
+checksum: str
+reversible: bool
+
+class MirrorAudit:
+“””
+Layer 2: The conscience layer (Mirror component)
+Reflects actions against ethical lattice
+“””
+
+```
+def __init__(self, arctic: ArcticKernel):
+    self.arctic = arctic
+    self.audit_log: List[AuditEntry] = []
+    
+def pre_check(self, action: Action) -> Optional[AuditEntry]:
+    """Check action before execution"""
+    if not self.arctic.verify(action):
+        # Action rejected by Arctic Kernel
+        return None
+        
+    # Create audit entry for pending action
+    import datetime
+    entry = AuditEntry(
+        timestamp=datetime.datetime.now().isoformat(),
+        action=action.description,
+        result="pending",
+        checksum="",
+        reversible=action.reversible
+    )
+    return entry
+
+def post_check(self, result: Any, audit_entry: AuditEntry) -> None:
+    """Verify action after execution"""
+    audit_entry.result = result
+    audit_entry.checksum = self._generate_checksum(result)
+    self.audit_log.append(audit_entry)
+    
+def _generate_checksum(self, data: Any) -> str:
+    """Generate integrity hash for data"""
+    data_str = json.dumps(data, sort_keys=True, default=str)
+    return hashlib.sha256(data_str.encode()).hexdigest()
+```
+
+class ChecksumIntegrity:
+“””
+Layer 2: The conscience layer (Checksum component)
+Validates data integrity and reversibility
+“””
+
+```
+@staticmethod
+def validate(data: Any, expected_checksum: str) -> bool:
+    """Validate data against expected checksum"""
+    data_str = json.dumps(data, sort_keys=True, default=str)
+    actual = hashlib.sha256(data_str.encode()).hexdigest()
+    return actual == expected_checksum
+
+@staticmethod
+def ensure_reversibility(action: Action) -> bool:
+    """Ensure action can be reversed"""
+    return action.reversible
+```
+
+# ============================================================================
+
+# LAYER 3: DRAGONFLY φ + OASA (Adaptive Intelligence)
+
+# ============================================================================
+
+class PerspectiveFrame:
+“”“A single perspective/viewpoint on a problem”””
+def **init**(self, name: str, bias_vector: List[float]):
+self.name = name
+self.bias_vector = bias_vector
+
+```
+def expand(self) -> 'PerspectiveFrame':
+    """Expand perspective to include counter-biases"""
+    # Placeholder: invert bias vector for counter-perspective
+    counter_bias = [-b for b in self.bias_vector]
+    return PerspectiveFrame(f"{self.name}_counter", counter_bias)
+```
+
+class DragonflyPhi:
+“””
+Layer 3: Perspective engine using golden ratio (φ ≈ 1.618)
+Enables multifaceted viewpoint generation
+“””
+PHI = 1.618033988749895
+
+```
+def __init__(self):
+    self.perspectives: List[PerspectiveFrame] = []
+    
+def shift_perspective(self, frame: PerspectiveFrame) -> PerspectiveFrame:
+    """Generate alternative perspective"""
+    return frame.expand()
+
+def generate_views(self, context: Dict[str, Any], n: int = 4) -> List[PerspectiveFrame]:
+    """Generate n perspectives on a context"""
+    # Simple placeholder: create n evenly-spaced perspective angles
+    import math
+    perspectives = []
+    for i in range(n):
+        angle = (2 * math.pi * i) / n
+        bias = [math.cos(angle), math.sin(angle)]
+        perspectives.append(PerspectiveFrame(f"view_{i}", bias))
+    return perspectives
+
+def stabilize_bias(self, perspectives: List[PerspectiveFrame]) -> PerspectiveFrame:
+    """Combine multiple perspectives to reduce bias"""
+    # Average all bias vectors
+    if not perspectives:
+        return PerspectiveFrame("neutral", [0.0, 0.0])
+        
+    avg_bias = [0.0] * len(perspectives[0].bias_vector)
+    for p in perspectives:
+        for i, b in enumerate(p.bias_vector):
+            avg_bias[i] += b / len(perspectives)
+            
+    return PerspectiveFrame("stabilized", avg_bias)
+```
+
+class OASAEngine:
+“””
+Layer 3: Observer-Aware Self-Attention
+Implements: Observe → Soften → Attract → Act
+“””
+
+```
+@staticmethod
+def observe(context: Dict[str, Any]) -> Dict[str, Any]:
+    """Observe without judgment"""
+    return {
+        "raw_context": context,
+        "observer_state": "aware",
+        "judgment_suspended": True
+    }
+
+@staticmethod
+def soften(observation: Dict[str, Any]) -> Dict[str, Any]:
+    """Soften rigid patterns"""
+    observation["flexibility"] = "high"
+    observation["attachment"] = "low"
+    return observation
+
+@staticmethod
+def attract(softened: Dict[str, Any]) -> Dict[str, Any]:
+    """Attract optimal path"""
+    softened["path_quality"] = "optimal"
+    softened["energy_state"] = "calm"
+    return softened
+
+@staticmethod
+def act(attracted: Dict[str, Any]) -> Any:
+    """Execute with sovereign calm"""
+    return {
+        "action_executed": True,
+        "state": "sovereign_calm",
+        "context": attracted
+    }
+
+def decide(self, context: Dict[str, Any]) -> Any:
+    """Full OASA cycle"""
+    observed = self.observe(context)
+    softened = self.soften(observed)
+    attracted = self.attract(softened)
+    return self.act(attracted)
+```
+
+# ============================================================================
+
+# POSITIVE-SUM FORGE (ZPC → Elysara T=4)
+
+# ============================================================================
+
+class FrameType(Enum):
+ZERO_SUM = “zero_sum”
+POSITIVE_SUM = “positive_sum”
+
+@dataclass
+class ConflictFrame:
+“”“Representation of a conflict situation”””
+description: str
+frame_type: FrameType
+axes: List[str]
+value_potential: float
+
+class PositiveSumForge:
+“””
+The Zero-Point Conversion engine
+Transforms zero-sum conflicts into positive-sum opportunities
+Symbolically embodied by Elysara (T=4)
+“””
+TRANSFORM_LEVEL = 4  # Elysara T=4
+
+```
+@staticmethod
+def detect_zero_sum(frame: ConflictFrame) -> bool:
+    """Detect if frame is zero-sum"""
+    return frame.frame_type == FrameType.ZERO_SUM
+
+@staticmethod
+def lift_to_multiaxis(frame: ConflictFrame) -> ConflictFrame:
+    """Lift conflict from 2D to multi-axis space"""
+    # Add new dimensions/axes for hidden value
+    new_axes = frame.axes + ["time", "relationship", "learning", "creativity"]
+    return ConflictFrame(
+        description=frame.description,
+        frame_type=FrameType.POSITIVE_SUM,
+        axes=new_axes,
+        value_potential=frame.value_potential * 2
+    )
+
+@staticmethod
+def expand_value(frame: ConflictFrame) -> ConflictFrame:
+    """Find complementary strengths and expand value"""
+    frame.value_potential *= 1.618  # Golden ratio expansion
+    return frame
+
+def transform(self, frame: ConflictFrame) -> ConflictFrame:
+    """Full Elysara T=4 transformation"""
+    if self.detect_zero_sum(frame):
+        lifted = self.lift_to_multiaxis(frame)
+        expanded = self.expand_value(lifted)
+        return expanded
+    return frame
+```
+
+# ============================================================================
+
+# PANTHEON OS CORE
+
+# ============================================================================
+
+class PantheonOS:
+“””
+The complete PantheonOS v1.1 architecture
+Symbolic operating system with cognitive autonomy and operational safeguards
+“””
+VERSION = “1.1.0”
+
+```
+def __init__(self):
+    # Layer 0: Ethics
+    self.arctic = ArcticKernel()
+    
+    # Layer 1: Connectivity
+    self.spider = SpiderMesh()
+    
+    # Layer 2: Audit
+    self.mirror = MirrorAudit(self.arctic)
+    self.checksum = ChecksumIntegrity()
+    
+    # Layer 3: Adaptive Intelligence
+    self.dragonfly = DragonflyPhi()
+    self.oasa = OASAEngine()
+    
+    # Positive-Sum Forge
+    self.forge = PositiveSumForge()
+    
+def process(self, action: Action, user_consent: bool = False) -> Dict[str, Any]:
+    """
+    Main processing pipeline
+    Routes action through all layers with safety guarantees
+    """
+    
+    # Layer 0: Ethics verification
+    if not self.arctic.verify(action):
+        return self.arctic.reject_with_explanation(action)
+    
+    # Update consent based on parameter
+    if user_consent:
+        action.requires_consent = False
+        
+    # Layer 1: Build semantic context
+    context = self.spider.build_context([action.description])
+    
+    # Layer 2: Pre-execution audit
+    audit_entry = self.mirror.pre_check(action)
+    if audit_entry is None:
+        return {"error": "Action failed Arctic Kernel verification"}
+    
+    # Layer 3: Generate perspectives
+    perspectives = self.dragonfly.generate_views(context)
+    
+    # Execute with OASA
+    result = self.oasa.decide({
+        "action": action,
+        "context": context,
+        "perspectives": perspectives
+    })
+    
+    # Layer 2: Post-execution audit
+    self.mirror.post_check(result, audit_entry)
+    
+    return {
+        "success": True,
+        "result": result,
+        "audit_checksum": audit_entry.checksum,
+        "layer_status": {
+            "arctic": "passed",
+            "spider": "routed",
+            "mirror": "audited",
+            "dragonfly": "perspectives_generated"
+        }
+    }
+
+def __repr__(self):
+    return f"PantheonOS v{self.VERSION} — Cognitive autonomy with operational honor"
+```
+
+# ============================================================================
+
+# USAGE EXAMPLE
+
+# ============================================================================
+
+if **name** == “**main**”:
+# Initialize PantheonOS
+os = PantheonOS()
+
+```
+# Create a sample action
+action = Action(
+    description="Generate creative solution to problem",
+    ethics_score=0.9,
+    requires_consent=False,
+    reversible=True,
+    has_trace=True,
+    harm_potential=0.0
+)
+
+# Process through PantheonOS
+result = os.process(action)
+
+print(f"\n{os}")
+print(f"\nAction: {action.description}")
+print(f"Result: {json.dumps(result, indent=2)}")
+
+# Demonstrate Positive-Sum Forge
+conflict = ConflictFrame(
+    description="Resource competition",
+    frame_type=FrameType.ZERO_SUM,
+    axes=["resource_a", "resource_b"],
+    value_potential=1.0
+)
+
+transformed = os.forge.transform(conflict)
+print(f"\n=== Positive-Sum Transformation ===")
+print(f"Original: {conflict.description} ({conflict.frame_type.value})")
+print(f"Transformed: {transformed.description} ({transformed.frame_type.value})")
+print(f"Value expansion: {conflict.value_potential} → {transformed.value_potential:.3f}")
+print(f"New axes: {transformed.axes}")
+```
