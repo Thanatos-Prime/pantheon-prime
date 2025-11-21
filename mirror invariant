@@ -1,0 +1,28 @@
+# pantheon/mirror/invariant_engine.py
+
+class InvariantEngine:
+    """
+    Extracts invariants (stable truths) from input structures.
+    Applies schema lenses and ensures ethics ≥ 0.7 before allowing downstream use.
+    """
+
+    def __init__(self):
+        self.threshold = 0.7
+
+    def ethics_score(self, text: str) -> float:
+        # Fake scoring placeholder
+        return 0.8
+
+    def extract(self, text: str) -> dict:
+        score = self.ethics_score(text)
+        if score < self.threshold:
+            return {
+                "allowed": False,
+                "reason": "Ethics score below threshold.",
+                "score": score
+            }
+        return {
+            "allowed": True,
+            "invariant": text.strip(),
+            "score": score
+        }
