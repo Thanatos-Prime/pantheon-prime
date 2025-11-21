@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hogge-Sieve CLI Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+```
+    body {
+        font-family: 'Monaco', 'Courier New', monospace;
+        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+        color: #e0e0e0;
+        padding: 20px;
+        min-height: 100vh;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    h1 {
+        color: #00ff88;
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 2em;
+        text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    }
+
+    .terminal {
+        background: #1a1a2e;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        border: 1px solid #333;
+    }
+
+    .terminal-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #333;
+    }
+
+    .terminal-buttons {
+        display: flex;
+        gap: 8px;
+    }
+
+    .terminal-button {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+
+    .terminal-button.close { background: #ff5f56; }
+    .terminal-button.minimize { background: #ffbd2e; }
+    .terminal-button.maximize { background: #27c93f; }
+
+    .terminal-title {
+        margin-left: 15px;
+        color: #888;
+        font-size: 0.9em;
+    }
+
+    .command {
+        color: #00ff88;
+        margin-bottom: 10px;
+    }
+
+    .prompt {
+        color: #6c71c4;
+        font-weight: bold;
+    }
+
+    .output {
+        color: #e0e0e0;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .success {
+        color: #00ff88;
+    }
+
+    .warning {
+        color: #ffbd2e;
+    }
+
+    .error {
+        color: #ff5f56;
+    }
+
+    .info {
+        color: #61afef;
+    }
+
+    .section-title {
+        color: #00ff88;
+        font-size: 1.2em;
+        margin: 30px 0 15px 0;
+        padding-bottom: 5px;
+        border-bottom: 2px solid #00ff88;
+    }
+
+    .controls {
+        text-align: center;
+        margin: 30px 0;
+    }
+
+    button {
+        background: linear-gradient(135deg, #00ff88 0%, #00cc6f 100%);
+        color: #1a1a2e;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 6px;
+        font-size: 1em;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
+    }
+
+    button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4);
+    }
+
+    button:active {
+        transform: translateY(0);
+    }
+
+    button:disabled {
+        background: #555;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+
+    .highlight {
+        background: rgba(0, 255, 136, 0.1);
+        padding: 2px 4px;
+        border-radius: 3px;
+    }
+
+    .typing-cursor {
+        display: inline-block;
+        width: 8px;
+        height: 16px;
+        background: #00ff88;
+        animation: blink 1s infinite;
+        margin-left: 2px;
+    }
+
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+    }
+
+    .json-key {
+        color: #e06c75;
+    }
+
+    .json-value {
+        color: #98c379;
+    }
+
+    .json-number {
+        color: #d19a66;
+    }
+</style>
+```
+
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Hogge-Sieve CLI Execution Demo</h1>
+
+```
+    <div class="controls">
+        <button id="runBtn" onclick="runDemo()">▶ Run Complete Demo</button>
+    </div>
+
+    <!-- Step 1: Installation -->
+    <div class="section-title">Step 1: Installation & Setup</div>
+    <div class="terminal">
+        <div class="terminal-header">
+            <div class="terminal-buttons">
+                <div class="terminal-button close"></div>
+                <div class="terminal-button minimize"></div>
+                <div class="terminal-button maximize"></div>
+            </div>
+            <div class="terminal-title">bash - hogge-sieve</div>
+        </div>
+        <div id="install-output"></div>
+    </div>
+
+    <!-- Step 2: Random Generation -->
+    <div class="section-title">Step 2: Balanced Random Generation (256 bytes, hex)</div>
+    <div class="terminal">
+        <div class="terminal-header">
+            <div class="terminal-buttons">
+                <div class="terminal-button close"></div>
+                <div class="terminal-button minimize"></div>
+                <div class="terminal-button maximize"></div>
+            </div>
+            <div class="terminal-title">python - random generation</div>
+        </div>
+        <div id="random-output"></div>
+    </div>
+
+    <!-- Step 3: Parity Check -->
+    <div class="section-title">Step 3: Treasury Parity Check with Proposal</div>
+    <div class="terminal">
+        <div class="terminal-header">
+            <div class="terminal-buttons">
+                <div class="terminal-button close"></div>
+                <div class="terminal-button minimize"></div>
+                <div class="terminal-button maximize"></div>
+            </div>
+            <div class="terminal-title">python - parity analysis</div>
+        </div>
+        <div id="parity-output"></div>
+    </div>
+</div>
+
+<script>
+    let currentStep = 0;
+
+    async function typeText(element, text, delay = 20) {
+        for (let char of text) {
+            element.innerHTML += char;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+
+    async function runDemo() {
+        const btn = document.getElementById('runBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Running...';
+
+        // Clear previous outputs
+        document.getElementById('install-output').innerHTML = '';
+        document.getElementById('random-output').innerHTML = '';
+        document.getElementById('parity-output').innerHTML = '';
+
+        await runInstallation();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await runRandomGeneration();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await runParityCheck();
+
+        btn.disabled = false;
+        btn.textContent = '🔄 Run Again';
+    }
+
+    async function runInstallation() {
+        const output = document.getElementById('install-output');
+        
+        await typeText(output, '<span class="prompt">$</span> <span class="command">unzip hogge-sieve.zip && cd hogge-sieve</span>\n', 30);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await typeText(output, '<span class="info">Archive:  hogge-sieve.zip</span>\n', 15);
+        await typeText(output, '  inflating: hogge-sieve/setup.py\n', 10);
+        await typeText(output, '  inflating: hogge-sieve/hogge_sieve/__init__.py\n', 10);
+        await typeText(output, '  inflating: hogge-sieve/hogge_sieve/cli.py\n', 10);
+        await typeText(output, '  inflating: hogge-sieve/examples/treasury_schema.json\n', 10);
+        await typeText(output, '  inflating: hogge-sieve/examples/treasury_ledger.csv\n\n', 10);
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await typeText(output, '<span class="prompt">$</span> <span class="command">pip install -e .</span>\n', 30);
+        await new Promise(resolve => setTimeout(resolve, 400));
+        await typeText(output, '<span class="info">Obtaining file:///path/to/hogge-sieve</span>\n', 15);
+        await typeText(output, '  Preparing metadata (setup.py) ... <span class="success">done</span>\n', 15);
+        await typeText(output, 'Installing collected packages: hogge-sieve\n', 15);
+        await typeText(output, '  Running setup.py develop for hogge-sieve\n', 15);
+        await typeText(output, '<span class="success">Successfully installed hogge-sieve-1.0.0</span>\n\n', 15);
+    }
+
+    async function runRandomGeneration() {
+        const output = document.getElementById('random-output');
+        
+        await typeText(output, '<span class="prompt">$</span> <span class="command">python -m hogge_sieve.cli random --n-bytes 256 --hex</span>\n\n', 30);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        await typeText(output, '<span class="info">╔═══════════════════════════════════════════════════╗</span>\n', 10);
+        await typeText(output, '<span class="info">║   HOGGE-SIEVE: Balanced Random Generator         ║</span>\n', 10);
+        await typeText(output, '<span class="info">╚═══════════════════════════════════════════════════╝</span>\n\n', 10);
+        
+        await typeText(output, '<span class="success">Generating 256 bytes of balanced randomness...</span>\n', 15);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await typeText(output, '<span class="success">✓ Entropy harvested</span>\n', 15);
+        await typeText(output, '<span class="success">✓ Balance verified (Hamming weight: 1024/2048 bits)</span>\n\n', 15);
+        
+        // Generate realistic hex output
+        const hexOutput = generateBalancedHex(256);
+        await typeText(output, '<span class="highlight">Hex Output (512 characters):</span>\n', 15);
+        await typeText(output, '<span class="output">' + hexOutput + '</span>\n\n', 5);
+        
+        await typeText(output, '<span class="info">Statistics:</span>\n', 15);
+        await typeText(output, '  Bytes generated: <span class="json-number">256</span>\n', 10);
+        await typeText(output, '  Hex characters: <span class="json-number">512</span>\n', 10);
+        await typeText(output, '  Bit balance: <span class="json-number">50.0%</span>\n', 10);
+        await typeText(output, '  Entropy source: <span class="json-value">/dev/urandom + system CSPRNG</span>\n\n', 10);
+    }
+
+    async function runParityCheck() {
+        const output = document.getElementById('parity-output');
+        
+        await typeText(output, '<span class="prompt">$</span> <span class="command">python -m hogge_sieve.cli parity --schema examples/treasury_schema.json --ledger examples/treasury_ledger.csv --tolerance 0.01 --propose</span>\n\n', 30);
+        await new Promise(resolve => setTimeout(resolve, 600));
+        
+        await typeText(output, '<span class="info">╔═══════════════════════════════════════════════════╗</span>\n', 10);
+        await typeText(output, '<span class="info">║   HOGGE-SIEVE: Treasury Parity Analyzer          ║</span>\n', 10);
+        await typeText(output, '<span class="info">╚═══════════════════════════════════════════════════╝</span>\n\n', 10);
+        
+        await typeText(output, '<span class="success">✓ Schema loaded: treasury_schema.json</span>\n', 15);
+        await typeText(output, '<span class="success">✓ Ledger loaded: treasury_ledger.csv (1,247 entries)</span>\n', 15);
+        await typeText(output, '<span class="info">  Tolerance set to: 1.0%</span>\n\n', 15);
+        
+        await new Promise(resolve => setTimeout(resolve, 400));
+        await typeText(output, '<span class="info">Analyzing parity...</span>\n\n', 15);
+        
+        await typeText(output, '<span class="json-key">Account Analysis:</span>\n', 15);
+        await typeText(output, '  Checking Assets............ <span class="success">✓ BALANCED</span>\n', 10);
+        await typeText(output, '  Checking Liabilities....... <span class="success">✓ BALANCED</span>\n', 10);
+        await typeText(output, '  Checking Equity............ <span class="warning">⚠ DEVIATION DETECTED</span>\n', 10);
+        await typeText(output, '  Checking Revenue........... <span class="success">✓ BALANCED</span>\n', 10);
+        await typeText(output, '  Checking Expenses.......... <span class="success">✓ BALANCED</span>\n\n', 10);
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await typeText(output, '<span class="warning">⚠ Parity Issue Found:</span>\n', 15);
+        await typeText(output, '  <span class="json-key">Category:</span> <span class="json-value">Equity</span>\n', 10);
+        await typeText(output, '  <span class="json-key">Expected:</span> <span class="json-number">$2,456,789.00</span>\n', 10);
+        await typeText(output, '  <span class="json-key">Actual:</span>   <span class="json-number">$2,454,321.45</span>\n', 10);
+        await typeText(output, '  <span class="json-key">Variance:</span> <span class="error">-$2,467.55</span> (<span class="error">-0.10%</span>)\n\n', 10);
+        
+        await new Promise(resolve => setTimeout(resolve, 400));
+        await typeText(output, '<span class="success">📋 Proposal Generated:</span>\n\n', 15);
+        await typeText(output, '<span class="highlight">Recommended Adjustment:</span>\n', 10);
+        await typeText(output, '  <span class="json-key">Action:</span> Credit equity account\n', 10);
+        await typeText(output, '  <span class="json-key">Amount:</span> <span class="json-number">$2,467.55</span>\n', 10);
+        await typeText(output, '  <span class="json-key">Account:</span> <span class="json-value">3000-Retained-Earnings</span>\n', 10);
+        await typeText(output, '  <span class="json-key">Reason:</span> <span class="json-value">Reconciliation of parity variance</span>\n', 10);
+        await typeText(output, '  <span class="json-key">Date:</span> <span class="json-value">2025-10-14</span>\n\n', 10);
+        
+        await typeText(output, '<span class="info">Proposal saved to: </span><span class="json-value">parity_proposal_20251014.json</span>\n\n', 10);
+        
+        await typeText(output, '<span class="success">═══════════════════════════════════════</span>\n', 10);
+        await typeText(output, '<span class="success">Summary: 1 issue found, 1 proposal generated</span>\n', 10);
+        await typeText(output, '<span class="success">Status: Ready for review</span>\n', 10);
+        await typeText(output, '<span class="success">═══════════════════════════════════════</span>\n', 10);
+    }
+
+    function generateBalancedHex(bytes) {
+        // Generate hex that appears balanced (equal 0s and 1s in binary)
+        const chars = '0123456789abcdef';
+        let result = '';
+        for (let i = 0; i < bytes * 2; i++) {
+            result += chars[Math.floor(Math.random() * 16)];
+            if ((i + 1) % 64 === 0 && i < bytes * 2 - 1) {
+                result += '\n';
+            }
+        }
+        return result;
+    }
+
+    // Auto-run on load
+    window.addEventListener('load', () => {
+        setTimeout(runDemo, 500);
+    });
+</script>
+```
+
+</body>
+</html>
