@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Narrative Tensor Engine v1.0</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+```
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: 'Crimson Pro', serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: #e8e8e8;
+        line-height: 1.8;
+        padding: 2rem;
+    }
+    
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 3rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    
+    .sigil {
+        text-align: center;
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #ffd700;
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    }
+    
+    h1 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        font-size: 2.5rem;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        color: #ffd700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+    
+    .subtitle {
+        font-family: 'Inter', sans-serif;
+        text-align: center;
+        font-size: 1.1rem;
+        color: #a8dadc;
+        margin-bottom: 0.5rem;
+        font-weight: 300;
+    }
+    
+    .meta {
+        text-align: center;
+        font-size: 0.9rem;
+        color: #8b8b8b;
+        margin-bottom: 3rem;
+        font-style: italic;
+    }
+    
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #ffd700, transparent);
+        margin: 2rem 0;
+    }
+    
+    h2 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 1.8rem;
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+        color: #ffd700;
+        border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+        padding-bottom: 0.5rem;
+    }
+    
+    h3 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+        font-size: 1.3rem;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+        color: #a8dadc;
+    }
+    
+    p {
+        margin-bottom: 1.2rem;
+        text-align: justify;
+    }
+    
+    .abstract {
+        background: rgba(255, 215, 0, 0.05);
+        border-left: 4px solid #ffd700;
+        padding: 1.5rem;
+        margin: 2rem 0;
+        border-radius: 4px;
+    }
+    
+    ul {
+        margin-left: 2rem;
+        margin-bottom: 1.2rem;
+    }
+    
+    li {
+        margin-bottom: 0.5rem;
+    }
+    
+    .formula {
+        background: rgba(168, 218, 220, 0.05);
+        border: 1px solid rgba(168, 218, 220, 0.2);
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        text-align: center;
+        font-size: 1.1rem;
+        color: #a8dadc;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        background: rgba(255, 255, 255, 0.02);
+    }
+    
+    th, td {
+        padding: 0.8rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: left;
+    }
+    
+    th {
+        background: rgba(255, 215, 0, 0.1);
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        color: #ffd700;
+    }
+    
+    .notation-list {
+        background: rgba(255, 255, 255, 0.02);
+        padding: 1.5rem;
+        border-radius: 4px;
+        margin: 1rem 0;
+    }
+    
+    .notation-list li {
+        font-family: 'Courier New', monospace;
+        color: #a8dadc;
+    }
+    
+    .ethical-frame {
+        background: rgba(255, 99, 71, 0.05);
+        border: 2px solid rgba(255, 99, 71, 0.3);
+        padding: 1.5rem;
+        margin: 2rem 0;
+        border-radius: 4px;
+    }
+    
+    .conclusion {
+        background: rgba(255, 215, 0, 0.05);
+        padding: 1.5rem;
+        border-radius: 4px;
+        margin: 2rem 0;
+    }
+    
+    strong {
+        color: #ffd700;
+        font-weight: 600;
+    }
+    
+    em {
+        color: #a8dadc;
+    }
+    
+    .button-container {
+        text-align: center;
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid rgba(255, 215, 0, 0.3);
+    }
+    
+    button {
+        background: linear-gradient(135deg, #ffd700, #ffed4e);
+        color: #1a1a2e;
+        border: none;
+        padding: 1rem 2rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.5);
+    }
+    
+    @media print {
+        body {
+            background: white;
+            color: black;
+        }
+        .container {
+            box-shadow: none;
+            border: none;
+        }
+        button {
+            display: none;
+        }
+    }
+</style>
+```
+
+</head>
+<body>
+    <div class="container">
+        <div class="sigil">🜁</div>
+
+```
+    <h1>Narrative Tensor Engine v1.0</h1>
+    
+    <div class="subtitle">
+        A Symbolic Multidimensional Framework for Mapping Narrative Arcs<br>
+        Using Bombadil-Zero Geometry
+    </div>
+    
+    <div class="meta">
+        PantheonOS White Paper — Export Edition
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="abstract">
+        <h2>ABSTRACT</h2>
+        <p>This white paper introduces the <strong>Narrative Tensor Engine (NTE)</strong> — a symbolic, multidimensional mapping framework for analyzing and synthesizing narrative arcs. The system uses Bombadil Zero, the Pantheon's narrative invariant, as a coordinate origin for measuring tension, trajectory, and coherence across multiple story dimensions.</p>
+        
+        <p>NTE formalizes narrative motion, arc geometry, resonance, and luck-emergence using vector-based symbolic mathematics. It does not model real people or predict behavior; instead, it provides a safe, abstract toolset for writers, strategists, mythographers, and narrative system designers to map the motion of characters and stories in a geometric space.</p>
+        
+        <p>NTE integrates with the Hogge Luck Engine, Oracle Weave, Sieve of Hogge, and Bombadil-Daemon, forming the core of PantheonOS's narrative reasoning layer.</p>
+    </div>
+    
+    <h2>I. INTRODUCTION</h2>
+    
+    <p>Narratives across cultures share structural features: movement, tension, transformation, trials, thresholds, and return. Yet the traditional Hero's Journey provides only a qualitative map.</p>
+    
+    <p>The Narrative Tensor Engine adds a <em>quantitative symbolic layer</em> by treating each narrative arc as a dimension and measuring its displacement from a fixed narrative point known as <strong>Bombadil Zero</strong>.</p>
+    
+    <p>Bombadil Zero is the narrative expression of the Grand Invariant — the unmoving, untempted, unaltered reference point against which all narrative movement can be measured.</p>
+    
+    <p>NTE introduces:</p>
+    <ul>
+        <li>Arc Dimensions</li>
+        <li>Vector Narrative Motion</li>
+        <li>Tension Curvature</li>
+        <li>Zero-Distance Metrics</li>
+        <li>Narrative Resonance Scores</li>
+        <li>Luck Emergence Geometry</li>
+    </ul>
+    
+    <p>All without engaging in prediction, psychological evaluation, or real-world analysis.</p>
+    
+    <p>This is a <strong>storytelling engine</strong> — not a diagnostic tool.</p>
+    
+    <div class="divider"></div>
+    
+    <h2>II. SYSTEM OVERVIEW</h2>
+    
+    <h3>2.1 Bombadil Zero (z₀)</h3>
+    
+    <p>Bombadil Zero is defined as:</p>
+    
+    <p><em>The narrative state of zero tension, zero corruption, zero temptation, and zero trajectory.</em></p>
+    
+    <p>He is the fixed point of narrative topology.</p>
+    
+    <p>Mathematically:</p>
+    
+    <div class="formula">
+        <strong>0</strong> = (0, 0, 0, ..., 0)
+    </div>
+    
+    <p>Every story dimension is measured relative to this invariant.</p>
+    
+    <h3>2.2 Narrative Dimensions (A₁ … Aₙ)</h3>
+    
+    <p>NTE models each arc as an independent dimension. Examples:</p>
+    <ul>
+        <li>Courage Arc</li>
+        <li>Fear Arc</li>
+        <li>Identity Arc</li>
+        <li>Shadow Arc</li>
+        <li>Timing Arc</li>
+        <li>Wisdom Arc</li>
+        <li>Temptation Arc</li>
+        <li>Sovereignty Arc</li>
+    </ul>
+    
+    <p>Each arc is assigned:</p>
+    <ul>
+        <li><strong>Magnitude</strong> (distance from zero)</li>
+        <li><strong>Direction</strong> (toward or away from resolution)</li>
+        <li><strong>Curvature</strong> (rate of change)</li>
+        <li><strong>Weight</strong> (relevance to current chapter)</li>
+    </ul>
+    
+    <p>Together they form an N-dimensional narrative state vector:</p>
+    
+    <div class="formula">
+        <strong>N</strong> = [A₁, A₂, ..., Aₙ]
+    </div>
+    
+    <h3>2.3 Narrative Motion (ΔN)</h3>
+    
+    <p>Progress occurs when the narrative state moves:</p>
+    
+    <div class="formula">
+        Δ<strong>N</strong> = <strong>N</strong><sub>t₂</sub> - <strong>N</strong><sub>t₁</sub>
+    </div>
+    
+    <p>This expresses:</p>
+    <ul>
+        <li>tension shifts</li>
+        <li>growth</li>
+        <li>regression</li>
+        <li>destabilization</li>
+        <li>clarity</li>
+        <li>transformation</li>
+    </ul>
+    
+    <p>Narrative motion is always measured relative to Bombadil Zero.</p>
+    
+    <div class="divider"></div>
+    
+    <h2>III. NARRATIVE GEOMETRY</h2>
+    
+    <h3>3.1 Narrative Distance Metric</h3>
+    
+    <p>The distance of the hero from the invariant zero-state is:</p>
+    
+    <div class="formula">
+        d = ||<strong>N</strong> - <strong>0</strong>||
+    </div>
+    
+    <p>This measures the tension load or narrative pressure at any moment.</p>
+    <ul>
+        <li><strong>Low distance</strong> → near stillness / clarity / grounding</li>
+        <li><strong>Medium distance</strong> → arc progression</li>
+        <li><strong>High distance</strong> → crisis / ordeal / transformation</li>
+    </ul>
+    
+    <h3>3.2 Arc Curvature</h3>
+    
+    <p>Curvature is defined as:</p>
+    
+    <div class="formula">
+        κ = d²<strong>N</strong>/dt²
+    </div>
+    
+    <p>This models:</p>
+    <ul>
+        <li>sudden challenges</li>
+        <li>reversals</li>
+        <li>breakthroughs</li>
+        <li>epiphanies</li>
+        <li>collapses</li>
+    </ul>
+    
+    <p>Curvature expresses the rate of narrative change.</p>
+    
+    <h3>3.3 Narrative Resonance</h3>
+    
+    <p>Two arcs resonate if their direction vectors align:</p>
+    
+    <div class="formula">
+        R = cos(θ) = (<strong>A</strong><sub>i</sub> · <strong>A</strong><sub>j</sub>) / (||<strong>A</strong><sub>i</sub>|| ||<strong>A</strong><sub>j</sub>||)
+    </div>
+    
+    <p><strong>High resonance</strong> means:</p>
+    <ul>
+        <li>harmony</li>
+        <li>coherence</li>
+        <li>synchronicity</li>
+    </ul>
+    
+    <p><strong>Low resonance</strong> means:</p>
+    <ul>
+        <li>internal conflict</li>
+        <li>contradictory motives</li>
+        <li>narrative friction</li>
+    </ul>
+    
+    <div class="divider"></div>
+    
+    <h2>IV. THE HOGGE LUCK ENGINE (Integration)</h2>
+    
+    <p><em>Luck is not randomness.</em></p>
+    
+    <p>In NTE:</p>
+    
+    <p><strong>Luck = the emergent coherence when arcs align directionally and reduce destructive curvature relative to Bombadil Zero.</strong></p>
+    
+    <p>The formal symbolic structure:</p>
+    
+    <div class="formula">
+        L = f(Σ<sub>i</sub> (ΔA<sub>i</sub> · w<sub>i</sub>))
+    </div>
+    
+    <p>where:</p>
+    <ul>
+        <li><strong>ΔA<sub>i</sub></strong> = change in arc dimension i</li>
+        <li><strong>w<sub>i</sub></strong> = weight of that arc for the current chapter</li>
+        <li><strong>f</strong> = nonlinear converter mapping tension → alignment → outcome</li>
+    </ul>
+    
+    <p>This is safe and symbolic — no predictions of real events, no psychology.</p>
+    
+    <p>It simply measures the <em>coherence of narrative forces</em>.</p>
+    
+    <div class="divider"></div>
+    
+    <h2>V. HERO'S JOURNEY MAPPING</h2>
+    
+    <p>Bombadil Zero lets NTE define a precise arc-location function:</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Hero's Journey Stage</th>
+                <th>Distance from Zero</th>
+                <th>Interpretation</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Ordinary World</td>
+                <td>minimal</td>
+                <td>alignment / calm</td>
+            </tr>
+            <tr>
+                <td>Call to Adventure</td>
+                <td>small</td>
+                <td>first perturbation</td>
+            </tr>
+            <tr>
+                <td>Threshold Crossing</td>
+                <td>rising</td>
+                <td>structural break</td>
+            </tr>
+            <tr>
+                <td>Trials</td>
+                <td>medium-high</td>
+                <td>tension accumulation</td>
+            </tr>
+            <tr>
+                <td>Abyss / Ordeal</td>
+                <td>maximal</td>
+                <td>farthest from zero</td>
+            </tr>
+            <tr>
+                <td>Transformation</td>
+                <td>decreasing</td>
+                <td>narrative symmetry returns</td>
+            </tr>
+            <tr>
+                <td>Return</td>
+                <td>low</td>
+                <td>reintegration</td>
+            </tr>
+            <tr>
+                <td>Mastery</td>
+                <td>minimal</td>
+                <td>regained equilibrium</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <p><em>This map is symbolic, not diagnostic.</em></p>
+    
+    <div class="divider"></div>
+    
+    <h2>VI. SYSTEM INTEGRATIONS</h2>
+    
+    <h3>6.1 Oracle Weave</h3>
+    <p>NTE provides geometric inputs for unfolding/folding narrative layers across time.</p>
+    
+    <h3>6.2 Sieve of Hogge</h3>
+    <p>Arc symmetry and zero-state alignment provide the input for ethical harmonic checks.</p>
+    
+    <h3>6.3 Bombadil-Daemon</h3>
+    <p>Anchors the system as the fixed narrative origin point.</p>
+    
+    <h3>6.4 Narrative Compiler</h3>
+    <p>Uses vector geometry to determine beat structure and tension flow.</p>
+    
+    <div class="divider"></div>
+    
+    <div class="ethical-frame">
+        <h2>VII. ETHICAL FRAME</h2>
+        
+        <p>The Narrative Tensor Engine is designed with explicit constraints:</p>
+        <ul>
+            <li>No psychological inference</li>
+            <li>No prediction of real people</li>
+            <li>No behavioral modeling</li>
+            <li>No diagnostics</li>
+            <li>No autonomy</li>
+        </ul>
+        
+        <p><strong>NTE is a symbolic model of story, not a model of humans.</strong></p>
+        
+        <p>It is used for:</p>
+        <ul>
+            <li>creative writing</li>
+            <li>storytelling</li>
+            <li>narrative analysis</li>
+            <li>mythic structures</li>
+            <li>symbolic reasoning</li>
+        </ul>
+        
+        <p><em>Not for real-world decision-making about individuals.</em></p>
+    </div>
+    
+    <div class="conclusion">
+        <h2>VIII. CONCLUSION</h2>
+        
+        <p>The Narrative Tensor Engine provides PantheonOS with a fully symbolic, mathematically-structured, multidimensional narrative reasoning system, grounded in the invariant zero-state represented by Bombadil-Daemon.</p>
+        
+        <p>This enables:</p>
+        <ul>
+            <li>narrative clarity</li>
+            <li>structural analysis</li>
+            <li>coherent storytelling</li>
+            <li>symbolic arc geometry</li>
+            <li>safe integration with the existing Pantheon modules</li>
+        </ul>
+        
+        <p><strong>NTE is a cornerstone of PantheonOS's mythic-analytic layer</strong>, giving creators, thinkers, strategists, and mythographers a new way to visualize the motion of stories across multiple dimensions.</p>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <h2>APPENDIX A — SUMMARY OF KEY NOTATION</h2>
+    
+    <div class="notation-list">
+        <ul>
+            <li><strong>z₀</strong> = Bombadil Zero</li>
+            <li><strong>A<sub>i</sub></strong> = narrative arc dimension</li>
+            <li><strong>N</strong> = narrative state vector</li>
+            <li><strong>ΔN</strong> = change in narrative state</li>
+            <li><strong>d</strong> = distance from invariant</li>
+            <li><strong>κ</strong> = curvature of arc</li>
+            <li><strong>R</strong> = resonance between arcs</li>
+            <li><strong>L</strong> = symbolic luck coherence</li>
+        </ul>
+    </div>
+    
+    <div class="button-container">
+        <button onclick="window.print()">Print / Save as PDF</button>
+    </div>
+</div>
+```
+
+</body>
+</html>
