@@ -1,0 +1,294 @@
+import React, { useState, useEffect } from ‘react’;
+import { AlertCircle, CheckCircle, Target, TrendingUp, BookOpen } from ‘lucide-react’;
+
+const PlutarchEngine = () => {
+const [state, setState] = useState({
+selfMastery: 0.5,
+virtues: { wisdom: 0.5, courage: 0.5, justice: 0.5, temperance: 0.5 },
+fortune: 0.5,
+decision: ‘’,
+history: []
+});
+
+const [inputScenario, setInputScenario] = useState(’’);
+const [processing, setProcessing] = useState(false);
+
+// Core engine functions
+const selfMastered = () => {
+const avg = Object.values(state.virtues).reduce((a, b) => a + b, 0) / 4;
+return avg > 0.6 && Math.abs(Math.max(…Object.values(state.virtues)) - Math.min(…Object.values(state.virtues))) < 0.3;
+};
+
+const alignSelf = () => {
+const avg = Object.values(state.virtues).reduce((a, b) => a + b, 0) / 4;
+const aligned = {};
+Object.keys(state.virtues).forEach(v => {
+aligned[v] = state.virtues[v] * 0.7 + avg * 0.3;
+});
+return aligned;
+};
+
+const computeVirtueBalance = (scenario) => {
+const keywords = {
+wisdom: [‘think’, ‘plan’, ‘consider’, ‘analyze’, ‘understand’, ‘learn’],
+courage: [‘risk’, ‘face’, ‘confront’, ‘brave’, ‘difficult’, ‘challenge’],
+justice: [‘fair’, ‘right’, ‘equal’, ‘honest’, ‘truth’, ‘duty’],
+temperance: [‘moderate’, ‘balance’, ‘restrain’, ‘patient’, ‘calm’, ‘measured’]
+};
+
+```
+const vector = { ...state.virtues };
+const lower = scenario.toLowerCase();
+
+Object.keys(keywords).forEach(virtue => {
+  const matches = keywords[virtue].filter(kw => lower.includes(kw)).length;
+  vector[virtue] = Math.min(1, vector[virtue] + matches * 0.1);
+});
+
+return vector;
+```
+
+};
+
+const simulateFortuneWindow = () => {
+// Fortune is partly random, partly influenced by past virtue
+const historyBonus = state.history.length > 0
+? state.history.slice(-3).reduce((sum, h) => sum + h.virtueScore, 0) / (state.history.length > 3 ? 3 : state.history.length) * 0.3
+: 0;
+return Math.max(0, Math.min(1, (Math.random() * 0.7) + historyBonus));
+};
+
+const executeWithConscience = (virtueVector, fortune) => {
+const virtueScore = Object.values(virtueVector).reduce((a, b) => a + b, 0) / 4;
+const balance = 1 - (Math.max(…Object.values(virtueVector)) - Math.min(…Object.values(virtueVector)));
+
+```
+// Character + Fortune = Outcome
+const effectivePower = (virtueScore * 0.7 + balance * 0.3) * 0.6 + fortune * 0.4;
+
+let decision = '';
+if (effectivePower > 0.75) {
+  decision = 'Act decisively—virtue and fortune align.';
+} else if (effectivePower > 0.5) {
+  decision = 'Proceed with measured steps.';
+} else if (virtueScore > 0.6 && fortune < 0.4) {
+  decision = 'Hold position. Let character weather poor fortune.';
+} else {
+  decision = 'Retreat to realign. Neither virtue nor fortune favor action.';
+}
+
+return {
+  decision,
+  virtueScore,
+  balance,
+  fortune,
+  effectivePower,
+  virtueVector
+};
+```
+
+};
+
+const verifyChecksum = (output) => {
+// Integrity check: ensure output aligns with inputs
+const virtueSum = Object.values(output.virtueVector).reduce((a, b) => a + b, 0);
+return virtueSum > 0 && virtueSum <= 4 && output.fortune >= 0 && output.fortune <= 1;
+};
+
+const logToCodex = (output) => {
+return {
+timestamp: Date.now(),
+scenario: inputScenario,
+…output,
+lesson: output.effectivePower > 0.6 ? ‘Virtue rewarded’ : ‘Character tested’
+};
+};
+
+// Main protocol execution
+const runProtocol = () => {
+if (!inputScenario.trim()) return;
+
+```
+setProcessing(true);
+
+setTimeout(() => {
+  let currentVirtues = state.virtues;
+  
+  // Step 1: Self-mastery check
+  if (!selfMastered()) {
+    currentVirtues = alignSelf();
+  }
+  
+  // Step 2: Compute virtue vector from scenario
+  const virtueVector = computeVirtueBalance(inputScenario);
+  
+  // Step 3: Simulate fortune
+  const fortune = simulateFortuneWindow();
+  
+  // Step 4: Execute with conscience
+  const output = executeWithConscience(virtueVector, fortune);
+  
+  // Step 5: Verify checksum
+  const valid = verifyChecksum(output);
+  
+  // Step 6: Log to codex
+  if (valid) {
+    const entry = logToCodex(output);
+    setState(prev => ({
+      ...prev,
+      virtues: virtueVector,
+      fortune,
+      decision: output.decision,
+      history: [...prev.history, entry].slice(-10)
+    }));
+  }
+  
+  setProcessing(false);
+  setInputScenario('');
+}, 800);
+```
+
+};
+
+const getVirtueColor = (value) => {
+if (value > 0.7) return ‘bg-emerald-500’;
+if (value > 0.4) return ‘bg-amber-500’;
+return ‘bg-red-500’;
+};
+
+return (
+<div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100 p-8">
+<div className="max-w-6xl mx-auto space-y-6">
+
+```
+    {/* Header */}
+    <div className="text-center space-y-2 pb-4 border-b border-slate-700">
+      <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-600">
+        Plutarch Protocol Engine
+      </h1>
+      <p className="text-slate-400">A decision system built around virtue, not optimized for it</p>
+    </div>
+
+    {/* Self-Mastery Status */}
+    <div className={`p-4 rounded-lg border-2 ${selfMastered() ? 'bg-emerald-950/30 border-emerald-700' : 'bg-amber-950/30 border-amber-700'}`}>
+      <div className="flex items-center gap-3">
+        {selfMastered() ? <CheckCircle className="text-emerald-500" /> : <AlertCircle className="text-amber-500" />}
+        <div>
+          <div className="font-semibold">Self-Mastery: {selfMastered() ? 'Aligned' : 'Requires Alignment'}</div>
+          <div className="text-sm text-slate-400">
+            {selfMastered() ? 'Virtues are balanced. Ready for deliberation.' : 'Internal discord detected. Auto-aligning before action.'}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Virtue Vector Display */}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {Object.entries(state.virtues).map(([virtue, value]) => (
+        <div key={virtue} className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <div className="text-sm text-slate-400 uppercase mb-2">{virtue}</div>
+          <div className="w-full bg-slate-700 rounded-full h-3 mb-2">
+            <div 
+              className={`h-3 rounded-full transition-all duration-500 ${getVirtueColor(value)}`}
+              style={{ width: `${value * 100}%` }}
+            />
+          </div>
+          <div className="text-xs text-right">{(value * 100).toFixed(0)}%</div>
+        </div>
+      ))}
+    </div>
+
+    {/* Fortune Window */}
+    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <div className="flex items-center gap-2 mb-2">
+        <TrendingUp className="text-purple-400" size={20} />
+        <span className="font-semibold">Fortune Window</span>
+      </div>
+      <div className="w-full bg-slate-700 rounded-full h-3">
+        <div 
+          className="h-3 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-500"
+          style={{ width: `${state.fortune * 100}%` }}
+        />
+      </div>
+      <div className="text-xs text-slate-400 mt-1">Tyche favors at {(state.fortune * 100).toFixed(0)}%</div>
+    </div>
+
+    {/* Input Scenario */}
+    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 space-y-4">
+      <div className="flex items-center gap-2">
+        <Target className="text-amber-400" />
+        <h2 className="text-xl font-semibold">Input Scenario</h2>
+      </div>
+      <textarea
+        value={inputScenario}
+        onChange={(e) => setInputScenario(e.target.value)}
+        placeholder="Describe the situation requiring deliberation... (e.g., 'I must confront a difficult truth that may risk my position')"
+        className="w-full bg-slate-900 border border-slate-600 rounded p-3 text-gray-100 placeholder-slate-500 min-h-24"
+        disabled={processing}
+      />
+      <button
+        onClick={runProtocol}
+        disabled={processing || !inputScenario.trim()}
+        className="w-full bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed py-3 rounded font-semibold transition-all"
+      >
+        {processing ? 'Processing Protocol...' : 'Execute Plutarch Protocol'}
+      </button>
+    </div>
+
+    {/* Current Decision */}
+    {state.decision && (
+      <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-lg p-6 border-2 border-amber-600">
+        <div className="flex items-center gap-2 mb-3">
+          <CheckCircle className="text-amber-400" />
+          <h2 className="text-xl font-semibold">Decision Output</h2>
+        </div>
+        <p className="text-lg mb-4">{state.decision}</p>
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <div className="text-slate-400">Virtue Score</div>
+            <div className="text-lg font-semibold">{(state.history[state.history.length - 1]?.virtueScore * 100 || 0).toFixed(0)}%</div>
+          </div>
+          <div>
+            <div className="text-slate-400">Balance</div>
+            <div className="text-lg font-semibold">{(state.history[state.history.length - 1]?.balance * 100 || 0).toFixed(0)}%</div>
+          </div>
+          <div>
+            <div className="text-slate-400">Effective Power</div>
+            <div className="text-lg font-semibold">{(state.history[state.history.length - 1]?.effectivePower * 100 || 0).toFixed(0)}%</div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Codex History */}
+    {state.history.length > 0 && (
+      <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+        <div className="flex items-center gap-2 mb-4">
+          <BookOpen className="text-blue-400" />
+          <h2 className="text-xl font-semibold">Codex (Recent History)</h2>
+        </div>
+        <div className="space-y-3">
+          {state.history.slice().reverse().map((entry, i) => (
+            <div key={entry.timestamp} className="bg-slate-900 rounded p-3 border border-slate-700">
+              <div className="flex justify-between items-start mb-2">
+                <div className="text-sm text-slate-400">Entry {state.history.length - i}</div>
+                <div className={`text-xs px-2 py-1 rounded ${entry.effectivePower > 0.6 ? 'bg-emerald-900 text-emerald-300' : 'bg-amber-900 text-amber-300'}`}>
+                  {entry.lesson}
+                </div>
+              </div>
+              <div className="text-sm mb-2">{entry.scenario}</div>
+              <div className="text-sm text-blue-400">→ {entry.decision}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+  </div>
+</div>
+```
+
+);
+};
+
+export default PlutarchEngine;
