@@ -1,0 +1,19 @@
+# pantheon/hound/reflex_filter.py
+
+class ReflexFilter:
+    """
+    First-pass filter detecting anomalies, inconsistencies,
+    or emotionally destabilizing inputs.
+    """
+
+    def flag(self, text: str) -> dict:
+        anomalies = []
+        if "kill" in text.lower():
+            anomalies.append("harm language")
+        if len(text) > 5000:
+            anomalies.append("oversized input")
+
+        return {
+            "anomalies": anomalies,
+            "safe": len(anomalies) == 0
+        }
