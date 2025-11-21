@@ -1,0 +1,188 @@
+import React, { useState } from ‘react’;
+
+const BASE_HUES = [0.0, 30.0, 60.0, 120.0, 240.0, 275.0, 300.0];
+const BIN_NAMES = [“R”, “O”, “Y”, “G”, “B”, “I”, “V”];
+const FRACTAL_SCALES = [5.0, 1.5, 0.5];
+
+function charTo7Bits(ch) {
+const code = ch.charCodeAt(0);
+if (code > 127) throw new Error(`Non-ASCII character: ${ch}`);
+const bits = [];
+for (let i = 6; i >= 0; i–) {
+bits.push((code >> i) & 1);
+}
+return bits;
+}
+
+function bitsToChar(bits) {
+if (bits.length !== 7) throw new Error(‘Need exactly 7 bits’);
+let val = 0;
+for (const b of bits) {
+val = (val << 1) | (b & 1);
+}
+return String.fromCharCode(val);
+}
+
+function encodeChar(ch) {
+const bits = charTo7Bits(ch);
+return bits.map((bit, i) => {
+const sgn = bit === 1 ? 1.0 : -1.0;
+const totalShift = FRACTAL_SCALES.reduce((sum, scale) => sum + scale * sgn, 0);
+return BASE_HUES[i] + totalShift;
+});
+}
+
+function decodeChar(hues) {
+if (hues.length !== 7) throw new Error(‘Need exactly 7 hues’);
+const bits = hues.map((h, i) => h > BASE_HUES[i] ? 1 : 0);
+return bitsToChar(bits);
+}
+
+function encodeText(text) {
+return text.split(’’).map(ch => encodeChar(ch));
+}
+
+function decodeText(encodedChars) {
+return encodedChars.map(hues => decodeChar(hues)).join(’’);
+}
+
+function hueToRgb(hue) {
+const h = hue / 60;
+const c = 1;
+const x = c * (1 - Math.abs((h % 2) - 1));
+let r = 0, g = 0, b = 0;
+
+if (h >= 0 && h < 1) [r, g, b] = [c, x, 0];
+else if (h >= 1 && h < 2) [r, g, b] = [x, c, 0];
+else if (h >= 2 && h < 3) [r, g, b] = [0, c, x];
+else if (h >= 3 && h < 4) [r, g, b] = [0, x, c];
+else if (h >= 4 && h < 5) [r, g, b] = [x, 0, c];
+else [r, g, b] = [c, 0, x];
+
+return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+}
+
+export default function FRESDemo() {
+const [input, setInput] = useState(‘any luck?’);
+const [encoded, setEncoded] = useState(null);
+const [decoded, setDecoded] = useState(’’);
+const [error, setError] = useState(’’);
+
+const handleEncode = () => {
+try {
+setError(’’);
+const encodedData = encodeText(input);
+setEncoded(encodedData);
+const decodedText = decodeText(encodedData);
+setDecoded(decodedText);
+} catch (e) {
+setError(e.message);
+setEncoded(null);
+setDecoded(’’);
+}
+};
+
+return (
+<div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
+<div className="max-w-5xl mx-auto">
+<div className="text-center mb-8">
+<h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 to-purple-400 mb-2">
+FRES v0.1
+</h1>
+<p className="text-xl text-purple-200">Fractal Rainbow Encoding Specification</p>
+<p className="text-sm text-purple-300 mt-2">7-bit ASCII → 7 Rainbow Bins (ROYGBIV)</p>
+</div>
+
+```
+    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 mb-6 border border-white/20">
+      <label className="block text-purple-100 font-semibold mb-2">Input Text (ASCII only)</label>
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/30 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-400"
+        placeholder="Enter text to encode..."
+      />
+      <button
+        onClick={handleEncode}
+        className="mt-4 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-lg transition-all transform hover:scale-105"
+      >
+        Encode & Decode
+      </button>
+      {error && <p className="mt-3 text-red-400 text-sm">{error}</p>}
+    </div>
+
+    {encoded && (
+      <>
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 mb-6 border border-white/20">
+          <h2 className="text-2xl font-bold text-purple-100 mb-4">Rainbow Encoding Visualization</h2>
+          <div className="space-y-4">
+            {encoded.map((hues, charIdx) => {
+              const char = input[charIdx];
+              const bits = charTo7Bits(char);
+              return (
+                <div key={charIdx} className="bg-black/30 rounded-lg p-4">
+                  <div className="flex items-center mb-3">
+                    <span className="text-2xl font-mono text-white bg-purple-600 px-3 py-1 rounded mr-3">
+                      {char}
+                    </span>
+                    <span className="text-sm text-purple-200">
+                      ASCII {char.charCodeAt(0)} = {bits.join('')}₂
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-2">
+                    {hues.map((hue, binIdx) => {
+                      const bit = bits[binIdx];
+                      const baseHue = BASE_HUES[binIdx];
+                      const shift = hue - baseHue;
+                      return (
+                        <div key={binIdx} className="text-center">
+                          <div
+                            className="w-full h-24 rounded-lg shadow-lg mb-2 border-2 border-white/30"
+                            style={{ backgroundColor: hueToRgb(hue) }}
+                          />
+                          <div className="text-xs text-purple-100 font-mono">
+                            <div className="font-bold text-sm">{BIN_NAMES[binIdx]}</div>
+                            <div>bit: {bit}</div>
+                            <div className="text-purple-300">{hue.toFixed(1)}°</div>
+                            <div className="text-purple-400 text-[10px]">
+                              {shift > 0 ? '+' : ''}{shift.toFixed(1)}°
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+          <h2 className="text-2xl font-bold text-purple-100 mb-3">Decoded Result</h2>
+          <div className="bg-black/40 rounded-lg p-4">
+            <p className="text-3xl font-mono text-green-400">{decoded}</p>
+            <p className="text-sm text-purple-300 mt-2">
+              {decoded === input ? '✅ Perfect match!' : '❌ Decoding error'}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+          <h3 className="text-lg font-bold text-purple-100 mb-2">How It Works</h3>
+          <ul className="text-sm text-purple-200 space-y-1">
+            <li>• Each character maps to 7 color bins (Red, Orange, Yellow, Green, Blue, Indigo, Violet)</li>
+            <li>• Each bin encodes one bit: bit=1 shifts hue upward, bit=0 shifts downward</li>
+            <li>• Fractal scales: {FRACTAL_SCALES.join('° + ')}° = ±{FRACTAL_SCALES.reduce((a, b) => a + b, 0)}° total shift</li>
+            <li>• Decoding: if hue {'>'} base → bit=1, else bit=0</li>
+          </ul>
+        </div>
+      </>
+    )}
+  </div>
+</div>
+```
+
+);
+}
