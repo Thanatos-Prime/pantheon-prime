@@ -1,0 +1,338 @@
+import React, { useState, useEffect, useRef } from ‘react’;
+import { Eye, Layers, TrendingUp, Atom, AlertCircle, Info } from ‘lucide-react’;
+
+const QuantumMicroscope = () => {
+const [activeView, setActiveView] = useState(‘tokens’);
+const [model, setModel] = useState(‘gpt-4’);
+const [sampleText, setSampleText] = useState(‘The quantum computer uses superposition to process multiple states simultaneously.’);
+const canvasRef = useRef(null);
+
+// Generate token distribution data
+const tokenData = [
+{ token: ‘The’, prob: 0.95, entropy: 0.15, alternatives: [‘A’, ‘This’, ‘That’] },
+{ token: ‘quantum’, prob: 0.82, entropy: 0.45, alternatives: [‘classical’, ‘digital’, ‘modern’] },
+{ token: ‘computer’, prob: 0.91, entropy: 0.28, alternatives: [‘system’, ‘processor’, ‘device’] },
+{ token: ‘uses’, prob: 0.76, entropy: 0.52, alternatives: [‘employs’, ‘utilizes’, ‘leverages’] },
+{ token: ‘superposition’, prob: 0.68, entropy: 0.73, alternatives: [‘entanglement’, ‘interference’, ‘tunneling’] },
+{ token: ‘to’, prob: 0.98, entropy: 0.08, alternatives: [‘for’, ‘in’, ‘with’] },
+{ token: ‘process’, prob: 0.79, entropy: 0.48, alternatives: [‘handle’, ‘compute’, ‘calculate’] },
+{ token: ‘multiple’, prob: 0.88, entropy: 0.32, alternatives: [‘many’, ‘various’, ‘several’] },
+{ token: ‘states’, prob: 0.72, entropy: 0.61, alternatives: [‘conditions’, ‘positions’, ‘values’] },
+{ token: ‘simultaneously’, prob: 0.81, entropy: 0.44, alternatives: [‘concurrently’, ‘parallel’, ‘at-once’] }
+];
+
+// KL Divergence simulation data
+const klData = Array.from({ length: 20 }, (_, i) => ({
+layer: i + 1,
+kl_divergence: Math.random() * 0.8 + 0.1,
+attention_entropy: Math.random() * 1.2 + 0.2
+}));
+
+// Attention head patterns
+const attentionMatrix = Array.from({ length: 12 }, (*, i) =>
+Array.from({ length: 12 }, (*, j) => ({
+value: Math.random() * 0.3 + (i === j ? 0.7 : 0)
+}))
+);
+
+// Draw attention heatmap
+useEffect(() => {
+if (activeView === ‘attention’ && canvasRef.current) {
+const canvas = canvasRef.current;
+const ctx = canvas.getContext(‘2d’);
+const size = 30;
+
+```
+  canvas.width = size * 12;
+  canvas.height = size * 12;
+  
+  attentionMatrix.forEach((row, i) => {
+    row.forEach((cell, j) => {
+      const intensity = Math.floor(cell.value * 255);
+      ctx.fillStyle = `rgb(${255 - intensity}, ${100}, ${intensity})`;
+      ctx.fillRect(j * size, i * size, size - 1, size - 1);
+    });
+  });
+}
+```
+
+}, [activeView]);
+
+return (
+<div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-pink-950 text-white p-6">
+{/* Header */}
+<div className="max-w-7xl mx-auto mb-8">
+<div className="flex items-center justify-between">
+<div className="flex items-center gap-3">
+<Atom className="w-8 h-8 text-cyan-400" />
+<h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+Quantum Microscope
+</h1>
+<span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">v1.0</span>
+</div>
+<div className="flex items-center gap-4">
+<select
+className=“bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm”
+value={model}
+onChange={(e) => setModel(e.target.value)}
+>
+<option>gpt-4</option>
+<option>claude-sonnet-4</option>
+<option>llama-3-70b</option>
+</select>
+</div>
+</div>
+</div>
+
+```
+  <div className="max-w-7xl mx-auto space-y-6">
+    {/* Sample Text Input */}
+    <div className="bg-gray-800/50 backdrop-blur rounded-lg border border-gray-700 p-6">
+      <label className="block text-sm text-gray-400 mb-2">Sample Text</label>
+      <textarea 
+        className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-3 h-24 font-mono text-sm"
+        value={sampleText}
+        onChange={(e) => setSampleText(e.target.value)}
+      />
+    </div>
+
+    {/* View Selector */}
+    <div className="flex gap-2">
+      {[
+        { id: 'tokens', label: 'Token Distribution', icon: Layers },
+        { id: 'kl', label: 'KL Divergence', icon: TrendingUp },
+        { id: 'attention', label: 'Attention Patterns', icon: Eye }
+      ].map(view => (
+        <button
+          key={view.id}
+          onClick={() => setActiveView(view.id)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+            activeView === view.id 
+              ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white' 
+              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+          }`}
+        >
+          <view.icon className="w-4 h-4" />
+          {view.label}
+        </button>
+      ))}
+    </div>
+
+    {/* Token Distribution View */}
+    {activeView === 'tokens' && (
+      <div className="bg-gray-800/50 backdrop-blur rounded-lg border border-gray-700 p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Layers className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-xl font-semibold">Token Probability Distribution</h2>
+          <Info className="w-4 h-4 text-gray-400 ml-auto" />
+        </div>
+
+        <div className="space-y-3">
+          {tokenData.map((item, i) => (
+            <div key={i} className="bg-gray-900/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-mono text-lg text-cyan-300">{item.token}</span>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-gray-400">
+                    P: <span className="text-white font-semibold">{item.prob.toFixed(3)}</span>
+                  </span>
+                  <span className="text-gray-400">
+                    H: <span className="text-purple-400 font-semibold">{item.entropy.toFixed(3)}</span>
+                  </span>
+                </div>
+              </div>
+              
+              {/* Probability bar */}
+              <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden mb-2">
+                <div 
+                  className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500"
+                  style={{ width: `${item.prob * 100}%` }}
+                />
+              </div>
+
+              {/* Alternatives */}
+              <div className="flex gap-2 text-xs">
+                <span className="text-gray-500">Alternatives:</span>
+                {item.alternatives.map((alt, j) => (
+                  <span key={j} className="bg-gray-800 px-2 py-1 rounded text-gray-400">
+                    {alt}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Legend */}
+        <div className="mt-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+          <div className="text-sm space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-cyan-500" />
+              <span><strong>P (Probability):</strong> How confident the model is about this token</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-purple-500" />
+              <span><strong>H (Entropy):</strong> Uncertainty in token selection (higher = more alternatives considered)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* KL Divergence View */}
+    {activeView === 'kl' && (
+      <div className="bg-gray-800/50 backdrop-blur rounded-lg border border-gray-700 p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <TrendingUp className="w-5 h-5 text-green-400" />
+          <h2 className="text-xl font-semibold">KL Divergence Across Layers</h2>
+        </div>
+
+        <div className="bg-gray-900/50 rounded-lg p-6 h-96 relative">
+          <svg className="w-full h-full">
+            {/* Grid lines */}
+            {[0, 0.25, 0.5, 0.75, 1].map((y, i) => (
+              <line 
+                key={i}
+                x1="40" 
+                y1={40 + (320 * (1 - y))} 
+                x2="95%" 
+                y2={40 + (320 * (1 - y))}
+                stroke="#374151" 
+                strokeWidth="1"
+                strokeDasharray="4"
+              />
+            ))}
+
+            {/* Y-axis labels */}
+            {[0, 0.25, 0.5, 0.75, 1].map((y, i) => (
+              <text 
+                key={i}
+                x="10" 
+                y={44 + (320 * (1 - y))} 
+                fill="#9CA3AF" 
+                fontSize="12"
+              >
+                {y.toFixed(2)}
+              </text>
+            ))}
+
+            {/* KL Divergence line */}
+            <polyline
+              points={klData.map((d, i) => 
+                `${60 + (i * 40)},${40 + 320 * (1 - d.kl_divergence)}`
+              ).join(' ')}
+              fill="none"
+              stroke="url(#kl-gradient)"
+              strokeWidth="3"
+            />
+
+            {/* Attention entropy line */}
+            <polyline
+              points={klData.map((d, i) => 
+                `${60 + (i * 40)},${40 + 320 * (1 - d.attention_entropy / 1.4)}`
+              ).join(' ')}
+              fill="none"
+              stroke="url(#entropy-gradient)"
+              strokeWidth="3"
+              strokeDasharray="5,5"
+            />
+
+            {/* Data points */}
+            {klData.map((d, i) => (
+              <circle
+                key={i}
+                cx={60 + (i * 40)}
+                cy={40 + 320 * (1 - d.kl_divergence)}
+                r="4"
+                fill="#10B981"
+              />
+            ))}
+
+            {/* Gradients */}
+            <defs>
+              <linearGradient id="kl-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#10B981" />
+                <stop offset="100%" stopColor="#3B82F6" />
+              </linearGradient>
+              <linearGradient id="entropy-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#F59E0B" />
+                <stop offset="100%" stopColor="#EF4444" />
+              </linearGradient>
+            </defs>
+
+            {/* X-axis labels */}
+            {klData.filter((_, i) => i % 2 === 0).map((d, i) => (
+              <text
+                key={i}
+                x={60 + (i * 80)}
+                y="380"
+                fill="#9CA3AF"
+                fontSize="11"
+                textAnchor="middle"
+              >
+                L{d.layer}
+              </text>
+            ))}
+          </svg>
+        </div>
+
+        {/* Legend */}
+        <div className="mt-4 flex gap-6 justify-center text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-0.5 bg-gradient-to-r from-green-500 to-blue-500" />
+            <span>KL Divergence</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-0.5 bg-gradient-to-r from-orange-500 to-red-500" style={{borderTop: '2px dashed'}} />
+            <span>Attention Entropy</span>
+          </div>
+        </div>
+
+        <div className="mt-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 text-sm">
+          <AlertCircle className="w-4 h-4 text-yellow-500 inline mr-2" />
+          Higher KL divergence indicates the model's representation is diverging more from the base distribution at that layer.
+        </div>
+      </div>
+    )}
+
+    {/* Attention Patterns View */}
+    {activeView === 'attention' && (
+      <div className="bg-gray-800/50 backdrop-blur rounded-lg border border-gray-700 p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Eye className="w-5 h-5 text-purple-400" />
+          <h2 className="text-xl font-semibold">Multi-Head Attention Heatmap</h2>
+        </div>
+
+        <div className="flex justify-center bg-gray-900/50 rounded-lg p-6">
+          <canvas ref={canvasRef} className="rounded shadow-lg" />
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <div className="bg-gray-900/50 p-4 rounded-lg">
+            <div className="text-sm text-gray-400 mb-1">Average Attention</div>
+            <div className="text-2xl font-bold text-purple-400">0.487</div>
+          </div>
+          <div className="bg-gray-900/50 p-4 rounded-lg">
+            <div className="text-sm text-gray-400 mb-1">Max Attention Weight</div>
+            <div className="text-2xl font-bold text-pink-400">0.923</div>
+          </div>
+        </div>
+
+        <div className="mt-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 text-sm">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-blue-400 mt-0.5" />
+            <div>
+              <strong>Diagonal dominance</strong> suggests self-attention, while off-diagonal patterns show token relationships. Brighter colors indicate stronger attention weights.
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+```
+
+);
+};
+
+export default QuantumMicroscope;
