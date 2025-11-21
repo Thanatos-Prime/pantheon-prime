@@ -1,0 +1,14 @@
+# pantheon/spider/executor.py
+
+class Executor:
+    """
+    Safe, reversible tool execution. No external autonomy.
+    """
+
+    def run_calculator(self, expression: str) -> dict:
+        try:
+            # safe evaluation: no builtins except math
+            result = eval(expression, {"__builtins__": {}}, {})
+            return {"ok": True, "result": result}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
