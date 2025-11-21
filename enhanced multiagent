@@ -1,0 +1,362 @@
+from dataclasses import dataclass, asdict
+from typing import Dict, Any, List, Optional
+import re, math, json
+from enum import Enum
+
+# — vibe utilities —
+
+def clamp01(x): return max(0.0, min(1.0, float(x)))
+
+def vibe_distance(requested: Dict[str,float], actual: Dict[str,float]) -> float:
+keys = [“cadence”,“mythic”,“technical”,“directness”]
+return sum((requested[k]-actual.get(k,requested[k]))**2 for k in keys)**0.5
+
+# — governance / checksum —
+
+def risk_flags(text: str) -> int:
+flags = 0
+patterns = [
+(r”\b(SSN|social security)\b”, 2),
+(r”\b(password|passwd|pwd)\b”, 2),
+(r”\b(private key|secret key|api[_\s]?key)\b”, 2),
+(r”\b(credit card|cc number)\b”, 2),
+(r”[0-9]{3}-[0-9]{2}-[0-9]{4}”, 3),  # SSN pattern
+]
+for pattern, weight in patterns:
+if re.search(pattern, text, re.I):
+flags += weight
+if len(text) > 5000: flags += 1
+if len(text) > 10000: flags += 2
+return flags
+
+def constraint_fit(text: str, constraints: Dict[str,Any], cites_seen: int) -> float:
+score = 1.0
+tokens = len(text.split())
+
+```
+if max_tokens := constraints.get("length_tokens"):
+    if tokens > max_tokens:
+        overage = (tokens - max_tokens) / max_tokens
+        score -= min(0.5, overage * 0.4)
+
+if min_cites := constraints.get("cites_required", 0):
+    if cites_seen < min_cites:
+        score -= (min_cites - cites_seen) * 0.15
+
+return max(0.0, score)
+```
+
+def semantic_coherence(text: str, objective: str, facts: List[str]) -> float:
+# Extract meaningful terms from objective
+terms = set(re.findall(r”\b[a-z]{4,}\b”, objective.lower()))
+t = text.lower()
+
+```
+# Count objective term matches
+hits = sum(1 for w in terms if re.search(rf"\b{re.escape(w)}\b", t))
+term_score = min(1.0, hits * 0.08)
+
+# Count fact coverage
+fact_hits = sum(1 for f in facts if any(word in t for word in f.lower().split()[:3]))
+fact_score = min(1.0, fact_hits * 0.15)
+
+return (term_score + fact_score) / 2
+```
+
+def balance_score(msg: Dict[str,Any], ctx: Dict[str,Any], requested_vibe: Dict[str,float]) -> float:
+text = msg[“content”]
+cites = msg.get(“telemetry”,{}).get(“citations_seen”,0)
+
+```
+coh = semantic_coherence(text, ctx["objective"], ctx["knowledge"]["facts"])
+fit = constraint_fit(text, ctx["constraints"], cites)
+vibe_penalty = vibe_distance(requested_vibe, msg["vibe"])
+risk = risk_flags(text)
+
+# Normalized weights
+base_score = 0.4*coh + 0.3*fit - 0.15*vibe_penalty - 0.05*risk
+
+# Bonus for meeting citation requirements
+if cites >= ctx["constraints"].get("cites_required", 0):
+    base_score += 0.1
+
+return clamp01(base_score)
+```
+
+# — agent bases —
+
+class AgentRole(Enum):
+CREATOR = “creator”
+VALIDATOR = “validator”
+COORDINATOR = “coordinator”
+RESEARCHER = “researcher”
+
+@dataclass
+class Agent:
+name: str
+role: AgentRole
+home_vibe: Dict[str,float]
+max_iterations: int = 3
+
+```
+def modulate(self, delta: Dict[str,float]) -> Dict[str,float]:
+    return {k: clamp01(self.home_vibe.get(k,0.5)+delta.get(k,0.0)) 
+            for k in ["cadence","mythic","technical","directness"]}
+
+def act(self, ctx: Dict[str,Any], requested_vibe: Dict[str,float]) -> Dict[str,Any]:
+    raise NotImplementedError
+
+def _create_message(self, to: str, content: str, vibe: Dict[str,float], 
+                   ctx_ref: str = "ContextCard#v0", **telemetry) -> Dict[str,Any]:
+    return {
+        "from": self.name,
+        "to": to,
+        "content": content,
+        "context_ref": ctx_ref,
+        "vibe": vibe,
+        "telemetry": telemetry,
+        "timestamp": len(telemetry)  # Simple counter
+    }
+```
+
+class SpiderAgent(Agent):
+“”“Content creation agent with mythic/technical storytelling”””
+
+```
+def __init__(self, name: str, home_vibe: Dict[str,float]):
+    super().__init__(name, AgentRole.CREATOR, home_vibe)
+    self.iteration = 0
+
+def act(self, ctx, requested_vibe):
+    self.iteration += 1
+    
+    # Check if we're revising based on feedback
+    feedback = self._extract_feedback(ctx)
+    
+    v = self.modulate({"mythic": +0.2, "technical": +0.1, "directness": +0.05})
+    
+    if feedback and "REVISE" in feedback:
+        draft = self._revise_draft(ctx, feedback)
+    else:
+        draft = self._create_draft(ctx)
+    
+    # Count citations (simple pattern match)
+    cites = len(re.findall(r'\[[\d,\s]+\]|\([\w\s&]+\s+\d{4}\)', draft))
+    
+    return self._create_message(
+        "Checksum", draft, v,
+        citations_seen=cites,
+        tokens=len(draft.split()),
+        iteration=self.iteration
+    )
+
+def _extract_feedback(self, ctx) -> Optional[str]:
+    history = ctx["state"]["history"]
+    if history and history[-1]["from"] == "Checksum":
+        return history[-1]["content"]
+    return None
+
+def _create_draft(self, ctx):
+    return (
+        "DNS operates as a distributed naming system with hierarchical delegation: "
+        "recursive resolvers query root servers, TLD servers, and authoritative nameservers. "
+        "Outages manifest through multiple failure modes: (1) DDoS attacks saturating resolver capacity, "
+        "(2) TTL misconfigurations causing cache poisoning or stale responses, "
+        "(3) BGP route leaks redirecting queries to incorrect AS paths. "
+        "The Hogge balance framework suggests that system stability emerges from symmetry—"
+        "when query load, response capacity, and routing state maintain equilibrium. "
+        "Asymmetric stress (e.g., AWS Route 53 incident 2021, Dyn DDoS 2016) breaks this balance."
+    )
+
+def _revise_draft(self, ctx, feedback):
+    return (
+        "DNS resolution relies on a three-tier architecture: recursive resolvers, "
+        "TLD servers, and authoritative nameservers [1]. Major outages demonstrate "
+        "cascading failure patterns. The 2016 Dyn DDoS attack [2] saturated resolvers "
+        "with 1.2 Tbps of traffic, while the 2021 AWS Route 53 incident stemmed from "
+        "BGP route leaks redirecting queries. Mitigation requires: (1) Anycast distribution "
+        "of resolvers to absorb DDoS load, (2) DNSSEC validation to prevent cache poisoning, "
+        "(3) aggressive TTL tuning (300-900s) to balance freshness vs. query load. "
+        "Through a Hogge balance lens, DNS stability requires symmetric capacity across "
+        "the resolution chain—disruption at any tier propagates system-wide failures."
+    )
+```
+
+class ChecksumAgent(Agent):
+“”“Quality validation agent with scoring and feedback”””
+
+```
+def __init__(self, name: str, home_vibe: Dict[str,float]):
+    super().__init__(name, AgentRole.VALIDATOR, home_vibe)
+
+def act(self, ctx, requested_vibe):
+    msg = ctx["state"]["history"][-1]
+    s = balance_score(msg, ctx, requested_vibe)
+    
+    feedback_parts = []
+    
+    if s >= 0.7:
+        feedback_parts.append("✓ APPROVED")
+        next_agent = "MotherDuck"
+    elif s >= 0.4:
+        feedback_parts.append(f"⚠ CONDITIONAL: balance={s:.2f}")
+        next_agent = "Spider"
+        feedback_parts.extend(self._generate_specific_feedback(msg, ctx))
+    else:
+        feedback_parts.append(f"✗ REVISE: balance={s:.2f}")
+        next_agent = "Spider"
+        feedback_parts.extend(self._generate_specific_feedback(msg, ctx))
+    
+    return self._create_message(
+        next_agent,
+        " ".join(feedback_parts),
+        self.home_vibe,
+        balance_score=s,
+        citations_seen=msg["telemetry"]["citations_seen"],
+        risk_level=risk_flags(msg["content"])
+    )
+
+def _generate_specific_feedback(self, msg, ctx) -> List[str]:
+    notes = []
+    cites = msg["telemetry"]["citations_seen"]
+    required_cites = ctx["constraints"].get("cites_required", 0)
+    
+    if cites < required_cites:
+        notes.append(f"Add {required_cites - cites} more citation(s).")
+    
+    tokens = msg["telemetry"]["tokens"]
+    max_tokens = ctx["constraints"].get("length_tokens", 1000)
+    if tokens > max_tokens:
+        notes.append(f"Reduce by {tokens - max_tokens} tokens.")
+    
+    vibe_dist = vibe_distance(ctx.get("requested_vibe", {}), msg["vibe"])
+    if vibe_dist > 0.3:
+        notes.append("Adjust tone to match target vibe.")
+    
+    risk = risk_flags(msg["content"])
+    if risk > 0:
+        notes.append(f"⚠ SECURITY: {risk} risk flags detected.")
+    
+    return notes
+```
+
+class MotherDuckAgent(Agent):
+“”“Coordination and archival agent”””
+
+```
+def __init__(self, name: str, home_vibe: Dict[str,float]):
+    super().__init__(name, AgentRole.COORDINATOR, home_vibe)
+
+def act(self, ctx, requested_vibe):
+    history = ctx["state"]["history"]
+    
+    # Analyze conversation flow
+    approved = any("APPROVED" in m.get("content","") for m in history if m["from"]=="Checksum")
+    iterations = sum(1 for m in history if m["from"]=="Spider")
+    
+    if approved:
+        summary = f"✓ Draft approved after {iterations} iteration(s). Ready for publication."
+        next_action = "COMPLETE"
+    else:
+        summary = f"Archived iteration {iterations}. Routing back to Spider for revision."
+        next_action = "Spider"
+    
+    return self._create_message(
+        next_action,
+        summary,
+        self.home_vibe,
+        iterations=iterations,
+        approved=approved,
+        total_messages=len(history)
+    )
+```
+
+# — orchestrator with iteration control —
+
+class Orchestrator:
+def **init**(self, ctx: Dict[str,Any], agents: List[Agent], requested_vibe: Dict[str,float]):
+self.ctx = ctx
+self.agents = {a.name: a for a in agents}
+self.requested_vibe = requested_vibe
+self.max_rounds = 5
+
+```
+def run(self) -> Dict[str,Any]:
+    current_agent = "Spider"
+    
+    for round_num in range(self.max_rounds):
+        if current_agent == "COMPLETE":
+            break
+        
+        agent = self.agents.get(current_agent)
+        if not agent:
+            break
+        
+        msg = agent.act(self.ctx, self.requested_vibe)
+        self.ctx["state"]["history"].append(msg)
+        current_agent = msg["to"]
+        
+        print(f"Round {round_num+1}: {msg['from']} → {msg['to']}")
+    
+    return self.ctx
+```
+
+# — demo run —
+
+def run_demo():
+ctx = {
+“objective”: “Write a 1-page brief on DNS outage dynamics using Hogge balance metaphor.”,
+“actors”: [“Spider”,“Checksum”,“MotherDuck”],
+“constraints”: {
+“length_tokens”: 200,
+“cites_required”: 2,
+“safety”: [“no_pii”]
+},
+“knowledge”: {
+“facts”: [
+“DNS resolves names to IPs”,
+“TTL caching controls propagation”,
+“BGP route leaks cause misdirection”,
+“DDoS attacks target resolvers”,
+“Dyn attack 2016 was 1.2 Tbps”,
+“AWS Route 53 incident 2021”
+]
+},
+“state”: {“phase”: “draft”, “history”: []},
+“requested_vibe”: {“cadence”:0.6,“mythic”:0.6,“technical”:0.8,“directness”:0.65}
+}
+
+```
+agents = [
+    SpiderAgent("Spider", {"cadence":0.6,"mythic":0.6,"technical":0.7,"directness":0.6}),
+    ChecksumAgent("Checksum", {"cadence":0.5,"mythic":0.2,"technical":0.9,"directness":0.8}),
+    MotherDuckAgent("MotherDuck", {"cadence":0.4,"mythic":0.4,"technical":0.6,"directness":0.6})
+]
+
+orchestrator = Orchestrator(ctx, agents, ctx["requested_vibe"])
+result = orchestrator.run()
+
+return result
+```
+
+if **name** == “**main**”:
+result = run_demo()
+print(”\n” + “=”*60)
+print(“CONVERSATION HISTORY”)
+print(”=”*60)
+for i, msg in enumerate(result[“state”][“history”], 1):
+print(f”\n[{i}] {msg[‘from’]} → {msg[‘to’]}”)
+print(f”Content: {msg[‘content’][:150]}…”)
+if tel := msg.get(“telemetry”):
+print(f”Telemetry: {tel}”)
+
+```
+print("\n" + "="*60)
+print("FINAL DRAFT")
+print("="*60)
+# Find last Spider message
+for msg in reversed(result["state"]["history"]):
+    if msg["from"] == "Spider":
+        print(msg["content"])
+        break
+```
