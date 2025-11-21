@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+“””
+Haiku Generator - Creates haikus from images or text descriptions
+Requires: pip install openai pillow
+“””
+
+import os
+import base64
+from pathlib import Path
+from openai import OpenAI
+
+def encode_image(image_path):
+“”“Encode image to base64 string”””
+with open(image_path, “rb”) as image_file:
+return base64.b64encode(image_file.read()).decode(‘utf-8’)
+
+def generate_haiku_from_image(image_path, api_key):
+“”“Generate haiku from an image file”””
+client = OpenAI(api_key=api_key)
+
+```
+# Encode the image
+base64_image = encode_image(image_path)
+
+# Get image type
+extension = Path(image_path).suffix.lower()
+mime_types = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp'
+}
+mime_type = mime_types.get(extension, 'image/jpeg')
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Analyze this image and create a haiku (5-7-5 syllable pattern) that captures its essence. Only respond with the haiku, nothing else."
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime_type};base64,{base64_image}"
+                    }
+                }
+            ]
+        }
+    ],
+    max_tokens=100
+)
+
+return response.choices[0].message.content.strip()
+```
+
+def generate_haiku_from_text(description, api_key):
+“”“Generate haiku from a text description”””
+client = OpenAI(api_key=api_key)
+
+```
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {
+            "role": "user",
+            "content": f"Create a haiku (5-7-5 syllable pattern) about: {description}\n\nOnly respond with the haiku, nothing else."
+        }
+    ],
+    max_tokens=100
+)
+
+return response.choices[0].message.content.strip()
+```
+
+def main():
+“”“Main function to run the haiku generator”””
+print(”=” * 50)
+print(“🎋 HAIKU GENERATOR 🎋”)
+print(”=” * 50)
+
+```
+# Get API key from environment or user input
+api_key = os.environ.get('OPENAI_API_KEY')
+if not api_key:
+    api_key = input("\nEnter your OpenAI API key: ").strip()
+
+while True:
+    print("\n" + "-" * 50)
+    print("Choose an option:")
+    print("1. Generate haiku from image")
+    print("2. Generate haiku from text description")
+    print("3. Exit")
+    print("-" * 50)
+    
+    choice = input("\nYour choice (1/2/3): ").strip()
+    
+    if choice == '1':
+        image_path = input("\nEnter the path to your image: ").strip()
+        
+        if not os.path.exists(image_path):
+            print("❌ Error: Image file not found!")
+            continue
+        
+        print("\n🎨 Analyzing image and generating haiku...")
+        try:
+            haiku = generate_haiku_from_image(image_path, api_key)
+            print("\n" + "=" * 50)
+            print("✨ YOUR HAIKU ✨")
+            print("=" * 50)
+            print(haiku)
+            print("=" * 50)
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    elif choice == '2':
+        description = input("\nEnter your description: ").strip()
+        
+        if not description:
+            print("❌ Error: Description cannot be empty!")
+            continue
+        
+        print("\n✍️  Generating haiku...")
+        try:
+            haiku = generate_haiku_from_text(description, api_key)
+            print("\n" + "=" * 50)
+            print("✨ YOUR HAIKU ✨")
+            print("=" * 50)
+            print(haiku)
+            print("=" * 50)
+        except Exception as e:
+            print(f"❌ Error: {e}")
+    
+    elif choice == '3':
+        print("\n👋 Thank you for using Haiku Generator!")
+        break
+    
+    else:
+        print("❌ Invalid choice. Please enter 1, 2, or 3.")
+```
+
+if **name** == “**main**”:
+main()
