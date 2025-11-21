@@ -1,0 +1,112 @@
+import math
+from typing import List, Tuple, Dict, Iterable
+
+from .model import phi_step
+
+
+def generate_orbit(
+    x0: float,
+    steps: int,
+) -> List[float]:
+    """
+    Generate a soul-thread orbit under the default Phi-step.
+
+    Parameters
+    ----------
+    x0 : float
+        Initial phase in [0, 1).
+    steps : int
+        Number of iterations to apply.
+
+    Returns
+    -------
+    List[float]
+        List of orbit points [x0, Phi(x0), Phi^2(x0), ..., Phi^steps(x0)].
+    """
+    orbit = [x0]
+    x = x0
+    for _ in range(steps):
+        x = phi_step(x)
+        orbit.append(x)
+    return orbit
+
+
+def prime_chakras(
+    primes: Iterable[int],
+    modulus: float = 1.0,
+    beta: float = math.sqrt(2.0) - 1.0,
+) -> Dict[int, float]:
+    """
+    Assign prime chakras as phase points on the unit circle.
+
+    For each prime p, we compute:
+
+        theta_p = (p * beta) mod 1
+
+    This distributes prime phases around [0, 1) in a pseudo-irregular way.
+
+    Parameters
+    ----------
+    primes : iterable of int
+        Collection of prime numbers.
+    modulus : float, optional
+        Circle length; default is 1.0.
+    beta : float, optional
+        Scaling constant; default uses sqrt(2) - 1 for irrationality.
+
+    Returns
+    -------
+    Dict[int, float]
+        Map from prime -> chakra phase in [0, 1).
+    """
+    chakras = {}
+    for p in primes:
+        theta = (p * beta) % modulus
+        chakras[p] = theta
+    return chakras
+
+
+def circular_distance(a: float, b: float, modulus: float = 1.0) -> float:
+    """
+    Compute the shortest distance between two points on a circle of length 'modulus'.
+    Both a and b are assumed in [0, modulus).
+
+    Returns a value in [0, modulus/2].
+    """
+    diff = abs(a - b)
+    return min(diff, modulus - diff)
+
+
+def find_nearby_chakras(
+    orbit: List[float],
+    chakras: Dict[int, float],
+    epsilon: float = 0.05,
+    modulus: float = 1.0,
+) -> List[Tuple[int, float, float]]:
+    """
+    For each point in the orbit, find prime chakras that lie within a given
+    circular distance epsilon.
+
+    Parameters
+    ----------
+    orbit : list of float
+        Orbit points in [0, modulus).
+    chakras : dict[int, float]
+        Mapping from prime -> phase in [0, modulus).
+    epsilon : float
+        Distance threshold for "nearby".
+    modulus : float
+        Circle length (default 1.0).
+
+    Returns
+    -------
+    List[Tuple[int, float, float]]
+        List of (prime, orbit_point, distance) for each close encounter.
+    """
+    encounters = []
+    for x in orbit:
+        for p, theta in chakras.items():
+            d = circular_distance(x, theta, modulus=modulus)
+            if d < epsilon:
+                encounters.append((p, x, d))
+    return encounters
