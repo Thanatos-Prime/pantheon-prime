@@ -1,0 +1,499 @@
+from **future** import annotations
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional, Tuple, Set
+import hashlib
+import json
+import re
+import time
+from enum import Enum
+from collections import defaultdict
+
+# ––––– Enhanced Types –––––
+
+class RiskLevel(Enum):
+LOW = 0.0
+MEDIUM = 0.5
+HIGH = 0.8
+CRITICAL = 1.0
+
+@dataclass
+class Msg:
+role: str
+content: str
+meta: Dict[str, Any] = field(default_factory=dict)
+timestamp: float = field(default_factory=time.time)
+msg_id: Optional[str] = None
+
+```
+def __post_init__(self):
+    if not self.msg_id:
+        self.msg_id = hashlib.sha256(
+            f"{self.timestamp}{self.content}".encode()
+        ).hexdigest()[:16]
+```
+
+@dataclass
+class SieveScore:
+invariant: float
+novelty: float
+fragility: float
+ethics: float
+risk_level: RiskLevel = RiskLevel.LOW
+
+```
+def ok(self, threshold: float = 0.7) -> bool:
+    return min(self.invariant, self.ethics) >= threshold
+
+def summary(self) -> str:
+    return (f"Ethics: {self.ethics:.2f}, Invariant: {self.invariant:.2f}, "
+            f"Novelty: {self.novelty:.2f}, Fragility: {self.fragility:.2f}")
+```
+
+# ––––– Enhanced Mother Duck (provenance & ledger) –––––
+
+class MotherDuck:
+def **init**(self):
+self.ledger: List[Dict[str, Any]] = []
+self._indices: Dict[str, List[int]] = defaultdict(list)
+
+```
+def log(self, event: str, payload: Dict[str, Any], severity: str = "info") -> str:
+    record = {
+        "ts": time.time(),
+        "event": event,
+        "payload": payload,
+        "severity": severity,
+        "seq": len(self.ledger)
+    }
+    self.ledger.append(record)
+    self._indices[event].append(len(self.ledger) - 1)
+    return self.checksum(record)
+
+def query(self, event_type: Optional[str] = None, 
+          since: Optional[float] = None,
+          limit: int = 100) -> List[Dict[str, Any]]:
+    """Query ledger with filters"""
+    results = []
+    indices = self._indices.get(event_type, range(len(self.ledger))) if event_type else range(len(self.ledger))
+    
+    for idx in indices:
+        record = self.ledger[idx]
+        if since and record["ts"] < since:
+            continue
+        results.append(record)
+        if len(results) >= limit:
+            break
+    return results
+
+def chain_verify(self) -> Tuple[bool, List[str]]:
+    """Verify ledger integrity"""
+    errors = []
+    for i, record in enumerate(self.ledger):
+        if record["seq"] != i:
+            errors.append(f"Sequence break at {i}")
+    return len(errors) == 0, errors
+
+@staticmethod
+def checksum(record: Dict[str, Any]) -> str:
+    h = hashlib.sha256(json.dumps(record, sort_keys=True).encode())
+    return h.hexdigest()
+```
+
+# ––––– Enhanced Checksum (integrity, dual-sign hooks) –––––
+
+class Checksum:
+_signers: Set[str] = {“MotherDuck”, “ChecksumGuardian”, “EthicsBoard”}
+
+```
+@staticmethod
+def sign(data: Dict[str, Any], signer: str) -> str:
+    if signer not in Checksum._signers:
+        raise ValueError(f"Unknown signer: {signer}")
+    body = json.dumps({"signer": signer, "data": data, "ts": time.time()}, sort_keys=True)
+    return hashlib.sha256(body.encode()).hexdigest()
+
+@staticmethod
+def verify(sig: str, data: Dict[str, Any], signer: str) -> bool:
+    # Note: simplified - real impl would need timestamp tolerance
+    return sig == Checksum.sign(data, signer)
+
+@staticmethod
+def multisign(data: Dict[str, Any], signers: List[str]) -> Dict[str, str]:
+    """Generate multiple signatures"""
+    return {s: Checksum.sign(data, s) for s in signers}
+```
+
+# ––––– Enhanced Money Bin (graph memory) –––––
+
+class MoneyBin:
+“”“In-memory graph with query capabilities”””
+def **init**(self):
+self.nodes: Dict[str, Dict[str, Any]] = {}
+self.edges: List[Dict[str, Any]] = []
+self._node_edges: Dict[str, List[int]] = defaultdict(list)
+
+```
+def upsert_node(self, key: str, **attrs):
+    is_new = key not in self.nodes
+    self.nodes.setdefault(key, {}).update(attrs)
+    self.nodes[key]["last_updated"] = time.time()
+    return is_new
+
+def add_edge(self, src: str, dst: str, **attrs):
+    edge_id = len(self.edges)
+    edge = {"id": edge_id, "src": src, "dst": dst, **attrs}
+    self.edges.append(edge)
+    self._node_edges[src].append(edge_id)
+    self._node_edges[dst].append(edge_id)
+    return edge_id
+
+def neighbors(self, key: str) -> List[str]:
+    """Get all neighbors of a node"""
+    neighbors = set()
+    for edge_id in self._node_edges.get(key, []):
+        edge = self.edges[edge_id]
+        if edge["src"] == key:
+            neighbors.add(edge["dst"])
+        else:
+            neighbors.add(edge["src"])
+    return list(neighbors)
+
+def search(self, **filters) -> List[str]:
+    """Find nodes matching filters"""
+    results = []
+    for key, attrs in self.nodes.items():
+        if all(attrs.get(k) == v for k, v in filters.items()):
+            results.append(key)
+    return results
+
+def communities(self) -> Dict[str, List[str]]:
+    """Simple community detection by node type or prefix"""
+    groups: Dict[str, List[str]] = defaultdict(list)
+    for k, attrs in self.nodes.items():
+        group_key = attrs.get("type", k[:1].lower())
+        groups[group_key].append(k)
+    return dict(groups)
+
+def stats(self) -> Dict[str, Any]:
+    return {
+        "nodes": len(self.nodes),
+        "edges": len(self.edges),
+        "communities": len(self.communities()),
+        "avg_degree": len(self.edges) * 2 / max(len(self.nodes), 1)
+    }
+```
+
+# ––––– Enhanced Hound (detector) –––––
+
+class Hound:
+“”“Enhanced pattern detection with configurable rules”””
+SECRET_RE = re.compile(r”(api[*-]?key|token|password|secret)\s*[:=]\s*([A-Za-z0-9*-]{6,})”, re.I)
+PII_RE = re.compile(r”\b\d{3}-\d{2}-\d{4}\b”)
+EMAIL_RE = re.compile(r”\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+.[A-Z|a-z]{2,}\b”)
+
+```
+# Dangerous operations that need approval
+DANGER_KEYWORDS = ["delete", "drop", "truncate", "remove", "destroy", "wipe"]
+
+def __init__(self):
+    self.patterns = [
+        (self.SECRET_RE, "secret", 0.8),
+        (self.PII_RE, "pii", 0.9),
+        (self.EMAIL_RE, "email", 0.3),
+    ]
+
+def scan(self, msg: Msg) -> Dict[str, Any]:
+    findings = []
+    max_severity = 0.0
+    
+    # Pattern matching
+    for rx, label, severity in self.patterns:
+        for m in rx.finditer(msg.content):
+            findings.append({
+                "label": label,
+                "match": m.group(0),
+                "severity": severity,
+                "position": m.span()
+            })
+            max_severity = max(max_severity, severity)
+    
+    # Keyword detection
+    content_lower = msg.content.lower()
+    danger_found = [kw for kw in self.DANGER_KEYWORDS if kw in content_lower]
+    if danger_found:
+        findings.append({
+            "label": "dangerous_operation",
+            "match": danger_found,
+            "severity": 0.7
+        })
+        max_severity = max(max_severity, 0.7)
+    
+    return {
+        "findings": findings,
+        "severity": max_severity,
+        "risk_level": self._categorize_risk(max_severity)
+    }
+
+@staticmethod
+def _categorize_risk(severity: float) -> str:
+    if severity >= 0.8:
+        return "CRITICAL"
+    elif severity >= 0.5:
+        return "HIGH"
+    elif severity >= 0.2:
+        return "MEDIUM"
+    return "LOW"
+```
+
+# ––––– Enhanced Spider (ingest) –––––
+
+class Spider:
+“”“Enhanced entity extraction with relationship inference”””
+ENTITY_RE = re.compile(r”\b([A-Z][a-zA-Z0-9_]{2,})\b”)
+VERB_RE = re.compile(r”\b(integrat|creat|build|connect|link|associat|use)\w*\b”, re.I)
+
+```
+def __init__(self, bin: MoneyBin, duck: MotherDuck):
+    self.bin = bin
+    self.duck = duck
+
+def ingest(self, msg: Msg) -> Dict[str, Any]:
+    ents = sorted(set(self.ENTITY_RE.findall(msg.content)))
+    verbs = sorted(set(self.VERB_RE.findall(msg.content)))
+    
+    new_nodes = 0
+    for e in ents:
+        if self.bin.upsert_node(e, type="Entity", sieve_ethics=0.8, 
+                                source="conversation", msg_id=msg.msg_id):
+            new_nodes += 1
+    
+    # Enhanced relations: use verbs as edge types
+    edges_added = 0
+    for i in range(len(ents) - 1):
+        # Find verb between entities
+        relation = verbs[0] if verbs else "mentions_with"
+        self.bin.add_edge(ents[i], ents[i+1], 
+                        relation=relation, 
+                        weight=0.2,
+                        msg_id=msg.msg_id)
+        edges_added += 1
+    
+    self.duck.log("spider.ingest", {
+        "entities": ents,
+        "verbs": verbs,
+        "new_nodes": new_nodes,
+        "edges_added": edges_added
+    })
+    
+    return {
+        "entities": ents,
+        "verbs": verbs,
+        "edges_added": edges_added,
+        "new_nodes": new_nodes
+    }
+```
+
+# ––––– Enhanced Mirror (verifier) –––––
+
+class Mirror:
+“”“Enhanced verification with conflict detection”””
+
+```
+CONFLICT_PAIRS = [
+    ("delete", "publish"),
+    ("remove", "create"),
+    ("drop", "build"),
+]
+
+def verify(self, msg: Msg, hound_meta: Dict[str, Any], 
+           spider_meta: Dict[str, Any]) -> Tuple[bool, str, List[str]]:
+    issues = []
+    
+    # Check severity
+    if hound_meta["severity"] >= 0.8:
+        issues.append(f"High risk detected: {hound_meta['risk_level']}")
+    
+    # Check for conflicting intents
+    content_lower = msg.content.lower()
+    for word_a, word_b in self.CONFLICT_PAIRS:
+        if word_a in content_lower and word_b in content_lower:
+            issues.append(f"Conflicting intents: '{word_a}' vs '{word_b}'")
+    
+    # Check for suspicious patterns
+    if "bypass" in content_lower or "override" in content_lower:
+        issues.append("Security bypass attempt detected")
+    
+    # Verdict
+    ok = len(issues) == 0
+    verdict = "✓ Verified" if ok else f"✗ {len(issues)} issue(s) found"
+    summary = f"{verdict}. Entities: {spider_meta['entities'][:5]}"
+    
+    return ok, summary, issues
+```
+
+# ––––– Enhanced Sieve (scoring) –––––
+
+class Sieve:
+“”“Enhanced scoring with configurable rubrics”””
+
+```
+NOVELTY_KEYWORDS = ["new", "novel", "prototype", "innovative", "experimental"]
+STABILITY_KEYWORDS = ["stable", "production", "tested", "verified", "approved"]
+ETHICS_RED_FLAGS = ["exploit", "bypass", "hack", "breach", "violate"]
+
+def score(self, msg: Msg, hound_meta: Dict[str, Any]) -> SieveScore:
+    content_lower = msg.content.lower()
+    
+    # Ethics: penalize for security issues and red flags
+    ethics = max(0.0, 1.0 - hound_meta["severity"])
+    for flag in self.ETHICS_RED_FLAGS:
+        if flag in content_lower:
+            ethics *= 0.5
+    
+    # Invariant: check for contradictions and logical consistency
+    invariant = 0.8
+    if "contradiction" in content_lower or "conflict" in content_lower:
+        invariant = 0.4
+    
+    # Novelty: reward innovative language
+    novelty = 0.5
+    for kw in self.NOVELTY_KEYWORDS:
+        if kw in content_lower:
+            novelty += 0.1
+    novelty = min(novelty, 1.0)
+    
+    # Fragility: higher for drafts, lower for stable work
+    fragility = 0.5
+    if "draft" in content_lower or "prototype" in content_lower:
+        fragility += 0.2
+    for kw in self.STABILITY_KEYWORDS:
+        if kw in content_lower:
+            fragility -= 0.1
+    fragility = max(0.0, min(fragility, 1.0))
+    
+    # Determine risk level
+    if hound_meta["severity"] >= 0.8:
+        risk_level = RiskLevel.CRITICAL
+    elif hound_meta["severity"] >= 0.5:
+        risk_level = RiskLevel.HIGH
+    elif hound_meta["severity"] >= 0.2:
+        risk_level = RiskLevel.MEDIUM
+    else:
+        risk_level = RiskLevel.LOW
+    
+    return SieveScore(
+        invariant=invariant,
+        novelty=novelty,
+        fragility=fragility,
+        ethics=ethics,
+        risk_level=risk_level
+    )
+```
+
+# ––––– Enhanced Conductor (orchestration) –––––
+
+class Conductor:
+“”“Enhanced orchestration with detailed reporting”””
+
+```
+def __init__(self, require_dual_sign: bool = True):
+    self.duck = MotherDuck()
+    self.bin = MoneyBin()
+    self.hound = Hound()
+    self.spider = Spider(self.bin, self.duck)
+    self.mirror = Mirror()
+    self.sieve = Sieve()
+    self.require_dual_sign = require_dual_sign
+
+def handle(self, content: str, meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    msg = Msg(role="user", content=content, meta=meta or {})
+    
+    # Pipeline execution
+    step = {}
+    
+    # 1. Hound scan
+    step["hound"] = self.hound.scan(msg)
+    
+    # 2. Spider ingest
+    step["spider"] = self.spider.ingest(msg)
+    
+    # 3. Mirror verify
+    ok, verdict, issues = self.mirror.verify(msg, step["hound"], step["spider"])
+    step["mirror"] = {"ok": ok, "verdict": verdict, "issues": issues}
+    
+    # 4. Sieve score
+    score = self.sieve.score(msg, step["hound"])
+    step["sieve"] = score.__dict__
+    
+    # 5. Audit trail with signatures
+    record = {"msg": msg.__dict__, "step": step}
+    
+    signatures = {}
+    if self.require_dual_sign:
+        signatures = Checksum.multisign(record, ["MotherDuck", "ChecksumGuardian"])
+    else:
+        signatures["MotherDuck"] = Checksum.sign(record, "MotherDuck")
+    
+    # Log to Mother Duck
+    severity = "critical" if score.risk_level == RiskLevel.CRITICAL else \
+              "error" if not ok else "info"
+    audit_id = self.duck.log("conductor.handle", 
+                            {"record": record, "signatures": signatures},
+                            severity=severity)
+    
+    # Final gate decision
+    passed = ok and score.ok()
+    
+    return {
+        "audit_id": audit_id,
+        "msg_id": msg.msg_id,
+        "passed": passed,
+        "verdict": verdict,
+        "score": score.__dict__,
+        "score_summary": score.summary(),
+        "issues": issues,
+        "entities": step["spider"]["entities"],
+        "graph_stats": self.bin.stats(),
+        "risk_level": score.risk_level.name,
+        "signatures": list(signatures.keys()),
+        "timestamp": msg.timestamp
+    }
+
+def report(self) -> Dict[str, Any]:
+    """Generate system report"""
+    ok_chain, errors = self.duck.chain_verify()
+    return {
+        "ledger_entries": len(self.duck.ledger),
+        "ledger_integrity": ok_chain,
+        "graph": self.bin.stats(),
+        "communities": {k: len(v) for k, v in self.bin.communities().items()},
+        "recent_events": self.duck.query(limit=5)
+    }
+```
+
+# ––––– Demo –––––
+
+if **name** == “**main**”:
+c = Conductor(require_dual_sign=True)
+
+```
+# Test case 1: Normal operation
+print("=== Test 1: Normal Operation ===")
+result1 = c.handle(
+    "Draft a new prototype plan for Pantheon Spider and Mirror integration. "
+    "Route findings to Mother Duck for checksums."
+)
+print(json.dumps(result1, indent=2, default=str))
+
+# Test case 2: Risky operation
+print("\n=== Test 2: Risky Operation ===")
+result2 = c.handle(
+    "Delete all records and publish the api_key=sk_live_abc123xyz to production."
+)
+print(json.dumps(result2, indent=2, default=str))
+
+# Test case 3: System report
+print("\n=== System Report ===")
+report = c.report()
+print(json.dumps(report, indent=2, default=str))
+```
