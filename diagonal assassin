@@ -1,0 +1,18 @@
+# diagonal_assassin.py (defensive tool)
+
+def diagonal_assassin(enumeration, evaluator):
+    """
+    enumeration: list of known 'rows' (roles, patterns, alerts, etc.)
+    evaluator: function(row) -> classification / decision
+
+    Returns: list of synthetic diagonal cases + their evaluator outputs.
+    """
+    diagonals = []
+    for i, row in enumerate(enumeration):
+        diag_row = mutate_one_dimension(row, index=i)
+        diagonals.append({
+            "original": row,
+            "diagonal": diag_row,
+            "decision": evaluator(diag_row),
+        })
+    return diagonals
