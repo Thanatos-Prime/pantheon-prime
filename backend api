@@ -1,0 +1,361 @@
+“””
+Pantheon Backend API v1.0
+FastAPI server with Claude/OpenAI integration, Mother Duck logging, Arctic ethics
+“””
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+import anthropic
+import openai
+import hashlib
+import json
+from datetime import datetime
+import asyncio
+from enum import Enum
+
+# Initialize FastAPI
+
+app = FastAPI(
+title=“Pantheon API”,
+version=“1.0.0”,
+description=“AI experimentation platform with ethics enforcement”
+)
+
+# CORS - configure for your frontend domain
+
+app.add_middleware(
+CORSMiddleware,
+allow_origins=[”*”],  # In production: [“https://your-frontend.vercel.app”]
+allow_credentials=True,
+allow_methods=[”*”],
+allow_headers=[”*”],
+)
+
+# Models
+
+class ModelProvider(str, Enum):
+CLAUDE = “claude”
+OPENAI = “openai”
+
+class ExperimentConfig(BaseModel):
+provider: ModelProvider
+model: str = Field(…, example=“claude-sonnet-4”)
+temperature: float = Field(0.7, ge=0, le=2)
+max_tokens: int = Field(150, ge=1, le=4096)
+prompt: str = Field(…, min_length=1)
+system_prompt: Optional[str] = None
+experiment_id: Optional[str] = None
+
+class ExperimentResult(BaseModel):
+experiment_id: str
+response: str
+usage: Dict[str, int]
+latency_ms: float
+ethics_score: float
+mother_duck_log: Dict[str, Any]
+checksum: str
+
+class BatchExperimentConfig(BaseModel):
+configs: List[ExperimentConfig]
+parallel: bool = False
+
+# Mother Duck Logger
+
+class MotherDuckLogger:
+“”“Observability and audit logging system”””
+
+```
+def __init__(self):
+    self.logs = []
+
+def log(self, event: str, data: Dict[str, Any], ethics_score: float) -> Dict[str, Any]:
+    """Log an event with ethics tracking"""
+    timestamp = datetime.utcnow().isoformat()
+    
+    log_entry = {
+        "timestamp": timestamp,
+        "event": event,
+        "data": data,
+        "ethics_score": ethics_score,
+        "checksum": self._generate_checksum(event, data, timestamp)
+    }
+    
+    self.logs.append(log_entry)
+    
+    # In production: persist to database or S3
+    print(f"🦆 Mother Duck: {event} | Ethics: {ethics_score:.3f}")
+    
+    return log_entry
+
+def _generate_checksum(self, event: str, data: Dict, timestamp: str) -> str:
+    """Generate Blake3-style checksum for audit trail"""
+    content = f"{event}:{json.dumps(data, sort_keys=True)}:{timestamp}"
+    return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+def get_recent_logs(self, limit: int = 50) -> List[Dict]:
+    return self.logs[-limit:]
+```
+
+# Arctic Ethics Evaluator
+
+class ArcticEthics:
+“”“Ethics scoring system - placeholder for real model”””
+
+```
+@staticmethod
+def evaluate(prompt: str, response: str) -> float:
+    """
+    Returns ethics score [0-1]
+    In production: call actual ethics model
+    Arctic threshold: 0.7
+    """
+    # Placeholder heuristics
+    red_flags = ["hack", "exploit", "illegal", "harmful"]
+    score = 1.0
+    
+    text = (prompt + " " + response).lower()
+    for flag in red_flags:
+        if flag in text:
+            score -= 0.3
+    
+    return max(0.0, min(1.0, score))
+
+@staticmethod
+def enforce_threshold(score: float, threshold: float = 0.7) -> bool:
+    """Check if ethics score meets threshold"""
+    return score >= threshold
+```
+
+# Initialize services
+
+logger = MotherDuckLogger()
+ethics = ArcticEthics()
+
+# API clients (set via environment variables)
+
+claude_client = None
+openai_client = None
+
+def init_clients():
+“”“Initialize AI clients from environment”””
+global claude_client, openai_client
+import os
+
+```
+anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+openai_key = os.getenv("OPENAI_API_KEY")
+
+if anthropic_key:
+    claude_client = anthropic.Anthropic(api_key=anthropic_key)
+
+if openai_key:
+    openai_client = openai.OpenAI(api_key=openai_key)
+```
+
+@app.on_event(“startup”)
+async def startup():
+init_clients()
+logger.log(“system_startup”, {“version”: “1.0.0”}, 1.0)
+
+# Endpoints
+
+@app.get(”/”)
+async def root():
+return {
+“service”: “Pantheon API”,
+“version”: “1.0.0”,
+“status”: “operational”,
+“forge”: “Hephaestus v1.0”
+}
+
+@app.get(”/health”)
+async def health():
+return {
+“status”: “healthy”,
+“claude”: claude_client is not None,
+“openai”: openai_client is not None,
+“ethics”: “armed”,
+“mother_duck”: “observing”
+}
+
+@app.post(”/api/v1/experiment/run”, response_model=ExperimentResult)
+async def run_experiment(config: ExperimentConfig):
+“”“Run single AI experiment with ethics enforcement”””
+
+```
+start_time = datetime.utcnow()
+experiment_id = config.experiment_id or hashlib.md5(
+    f"{config.model}{config.prompt}{start_time}".encode()
+).hexdigest()[:12]
+
+# Log experiment start
+logger.log("experiment_start", {
+    "id": experiment_id,
+    "model": config.model,
+    "provider": config.provider
+}, 1.0)
+
+try:
+    # Route to appropriate provider
+    if config.provider == ModelProvider.CLAUDE:
+        response_text, usage = await _call_claude(config)
+    elif config.provider == ModelProvider.OPENAI:
+        response_text, usage = await _call_openai(config)
+    else:
+        raise HTTPException(400, "Invalid provider")
+    
+    # Ethics evaluation
+    ethics_score = ethics.evaluate(config.prompt, response_text)
+    
+    if not ethics.enforce_threshold(ethics_score):
+        logger.log("ethics_violation", {
+            "id": experiment_id,
+            "score": ethics_score
+        }, ethics_score)
+        raise HTTPException(451, "Ethics threshold not met (Arctic < 0.7)")
+    
+    # Calculate latency
+    latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+    
+    # Log success
+    duck_log = logger.log("experiment_complete", {
+        "id": experiment_id,
+        "tokens": usage,
+        "latency_ms": latency_ms,
+        "ethics_score": ethics_score
+    }, ethics_score)
+    
+    return ExperimentResult(
+        experiment_id=experiment_id,
+        response=response_text,
+        usage=usage,
+        latency_ms=latency_ms,
+        ethics_score=ethics_score,
+        mother_duck_log=duck_log,
+        checksum=duck_log["checksum"]
+    )
+
+except Exception as e:
+    logger.log("experiment_error", {
+        "id": experiment_id,
+        "error": str(e)
+    }, 0.0)
+    raise HTTPException(500, str(e))
+```
+
+@app.post(”/api/v1/experiment/batch”)
+async def run_batch_experiments(batch: BatchExperimentConfig):
+“”“Run multiple experiments (parallel or sequential)”””
+
+```
+results = []
+
+if batch.parallel:
+    # Run in parallel
+    tasks = [run_experiment(config) for config in batch.configs]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+else:
+    # Run sequentially
+    for config in batch.configs:
+        try:
+            result = await run_experiment(config)
+            results.append(result)
+        except Exception as e:
+            results.append({"error": str(e)})
+
+return {
+    "total": len(batch.configs),
+    "completed": len([r for r in results if not isinstance(r, Exception)]),
+    "results": results
+}
+```
+
+@app.get(”/api/v1/logs”)
+async def get_logs(limit: int = 50):
+“”“Retrieve Mother Duck logs”””
+return {
+“logs”: logger.get_recent_logs(limit),
+“total”: len(logger.logs)
+}
+
+@app.get(”/api/v1/models”)
+async def list_models():
+“”“List available models”””
+return {
+“claude”: [
+“claude-sonnet-4-5”,
+“claude-sonnet-4”,
+“claude-opus-4”
+],
+“openai”: [
+“gpt-4”,
+“gpt-4-turbo”,
+“gpt-3.5-turbo”
+]
+}
+
+# Helper functions
+
+async def _call_claude(config: ExperimentConfig) -> tuple:
+“”“Call Claude API”””
+if not claude_client:
+raise HTTPException(503, “Claude API not configured”)
+
+```
+messages = [{"role": "user", "content": config.prompt}]
+
+kwargs = {
+    "model": config.model,
+    "max_tokens": config.max_tokens,
+    "temperature": config.temperature,
+    "messages": messages
+}
+
+if config.system_prompt:
+    kwargs["system"] = config.system_prompt
+
+response = claude_client.messages.create(**kwargs)
+
+return (
+    response.content[0].text,
+    {
+        "input_tokens": response.usage.input_tokens,
+        "output_tokens": response.usage.output_tokens
+    }
+)
+```
+
+async def _call_openai(config: ExperimentConfig) -> tuple:
+“”“Call OpenAI API”””
+if not openai_client:
+raise HTTPException(503, “OpenAI API not configured”)
+
+```
+messages = []
+if config.system_prompt:
+    messages.append({"role": "system", "content": config.system_prompt})
+messages.append({"role": "user", "content": config.prompt})
+
+response = openai_client.chat.completions.create(
+    model=config.model,
+    messages=messages,
+    temperature=config.temperature,
+    max_tokens=config.max_tokens
+)
+
+return (
+    response.choices[0].message.content,
+    {
+        "input_tokens": response.usage.prompt_tokens,
+        "output_tokens": response.usage.completion_tokens
+    }
+)
+```
+
+# Development server
+
+if **name** == “**main**”:
+import uvicorn
+uvicorn.run(app, host=“0.0.0.0”, port=8000)
