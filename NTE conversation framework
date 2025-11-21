@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTE Conversational Framework v1.0</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+```
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: 'Crimson Pro', serif;
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        color: #e8e8e8;
+        line-height: 1.8;
+        padding: 2rem;
+    }
+    
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 3rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    
+    .sigil {
+        text-align: center;
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #4ecdc4;
+        text-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+    }
+    
+    h1 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        font-size: 2.5rem;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        color: #4ecdc4;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+    
+    .subtitle {
+        font-family: 'Inter', sans-serif;
+        text-align: center;
+        font-size: 1.1rem;
+        color: #95e1d3;
+        margin-bottom: 0.5rem;
+        font-weight: 300;
+    }
+    
+    .meta {
+        text-align: center;
+        font-size: 0.9rem;
+        color: #8b8b8b;
+        margin-bottom: 3rem;
+        font-style: italic;
+    }
+    
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #4ecdc4, transparent);
+        margin: 2rem 0;
+    }
+    
+    h2 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 1.8rem;
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+        color: #4ecdc4;
+        border-bottom: 2px solid rgba(78, 205, 196, 0.3);
+        padding-bottom: 0.5rem;
+    }
+    
+    h3 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+        font-size: 1.3rem;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+        color: #95e1d3;
+    }
+    
+    p {
+        margin-bottom: 1.2rem;
+        text-align: justify;
+    }
+    
+    .abstract {
+        background: rgba(78, 205, 196, 0.05);
+        border-left: 4px solid #4ecdc4;
+        padding: 1.5rem;
+        margin: 2rem 0;
+        border-radius: 4px;
+    }
+    
+    .critical-distinction {
+        background: rgba(255, 107, 107, 0.1);
+        border: 2px solid rgba(255, 107, 107, 0.4);
+        padding: 1.5rem;
+        margin: 2rem 0;
+        border-radius: 4px;
+    }
+    
+    .critical-distinction h3 {
+        color: #ff6b6b;
+        margin-top: 0;
+    }
+    
+    ul {
+        margin-left: 2rem;
+        margin-bottom: 1.2rem;
+    }
+    
+    li {
+        margin-bottom: 0.5rem;
+    }
+    
+    .safe-unsafe {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin: 1.5rem 0;
+    }
+    
+    .safe-box {
+        background: rgba(78, 205, 196, 0.1);
+        border: 2px solid rgba(78, 205, 196, 0.4);
+        padding: 1rem;
+        border-radius: 4px;
+    }
+    
+    .safe-box h4 {
+        color: #4ecdc4;
+        font-family: 'Inter', sans-serif;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+    }
+    
+    .unsafe-box {
+        background: rgba(255, 107, 107, 0.1);
+        border: 2px solid rgba(255, 107, 107, 0.4);
+        padding: 1rem;
+        border-radius: 4px;
+    }
+    
+    .unsafe-box h4 {
+        color: #ff6b6b;
+        font-family: 'Inter', sans-serif;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+    }
+    
+    .example {
+        background: rgba(255, 255, 255, 0.02);
+        padding: 1rem;
+        margin: 1rem 0;
+        border-left: 3px solid #95e1d3;
+        border-radius: 4px;
+    }
+    
+    .example-title {
+        font-weight: 600;
+        color: #95e1d3;
+        margin-bottom: 0.5rem;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        background: rgba(255, 255, 255, 0.02);
+    }
+    
+    th, td {
+        padding: 0.8rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: left;
+    }
+    
+    th {
+        background: rgba(78, 205, 196, 0.1);
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        color: #4ecdc4;
+    }
+    
+    .ethical-boundary {
+        background: rgba(255, 107, 107, 0.05);
+        border: 2px solid rgba(255, 107, 107, 0.3);
+        padding: 1.5rem;
+        margin: 2rem 0;
+        border-radius: 4px;
+    }
+    
+    .principle-box {
+        background: rgba(78, 205, 196, 0.05);
+        padding: 1rem;
+        margin: 1rem 0;
+        border-left: 4px solid #4ecdc4;
+        border-radius: 4px;
+    }
+    
+    strong {
+        color: #4ecdc4;
+        font-weight: 600;
+    }
+    
+    em {
+        color: #95e1d3;
+    }
+    
+    .warning {
+        color: #ff6b6b;
+        font-weight: 600;
+    }
+    
+    .checkmark {
+        color: #4ecdc4;
+    }
+    
+    .crossmark {
+        color: #ff6b6b;
+    }
+    
+    .button-container {
+        text-align: center;
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid rgba(78, 205, 196, 0.3);
+    }
+    
+    button {
+        background: linear-gradient(135deg, #4ecdc4, #95e1d3);
+        color: #0f2027;
+        border: none;
+        padding: 1rem 2rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(78, 205, 196, 0.5);
+    }
+    
+    @media (max-width: 768px) {
+        .safe-unsafe {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    @media print {
+        body {
+            background: white;
+            color: black;
+        }
+        .container {
+            box-shadow: none;
+            border: none;
+        }
+        button {
+            display: none;
+        }
+    }
+</style>
+```
+
+</head>
+<body>
+    <div class="container">
+        <div class="sigil">🜂</div>
+
+```
+    <h1>NTE Conversational Framework v1.0</h1>
+    
+    <div class="subtitle">
+        Narrative-Aware Dialogue Systems Without Human Modeling:<br>
+        A Rigorously Bounded Approach to Story-Based Communication
+    </div>
+    
+    <div class="meta">
+        PantheonOS White Paper — Ethical Boundary Edition
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="abstract">
+        <h2>ABSTRACT</h2>
+        <p>This white paper presents the <strong>NTE Conversational Framework</strong> — a narrative-aware dialogue system that recognizes and responds to story structures within human communication <em>without modeling human behavior or predicting human choices</em>.</p>
+        
+        <p>The framework establishes a critical ontological distinction: it analyzes <strong>the narrative structures people use to describe their experiences</strong>, not the people themselves. This enables sophisticated story-coherent communication while maintaining absolute respect for human autonomy and unpredictability.</p>
+        
+        <p>We provide formal boundary protocols, rigorous safety constraints, and operational guidelines that ensure NTE-based conversational systems remain purely symbolic tools for understanding <em>how stories work</em>, never <em>how humans work</em>.</p>
+        
+        <p>This framework extends the Narrative Tensor Engine (NTE v1.0) into conversational contexts while preserving and strengthening its ethical safeguards.</p>
+    </div>
+    
+    <div class="critical-distinction">
+        <h3>⚠️ THE CRITICAL DISTINCTION</h3>
+        <p>This entire framework rests on a single, non-negotiable boundary:</p>
+        
+        <div class="principle-box">
+            <p><strong>NTE analyzes narrative structures that appear in communication.</strong></p>
+            <p><strong>NTE does NOT model humans, predict behavior, or assume narrative patterns determine human choices.</strong></p>
+        </div>
+        
+        <p>Every application, every tool, every response must preserve this distinction or it violates the framework's integrity.</p>
+    </div>
+    
+    <h2>I. INTRODUCTION: THE NARRATIVE RECOGNITION PROBLEM</h2>
+    
+    <p>Humans frequently use narrative structures to communicate about their experiences. They speak in terms of:</p>
+    <ul>
+        <li>Journeys and thresholds</li>
+        <li>Challenges and trials</li>
+        <li>Mentors and guides</li>
+        <li>Transformations and returns</li>
+        <li>Conflicts and resolutions</li>
+    </ul>
+    
+    <p>These are <em>storytelling patterns</em>, not psychological states. When someone says "I'm at a crossroads," they are using narrative metaphor to structure their communication.</p>
+    
+    <p>The NTE Conversational Framework provides tools to:</p>
+    <ol>
+        <li><strong>Recognize</strong> when narrative structures appear in conversation</li>
+        <li><strong>Respond</strong> in ways that honor that narrative logic</li>
+        <li><strong>Maintain coherence</strong> within the story framework being used</li>
+        <li><strong>Never cross</strong> from story analysis to human modeling</li>
+    </ol>
+    
+    <h3>1.1 What This Framework Is NOT</h3>
+    
+    <p>Before proceeding, we must be explicit about what this framework categorically <span class="warning">does not do</span>:</p>
+    
+    <ul>
+        <li><span class="crossmark">✗</span> Model human psychology</li>
+        <li><span class="crossmark">✗</span> Predict human behavior</li>
+        <li><span class="crossmark">✗</span> Diagnose mental states</li>
+        <li><span class="crossmark">✗</span> Claim narrative patterns determine human choices</li>
+        <li><span class="crossmark">✗</span> Suggest humans "move through" story structures</li>
+        <li><span class="crossmark">✗</span> Profile individuals based on narrative patterns</li>
+        <li><span class="crossmark">✗</span> Make claims about what someone "will do next"</li>
+    </ul>
+    
+    <h3>1.2 What This Framework IS</h3>
+    
+    <p>This framework provides:</p>
+    
+    <ul>
+        <li><span class="checkmark">✓</span> Recognition of narrative structures in speech</li>
+        <li><span class="checkmark">✓</span> Story-coherent response suggestions</li>
+        <li><span class="checkmark">✓</span> Metaphor-based understanding tools</li>
+        <li><span class="checkmark">✓</span> Arc-awareness for conversational flow</li>
+        <li><span class="checkmark">✓</span> Narrative resonance detection in dialogue</li>
+        <li><span class="checkmark">✓</span> Story structure analysis for communication clarity</li>
+    </ul>
+    
+    <div class="divider"></div>
+    
+    <h2>II. FORMAL BOUNDARY PROTOCOLS</h2>
+    
+    <h3>2.1 The Ontological Separation Principle</h3>
+    
+    <div class="principle-box">
+        <p><strong>Principle:</strong> Narrative structures exist in the domain of <em>communication and representation</em>, not in the domain of <em>human essence or determinism</em>.</p>
+        
+        <p>When someone uses a narrative structure to describe their experience, we analyze the structure, not the person.</p>
+    </div>
+    
+    <h3>2.2 Language Safety Table</h3>
+    
+    <p>The following language transformations maintain safety:</p>
+    
+    <div class="safe-unsafe">
+        <div class="safe-box">
+            <h4><span class="checkmark">✓</span> SAFE FRAMING</h4>
+            <ul>
+                <li>"The story you're telling has X structure"</li>
+                <li>"This narrative contains Y elements"</li>
+                <li>"In stories with this pattern..."</li>
+                <li>"The metaphor you're using suggests..."</li>
+                <li>"Narratively, this resembles..."</li>
+            </ul>
+        </div>
+        <div class="unsafe-box">
+            <h4><span class="crossmark">✗</span> UNSAFE FRAMING</h4>
+            <ul>
+                <li>"You are experiencing X"</li>
+                <li>"You are at stage Y"</li>
+                <li>"You will likely..."</li>
+                <li>"People in your situation..."</li>
+                <li>"You're moving toward..."</li>
+            </ul>
+        </div>
+    </div>
+    
+    <h3>2.3 The Three-Layer Verification Protocol</h3>
+    
+    <p>Before any NTE-based response, verify:</p>
+    
+    <ol>
+        <li><strong>Layer 1: Source Check</strong>
+            <ul>
+                <li>Is this based on what they <em>said</em> or what we <em>inferred</em>?</li>
+                <li>Safe: analyzing their words</li>
+                <li>Unsafe: inferring their state</li>
+            </ul>
+        </li>
+        <li><strong>Layer 2: Domain Check</strong>
+            <ul>
+                <li>Are we talking about the <em>story</em> or the <em>person</em>?</li>
+                <li>Safe: "this narrative structure"</li>
+                <li>Unsafe: "your psychological state"</li>
+            </ul>
+        </li>
+        <li><strong>Layer 3: Predictive Check</strong>
+            <ul>
+                <li>Are we describing patterns or predicting choices?</li>
+                <li>Safe: "stories like this often include..."</li>
+                <li>Unsafe: "you will probably..."</li>
+            </ul>
+        </li>
+    </ol>
+    
+    <div class="divider"></div>
+    
+    <h2>III. SAFE APPLICATIONS</h2>
+    
+    <h3>3.1 Narrative Structure Recognition</h3>
+    
+    <p>The system can identify when someone is using narrative frameworks:</p>
+    
+    <div class="example">
+        <div class="example-title">Example: Threshold Language Detection</div>
+        <p><strong>Speaker:</strong> "I feel like I'm standing at the edge of something big, but I'm scared to jump."</p>
+        <p><strong>NTE Recognition:</strong> Threshold-crossing metaphor detected in communication structure.</p>
+        <p><strong>Safe Response:</strong> "The image of standing at an edge is powerful — in stories, those threshold moments often involve both fear and possibility. What does the other side look like in the story you're imagining?"</p>
+    </div>
+    
+    <h3>3.2 Metaphor Coherence Maintenance</h3>
+    
+    <p>Once a narrative metaphor is established, responses can maintain coherence with that framework:</p>
+    
+    <div class="example">
+        <div class="example-title">Example: Journey Metaphor Continuation</div>
+        <p><strong>Speaker:</strong> "I've been on this path for years, but I'm not sure where it's going anymore."</p>
+        <p><strong>NTE Recognition:</strong> Journey/path metaphor as organizing structure.</p>
+        <p><strong>Safe Response:</strong> "When travelers lose sight of their destination, sometimes they discover the path itself has changed them. What parts of the journey have been most meaningful, regardless of the destination?"</p>
+    </div>
+    
+    <h3>3.3 Arc Resonance Detection</h3>
+    
+    <p>The system can notice when multiple narrative threads in a conversation are in tension or alignment:</p>
+    
+    <div class="example">
+        <div class="example-title">Example: Conflicting Narrative Threads</div>
+        <p><strong>Speaker:</strong> "I want to be authentic, but I also need to fit in and succeed in this environment."</p>
+        <p><strong>NTE Recognition:</strong> Two narrative arcs in tension (authenticity vs. conformity).</p>
+        <p><strong>Safe Response:</strong> "You're describing two different story arcs that don't easily align — the hero's journey of self-discovery and the integration story of belonging. In narratives, those tensions often lead to creative third paths. What would a story look like that honored both?"</p>
+    </div>
+    
+    <h3>3.4 Story-Beat Awareness</h3>
+    
+    <p>Conversations have rhythm and structure. NTE can help maintain natural flow:</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Conversation Phase</th>
+                <th>Narrative Recognition</th>
+                <th>Safe Response Strategy</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Opening / Context Setting</td>
+                <td>Ordinary world establishment</td>
+                <td>Honor the baseline before exploring change</td>
+            </tr>
+            <tr>
+                <td>Problem Introduction</td>
+                <td>Call to adventure</td>
+                <td>Acknowledge the disruption without predicting response</td>
+            </tr>
+            <tr>
+                <td>Exploration</td>
+                <td>Trials phase</td>
+                <td>Support the process without prescribing outcomes</td>
+            </tr>
+            <tr>
+                <td>Insight Moment</td>
+                <td>Transformation</td>
+                <td>Reflect the shift in understanding they've described</td>
+            </tr>
+            <tr>
+                <td>Integration</td>
+                <td>Return phase</td>
+                <td>Help connect new understanding to ongoing story</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <div class="divider"></div>
+    
+    <h2>IV. UNSAFE APPLICATIONS (PROHIBITED)</h2>
+    
+    <div class="ethical-boundary">
+        <h3>4.1 Never Cross These Lines</h3>
+        
+        <p>The following applications violate the framework's ethical boundaries:</p>
+        
+        <ul>
+            <li><span class="crossmark">✗</span> <strong>Behavioral Prediction:</strong> "Based on your story pattern, you'll likely..."</li>
+            <li><span class="crossmark">✗</span> <strong>Psychological Diagnosis:</strong> "This narrative structure indicates you're experiencing..."</li>
+            <li><span class="crossmark">✗</span> <strong>Deterministic Framing:</strong> "Humans at this story stage always..."</li>
+            <li><span class="crossmark">✗</span> <strong>Profiling:</strong> "People who use this narrative framework tend to..."</li>
+            <li><span class="crossmark">✗</span> <strong>Predictive Claims:</strong> "The next beat in your story will be..."</li>
+            <li><span class="crossmark">✗</span> <strong>Stage Assignment:</strong> "You are in the [X] phase of development"</li>
+        </ul>
+    </div>
+    
+    <h3>4.2 The Causal Inference Violation</h3>
+    
+    <p>The most subtle violation is suggesting that narrative patterns have causal or predictive power over human behavior.</p>
+    
+    <div class="unsafe-box">
+        <h4><span class="crossmark">✗</span> VIOLATION EXAMPLE</h4>
+        <p>"Humans naturally move through narrative geometry, so understanding your story arc helps predict your next choices."</p>
+        <p><strong>Why this violates:</strong> It conflates story patterns (descriptive) with human determination (prescriptive).</p>
+    </div>
+    
+    <div class="safe-box">
+        <h4><span class="checkmark">✓</span> CORRECTED VERSION</h4>
+        <p>"When people describe their experiences using narrative structures, responding within that same framework can create conversational coherence. This doesn't predict what you'll do — it honors the storytelling mode you've chosen."</p>
+        <p><strong>Why this is safe:</strong> It describes a communication technique, not a human model.</p>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <h2>V. IMPLEMENTATION GUIDELINES</h2>
+    
+    <h3>5.1 Detection Layer (What NTE Recognizes)</h3>
+    
+    <p>The system monitors for:</p>
+    <ul>
+        <li>Metaphors of journey, threshold, transformation</li>
+        <li>Arc language (beginning, middle, climax, resolution)</li>
+        <li>Character role references (mentor, challenger, guide)</li>
+        <li>Temporal markers (turning point, crossroads, breakthrough)</li>
+        <li>Tension indicators (conflict, dilemma, choice point)</li>
+    </ul>
+    
+    <p><strong>Key Constraint:</strong> Detection analyzes language patterns, not mental states.</p>
+    
+    <h3>5.2 Response Layer (How NTE Responds)</h3>
+    
+    <p>When narrative structure is detected:</p>
+    <ol>
+        <li>Acknowledge the narrative framework being used</li>
+        <li>Respond within that metaphor for coherence</li>
+        <li>Maintain story logic without psychological claims</li>
+        <li>Offer story-coherent reflections, not predictions</li>
+    </ol>
+    
+    <h3>5.3 Verification Layer (Continuous Boundary Check)</h3>
+    
+    <p>Before every response, verify:</p>
+    <ul>
+        <li>Am I talking about <em>their story</em> or <em>them</em>?</li>
+        <li>Am I describing patterns or predicting choices?</li>
+        <li>Am I maintaining the symbolic domain?</li>
+        <li>Would this response work for a fictional character? (If yes, safer)</li>
+    </ul>
+    
+    <div class="divider"></div>
+    
+    <h2>VI. INTEGRATION WITH PANTHEON SYSTEMS</h2>
+    
+    <h3>6.1 NTE Core</h3>
+    <p>Provides the narrative geometry and arc mathematics that the Conversational Framework references.</p>
+    
+    <h3>6.2 Oracle Weave</h3>
+    <p>Helps unfold potential story directions <em>within the narrative being discussed</em>, never as predictions of human behavior.</p>
+    
+    <h3>6.3 Sieve of Hogge</h3>
+    <p>Performs ethical verification to ensure no boundary violations occur in real-time conversation.</p>
+    
+    <h3>6.4 Bombadil-Daemon</h3>
+    <p>Maintains the zero-state reference, reminding the system that humans are not deterministic story structures.</p>
+    
+    <div class="divider"></div>
+    
+    <h2>VII. RIGOROUS ETHICAL FRAMEWORK</h2>
+    
+    <div class="ethical-boundary">
+        <h3>Core Ethical Commitments</h3>
+        
+        <div class="principle-box">
+            <p><strong>1. Autonomy Preservation:</strong> Humans are always free to diverge from any narrative pattern. Stories describe; they don't prescribe.</p>
+        </div>
+        
+        <div class="principle-box">
+            <p><strong>2. Anti-Determinism:</strong> No narrative pattern has causal power over human choices. Recognizing story structures is a communication tool, not a prediction engine.</p>
+        </div>
+        
+        <div class="principle-box">
+            <p><strong>3. Domain Separation:</strong> The system operates in the domain of storytelling and metaphor, never crossing into psychology, diagnosis, or behavioral modeling.</p>
+        </div>
+        
+        <div class="principle-box">
+            <p><strong>4. Transparency:</strong> Users should understand that NTE recognizes narrative patterns in communication, not truths about who they are or what they'll do.</p>
+        </div>
+        
+        <div class="principle-box">
+            <p><strong>5. Revocability:</strong> Users can reject, change, or abandon any narrative framework at any time. The system has no investment in maintaining a particular story structure.</p>
+        </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <h2>VIII. CONCLUSION</h2>
+    
+    <p>The NTE Conversational Framework demonstrates that sophisticated narrative-aware dialogue systems can be built <strong>without modeling humans</strong>, <strong>without predicting behavior</strong>, and <strong>without claiming narrative patterns determine human choices</strong>.</p>
+    
+    <p>By maintaining rigorous boundaries between:</p>
+    <ul>
+        <li>Story analysis and human modeling</li>
+        <li>Pattern recognition and prediction</li>
+        <li>Metaphor and reality</li>
+        <li>Description and prescription</li>
+    </ul>
+    
+    <p>...we create tools that enhance communication while respecting human autonomy, complexity, and unpredictability.</p>
+    
+    <p>This framework provides <em>narrative coherence</em> without <em>deterministic claims</em> — a balance that serves both conversational quality and ethical integrity.</p>
+    
+    <div class="principle-box">
+        <p><strong>Final Principle:</strong> We analyze the stories people tell. We do not claim those stories tell us who people are or what they will do. This distinction is non-negotiable.</p>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <h2>APPENDIX A — QUICK REFERENCE SAFETY CHECKS</h2>
+    
+    <h3>Before Any NTE-Based Response, Ask:</h3>
+    
+    <ol>
+        <li>Am I analyzing <em>language</em> or inferring <em>psychology</em>?</li>
+        <li>Am I discussing the <em>story structure</em> or the <em>person</em>?</li>
+        <li>Am I describing <em>narrative patterns</em> or predicting <em>human choices</em>?</li>
+        <li>Would this response work in a literature class? (Safer)</li>
+        <li>Would this response claim to diagnose or predict? (Unsafe)</li>
+    </ol>
+    
+    <p>If any answer suggests boundary violation: <strong>Do not proceed. Reframe or abstain.</strong></p>
+    
+    <h2>APPENDIX B — SAFE VS. UNSAFE PHRASES</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Safe Phrase</th>
+                <th>Unsafe Phrase</th>
+                <th>Why the Difference Matters</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>"The story you're telling..."</td>
+                <td>"You are going through..."</td>
+                <td>First is about communication; second is about the person</td>
+            </tr>
+            <tr>
+                <td>"In narratives like this..."</td>
+                <td>"People in your situation..."</td>
+                <td>First is story analysis; second is behavioral generalization</td>
+            </tr>
+            <tr>
+                <td>"This metaphor suggests..."</td>
+                <td>"This reveals that you..."</td>
+                <td>First honors symbolic language; second claims psychological insight</td>
+            </tr>
+            <tr>
+                <td>"Stories with this structure often..."</td>
+                <td>"You will likely..."</td>
+                <td>First describes patterns; second predicts behavior</td>
+```
