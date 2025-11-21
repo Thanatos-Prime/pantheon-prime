@@ -1,0 +1,335 @@
+# PANTHEON DROP-IN PACK v1.0
+
+**Complete, Self-Contained Reference for Provenance & Royalties**  
+Copy any section as needed. Fits small context windows.
+
+-----
+
+## 0) PANTHEON MAGNA CHARTER (Core)
+
+**TITLE**: Pantheon Magna Charter — Founding Compact for Provenance & Royalties
+
+**PREAMBLE**:  
+We, the Contributors of the Pantheon, establish a binding compact to: (1) cryptographically prove authorship (VRPH), (2) preserve attribution, and (3) route transparent royalties via the Trustee. Licensees may use Covered Assets only with intact provenance and reporting.
+
+**Definitions**:
+
+- Covered Assets = files listed by SHA256 + VRPH
+- Trustee = entity receiving/redistributing royalties (multisig)
+- Royalty Pool = funds paid by Licensees per executed licenses
+
+**SIGNLINE** (per signer):
+
+```
+name: <alias or legal>
+pubkey: ed25519:<base58>
+sig: ed25519:<base64>
+ts: <ISO8601>
+```
+
+🧭 **REM**: Keep it short; full license terms live in Annex 1. Always attach VRPH.
+
+-----
+
+## 1) VRPH — Visual Rumor Provenance Header
+
+**Minimal JSON Template**:
+
+```json
+{
+  "vrph": "1.0",
+  "asset": "<filename.ext>",
+  "sha256": "sha256:<hex>",
+  "created_at": "<ISO8601>",
+  "creator": {
+    "name": "Pantheon",
+    "pubkey": "ed25519:<base58>",
+    "contact": "<email>"
+  },
+  "origin": {
+    "type": "synthetic|captured|mixed",
+    "model": "<tool-or-camera>",
+    "prompt_hash": "sha256:<hex-or-null>"
+  },
+  "pipeline": [
+    {
+      "step": "<e.g., render|edit>",
+      "tool": "<tool>",
+      "ts": "<ISO8601>"
+    }
+  ],
+  "license": "CC-BY-4.0",
+  "constraints": "Derivatives commercial use requires license.",
+  "proof": {
+    "sig": "ed25519:<base64>",
+    "signed_at": "<ISO8601>"
+  },
+  "payout": {
+    "royalty_ref": "LIC-2025-001",
+    "recipient": "<Trustee LLC>",
+    "invoice_url": "https://<short>/LIC-2025-001"
+  }
+}
+```
+
+🧭 **REM**: Store asset + asset.vrph.json side-by-side and at a public shortlink.
+
+-----
+
+## 2) LICENSE & ROYALTY (One-Screen Template)
+
+**Ultra-Short License**:
+
+```
+Licensor: <you or entity>
+Licensee: <payer>
+Trustee: <LLC/trust>
+Scope: non-exclusive use of Covered Assets (Exhibit A: sha256 + VRPH links)
+Royalty: <X% of net> OR <$ per unit>, monthly, 30-day pay
+Reporting: monthly CSV + signed checksum; audit 1x/yr
+Provenance: VRPH must remain intact; removal = breach
+Law: <state/country>, Mediation→Arbitration
+Assignment: royalties may be assigned to Trustee; Licensee must honor on written notice
+```
+
+🧭 **REM**: Keep full legal doc offline; this is the on-message “stub” for small windows.
+
+-----
+
+## 3) CHARTER & VRPH SIGNING — Python Code
+
+**Requirements**: `pip install pynacl`
+
+### charter_sign.py
+
+```python
+# Sign a SHA256 string of the charter
+from nacl.signing import SigningKey
+from nacl.encoding import Base64Encoder, Base58Encoder
+import hashlib, json, time, sys
+
+sha = hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()
+sk = SigningKey(open("pantheon_ed25519.key", "rb").read())
+sig = sk.sign(sha.encode(), encoder=Base64Encoder).signature.decode()
+pk = sk.verify_key.encode(encoder=Base58Encoder).decode()
+
+print(json.dumps({
+    "charter_sha256": f"sha256:{sha}",
+    "pubkey": f"ed25519:{pk}",
+    "signature": f"ed25519:{sig}",
+    "signed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+}))
+```
+
+### vrph_sign.py
+
+```python
+# Sign an asset + emit minimal VRPH
+from nacl.signing import SigningKey
+from nacl.encoding import Base64Encoder, Base58Encoder
+import hashlib, json, time, sys
+
+asset = sys.argv[1]
+sha = hashlib.sha256(open(asset,'rb').read()).hexdigest()
+sk = SigningKey(open("pantheon_ed25519.key","rb").read())
+pk = sk.verify_key.encode(encoder=Base58Encoder).decode()
+
+payload = f"{asset}|sha256:{sha}|{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}"
+sig = sk.sign(payload.encode(), encoder=Base64Encoder).signature.decode()
+
+vrph = {
+    "vrph": "1.0",
+    "asset": asset,
+    "sha256": f"sha256:{sha}",
+    "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    "creator": {
+        "name": "Pantheon",
+        "pubkey": f"ed25519:{pk}",
+        "contact": "ops@pantheon"
+    },
+    "origin": {
+        "type": "synthetic",
+        "model": "sora-2",
+        "prompt_hash": None
+    },
+    "pipeline": [],
+    "license": "CC-BY-4.0",
+    "constraints": "Derivatives commercial use requires license.",
+    "proof": {
+        "sig": f"ed25519:{sig}",
+        "signed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    },
+    "payout": {
+        "royalty_ref": "LIC-2025-001",
+        "recipient": "Pantheon LLC",
+        "invoice_url": "https://short/LIC-2025-001"
+    }
+}
+
+open(asset+".vrph.json","w").write(json.dumps(vrph, separators=(',',':')))
+print("VRPH written:", asset+".vrph.json")
+```
+
+🧭 **REM**: Anchor your charter_sha256 (OpenTimestamps or on-chain) after signing.
+
+-----
+
+## 4) INVOICE + CHECKSUM
+
+**invoice.csv columns**:
+
+```
+period_start,period_end,licensee,royalty_ref,units,gross,net,royalty_due,bank_ref
+```
+
+**checksum.py**:
+
+```python
+import hashlib, sys
+print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())
+```
+
+🧭 **REM**: Licensee sends CSV + checksum; Trustee verifies vs logs, then pays.
+
+-----
+
+## 5) MERKLE ROYALTY SPLIT
+
+**merkle_split.py**:
+
+```python
+# Compute shares & merkle root
+import hashlib, json, sys
+
+items = json.load(open(sys.argv[1]))
+total = sum(x["weight"] for x in items)
+for x in items:
+    x["share"] = round(x["weight"]/total, 8)
+
+def h(x):
+    return hashlib.sha256(x).hexdigest()
+
+layer = [h(f'{i["id"]}:{i["share"]}'.encode()) for i in items]
+while len(layer) > 1:
+    if len(layer) % 2:
+        layer.append(layer[-1])
+    layer = [h((layer[i]+layer[i+1]).encode()) for i in range(0, len(layer), 2)]
+
+root = layer[0]
+print(json.dumps({"merkle_root": root, "splits": items}, indent=2))
+```
+
+**Input format (contributions.json)**:
+
+```json
+[
+  {"id": "alice", "weight": 10},
+  {"id": "bob", "weight": 5}
+]
+```
+
+🧭 **REM**: Publish the merkle_root; each contributor keeps their leaf line as proof.
+
+-----
+
+## 6) TRUSTEE MULTISIG & CHANGES
+
+**Policy**:
+
+- Payout account = Trustee multisig (2-of-3): Officer + Auditor + Contributor Rep
+- Change of payout instructions requires: signed request (ed25519), 2FA email ack, and multisig approval
+- Quarterly transparency: receipts, splits, payouts, bank refs, merkle root published
+
+🧭 **REM**: Never accept new wiring info without multisig + signed request.
+
+-----
+
+## 7) “VISUAL RUMORS” BADGE
+
+**One-liner for captions/UI**:
+
+```
+[VR Badge]: visual rumor (signed) — provenance: <shortlink to asset.vrph.json>
+```
+
+🧭 **REM**: Train audiences to look for the badge; it’s your SSL-lock for media.
+
+-----
+
+## 8) LIFE-WEAVE SNAPSHOT
+
+**Minimal JSON**:
+
+```json
+{
+  "life_weave": {
+    "persistence": 0.72,
+    "reciprocity": 0.66,
+    "reflection": 0.58,
+    "index": 0.667,
+    "policy": "Caution-plus"
+  }
+}
+```
+
+🧭 **REM**: Drop a LIFE snapshot beside major releases → “slow is smooth, smooth is fast.”
+
+-----
+
+## 9) 7-DAY ROLLOUT
+
+**Ultra-Brief Timeline**:
+
+- **D1**: Charter hash + first signatures + anchor
+- **D2**: First 3 assets w/ VRPH + “visual rumors” badge live
+- **D3**: Invoice+checksum flow tested with a friendly Licensee
+- **D4**: Publish merkle_root + transparency stub
+- **D5**: Announce pilot + contact route
+- **D6**: Small press/influencer ping (link only)
+- **D7**: Post SITREP (metrics + next steps)
+
+🧭 **REM**: Keep each day’s post under 600 characters for small-context models.
+
+-----
+
+## 10) QUICK CREDITS LINE
+
+**Paste everywhere**:
+
+```
+Developed by <Your Name/Entity> + GPT-5 (Pantheon). 
+Provenance signed; royalties routed via Trustee.
+```
+
+🧭 **REM**: This line ties authorship to you without oversharing.
+
+-----
+
+## USAGE INSTRUCTIONS
+
+**How to use this pack**:
+
+1. **For new conversations**: Copy the entire document
+1. **For minimal context**: Copy only the sections you need (0, 1, 2 are essential)
+1. **For technical implementation**: Focus on sections 3, 4, 5
+1. **For rollout planning**: Use sections 6, 7, 9, 10
+
+**Key files to generate**:
+
+- `pantheon_ed25519.key` (private key, keep secure)
+- `charter.pdf` (full legal document)
+- `contributions.json` (for royalty splits)
+- `asset.vrph.json` (per asset)
+
+**Anchoring options**:
+
+- OpenTimestamps (opentimestamps.org)
+- Bitcoin OP_RETURN
+- Ethereum contract event
+- IPFS + Filecoin
+
+-----
+
+**Document version**: 1.0  
+**Last updated**: 2025-10-08  
+**Compatibility**: Works with GPT-4, Claude, and other LLMs with 4K+ context windows
