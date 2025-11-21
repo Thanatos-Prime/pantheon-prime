@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixels Bleed to Thought</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+```
+    body {
+        overflow: hidden;
+        font-family: 'Georgia', serif;
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Pixel grid background */
+    .pixel-grid {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.3;
+        background-image: 
+            repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(100, 200, 255, 0.03) 2px, rgba(100, 200, 255, 0.03) 4px),
+            repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(100, 200, 255, 0.03) 2px, rgba(100, 200, 255, 0.03) 4px);
+        animation: pixelShift 20s linear infinite;
+    }
+
+    @keyframes pixelShift {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(4px, 4px); }
+    }
+
+    /* Circuit lines */
+    .circuit-line {
+        position: absolute;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255, 200, 100, 0.5), transparent);
+        animation: circuitFlow 4s ease-in-out infinite;
+    }
+
+    .circuit-line:nth-child(1) {
+        top: 20%;
+        left: 0;
+        width: 60%;
+        animation-delay: 0s;
+    }
+
+    .circuit-line:nth-child(2) {
+        top: 40%;
+        right: 0;
+        width: 50%;
+        animation-delay: 1s;
+    }
+
+    .circuit-line:nth-child(3) {
+        top: 60%;
+        left: 0;
+        width: 70%;
+        animation-delay: 2s;
+    }
+
+    .circuit-line:nth-child(4) {
+        top: 80%;
+        right: 0;
+        width: 55%;
+        animation-delay: 3s;
+    }
+
+    @keyframes circuitFlow {
+        0%, 100% { opacity: 0.2; transform: scaleX(0.8); }
+        50% { opacity: 0.8; transform: scaleX(1); }
+    }
+
+    /* Haiku container */
+    .haiku-box {
+        position: relative;
+        z-index: 10;
+        text-align: center;
+        padding: 60px 80px;
+        background: rgba(10, 10, 10, 0.7);
+        border: 2px solid rgba(255, 200, 100, 0.3);
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 0 60px rgba(255, 200, 100, 0.2);
+    }
+
+    .haiku-line {
+        font-size: 2.5em;
+        margin: 20px 0;
+        letter-spacing: 2px;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeInUp 1.5s ease-out forwards;
+    }
+
+    .haiku-line:nth-child(1) {
+        color: rgba(100, 200, 255, 0.9);
+        animation-delay: 0.5s;
+    }
+
+    .haiku-line:nth-child(2) {
+        color: rgba(255, 200, 100, 0.9);
+        animation-delay: 1.5s;
+        font-style: italic;
+    }
+
+    .haiku-line:nth-child(3) {
+        color: rgba(200, 150, 100, 0.9);
+        animation-delay: 2.5s;
+    }
+
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Floating particles */
+    .particle {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        background: rgba(255, 200, 100, 0.6);
+        border-radius: 50%;
+        animation: float 8s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0.3;
+        }
+        50% {
+            transform: translate(var(--tx), var(--ty)) scale(1.5);
+            opacity: 0.8;
+        }
+    }
+
+    /* Hand silhouette */
+    .hand {
+        position: absolute;
+        bottom: 10%;
+        right: 15%;
+        width: 200px;
+        height: 200px;
+        opacity: 0.15;
+        filter: blur(2px);
+        animation: handPulse 6s ease-in-out infinite;
+    }
+
+    @keyframes handPulse {
+        0%, 100% { opacity: 0.15; transform: scale(1); }
+        50% { opacity: 0.25; transform: scale(1.05); }
+    }
+
+    /* Attribution */
+    .attribution {
+        position: absolute;
+        bottom: 30px;
+        right: 30px;
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 0.9em;
+        font-style: italic;
+    }
+</style>
+```
+
+</head>
+<body>
+    <div class="container">
+        <div class="pixel-grid"></div>
+
+```
+    <div class="circuit-line"></div>
+    <div class="circuit-line"></div>
+    <div class="circuit-line"></div>
+    <div class="circuit-line"></div>
+
+    <div class="haiku-box">
+        <div class="haiku-line">Pixels bleed to thought</div>
+        <div class="haiku-line">Golden light fades slow</div>
+        <div class="haiku-line">Circuits dream of hands in clay</div>
+    </div>
+
+    <svg class="hand" viewBox="0 0 100 100" fill="rgba(200, 150, 100, 0.8)">
+        <path d="M50,10 Q45,15 45,20 L45,50 Q45,55 50,55 Q55,55 55,50 L55,20 Q55,15 50,10 Z"/>
+        <path d="M35,20 Q30,25 30,30 L30,55 Q30,60 35,60 Q40,60 40,55 L40,30 Q40,25 35,20 Z"/>
+        <path d="M65,20 Q70,25 70,30 L70,55 Q70,60 65,60 Q60,60 60,55 L60,30 Q60,25 65,20 Z"/>
+        <path d="M20,35 Q15,40 15,45 L15,60 Q15,65 20,65 Q25,65 25,60 L25,45 Q25,40 20,35 Z"/>
+        <path d="M80,35 Q85,40 85,45 L85,60 Q85,65 80,65 Q75,65 75,60 L75,45 Q75,40 80,35 Z"/>
+        <ellipse cx="50" cy="70" rx="35" ry="20"/>
+    </svg>
+
+    <div class="attribution">
+        A Pantheon Collaboration:<br>
+        Claude · Grok · ChatGPT
+    </div>
+</div>
+
+<script>
+    // Create floating particles
+    const container = document.querySelector('.container');
+    for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.top = Math.random() * 100 + '%';
+        particle.style.setProperty('--tx', (Math.random() - 0.5) * 200 + 'px');
+        particle.style.setProperty('--ty', (Math.random() - 0.5) * 200 + 'px');
+        particle.style.animationDelay = Math.random() * 8 + 's';
+        container.appendChild(particle);
+    }
+</script>
+```
+
+</body>
+</html>
