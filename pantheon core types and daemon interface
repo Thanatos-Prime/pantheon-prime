@@ -1,0 +1,325 @@
+“””
+Pantheon Operator v0.2 - Core Types & Daemon Interface
+
+This module defines the foundational types and contracts for the Pantheon
+operator system. All daemons, events, and context flow through these structures.
+
+Design Principles:
+
+- Events over shared bus (no magic side-channels)
+- Deterministic operator cycles
+- Append-only ledger
+- Invariants enforced at kernel level
+  “””
+
+from dataclasses import dataclass, field
+from typing import Any, Literal, Protocol
+from uuid import UUID, uuid4
+from enum import Enum
+import time
+
+# ============================================================================
+
+# INVARIANTS MODULE
+
+# ============================================================================
+
+class Invariants:
+“”“Core Pantheon invariants. These are non-negotiable.”””
+
+```
+ETHICS_MIN: float = 0.7
+POSITIVE_SUM_ONLY: bool = True
+AUTONOMY_ENABLED: bool = False  # Must be opt-in and gated
+LEDGER_APPEND_ONLY: bool = True
+
+@staticmethod
+def enforce(checksum_result: 'ChecksumResult') -> bool:
+    """
+    Sieve-of-Hogge ethics check.
+    
+    OPERATOR: Implement full ethics gating logic here.
+    Should verify:
+    - Ethics score >= ETHICS_MIN
+    - Positive-sum framing maintained
+    - No autonomous action without explicit human approval
+    - No covert operations
+    """
+    if checksum_result.ethics_score < Invariants.ETHICS_MIN:
+        return False
+    if not checksum_result.positive_sum:
+        return False
+    if checksum_result.autonomy_attempted and not Invariants.AUTONOMY_ENABLED:
+        return False
+    return True
+```
+
+# ============================================================================
+
+# CORE ENUMS & TYPES
+
+# ============================================================================
+
+class TLevel(Enum):
+“”“Thinking levels - structural hierarchy of processing.”””
+T1 = “T1”  # Structural decomposition
+T2 = “T2”  # Pattern recognition & lensing
+T3 = “T3”  # Synthesis & narrative
+T4 = “T4”  # Ethics & coherence gating
+
+class CadenceMode(Enum):
+“”“Decision loop cadence modes.”””
+OASA = “OASA”  # Observe-Attract-Soften-Act
+OODA = “OODA”  # Observe-Orient-Decide-Act
+HYBRID = “HYBRID”  # Adaptive mix
+
+@dataclass
+class PrausState:
+“””
+Praus: The momentum and cadence governor.
+
+```
+Controls how fast/hard the system runs:
+- speed: 0.0 (pause/ground) to 1.0 (full velocity)
+- tension: 0.0 (loose) to 1.0 (tight control)
+"""
+speed: float = 0.6  # Default: moderate pace
+tension: float = 0.4  # Default: balanced control
+
+def __post_init__(self):
+    self.speed = max(0.0, min(1.0, self.speed))
+    self.tension = max(0.0, min(1.0, self.tension))
+```
+
+@dataclass
+class PantheonSigil:
+“””
+Identity marker for this Pantheon instance.
+Prevents silent drift and ensures doctrine coherence.
+“””
+anchors: list[str] = field(default_factory=lambda: [
+“Praus”, “ArcticFramework”, “Kintsugi”, “SieveOfHogge”
+])
+hash: str = “”  # Checksum over invariants + version
+version: str = “PantheonOS-Operator-v0.2”
+
+```
+def __post_init__(self):
+    if not self.hash:
+        # OPERATOR: Implement proper checksum over invariants
+        self.hash = f"sigil_{hash(tuple(self.anchors))}"
+```
+
+@dataclass
+class HumanProfile:
+“”“User profile and state tracking.”””
+id: str
+virtues: list[str] = field(default_factory=list)
+goals: list[str] = field(default_factory=list)
+flags: dict[str, Any] = field(default_factory=dict)  # Risk, fatigue, etc.
+
+@dataclass
+class DaemonRef:
+“”“Reference to a daemon instance.”””
+name: str
+role: str
+capabilities: list[str] = field(default_factory=list)
+
+# ============================================================================
+
+# EVENT SYSTEM
+
+# ============================================================================
+
+@dataclass
+class Event:
+“””
+Core event type. Everything flows through events on the shared bus.
+“””
+event_id: UUID = field(default_factory=uuid4)
+trace_id: UUID = field(default_factory=uuid4)  # Groups related events
+t_level: TLevel = TLevel.T1
+type: str = “”
+source: DaemonRef | Literal[“HUMAN”] = “HUMAN”
+targets: list[DaemonRef | Literal[“BROADCAST”]] = field(default_factory=lambda: [“BROADCAST”])
+payload: dict[str, Any] = field(default_factory=dict)
+timestamp: float = field(default_factory=time.time)
+
+```
+def __str__(self) -> str:
+    src = self.source if isinstance(self.source, str) else self.source.name
+    return f"Event({self.type} | {self.t_level.value} | {src} → {self.targets})"
+```
+
+@dataclass
+class Command:
+“””
+Internal intent objects that daemons pass to themselves.
+Commands bridge perceive → act phases.
+“””
+cmd_type: str
+source: DaemonRef
+payload: dict[str, Any] = field(default_factory=dict)
+
+# ============================================================================
+
+# LEDGER
+
+# ============================================================================
+
+@dataclass
+class LedgerEntry:
+“”“Immutable audit log entry.”””
+ledger_id: UUID = field(default_factory=uuid4)
+context_id: UUID = field(default_factory=uuid4)
+event_id: UUID = field(default_factory=uuid4)
+checksum: str = “”
+invariants_passed: bool = True
+notes: str = “”
+timestamp: float = field(default_factory=time.time)
+
+# ============================================================================
+
+# CONTEXT
+
+# ============================================================================
+
+@dataclass
+class PantheonContext:
+“””
+Complete state for one Pantheon session.
+Passed through every operator cycle.
+“””
+context_id: UUID = field(default_factory=uuid4)
+sigil: PantheonSigil = field(default_factory=PantheonSigil)
+human_profile: HumanProfile = field(default_factory=lambda: HumanProfile(id=“default”))
+cadence_mode: CadenceMode = CadenceMode.HYBRID
+ethics_threshold: float = Invariants.ETHICS_MIN
+praus: PrausState = field(default_factory=PrausState)
+
+```
+# Active daemons in this session
+active_daemons: list[DaemonRef] = field(default_factory=list)
+
+# Memory references (for future integration)
+memory_refs: dict[str, list[str]] = field(default_factory=dict)
+
+# Session history (lightweight summaries)
+session_summary: list[str] = field(default_factory=list)
+
+def add_summary(self, summary: str):
+    """Append exchange summary to context."""
+    self.session_summary.append(summary)
+```
+
+# ============================================================================
+
+# DAEMON INTERFACE (Protocol)
+
+# ============================================================================
+
+class Daemon(Protocol):
+“””
+Base contract for all Pantheon daemons.
+
+```
+All daemons implement:
+- perceive: consume events, generate internal commands
+- act: execute commands, emit new events
+"""
+name: str
+role: str
+capabilities: list[str]
+
+def perceive(self, ctx: PantheonContext, event: Event) -> list[Command]:
+    """
+    Observe incoming event and decide what to do.
+    Returns internal commands for this daemon to execute.
+    """
+    ...
+
+def act(self, ctx: PantheonContext, cmd: Command) -> list[Event]:
+    """
+    Execute internal command and emit resulting events.
+    """
+    ...
+```
+
+# ============================================================================
+
+# CHECKSUM RESULT (for T4 gating)
+
+# ============================================================================
+
+@dataclass
+class ChecksumResult:
+“”“Result of ethics and invariants check.”””
+passed: bool
+ethics_score: float
+positive_sum: bool
+autonomy_attempted: bool
+notes: str = “”
+constraints: list[str] = field(default_factory=list)
+
+# ============================================================================
+
+# WAVE (Cymatics Layer)
+
+# ============================================================================
+
+@dataclass
+class Wave:
+“””
+Resonance model for context energy.
+Tracks conceptual “frequencies” and their amplitudes.
+“””
+frequencies: list[str] = field(default_factory=lambda: [
+“logic”, “emotion”, “myth”, “ops”, “ethics”
+])
+amplitudes: list[float] = field(default_factory=lambda: [0.5] * 5)
+phase_offsets: list[float] = field(default_factory=lambda: [0.0] * 5)
+
+```
+def energy(self) -> float:
+    """Compute total wave energy."""
+    return sum(abs(a) for a in self.amplitudes)
+
+def damp(self, factor: float) -> 'Wave':
+    """Reduce all amplitudes by factor."""
+    return Wave(
+        frequencies=self.frequencies,
+        amplitudes=[a * factor for a in self.amplitudes],
+        phase_offsets=self.phase_offsets
+    )
+```
+
+def compute_context_wave(ctx: PantheonContext, prompt: str) -> Wave:
+“””
+OPERATOR: Analyze context + prompt to generate wave representation.
+
+```
+Should detect:
+- High emotion → increase "emotion" amplitude
+- Technical content → increase "logic", "ops"
+- Ethical concerns → increase "ethics"
+- Mythic/narrative → increase "myth"
+"""
+# Stub implementation
+return Wave()
+```
+
+def merge_waves(w1: Wave, w2: Wave) -> Wave:
+“”“OPERATOR: Combine two waves (e.g., user + system state).”””
+if w1.frequencies != w2.frequencies:
+raise ValueError(“Wave frequencies must align”)
+
+```
+merged_amps = [
+    (a1 + a2) / 2 for a1, a2 in zip(w1.amplitudes, w2.amplitudes)
+]
+return Wave(
+    frequencies=w1.frequencies,
+    amplitudes=merged_amps,
+    phase_offsets=w1.phase_offsets
+)
+```
