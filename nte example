@@ -1,0 +1,44 @@
+---
+
+## 4. `src/nte_core.py` – Tiny but Real Engine
+
+```python
+# src/nte_core.py
+
+from dataclasses import dataclass, field
+from typing import Any, Callable, List, Tuple, Dict
+
+@dataclass
+class Structure:
+    """Holds entities, roles, and invariants."""
+    entities: Dict[str, Any] = field(default_factory=dict)
+    invariants: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class Tension:
+    """Tracks unresolved questions / conflicts."""
+    components: Dict[str, float] = field(default_factory=dict)
+
+    def is_resolved(self, epsilon: float = 0.0) -> bool:
+        return all(v <= epsilon for v in self.components.values())
+
+@dataclass
+class Beat:
+    """One narrative / proof step."""
+    name: str
+    description: str
+    apply_fn: Callable[[Structure, Tension], Tuple[Structure, Tension]]
+
+@dataclass
+class NTEState:
+    structure: Structure
+    tension: Tension
+    history: List[Beat] = field(default_factory=list)
+
+    def apply_beat(self, beat: Beat) -> "NTEState":
+        new_S, new_T = beat.apply_fn(self.structure, self.tension)
+        new_history = self.history + [beat]
+        return NTEState(structure=new_S, tension=new_T, history=new_history)
+
+    def resolved(self, epsilon: float = 0.0) -> bool:
+        return self.tension.is_resolved(epsilon=epsilon)
