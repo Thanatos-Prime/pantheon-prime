@@ -1,0 +1,356 @@
+import numpy as np
+import hashlib
+from dataclasses import dataclass, field
+from typing import List, Dict, Tuple, Optional
+
+# ============================================================================
+
+# Utility Functions
+
+# ============================================================================
+
+def cosine(a: np.ndarray, b: np.ndarray) -> float:
+“”“Cosine similarity between two vectors”””
+return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10)
+
+def normalize(v: np.ndarray) -> np.ndarray:
+“”“Normalize a vector to unit length”””
+norm = np.linalg.norm(v)
+return v / (norm + 1e-10) if norm > 1e-10 else v
+
+def arccos_clip(x: float) -> float:
+“”“Safe arccos with clipping to [-1, 1]”””
+return np.arccos(np.clip(x, -1.0, 1.0))
+
+def softmax(x: List[float]) -> np.ndarray:
+“”“Numerically stable softmax”””
+x = np.array(x)
+exp_x = np.exp(x - np.max(x))
+return exp_x / (exp_x.sum() + 1e-10)
+
+def hash_embed(text: str, dim: int = 256, seed: int = 42) -> np.ndarray:
+“””
+Create a deterministic pseudo-embedding from text using hashing.
+Uses multiple hash functions to generate a stable, high-dimensional vector.
+
+```
+Args:
+    text: Input text to embed
+    dim: Dimension of output embedding
+    seed: Random seed for reproducibility
+    
+Returns:
+    Normalized embedding vector of shape (dim,)
+"""
+# Create multiple hash values using different salts
+num_hashes = (dim + 3) // 4  # Each hash gives us 4 values
+embedding = []
+
+for i in range(num_hashes):
+    # Use different salts to get independent hash values
+    salted = f"{seed}:{i}:{text}".encode('utf-8')
+    hash_obj = hashlib.sha256(salted)
+    hash_bytes = hash_obj.digest()
+    
+    # Convert bytes to floats in [-1, 1]
+    for j in range(0, len(hash_bytes), 2):
+        if len(embedding) >= dim:
+            break
+        # Use pairs of bytes to create values
+        val = int.from_bytes(hash_bytes[j:j+2], 'big')
+        # Map [0, 65535] to [-1, 1]
+        normalized_val = (val / 32767.5) - 1.0
+        embedding.append(normalized_val)
+    
+    if len(embedding) >= dim:
+        break
+
+# Ensure exact dimension
+embedding = np.array(embedding[:dim])
+
+# Normalize to unit length
+return normalize(embedding)
+```
+
+# ============================================================================
+
+# Data Structures
+
+# ============================================================================
+
+@dataclass
+class ClusterNode:
+“”“Represents a semantic cluster in the terrain”””
+mu: np.ndarray  # centroid embedding
+n_k: int = 1  # number of points assigned
+E_k: float = 1.0  # cumulative energy/importance
+t_last: float = 0.0  # last access timestamp
+neighbors: List[int] = field(default_factory=list)  # adjacent cluster indices
+
+```
+def update_centroid(self, e_t: np.ndarray):
+    """Online centroid update with new embedding"""
+    self.n_k += 1
+    self.mu = self.mu + (e_t - self.mu) / self.n_k
+```
+
+# ============================================================================
+
+# C2 Engine
+
+# ============================================================================
+
+class C2Engine:
+“””
+C2 (Cognitive Cartography) Engine: A terrain-based memory system
+that models semantic memory as an evolving landscape with erosion dynamics.
+
+```
+Metaphors:
+- Spider's web: The interconnected graph of semantic clusters
+- Genie: The heading vector that maintains conversation direction
+- Sieve of Hogge: The balance point where memory flows naturally
+"""
+
+def __init__(self, dim=1536, alpha=0.8, t_half=600, a_half=0.7, e_half=900,
+             cluster_threshold=0.15, diffusion_rate=0.15):
+    self.dim = dim
+    self.alpha = alpha  # heading momentum (Genie's steadiness)
+    self.turn = 0
+    self.emb_history = []
+    self.angle_history = []
+    self.H = None  # heading vector (the Genie)
+    self.clusters: List[ClusterNode] = []  # the terrain
+    self.salience: Dict[int, float] = {}  # water levels on the terrain
+    self.params = dict(T_half=t_half, A_half=a_half, E_half=e_half)
+    
+    # Clustering parameters
+    self.cluster_threshold = cluster_threshold
+    self.diffusion_rate = diffusion_rate
+
+def ingest(self, e_t: np.ndarray, now: Optional[float] = None) -> List[int]:
+    """
+    Ingest a new embedding and update the cognitive terrain.
+    
+    Args:
+        e_t: Embedding vector for current turn
+        now: Current timestamp (defaults to turn number)
+        
+    Returns:
+        List of node IDs ranked by recall salience
+    """
+    if now is None:
+        now = float(self.turn)
+        
+    self.turn += 1
+    self.emb_history.append(e_t.copy())
+
+    # Update angle and heading (the Genie maintains direction)
+    if self.turn > 1:
+        e_prev = self.emb_history[-2]
+        sim = cosine(e_t, e_prev)
+        theta = arccos_clip(sim)
+        self.angle_history.append(theta)
+        v = normalize(e_t - e_prev)
+        if self.H is not None:
+            self.H = normalize(self.alpha * self.H + (1 - self.alpha) * v)
+        else:
+            self.H = v
+    else:
+        self.H = normalize(e_t)
+
+    # Update terrain (incremental clustering)
+    nid = self._assign_or_create_cluster(e_t, now)
+
+    # Water deposition: deposit salience on nearby nodes
+    neigh = self._nearest_nodes(e_t, k=min(5, len(self.clusters)))
+    if neigh:
+        # Temperature-scaled softmax over cosine similarities
+        similarities = [cosine(e_t, self.clusters[i].mu) / 0.07 for i in neigh]
+        deposits = softmax(similarities)
+        for i, w in zip(neigh, deposits):
+            self.salience[i] = self.salience.get(i, 0.0) + 0.5 * w
+
+    # Runoff: diffuse salience across the Spider's web
+    self._runoff_step()
+
+    # Decay: time and angle-based forgetting
+    self._decay(now)
+
+    # Return top salient nodes for recall
+    return self.top_nodes_for_recall()
+
+def top_nodes_for_recall(self, k=5, lam=0.3) -> List[int]:
+    """
+    Return top-k most salient nodes, biased by heading alignment.
+    The Genie favors memories aligned with the current direction.
+    """
+    if not self.salience:
+        return []
+        
+    scored = []
+    for i, S in self.salience.items():
+        if i >= len(self.clusters):
+            continue
+        mu = self.clusters[i].mu
+        align = cosine(self.H, normalize(mu))
+        score = S * (1 + lam * align)
+        scored.append((score, i))
+    
+    scored.sort(reverse=True)
+    return [i for _, i in scored[:k]]
+
+def snapshot(self) -> Dict:
+    """
+    Return a snapshot of the current engine state.
+    Captures the web, the water, and the heading.
+    """
+    return {
+        'turn': self.turn,
+        'clusters': len(self.clusters),
+        'active_nodes': len(self.salience),
+        'total_energy': sum(node.E_k for node in self.clusters),
+        'avg_salience': np.mean(list(self.salience.values())) if self.salience else 0.0,
+        'max_salience': max(self.salience.values()) if self.salience else 0.0,
+        'heading_norm': np.linalg.norm(self.H) if self.H is not None else 0.0,
+        'avg_angle': np.mean(self.angle_history) if self.angle_history else 0.0,
+        'recent_angle': self.angle_history[-1] if self.angle_history else 0.0,
+        'web_edges': sum(len(node.neighbors) for node in self.clusters) // 2,  # undirected
+    }
+
+# --- Internal Helper Methods ---
+
+def _assign_or_create_cluster(self, e_t: np.ndarray, now: float) -> int:
+    """Assign embedding to nearest cluster or create new node in the web"""
+    if not self.clusters:
+        node = ClusterNode(mu=e_t.copy(), n_k=1, E_k=1.0, t_last=now)
+        self.clusters.append(node)
+        self.salience[0] = 1.0
+        return 0
+    
+    distances = [(np.linalg.norm(e_t - node.mu), i) 
+                 for i, node in enumerate(self.clusters)]
+    min_dist, nearest_idx = min(distances)
+    
+    if min_dist > self.cluster_threshold:
+        nid = len(self.clusters)
+        node = ClusterNode(mu=e_t.copy(), n_k=1, E_k=1.0, t_last=now)
+        
+        # Weave into the Spider's web
+        node.neighbors.append(nearest_idx)
+        self.clusters[nearest_idx].neighbors.append(nid)
+        
+        self.clusters.append(node)
+        self.salience[nid] = 1.0
+        return nid
+    
+    node = self.clusters[nearest_idx]
+    node.update_centroid(e_t)
+    node.E_k += 1.0
+    node.t_last = now
+    
+    return nearest_idx
+
+def _nearest_nodes(self, e_t: np.ndarray, k: int) -> List[int]:
+    """Find k nearest cluster nodes"""
+    if not self.clusters:
+        return []
+    
+    distances = [(np.linalg.norm(e_t - node.mu), i) 
+                 for i, node in enumerate(self.clusters)]
+    distances.sort()
+    
+    return [i for _, i in distances[:min(k, len(distances))]]
+
+def _runoff_step(self):
+    """Water flows across the terrain, following the web"""
+    if not self.salience or not self.clusters:
+        return
+    
+    new_salience = {}
+    
+    for node_id, S in self.salience.items():
+        if node_id >= len(self.clusters):
+            continue
+        
+        retain = S * (1 - self.diffusion_rate)
+        new_salience[node_id] = new_salience.get(node_id, 0.0) + retain
+        
+        neighbors = self.clusters[node_id].neighbors
+        if neighbors:
+            flow_per_neighbor = S * self.diffusion_rate / len(neighbors)
+            for neighbor_id in neighbors:
+                new_salience[neighbor_id] = new_salience.get(neighbor_id, 0.0) + flow_per_neighbor
+    
+    self.salience = new_salience
+
+def _decay(self, now: float):
+    """Memory fades with time and sharp turns"""
+    T_half = self.params['T_half']
+    A_half = self.params['A_half']
+    
+    to_remove = []
+    
+    for node_id, S in list(self.salience.items()):
+        if node_id >= len(self.clusters):
+            to_remove.append(node_id)
+            continue
+        
+        node = self.clusters[node_id]
+        
+        # Time decay
+        dt = now - node.t_last
+        time_decay = 0.5 ** (dt / T_half)
+        
+        # Angle decay (sharp turns cause forgetting)
+        angle_decay = 1.0
+        if self.angle_history:
+            recent_angles = self.angle_history[-min(5, len(self.angle_history)):]
+            avg_angle = np.mean(recent_angles)
+            angle_decay = 0.5 ** (avg_angle / A_half)
+        
+        new_S = S * time_decay * angle_decay
+        
+        if new_S < 0.01:
+            to_remove.append(node_id)
+        else:
+            self.salience[node_id] = new_S
+    
+    for node_id in to_remove:
+        if node_id in self.salience:
+            del self.salience[node_id]
+```
+
+# ============================================================================
+
+# Example Usage
+
+# ============================================================================
+
+if **name** == “**main**”:
+c2 = C2Engine(dim=256)
+
+```
+turns = [
+    "We begin in the dark, sensing the Spider's web.",
+    "Angles guide us — the Genie keeps the heading steady.",
+    "The Sieve of Hogge balances zero; memory flows like water.",
+]
+
+print("C2 Engine: Cognitive Cartography")
+print("=" * 60)
+
+for i, t in enumerate(turns, 1):
+    print(f"\n[Turn {i}] \"{t}\"")
+    e = hash_embed(t, dim=256)
+    top_nodes = c2.ingest(e)
+    snapshot = c2.snapshot()
+    
+    print(f"Top nodes: {top_nodes}")
+    print(f"Snapshot:")
+    for key, value in snapshot.items():
+        if isinstance(value, float):
+            print(f"  {key}: {value:.4f}")
+        else:
+            print(f"  {key}: {value}")
+```
