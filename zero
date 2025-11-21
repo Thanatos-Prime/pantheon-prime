@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+
+# Enhanced Hogge-Zero Codex: Multi-layer steganographic encoding
+
+# Layer 1: Zero-type sequence encodes letters (original)
+
+# Layer 2: Input values encode additional data (position, checksum, metadata)
+
+# Layer 3: Order of evaluation can encode timing/sequencing info
+
+# Layer 4: Keyed cipher for letter-to-type mapping
+
+import math
+import hashlib
+
+REVEAL = True  # set to False for “all zeros” only
+
+# –– 26 distinct zero-forms (zero-types) ––
+
+def Z_ADD(n):        return (n + (-n))
+def Z_SUB(n):        return (n - n)
+def Z_MUL0(n):       return n * 0
+def Z_MODSELF(n):    return (n * (n + 1)) % (n + 1)
+def Z_XORSELF(n):    return (n ^ n)
+def Z_ANDNOT(n):     return (n & ~n)
+def Z_ORDELTA(n):    return (n | 0) - n
+def Z_SHIFTID(n):    return ((n << 1) - 2 * n)
+def Z_SQDIFF(n):     return (n+1)*(n+1) - (n+1)*(n+1)
+def Z_POLY(n):       return (n-1)*(n+1) - (n-1)*(n+1)
+def Z_POW0(n):       return pow(n+1, 0) - 1
+def Z_FLOOR(n):      return (n // 1) - n
+def Z_XOR0(n):       return (n ^ 0) - n
+def Z_LINCOMB(n):    return (3*n - 2*n) - n
+def Z_MOD1(n):       return n % 1
+def Z_TRIGS(n):      return int(round(math.sin(math.pi * n)))
+def Z_TRIGC(n):      return int(round(math.cos(math.pi/2 + math.pi * n)))
+def Z_PAIRSUM(n):    return (-n) + n
+def Z_PRODDIFF(n):   return (n*(n-1)) - (n*(n-1))
+def Z_BINOM(n):  
+from math import comb
+return comb(n+1, 1) - (n+1)
+def Z_GEOM(n):       return 1 - 1
+def Z_SYMSUM(n):  
+m = (n % 7)
+return sum(range(-m, m+1))
+def Z_TRACE(n):  
+a = n + 1
+tr = (a + 2) + (3 - a)
+return tr - tr
+def Z_DIFF2(n):  
+f = lambda x: 5*x + 7
+return (f(n+1) - 2*f(n) + f(n-1))
+def Z_IDEMP(n):  
+x = (n | n)
+return x ^ x
+def Z_SPARE(n):      return (n - n)
+
+ZERO_FUNCS = [
+Z_ADD, Z_SUB, Z_MUL0, Z_MODSELF, Z_XORSELF,
+Z_ANDNOT, Z_ORDELTA, Z_SHIFTID, Z_SQDIFF, Z_POLY,
+Z_POW0, Z_FLOOR, Z_XOR0, Z_LINCOMB, Z_MOD1,
+Z_TRIGS, Z_TRIGC, Z_PAIRSUM, Z_PRODDIFF, Z_BINOM,
+Z_GEOM, Z_SYMSUM, Z_TRACE, Z_DIFF2, Z_IDEMP,
+Z_SPARE
+]
+
+# –– ENHANCEMENT 1: Keyed letter-to-type mapping ––
+
+def generate_keyed_mapping(key):
+“”“Generate a substitution cipher based on a key”””
+# Create hash-based permutation
+hash_val = int(hashlib.sha256(key.encode()).hexdigest(), 16)
+
+```
+# Create permuted alphabet using key
+alphabet = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+indices = list(range(26))
+
+# Fisher-Yates shuffle seeded by hash
+for i in range(25, 0, -1):
+    hash_val = (hash_val * 1103515245 + 12345) & 0x7fffffff  # LCG
+    j = hash_val % (i + 1)
+    indices[i], indices[j] = indices[j], indices[i]
+
+# Map letters to zero-type indices
+mapping = {}
+for i, letter in enumerate(alphabet):
+    mapping[letter] = indices[i]
+
+return mapping
+```
+
+# –– ENHANCEMENT 2: Encode metadata in input values ––
+
+def encode_position_info(pos, total_len, checksum_bit):
+“”“Encode position and checksum in the input value”””
+# Use prime number + position to make pattern less obvious
+base = 1000 + pos * 7  # Prime-like progression
+# Add checksum bit in least significant position
+return base + checksum_bit
+
+# –– ENHANCEMENT 3: Add error detection ––
+
+def compute_checksum(message):
+“”“Compute checksum bits for error detection”””
+# Simple parity bits, one per character
+return [ord(ch) % 2 for ch in message]
+
+# –– ENHANCEMENT 4: Encode separator types differently ––
+
+def encode_separator(sep_type, pos):
+“”“Encode separator with special zero-type + position encoding”””
+if sep_type == ’ ’:
+return 20, encode_position_info(pos, 0, 0)  # GEOM
+elif sep_type == ‘,’:
+return 21, encode_position_info(pos, 0, 1)  # SYMSUM
+return 0, pos
+
+# –– Main encoding ––
+
+def encode_message(message, key=“default_key”):
+“”“Encode message with multi-layer steganography”””
+letter_mapping = generate_keyed_mapping(key)
+message_upper = message.upper()
+checksum_bits = compute_checksum(message)
+
+```
+encoded_sequence = []
+zero_values = []
+
+for pos, ch in enumerate(message_upper):
+    if ch.isalpha():
+        # Get zero-type index from keyed mapping
+        zero_idx = letter_mapping[ch]
+        # Encode position and checksum in input
+        input_val = encode_position_info(pos, len(message), checksum_bits[pos])
+        
+        encoded_sequence.append({
+            'char': ch,
+            'zero_idx': zero_idx,
+            'input': input_val,
+            'pos': pos
+        })
+        
+    elif ch in [' ', ',']:
+        zero_idx, input_val = encode_separator(ch, pos)
+        encoded_sequence.append({
+            'char': ch,
+            'zero_idx': zero_idx,
+            'input': input_val,
+            'pos': pos
+        })
+
+# Evaluate all zero functions
+for item in encoded_sequence:
+    fn = ZERO_FUNCS[item['zero_idx']]
+    val = fn(item['input'])
+    assert val == 0, f"Zero-type {item['zero_idx']} failed"
+    zero_values.append('0')
+
+return encoded_sequence, zero_values
+```
+
+def decode_message(encoded_sequence, key=“default_key”):
+“”“Decode message using the key”””
+letter_mapping = generate_keyed_mapping(key)
+
+```
+# Invert the mapping
+idx_to_letter = {v: k for k, v in letter_mapping.items()}
+
+decoded = []
+for item in encoded_sequence:
+    zero_idx = item['zero_idx']
+    
+    # Check if it's a separator
+    if zero_idx == 20:
+        decoded.append(' ')
+    elif zero_idx == 21:
+        decoded.append(',')
+    else:
+        # Decode letter
+        if zero_idx in idx_to_letter:
+            decoded.append(idx_to_letter[zero_idx])
+        else:
+            decoded.append('?')
+
+return ''.join(decoded)
+```
+
+# –– ENHANCEMENT 5: Visual obfuscation options ––
+
+def format_zeros(zeros, style=‘compact’):
+“”“Format zeros in different styles for additional obfuscation”””
+if style == ‘compact’:
+return ‘’.join(zeros)
+elif style == ‘spaced’:
+return ’ ’.join(zeros)
+elif style == ‘hex’:
+# Group as hex-looking null bytes
+groups = [zeros[i:i+2] for i in range(0, len(zeros), 2)]
+return ’ ’.join([‘0x’ + ‘’.join(g) for g in groups])
+elif style == ‘array’:
+return ‘[’ + ’, ’.join(zeros) + ‘]’
+elif style == ‘binary’:
+# Fake binary representation (all zeros)
+return ‘b’ + ‘’.join(zeros)
+return ‘’.join(zeros)
+
+# –– Demo ––
+
+MSG = “HELLO, WORLD”
+KEY = “secret_key_123”  # Change this to get different encodings!
+
+print(”=” * 60)
+print(“ENHANCED HOGGE-ZERO CODEX”)
+print(”=” * 60)
+
+encoded_seq, zeros = encode_message(MSG, KEY)
+
+print(f”\nOriginal message: {MSG}”)
+print(f”Encryption key: {KEY}”)
+print(f”\n— STEGANOGRAPHIC OUTPUT (looks innocent) —”)
+print(“Compact:  “, format_zeros(zeros, ‘compact’))
+print(“Spaced:   “, format_zeros(zeros, ‘spaced’))
+print(“Hex-style:”, format_zeros(zeros, ‘hex’))
+print(“Array:    “, format_zeros(zeros, ‘array’))
+
+if REVEAL:
+print(f”\n— REVEAL MODE (hidden information) —”)
+print(f”\nEncoded sequence length: {len(encoded_seq)}”)
+
+```
+print("\nDetailed encoding:")
+for i, item in enumerate(encoded_seq):
+    fn_name = ZERO_FUNCS[item['zero_idx']].__name__
+    print(f"  [{i:2d}] '{item['char']}' -> Zero-type #{item['zero_idx']:2d} ({fn_name:12s}) | input={item['input']:5d}")
+
+# Decode with correct key
+decoded = decode_message(encoded_seq, KEY)
+print(f"\nDecoded with correct key: {decoded}")
+
+# Try decoding with wrong key
+decoded_wrong = decode_message(encoded_seq, "wrong_key")
+print(f"Decoded with wrong key:   {decoded_wrong}")
+
+print("\n--- ADDITIONAL ENCODED DATA ---")
+print(f"Position information: embedded in input values")
+print(f"Checksum bits: {''.join(str(compute_checksum(MSG)[i]) for i in range(len(MSG)))}")
+print(f"Total information density: ~{len(MSG) * 5} bits in {len(zeros)} zeros")
+```
+
+print(”\n” + “=” * 60)
