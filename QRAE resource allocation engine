@@ -1,0 +1,397 @@
+“””
+QRAE (Quantum Resource Allocation Engine) v1.0
+Optimal resource distribution using linear programming
+Handles: GPU clusters, API quotas, compute budgets
+“””
+
+from dataclasses import dataclass
+from typing import List, Dict, Optional, Tuple
+from enum import Enum
+import csv
+import json
+from datetime import datetime
+
+# Note: Install with `pip install pulp`
+
+try:
+from pulp import *
+except ImportError:
+print(“Warning: PuLP not installed. Run: pip install pulp”)
+LpProblem = None
+LpVariable = None
+LpMaximize = None
+LpMinimize = None
+lpSum = None
+LpStatus = None
+
+# ============================================================================
+
+# CORE DATA STRUCTURES
+
+# ============================================================================
+
+class ResourceType(Enum):
+“”“Types of allocatable resources”””
+GPU_HOURS = “gpu_hours”
+API_TOKENS = “api_tokens”
+CPU_CORES = “cpu_cores”
+MEMORY_GB = “memory_gb”
+NETWORK_GBPS = “network_gbps”
+
+class ObjectiveType(Enum):
+“”“Optimization objectives”””
+MAXIMIZE_THROUGHPUT = “maximize_throughput”
+MINIMIZE_COST = “minimize_cost”
+BALANCE_FAIRNESS = “balance_fairness”
+MINIMIZE_LATENCY = “minimize_latency”
+
+@dataclass
+class Resource:
+“”“A resource to be allocated”””
+name: str
+type: ResourceType
+total_available: float
+cost_per_unit: float = 0.0
+metadata: Dict = None
+
+@dataclass
+class Task:
+“”“A task requiring resources”””
+id: str
+name: str
+requirements: Dict[ResourceType, float]  # {ResourceType: amount_needed}
+priority: float = 1.0
+value: float = 1.0  # Business value or throughput gain
+deadline: Optional[datetime] = None
+
+@dataclass
+class Allocation:
+“”“Result of allocation optimization”””
+task_id: str
+resources: Dict[ResourceType, float]
+allocated: bool
+reason: str = “”
+
+# ============================================================================
+
+# QRAE ENGINE
+
+# ============================================================================
+
+class QRAEngine:
+“””
+Quantum-inspired Resource Allocation Engine
+Uses linear programming for optimal allocation
+“””
+
+```
+def __init__(self, objective: ObjectiveType = ObjectiveType.MAXIMIZE_THROUGHPUT):
+    self.objective = objective
+    self.resources: Dict[str, Resource] = {}
+    self.tasks: List[Task] = []
+    self.allocations: List[Allocation] = []
+    self.solver_stats: Dict = {}
+
+def add_resource(self, resource: Resource):
+    """Register an available resource"""
+    self.resources[resource.name] = resource
+
+def add_task(self, task: Task):
+    """Add a task to be allocated"""
+    self.tasks.append(task)
+
+def solve(self) -> List[Allocation]:
+    """
+    Solve the allocation problem using linear programming
+    Returns: List of allocations for each task
+    """
+    if not LpProblem:
+        raise ImportError("PuLP not installed. Run: pip install pulp")
+    
+    # Create optimization problem
+    if self.objective == ObjectiveType.MINIMIZE_COST:
+        prob = LpProblem("QRAE_Allocation", LpMinimize)
+    else:
+        prob = LpProblem("QRAE_Allocation", LpMaximize)
+    
+    # Decision variables: x[task] = 1 if allocated, 0 otherwise
+    task_vars = {
+        task.id: LpVariable(f"allocate_{task.id}", cat='Binary')
+        for task in self.tasks
+    }
+    
+    # Objective function
+    if self.objective == ObjectiveType.MAXIMIZE_THROUGHPUT:
+        prob += lpSum([
+            task.value * task.priority * task_vars[task.id]
+            for task in self.tasks
+        ])
+    elif self.objective == ObjectiveType.MINIMIZE_COST:
+        prob += lpSum([
+            sum(
+                req_amount * self.resources[res_name].cost_per_unit
+                for res_type, req_amount in task.requirements.items()
+                for res_name, resource in self.resources.items()
+                if resource.type == res_type
+            ) * task_vars[task.id]
+            for task in self.tasks
+        ])
+    
+    # Constraints: Resource availability
+    for resource_name, resource in self.resources.items():
+        prob += lpSum([
+            task.requirements.get(resource.type, 0) * task_vars[task.id]
+            for task in self.tasks
+        ]) <= resource.total_available, f"Capacity_{resource_name}"
+    
+    # Solve
+    start_time = datetime.now()
+    prob.solve(PULP_CBC_CMD(msg=0))
+    solve_time = (datetime.now() - start_time).total_seconds()
+    
+    # Extract results
+    self.allocations = []
+    for task in self.tasks:
+        allocated = task_vars[task.id].varValue == 1
+        
+        if allocated:
+            allocation = Allocation(
+                task_id=task.id,
+                resources=task.requirements.copy(),
+                allocated=True,
+                reason="Optimal allocation"
+            )
+        else:
+            allocation = Allocation(
+                task_id=task.id,
+                resources={},
+                allocated=False,
+                reason="Insufficient resources or lower priority"
+            )
+        
+        self.allocations.append(allocation)
+    
+    # Store solver stats
+    self.solver_stats = {
+        "status": LpStatus[prob.status],
+        "objective_value": value(prob.objective),
+        "solve_time_seconds": solve_time,
+        "tasks_allocated": sum(1 for a in self.allocations if a.allocated),
+        "total_tasks": len(self.tasks)
+    }
+    
+    return self.allocations
+
+def get_utilization_report(self) -> Dict[str, float]:
+    """Calculate resource utilization percentages"""
+    utilization = {}
+    
+    for resource_name, resource in self.resources.items():
+        used = sum(
+            alloc.resources.get(resource.type, 0)
+            for alloc in self.allocations
+            if alloc.allocated
+        )
+        utilization[resource_name] = (used / resource.total_available) * 100
+    
+    return utilization
+
+def export_results(self, filepath: str):
+    """Export allocation results to CSV"""
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Task ID', 'Allocated', 'Resources', 'Reason'])
+        
+        for alloc in self.allocations:
+            writer.writerow([
+                alloc.task_id,
+                alloc.allocated,
+                json.dumps({k.value: v for k, v in alloc.resources.items()}),
+                alloc.reason
+            ])
+```
+
+# ============================================================================
+
+# PRESET SCENARIOS
+
+# ============================================================================
+
+class ScenarioBuilder:
+“”“Build common allocation scenarios”””
+
+```
+@staticmethod
+def gpu_cluster_scenario() -> QRAEngine:
+    """
+    Scenario: Allocate GPU hours across ML training jobs
+    Resources: 100 GPU-hours available
+    Tasks: 5 training jobs with varying requirements
+    """
+    engine = QRAEngine(ObjectiveType.MAXIMIZE_THROUGHPUT)
+    
+    # Add GPU resource
+    engine.add_resource(Resource(
+        name="gpu_cluster_a",
+        type=ResourceType.GPU_HOURS,
+        total_available=100.0,
+        cost_per_unit=2.5
+    ))
+    
+    # Add training tasks
+    tasks = [
+        Task("train_bert", "BERT Fine-tuning", 
+             {ResourceType.GPU_HOURS: 20}, priority=1.5, value=10),
+        Task("train_resnet", "ResNet Training", 
+             {ResourceType.GPU_HOURS: 35}, priority=1.0, value=8),
+        Task("train_llm", "LLM Pre-training", 
+             {ResourceType.GPU_HOURS: 60}, priority=2.0, value=15),
+        Task("train_diffusion", "Diffusion Model", 
+             {ResourceType.GPU_HOURS: 25}, priority=1.2, value=7),
+        Task("train_rl", "RL Policy", 
+             {ResourceType.GPU_HOURS: 15}, priority=0.8, value=5),
+    ]
+    
+    for task in tasks:
+        engine.add_task(task)
+    
+    return engine
+
+@staticmethod
+def api_quota_scenario() -> QRAEngine:
+    """
+    Scenario: Distribute API token budget across teams
+    Resources: 1M API tokens/month
+    Tasks: Different team requests
+    """
+    engine = QRAEngine(ObjectiveType.BALANCE_FAIRNESS)
+    
+    engine.add_resource(Resource(
+        name="api_tokens_openai",
+        type=ResourceType.API_TOKENS,
+        total_available=1_000_000,
+        cost_per_unit=0.002
+    ))
+    
+    teams = [
+        Task("team_research", "Research Team", 
+             {ResourceType.API_TOKENS: 300_000}, priority=1.5, value=12),
+        Task("team_product", "Product Team", 
+             {ResourceType.API_TOKENS: 500_000}, priority=2.0, value=20),
+        Task("team_eng", "Engineering Team", 
+             {ResourceType.API_TOKENS: 250_000}, priority=1.0, value=10),
+        Task("team_qa", "QA Team", 
+             {ResourceType.API_TOKENS: 150_000}, priority=0.8, value=6),
+    ]
+    
+    for team in teams:
+        engine.add_task(team)
+    
+    return engine
+
+@staticmethod
+def multi_resource_scenario() -> QRAEngine:
+    """
+    Scenario: Allocate multiple resource types (CPU, GPU, Memory)
+    """
+    engine = QRAEngine(ObjectiveType.MINIMIZE_COST)
+    
+    engine.add_resource(Resource("cpu_pool", ResourceType.CPU_CORES, 64, 0.1))
+    engine.add_resource(Resource("gpu_pool", ResourceType.GPU_HOURS, 20, 2.5))
+    engine.add_resource(Resource("memory_pool", ResourceType.MEMORY_GB, 512, 0.05))
+    
+    tasks = [
+        Task("inference_service", "Real-time Inference", {
+            ResourceType.CPU_CORES: 8,
+            ResourceType.GPU_HOURS: 2,
+            ResourceType.MEMORY_GB: 32
+        }, priority=2.0, value=15),
+        
+        Task("batch_processing", "Batch Jobs", {
+            ResourceType.CPU_CORES: 32,
+            ResourceType.MEMORY_GB: 128
+        }, priority=1.0, value=8),
+        
+        Task("training_pipeline", "Training Pipeline", {
+            ResourceType.GPU_HOURS: 15,
+            ResourceType.MEMORY_GB: 256
+        }, priority=1.5, value=12),
+    ]
+    
+    for task in tasks:
+        engine.add_task(task)
+    
+    return engine
+```
+
+# ============================================================================
+
+# CLI INTERFACE
+
+# ============================================================================
+
+def run_scenario(scenario_name: str):
+“”“Run a preset scenario and display results”””
+print(f”\n{’=’*60}”)
+print(f”QRAE v1.0 - {scenario_name}”)
+print(f”{’=’*60}\n”)
+
+```
+# Load scenario
+if scenario_name == "gpu_cluster":
+    engine = ScenarioBuilder.gpu_cluster_scenario()
+elif scenario_name == "api_quota":
+    engine = ScenarioBuilder.api_quota_scenario()
+elif scenario_name == "multi_resource":
+    engine = ScenarioBuilder.multi_resource_scenario()
+else:
+    print(f"Unknown scenario: {scenario_name}")
+    return
+
+# Solve
+print("Solving allocation problem...")
+allocations = engine.solve()
+
+# Display results
+print(f"\n{'='*60}")
+print("RESULTS")
+print(f"{'='*60}\n")
+
+print(f"Solver Status: {engine.solver_stats['status']}")
+print(f"Objective Value: {engine.solver_stats['objective_value']:.2f}")
+print(f"Solve Time: {engine.solver_stats['solve_time_seconds']:.3f}s")
+print(f"Tasks Allocated: {engine.solver_stats['tasks_allocated']}/{engine.solver_stats['total_tasks']}\n")
+
+print("Allocations:")
+print("-" * 60)
+for alloc in allocations:
+    status = "✓ ALLOCATED" if alloc.allocated else "✗ REJECTED"
+    print(f"{alloc.task_id:20s} {status:15s}")
+    if alloc.allocated:
+        for res_type, amount in alloc.resources.items():
+            print(f"  └─ {res_type.value}: {amount:.1f}")
+
+print("\nResource Utilization:")
+print("-" * 60)
+for resource, util in engine.get_utilization_report().items():
+    bar = "█" * int(util / 2)
+    print(f"{resource:20s} [{bar:<50s}] {util:.1f}%")
+
+# Export
+output_file = f"qrae_results_{scenario_name}.csv"
+engine.export_results(output_file)
+print(f"\nResults exported to: {output_file}")
+```
+
+if **name** == “**main**”:
+import sys
+
+```
+if len(sys.argv) > 1:
+    scenario = sys.argv[1]
+else:
+    print("Available scenarios: gpu_cluster, api_quota, multi_resource")
+    scenario = "gpu_cluster"
+
+run_scenario(scenario)
+```
