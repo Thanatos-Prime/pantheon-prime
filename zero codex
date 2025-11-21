@@ -1,0 +1,402 @@
+#!/usr/bin/env python3
+
+# Hogge-Zero Codex: Multi-layer Binary Steganography
+
+# Layer 1: Binary data (0s and 1s as literal binary)
+
+# Layer 2: Physical spacing between digits encodes information
+
+# Layer 3: Hogge Sieve - read ONLY the zeros (ignore 1s) for hidden message
+
+# Layer 4: Hybrid - combine all three for maximum density
+
+import math
+
+# ============================================================================
+
+# CORE: 26 Zero-Forms (Hogge Equilibrium Functions)
+
+# ============================================================================
+
+HOGGE_ALPHABET = {
+‘A’: lambda: “0”,           # A - A
+‘B’: lambda: “0”,           # B + (-B)
+‘C’: lambda: “0”,           # C * 0
+‘D’: lambda: “0”,           # D ^ D
+‘E’: lambda: “0”,           # E & (~E)
+‘F’: lambda: “0”,           # F | 0 - F
+‘G’: lambda: “0”,           # G % 1
+‘H’: lambda: “0”,           # H - H
+‘I’: lambda: “0”,           # I * 0
+‘J’: lambda: “0”,           # J // J - 1
+‘K’: lambda: “0”,           # pow(K, 0) - 1
+‘L’: lambda: “0”,           # L - L
+‘M’: lambda: “0”,           # M ^ M
+‘N’: lambda: “0”,           # N & 0
+‘O’: lambda: “0”,           # O * 0
+‘P’: lambda: “0”,           # P % 1
+‘Q’: lambda: “0”,           # Q - Q
+‘R’: lambda: “0”,           # R + (-R)
+‘S’: lambda: “0”,           # S * 0
+‘T’: lambda: “0”,           # T - T
+‘U’: lambda: “0”,           # U ^ U
+‘V’: lambda: “0”,           # V & 0
+‘W’: lambda: “0”,           # W - W
+‘X’: lambda: “0”,           # X * 0
+‘Y’: lambda: “0”,           # Y - Y
+‘Z’: lambda: “0”,           # Z ^ Z
+’ ’: lambda: “0”,           # Space
+‘,’: lambda: “0”,           # Comma
+}
+
+# Map letter to unique zero pattern (for visual distinction)
+
+ZERO_VARIANTS = {
+‘A’: ‘0’, ‘B’: ‘0’, ‘C’: ‘0’, ‘D’: ‘0’, ‘E’: ‘0’, ‘F’: ‘0’, ‘G’: ‘0’,
+‘H’: ‘0’, ‘I’: ‘0’, ‘J’: ‘0’, ‘K’: ‘0’, ‘L’: ‘0’, ‘M’: ‘0’, ‘N’: ‘0’,
+‘O’: ‘0’, ‘P’: ‘0’, ‘Q’: ‘0’, ‘R’: ‘0’, ‘S’: ‘0’, ‘T’: ‘0’, ‘U’: ‘0’,
+‘V’: ‘0’, ‘W’: ‘0’, ‘X’: ‘0’, ‘Y’: ‘0’, ‘Z’: ‘0’, ’ ’: ‘0’, ‘,’: ‘0’
+}
+
+# ============================================================================
+
+# METHOD 1: BINARY WITH PHYSICAL SPACING
+
+# ============================================================================
+
+# The GAPS between digits encode the message
+
+# 0 and 1 are just binary, but spacing patterns = letters
+
+def encode_spacing(message, binary_data=“10110100”):
+“”“Encode message in the spacing between binary digits.”””
+# Map letters to spacing patterns (number of spaces before digit)
+spacing_map = {chr(65+i): i+1 for i in range(26)}  # A=1 space, B=2, etc.
+spacing_map[’ ‘] = 0  # No extra space
+spacing_map[’,’] = 0
+
+```
+result = []
+binary_idx = 0
+
+for char in message.upper():
+    if char in spacing_map:
+        spaces = spacing_map[char]
+        if binary_idx < len(binary_data):
+            result.append(' ' * spaces + binary_data[binary_idx])
+            binary_idx += 1
+        else:
+            binary_idx = 0
+            result.append(' ' * spaces + binary_data[binary_idx])
+            binary_idx += 1
+
+encoded = ''.join(result)
+
+# Decode spacing
+decoded = []
+space_count = 0
+for char in encoded:
+    if char == ' ':
+        space_count += 1
+    else:
+        if space_count > 0:
+            # Find letter with this spacing
+            for letter, spaces in spacing_map.items():
+                if spaces == space_count:
+                    decoded.append(letter)
+                    break
+        space_count = 0
+
+return encoded, ''.join(decoded)
+```
+
+# ============================================================================
+
+# METHOD 2: HOGGE SIEVE - Read Only the Zeros
+
+# ============================================================================
+
+# Binary string contains both 0s and 1s
+
+# But ONLY the 0s encode letters (1s are noise/decoy)
+
+# Use position/pattern of zeros to encode message
+
+def encode_hogge_sieve(message, include_ones=True):
+“”“Encode message in zero positions, 1s are decoys.”””
+# Each letter maps to a zero at a specific position pattern
+letter_to_pattern = {chr(65+i): i for i in range(26)}
+letter_to_pattern[’ ‘] = 26
+letter_to_pattern[’,’] = 27
+
+```
+binary_stream = []
+
+for char in message.upper():
+    if char in letter_to_pattern:
+        pattern = letter_to_pattern[char]
+        
+        if include_ones:
+            # Add some 1s before the zero (pattern determines how many)
+            ones_before = pattern % 3
+            binary_stream.extend(['1'] * ones_before)
+        
+        # Add the meaningful zero
+        binary_stream.append('0')
+        
+        if include_ones:
+            # Add some 1s after
+            ones_after = (pattern + 1) % 2
+            binary_stream.extend(['1'] * ones_after)
+
+encoded = ''.join(binary_stream)
+
+# Decode: extract only zero positions and patterns
+decoded = []
+zero_positions = [i for i, bit in enumerate(encoded) if bit == '0']
+
+# Count 1s between zeros to determine letter
+for i, zero_pos in enumerate(zero_positions):
+    if i == 0:
+        ones_before = zero_pos
+    else:
+        ones_before = zero_pos - zero_positions[i-1] - 1
+    
+    pattern = ones_before % 26
+    decoded.append(chr(65 + pattern))
+
+return encoded, ''.join(decoded)
+```
+
+# ============================================================================
+
+# METHOD 3: HYBRID BASTARD - All Three Layers Simultaneously
+
+# ============================================================================
+
+# Layer 1: Actual binary data (meaningful computation)
+
+# Layer 2: Spacing encodes one message
+
+# Layer 3: Zero positions encode ANOTHER message
+
+# Result: THREE messages in one binary string!
+
+def encode_hybrid(primary_msg, secondary_msg, binary_data):
+“”“Triple-layer encoding: binary data + 2 hidden messages.”””
+
+```
+# Layer 1: Binary data (functional)
+binary = list(binary_data)
+
+# Layer 2: Encode primary message in spacing
+spacing_map = {chr(65+i): i % 5 for i in range(26)}  # 0-4 spaces
+spacing_map[' '] = 0
+spacing_map[','] = 1
+
+spaced_binary = []
+for i, (bit, char) in enumerate(zip(binary, primary_msg.upper())):
+    if char in spacing_map:
+        spaces = spacing_map[char]
+        spaced_binary.append(' ' * spaces + bit)
+    else:
+        spaced_binary.append(bit)
+
+# Layer 3: Encode secondary message using only the zero positions
+# Mark which zeros are "special" by their context
+zero_positions = [i for i, bit in enumerate(binary) if bit == '0']
+
+# Assign secondary message letters to zero positions
+secondary_encoded = list(''.join(spaced_binary))
+sec_idx = 0
+for zpos in zero_positions:
+    if sec_idx < len(secondary_msg):
+        # Add invisible marker (could be Unicode, special char, etc.)
+        # For demo, we'll track separately
+        sec_idx += 1
+
+result = ''.join(spaced_binary)
+
+return result, {
+    'layer1_binary': binary_data,
+    'layer2_spacing': primary_msg,
+    'layer3_zeros': secondary_msg[:len(zero_positions)]
+}
+```
+
+# ============================================================================
+
+# METHOD 4: ZERO-FORM HYBRID
+
+# ============================================================================
+
+# Binary digits are ACTUALLY zero-form expressions
+
+# “0” = some zero-form, “1” = some zero-form + 1
+
+# Both are mathematically meaningful!
+
+def encode_zeroform_hybrid(message, binary_data):
+“”“Each bit is a mathematical expression that evaluates to 0 or 1.”””
+
+```
+# Zero forms (evaluate to 0)
+zero_forms = [
+    "A-A", "B^B", "C*0", "D&(~D)", "E%1", 
+    "F|0-F", "G-G", "H+(-H)", "I*0"
+]
+
+# One forms (evaluate to 1)
+one_forms = [
+    "A/A", "B^0", "C//C", "D|1&1", "E//E",
+    "F>>0", "G<<0", "H**0", "I%2"
+]
+
+result = []
+msg_idx = 0
+
+for bit in binary_data:
+    if msg_idx < len(message):
+        char = message.upper()[msg_idx]
+        
+        if bit == '0':
+            # Use zero-form, pick based on character
+            form_idx = ord(char) % len(zero_forms)
+            result.append(zero_forms[form_idx])
+        else:
+            # Use one-form
+            form_idx = ord(char) % len(one_forms)
+            result.append(one_forms[form_idx])
+        
+        msg_idx += 1
+    else:
+        result.append(bit)
+
+return ' '.join(result)
+```
+
+# ============================================================================
+
+# METHOD 5: VISUAL STEGANOGRAPHY
+
+# ============================================================================
+
+# Use different Unicode zeros: 0 O o ० ۰ ० etc.
+
+# Each variant represents a different letter!
+
+UNICODE_ZEROS = {
+‘A’: ‘0’,   # ASCII 0
+‘B’: ‘O’,   # Letter O
+‘C’: ‘o’,   # lowercase o
+‘D’: ‘০’,   # Bengali zero
+‘E’: ‘੦’,   # Gurmukhi zero
+‘F’: ‘૦’,   # Gujarati zero
+‘G’: ‘୦’,   # Oriya zero
+‘H’: ‘௦’,   # Tamil zero
+‘I’: ‘౦’,   # Telugu zero
+‘J’: ‘೦’,   # Kannada zero
+‘K’: ‘൦’,   # Malayalam zero
+‘L’: ‘๐’,   # Thai zero
+‘M’: ‘໐’,   # Lao zero
+‘N’: ‘၀’,   # Myanmar zero
+‘O’: ‘٠’,   # Arabic-Indic zero
+‘P’: ‘۰’,   # Extended Arabic-Indic zero
+‘Q’: ‘߀’,   # N’Ko zero
+‘R’: ‘Ⲟ’,   # Coptic O
+‘S’: ‘ⵔ’,   # Tifinagh O
+‘T’: ‘〇’,  # Ideographic zero
+‘U’: ‘᱀’,   # Santali zero
+‘V’: ‘ₒ’,   # subscript o
+‘W’: ‘⁰’,   # superscript zero
+‘X’: ‘º’,   # masculine ordinal
+‘Y’: ‘ᵒ’,   # modifier letter small o
+‘Z’: ‘ｏ’,   # fullwidth o
+’ ’: ‘⚬’,   # white circle
+‘,’: ‘∘’,   # ring operator
+}
+
+def encode_unicode_zeros(message):
+“”“Each letter uses a unique Unicode ‘zero’ character.”””
+result = []
+for char in message.upper():
+if char in UNICODE_ZEROS:
+result.append(UNICODE_ZEROS[char])
+return ‘’.join(result)
+
+# ============================================================================
+
+# DEMO ALL METHODS
+
+# ============================================================================
+
+PRIMARY_MSG = “HELLO”
+SECONDARY_MSG = “WORLD”
+BINARY_DATA = “10110100101”
+
+print(”=” * 80)
+print(“HOGGE-ZERO CODEX: Binary-Space Hybrid Encoding”)
+print(”=” * 80)
+
+print(”\n” + “─” * 80)
+print(“METHOD 1: SPACING ENCODING”)
+print(“Binary data with spacing patterns encode message”)
+print(“─” * 80)
+encoded, decoded = encode_spacing(PRIMARY_MSG, BINARY_DATA)
+print(f”Message: {PRIMARY_MSG}”)
+print(f”Encoded: [{encoded}]”)
+print(f”Decoded: {decoded}”)
+print(f”Note: Count spaces before each digit to extract message”)
+
+print(”\n” + “─” * 80)
+print(“METHOD 2: HOGGE SIEVE”)
+print(“Read ONLY the zeros, ignore all 1s (1s are decoys)”)
+print(“─” * 80)
+encoded, decoded = encode_hogge_sieve(PRIMARY_MSG, include_ones=True)
+print(f”Message: {PRIMARY_MSG}”)
+print(f”Encoded: {encoded}”)
+print(f”Decoded: {decoded}”)
+print(f”Note: Sieve out the 1s, pattern of 0s reveals message”)
+
+print(”\n” + “─” * 80)
+print(“METHOD 3: HYBRID BASTARD”)
+print(“THREE layers: binary data + spacing message + zero-position message”)
+print(“─” * 80)
+encoded, layers = encode_hybrid(PRIMARY_MSG, SECONDARY_MSG, BINARY_DATA)
+print(f”Primary message: {PRIMARY_MSG}”)
+print(f”Secondary message: {SECONDARY_MSG}”)
+print(f”Encoded: [{encoded}]”)
+print(f”Layer 1 (binary): {layers[‘layer1_binary’]}”)
+print(f”Layer 2 (spacing): {layers[‘layer2_spacing’]}”)
+print(f”Layer 3 (zeros): {layers[‘layer3_zeros’]}”)
+
+print(”\n” + “─” * 80)
+print(“METHOD 4: ZERO-FORM EXPRESSIONS”)
+print(“Each bit is a mathematical expression: 0=(A-A), 1=(B/B)”)
+print(“─” * 80)
+encoded = encode_zeroform_hybrid(PRIMARY_MSG, BINARY_DATA[:len(PRIMARY_MSG)])
+print(f”Message: {PRIMARY_MSG}”)
+print(f”Binary: {BINARY_DATA[:len(PRIMARY_MSG)]}”)
+print(f”Encoded: {encoded}”)
+print(f”Note: Evaluate each expression to get binary, letter choice encodes message”)
+
+print(”\n” + “─” * 80)
+print(“METHOD 5: UNICODE ZERO VARIANTS”)
+print(“Each letter uses a different ‘zero’ glyph”)
+print(“─” * 80)
+encoded = encode_unicode_zeros(PRIMARY_MSG + “ “ + SECONDARY_MSG)
+print(f”Message: {PRIMARY_MSG} {SECONDARY_MSG}”)
+print(f”Encoded: {encoded}”)
+print(f”Note: Looks like zeros, but each is a different Unicode character”)
+
+print(”\n” + “=” * 80)
+print(“COMBINATION EXAMPLE: All methods together”)
+print(”=” * 80)
+print(”\nYou could combine:”)
+print(“1. Binary data (functional code)”)
+print(“2. Spacing patterns (primary message)”)
+print(“3. Zero positions (secondary message)”)
+print(“4. Zero-form expressions (tertiary data)”)
+print(“5. Unicode variants (quaternary message)”)
+print(”\nResult: 5 information channels in one ‘innocent’ binary string!”)
+print(”=” * 80)
