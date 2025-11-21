@@ -1,0 +1,417 @@
+import React, { useState, useEffect } from ‘react’;
+import { Circle, Zap, RefreshCw, Lock, Unlock, Eye, Download } from ‘lucide-react’;
+
+// Enhanced zero-type system with mathematical foundations
+const ZERO_TYPES = {
+additive: {
+color: ‘#FF0000’,
+name: ‘Additive’,
+description: ‘Balance & equilibrium’,
+value: 0,
+complement: ‘meta’,
+harmonic: 1.0
+},
+multiplicative: {
+color: ‘#FF7F00’,
+name: ‘Multiplicative’,
+description: ‘Growth & scaling’,
+value: 1,
+complement: ‘informational’,
+harmonic: 1.618 // golden ratio
+},
+complex: {
+color: ‘#FFFF00’,
+name: ‘Complex’,
+description: ‘Transformation’,
+value: 2,
+complement: ‘quantum’,
+harmonic: 1.414 // sqrt(2)
+},
+topological: {
+color: ‘#00FF00’,
+name: ‘Topological’,
+description: ‘Structure & connection’,
+value: 3,
+complement: ‘topological’,
+harmonic: 1.732 // sqrt(3)
+},
+quantum: {
+color: ‘#0000FF’,
+name: ‘Quantum’,
+description: ‘Uncertainty & potential’,
+value: 4,
+complement: ‘complex’,
+harmonic: 2.0
+},
+informational: {
+color: ‘#4B0082’,
+name: ‘Informational’,
+description: ‘Pattern & knowledge’,
+value: 5,
+complement: ‘multiplicative’,
+harmonic: 2.236 // sqrt(5)
+},
+meta: {
+color: ‘#9400D3’,
+name: ‘Meta’,
+description: ‘Synthesis & transcendence’,
+value: 6,
+complement: ‘additive’,
+harmonic: 3.0
+}
+};
+
+// Calculate spectral balance using real harmonic analysis
+const calculateSpectralBalance = (sequence) => {
+if (sequence.length === 0) return 0;
+
+const values = sequence.map(type => ZERO_TYPES[type].value);
+const harmonics = sequence.map(type => ZERO_TYPES[type].harmonic);
+
+// Check for complementary pairs
+const complementScore = sequence.reduce((score, type, idx) => {
+const complement = ZERO_TYPES[type].complement;
+const hasComplement = sequence.some((t, i) =>
+t === complement && Math.abs(i - idx) <= 3
+);
+return score + (hasComplement ? 1 : 0);
+}, 0) / sequence.length;
+
+// Calculate harmonic balance (closer to 2.0 = more balanced)
+const avgHarmonic = harmonics.reduce((a, b) => a + b, 0) / harmonics.length;
+const harmonicBalance = 1 - Math.abs(avgHarmonic - 2.0) / 2.0;
+
+// Calculate variance (lower = more balanced)
+const mean = values.reduce((a, b) => a + b, 0) / values.length;
+const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+const varianceScore = Math.max(0, 1 - variance / 6);
+
+// Combined balance score
+return (complementScore * 0.4 + harmonicBalance * 0.3 + varianceScore * 0.3);
+};
+
+// Generate valid rainbow sequence
+const generateBalancedSequence = (length) => {
+const types = Object.keys(ZERO_TYPES);
+let attempts = 0;
+let bestSequence = [];
+let bestScore = 0;
+
+while (attempts < 100) {
+const sequence = [];
+for (let i = 0; i < length; i++) {
+sequence.push(types[Math.floor(Math.random() * types.length)]);
+}
+
+```
+const score = calculateSpectralBalance(sequence);
+if (score > bestScore) {
+  bestScore = score;
+  bestSequence = sequence;
+}
+
+if (score > 0.7) break;
+attempts++;
+```
+
+}
+
+return bestSequence;
+};
+
+// Encode text to chromatic sequence
+const encodeText = (text) => {
+const types = Object.keys(ZERO_TYPES);
+return text.split(’’).map(char => {
+const code = char.charCodeAt(0);
+return types[code % types.length];
+});
+};
+
+// Decode chromatic sequence to text
+const decodeSequence = (sequence) => {
+const types = Object.keys(ZERO_TYPES);
+return sequence.map(type => {
+const idx = types.indexOf(type);
+return String.fromCharCode(65 + idx);
+}).join(’’);
+};
+
+const ChromaticEncoder = () => {
+const [sequence, setSequence] = useState([‘additive’, ‘topological’, ‘meta’]);
+const [balance, setBalance] = useState(0);
+const [inputText, setInputText] = useState(’’);
+const [mode, setMode] = useState(‘create’); // create, encode, visualize
+
+useEffect(() => {
+setBalance(calculateSpectralBalance(sequence));
+}, [sequence]);
+
+const addType = (type) => {
+if (sequence.length < 7) {
+setSequence([…sequence, type]);
+}
+};
+
+const removeType = (index) => {
+setSequence(sequence.filter((_, i) => i !== index));
+};
+
+const generateRandom = () => {
+const length = Math.floor(Math.random() * 4) + 3;
+setSequence(generateBalancedSequence(length));
+};
+
+const handleEncode = () => {
+if (inputText) {
+setSequence(encodeText(inputText));
+setMode(‘visualize’);
+}
+};
+
+const getBalanceColor = (score) => {
+if (score > 0.8) return ‘#10b981’;
+if (score > 0.6) return ‘#f59e0b’;
+return ‘#ef4444’;
+};
+
+const getBalanceLabel = (score) => {
+if (score > 0.8) return ‘Harmonically Balanced’;
+if (score > 0.6) return ‘Partially Balanced’;
+return ‘Unbalanced Spectrum’;
+};
+
+return (
+<div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
+<div className="max-w-6xl mx-auto">
+{/* Header */}
+<div className="text-center mb-8">
+<h1 className="text-4xl font-bold text-white mb-2 flex items-center justify-center gap-3">
+<Circle className="text-purple-400" />
+Chromatic Symbolic Encoder
+</h1>
+<p className="text-purple-200">
+Advanced spectral encoding with harmonic balance validation
+</p>
+</div>
+
+```
+    {/* Mode Selector */}
+    <div className="flex gap-2 mb-6 justify-center">
+      <button
+        onClick={() => setMode('create')}
+        className={`px-6 py-2 rounded-lg font-medium transition ${
+          mode === 'create'
+            ? 'bg-purple-600 text-white'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+        }`}
+      >
+        Create Sequence
+      </button>
+      <button
+        onClick={() => setMode('encode')}
+        className={`px-6 py-2 rounded-lg font-medium transition ${
+          mode === 'encode'
+            ? 'bg-purple-600 text-white'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+        }`}
+      >
+        Encode Text
+      </button>
+      <button
+        onClick={() => setMode('visualize')}
+        className={`px-6 py-2 rounded-lg font-medium transition ${
+          mode === 'visualize'
+            ? 'bg-purple-600 text-white'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+        }`}
+      >
+        Visualize
+      </button>
+    </div>
+
+    {/* Create Mode */}
+    {mode === 'create' && (
+      <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-white">Build Your Glyph</h2>
+          <button
+            onClick={generateRandom}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
+          >
+            <RefreshCw size={16} />
+            Generate Balanced
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-7 gap-3 mb-6">
+          {Object.entries(ZERO_TYPES).map(([key, type]) => (
+            <button
+              key={key}
+              onClick={() => addType(key)}
+              disabled={sequence.length >= 7}
+              className="flex flex-col items-center gap-2 p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title={type.description}
+            >
+              <div
+                className="w-12 h-12 rounded-full border-2 border-white/20"
+                style={{ backgroundColor: type.color }}
+              />
+              <span className="text-xs text-white font-medium">{type.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Encode Mode */}
+    {mode === 'encode' && (
+      <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 mb-6">
+        <h2 className="text-xl font-semibold text-white mb-4">Encode Text to Spectrum</h2>
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Enter text to encode..."
+            className="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+            maxLength={20}
+          />
+          <button
+            onClick={handleEncode}
+            className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
+          >
+            <Lock size={18} />
+            Encode
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* Current Sequence Display */}
+    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 mb-6">
+      <h2 className="text-xl font-semibold text-white mb-4">Current Sequence</h2>
+      
+      {sequence.length === 0 ? (
+        <p className="text-slate-400 text-center py-8">No sequence created yet</p>
+      ) : (
+        <>
+          <div className="flex gap-2 mb-6 flex-wrap">
+            {sequence.map((type, idx) => (
+              <div
+                key={idx}
+                className="relative group"
+              >
+                <div
+                  className="w-16 h-16 rounded-lg border-2 border-white/30 cursor-pointer transition hover:scale-110"
+                  style={{ backgroundColor: ZERO_TYPES[type].color }}
+                  onClick={() => removeType(idx)}
+                />
+                <div className="absolute -bottom-6 left-0 right-0 text-center text-xs text-white opacity-0 group-hover:opacity-100 transition">
+                  {ZERO_TYPES[type].name}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Balance Indicator */}
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-white font-medium">Spectral Balance</span>
+              <span
+                className="text-sm font-bold"
+                style={{ color: getBalanceColor(balance) }}
+              >
+                {getBalanceLabel(balance)}
+              </span>
+            </div>
+            <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 rounded-full"
+                style={{
+                  width: `${balance * 100}%`,
+                  backgroundColor: getBalanceColor(balance)
+                }}
+              />
+            </div>
+            <div className="text-right text-sm text-slate-400 mt-1">
+              {(balance * 100).toFixed(1)}%
+            </div>
+          </div>
+
+          {/* Sequence Analysis */}
+          <div className="mt-6 grid grid-cols-3 gap-4">
+            <div className="bg-slate-700/30 rounded-lg p-4">
+              <div className="text-slate-400 text-sm mb-1">Length</div>
+              <div className="text-white text-2xl font-bold">{sequence.length}</div>
+            </div>
+            <div className="bg-slate-700/30 rounded-lg p-4">
+              <div className="text-slate-400 text-sm mb-1">Unique Types</div>
+              <div className="text-white text-2xl font-bold">
+                {new Set(sequence).size}
+              </div>
+            </div>
+            <div className="bg-slate-700/30 rounded-lg p-4">
+              <div className="text-slate-400 text-sm mb-1">Valid</div>
+              <div className="text-2xl font-bold" style={{ color: getBalanceColor(balance) }}>
+                {balance > 0.7 ? '✓' : '✗'}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+
+    {/* Visualize Mode */}
+    {mode === 'visualize' && sequence.length > 0 && (
+      <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6">
+        <h2 className="text-xl font-semibold text-white mb-4">Spectral Visualization</h2>
+        
+        {/* Spectrum Bar */}
+        <div className="h-32 rounded-lg overflow-hidden mb-6" style={{
+          background: `linear-gradient(to right, ${sequence.map(type => ZERO_TYPES[type].color).join(', ')})`
+        }} />
+
+        {/* Harmonic Wave Representation */}
+        <div className="relative h-48 bg-slate-900/50 rounded-lg overflow-hidden">
+          <svg width="100%" height="100%" viewBox="0 0 1000 200">
+            {sequence.map((type, idx) => {
+              const harmonic = ZERO_TYPES[type].harmonic;
+              const phase = (idx / sequence.length) * Math.PI * 2;
+              const points = Array.from({ length: 100 }, (_, i) => {
+                const x = (i / 100) * 1000;
+                const y = 100 + Math.sin((i / 100) * Math.PI * 2 * harmonic + phase) * 40;
+                return `${x},${y}`;
+              }).join(' ');
+              
+              return (
+                <polyline
+                  key={idx}
+                  points={points}
+                  fill="none"
+                  stroke={ZERO_TYPES[type].color}
+                  strokeWidth="2"
+                  opacity="0.6"
+                />
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Notation */}
+        <div className="mt-6 p-4 bg-slate-900/50 rounded-lg">
+          <div className="text-slate-400 text-sm mb-2">Symbolic Notation:</div>
+          <div className="text-white font-mono text-lg">
+            {sequence.map(type => ZERO_TYPES[type].name.substring(0, 3)).join(' → ')}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+```
+
+);
+};
+
+export default ChromaticEncoder;
