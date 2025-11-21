@@ -1,0 +1,162 @@
+import React, { useState } from ‘react’;
+import { Upload, FileText, Sparkles } from ‘lucide-react’;
+
+export default function HaikuGenerator() {
+const [input, setInput] = useState(’’);
+const [haiku, setHaiku] = useState(’’);
+const [loading, setLoading] = useState(false);
+const [mode, setMode] = useState(‘text’);
+
+const generateHaiku = async () => {
+setLoading(true);
+// Simulate API call with a delay
+await new Promise(resolve => setTimeout(resolve, 1500));
+
+```
+// Generate a haiku based on the input
+const haikus = {
+  park: "Hand in hand they walk\nShadows stretch across the grass\nPlayground waits beyond",
+  sunset: "Golden light descends\nPainting clouds in crimson hues\nDay whispers goodbye",
+  ocean: "Waves embrace the shore\nSalt air dances with the breeze\nEndless blue extends",
+  mountain: "Peaks touch morning clouds\nSilence speaks in ancient stone\nEagles circle high",
+  default: "Moments gently pass\nBeauty found in simple things\nLife's quiet rhythm"
+};
+
+// Simple keyword matching for demo
+const lowerInput = input.toLowerCase();
+let selectedHaiku = haikus.default;
+
+if (lowerInput.includes('park') || lowerInput.includes('playground') || lowerInput.includes('child')) {
+  selectedHaiku = haikus.park;
+} else if (lowerInput.includes('sunset') || lowerInput.includes('dusk')) {
+  selectedHaiku = haikus.sunset;
+} else if (lowerInput.includes('ocean') || lowerInput.includes('sea') || lowerInput.includes('beach')) {
+  selectedHaiku = haikus.ocean;
+} else if (lowerInput.includes('mountain') || lowerInput.includes('peak')) {
+  selectedHaiku = haikus.mountain;
+}
+
+setHaiku(selectedHaiku);
+setLoading(false);
+```
+
+};
+
+return (
+<div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-8">
+<div className="max-w-2xl mx-auto">
+<div className="text-center mb-8">
+<h1 className="text-5xl font-bold text-gray-800 mb-2">🎋 Haiku Generator</h1>
+<p className="text-gray-600">Create beautiful haikus from images or text</p>
+</div>
+
+```
+    <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+      <div className="flex gap-4 mb-6">
+        <button
+          onClick={() => setMode('text')}
+          className={`flex-1 py-3 rounded-lg font-medium transition-all ${
+            mode === 'text'
+              ? 'bg-purple-500 text-white shadow-lg'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <FileText className="inline mr-2" size={20} />
+          Text Description
+        </button>
+        <button
+          onClick={() => setMode('image')}
+          className={`flex-1 py-3 rounded-lg font-medium transition-all ${
+            mode === 'image'
+              ? 'bg-purple-500 text-white shadow-lg'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <Upload className="inline mr-2" size={20} />
+          Upload Image
+        </button>
+      </div>
+
+      {mode === 'text' ? (
+        <div>
+          <label className="block text-gray-700 font-medium mb-2">
+            Enter your description:
+          </label>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Describe a scene, feeling, or moment..."
+            className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none resize-none"
+            rows="4"
+          />
+        </div>
+      ) : (
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <Upload className="mx-auto mb-4 text-gray-400" size={48} />
+          <p className="text-gray-600 mb-2">Drag and drop an image here</p>
+          <p className="text-sm text-gray-400">or click to browse</p>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files[0]) {
+                setInput(`Image uploaded: ${e.target.files[0].name}`);
+              }
+            }}
+            id="file-upload"
+          />
+          <label
+            htmlFor="file-upload"
+            className="inline-block mt-4 px-6 py-2 bg-purple-500 text-white rounded-lg cursor-pointer hover:bg-purple-600 transition-colors"
+          >
+            Select Image
+          </label>
+        </div>
+      )}
+
+      <button
+        onClick={generateHaiku}
+        disabled={!input || loading}
+        className={`w-full mt-6 py-4 rounded-lg font-semibold text-lg transition-all ${
+          !input || loading
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:scale-105'
+        }`}
+      >
+        {loading ? (
+          <span className="flex items-center justify-center">
+            <Sparkles className="animate-spin mr-2" size={20} />
+            Crafting your haiku...
+          </span>
+        ) : (
+          <span className="flex items-center justify-center">
+            <Sparkles className="mr-2" size={20} />
+            Generate Haiku
+          </span>
+        )}
+      </button>
+    </div>
+
+    {haiku && (
+      <div className="bg-white rounded-2xl shadow-xl p-8 animate-fade-in">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center justify-center">
+            <Sparkles className="mr-2 text-yellow-500" size={24} />
+            Your Haiku
+            <Sparkles className="ml-2 text-yellow-500" size={24} />
+          </h2>
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-8 border-2 border-purple-200">
+            <p className="text-2xl font-serif text-gray-800 leading-relaxed whitespace-pre-line">
+              {haiku}
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+```
+
+);
+}
