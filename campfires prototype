@@ -1,0 +1,536 @@
+import React, { useState, useEffect } from ‘react’;
+import { Flame, Users, Map, Sparkles, MessageCircle, Clock, TrendingUp } from ‘lucide-react’;
+
+const CampfiresApp = () => {
+const [view, setView] = useState(‘map’);
+const [selectedFire, setSelectedFire] = useState(null);
+const [messages, setMessages] = useState([]);
+const [messageInput, setMessageInput] = useState(’’);
+
+const fires = [
+{
+id: 1,
+name: ‘Late Night Philosophy’,
+members: 8,
+intensity: 85,
+mood: ‘Deep 🔥’,
+lastActive: ‘2m ago’,
+x: 30,
+y: 40,
+recentTopics: [‘existence’, ‘consciousness’, ‘dreams’]
+},
+{
+id: 2,
+name: ‘Weekend Plans’,
+members: 5,
+intensity: 45,
+mood: ‘Chill 🌙’,
+lastActive: ‘15m ago’,
+x: 65,
+y: 25,
+recentTopics: [‘hiking’, ‘brunch’, ‘movies’]
+},
+{
+id: 3,
+name: ‘Creative Sparks’,
+members: 11,
+intensity: 20,
+mood: ‘Creative 💡’,
+lastActive: ‘2h ago’,
+x: 50,
+y: 70,
+recentTopics: [‘writing’, ‘art’, ‘music’]
+},
+{
+id: 4,
+name: ‘Morning Coffee Club’,
+members: 6,
+intensity: 92,
+mood: ‘Wild ⚡’,
+lastActive: ‘now’,
+x: 80,
+y: 55,
+recentTopics: [‘caffeine’, ‘chaos’, ‘memes’]
+}
+];
+
+const sampleMessages = [
+{ user: ‘Alex’, text: ‘Does anyone else feel like time moves differently at night?’, time: ‘11:42 PM’ },
+{ user: ‘Sam’, text: ‘YES. It's like the world slows down and your thoughts speed up’, time: ‘11:43 PM’ },
+{ user: ‘Jordan’, text: ‘I think it's because we drop all the masks we wear during the day’, time: ‘11:44 PM’ },
+{ user: ‘Ember’, text: ‘🕯️ The fire remembers three souls questioning the nature of time itself…’, time: ‘11:45 PM’, isAI: true }
+];
+
+useEffect(() => {
+if (selectedFire) {
+setMessages(sampleMessages);
+}
+}, [selectedFire]);
+
+const getFlameColor = (intensity) => {
+if (intensity > 70) return ‘#FFB347’;
+if (intensity > 40) return ‘#FF8C42’;
+return ‘#FF6B35’;
+};
+
+const getFlameSize = (intensity) => {
+return 20 + (intensity / 100) * 30;
+};
+
+const sendMessage = () => {
+if (messageInput.trim()) {
+setMessages([…messages, {
+user: ‘You’,
+text: messageInput,
+time: new Date().toLocaleTimeString([], { hour: ‘2-digit’, minute: ‘2-digit’ })
+}]);
+setMessageInput(’’);
+}
+};
+
+return (
+<div style={{
+minHeight: ‘100vh’,
+background: ‘linear-gradient(180deg, #0A0E27 0%, #1A1F3A 100%)’,
+color: ‘#FFF8F0’,
+fontFamily: ‘Inter, system-ui, -apple-system, sans-serif’,
+position: ‘relative’,
+overflow: ‘hidden’
+}}>
+{/* Ambient particles */}
+<div style={{
+position: ‘absolute’,
+inset: 0,
+opacity: 0.3,
+background: `radial-gradient(circle at 20% 30%, rgba(255, 107, 53, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(255, 140, 66, 0.1) 0%, transparent 50%)`
+}} />
+
+```
+  {/* Navigation */}
+  <nav style={{
+    position: 'relative',
+    zIndex: 10,
+    padding: '16px 24px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '1px solid rgba(255, 248, 240, 0.1)'
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <Flame size={28} color="#FF8C42" />
+      <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700 }}>Campfires</h1>
+    </div>
+    <div style={{ display: 'flex', gap: '16px' }}>
+      <button
+        onClick={() => { setView('map'); setSelectedFire(null); }}
+        style={{
+          background: view === 'map' ? 'rgba(255, 140, 66, 0.2)' : 'transparent',
+          border: '1px solid rgba(255, 248, 240, 0.2)',
+          borderRadius: '8px',
+          padding: '8px 16px',
+          color: '#FFF8F0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'all 0.3s'
+        }}
+      >
+        <Map size={18} /> Map
+      </button>
+      <button
+        onClick={() => setView('discover')}
+        style={{
+          background: view === 'discover' ? 'rgba(255, 140, 66, 0.2)' : 'transparent',
+          border: '1px solid rgba(255, 248, 240, 0.2)',
+          borderRadius: '8px',
+          padding: '8px 16px',
+          color: '#FFF8F0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'all 0.3s'
+        }}
+      >
+        <Sparkles size={18} /> Discover
+      </button>
+    </div>
+  </nav>
+
+  {/* Map View */}
+  {view === 'map' && !selectedFire && (
+    <div style={{
+      position: 'relative',
+      height: 'calc(100vh - 80px)',
+      padding: '40px'
+    }}>
+      <div style={{
+        position: 'absolute',
+        top: '32px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        textAlign: 'center',
+        zIndex: 5
+      }}>
+        <h2 style={{ 
+          margin: 0, 
+          fontSize: '20px', 
+          fontWeight: 400,
+          color: '#9FA4B8',
+          marginBottom: '8px'
+        }}>
+          Your Fires Tonight
+        </h2>
+        <p style={{ 
+          margin: 0, 
+          fontSize: '14px',
+          color: '#9FA4B8',
+          opacity: 0.7
+        }}>
+          Tap any flame to enter the circle
+        </p>
+      </div>
+
+      {fires.map((fire) => (
+        <div
+          key={fire.id}
+          onClick={() => setSelectedFire(fire)}
+          style={{
+            position: 'absolute',
+            left: `${fire.x}%`,
+            top: `${fire.y}%`,
+            transform: 'translate(-50%, -50%)',
+            cursor: 'pointer',
+            transition: 'transform 0.3s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.1)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)'}
+        >
+          {/* Flame glow */}
+          <div style={{
+            position: 'absolute',
+            width: getFlameSize(fire.intensity) * 2,
+            height: getFlameSize(fire.intensity) * 2,
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${getFlameColor(fire.intensity)}40, transparent 70%)`,
+            animation: 'pulse 3s ease-in-out infinite',
+            pointerEvents: 'none'
+          }} />
+          
+          {/* Flame icon */}
+          <Flame 
+            size={getFlameSize(fire.intensity)} 
+            color={getFlameColor(fire.intensity)}
+            fill={getFlameColor(fire.intensity)}
+            style={{ 
+              filter: `drop-shadow(0 0 ${fire.intensity/10}px ${getFlameColor(fire.intensity)})`
+            }}
+          />
+          
+          {/* Fire name */}
+          <div style={{
+            position: 'absolute',
+            top: '120%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            whiteSpace: 'nowrap',
+            fontSize: '12px',
+            fontWeight: 500,
+            background: 'rgba(26, 31, 58, 0.9)',
+            padding: '4px 12px',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 248, 240, 0.1)'
+          }}>
+            {fire.name}
+          </div>
+        </div>
+      ))}
+
+      <style>
+        {`
+          @keyframes pulse {
+            0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          }
+        `}
+      </style>
+    </div>
+  )}
+
+  {/* Fire Chat View */}
+  {selectedFire && (
+    <div style={{
+      position: 'relative',
+      height: 'calc(100vh - 80px)',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      {/* Fire Header */}
+      <div style={{
+        padding: '20px 24px',
+        background: 'rgba(26, 31, 58, 0.6)',
+        borderBottom: '1px solid rgba(255, 248, 240, 0.1)',
+        backdropFilter: 'blur(10px)'
+      }}>
+        <button
+          onClick={() => setSelectedFire(null)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#9FA4B8',
+            cursor: 'pointer',
+            marginBottom: '12px',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          ← Back to Map
+        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>
+              {selectedFire.name}
+            </h2>
+            <div style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              marginTop: '8px',
+              fontSize: '14px',
+              color: '#9FA4B8'
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Users size={14} /> {selectedFire.members} souls
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Clock size={14} /> {selectedFire.lastActive}
+              </span>
+              <span>{selectedFire.mood}</span>
+            </div>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            background: 'rgba(255, 140, 66, 0.2)',
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 140, 66, 0.3)'
+          }}>
+            <TrendingUp size={16} color="#FF8C42" />
+            <span style={{ fontSize: '14px', fontWeight: 600 }}>
+              {selectedFire.intensity}% active
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
+      }}>
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              maxWidth: '70%',
+              alignSelf: msg.user === 'You' ? 'flex-end' : 'flex-start'
+            }}
+          >
+            <div style={{
+              fontSize: '12px',
+              color: '#9FA4B8',
+              paddingLeft: msg.user === 'You' ? 0 : '12px',
+              paddingRight: msg.user === 'You' ? '12px' : 0,
+              fontWeight: msg.isAI ? 600 : 400,
+              color: msg.isAI ? '#06FFA5' : '#9FA4B8'
+            }}>
+              {msg.user} • {msg.time}
+            </div>
+            <div style={{
+              padding: '12px 16px',
+              borderRadius: msg.user === 'You' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+              background: msg.isAI 
+                ? 'rgba(6, 255, 165, 0.1)' 
+                : msg.user === 'You' 
+                  ? 'rgba(255, 140, 66, 0.3)'
+                  : 'rgba(45, 49, 66, 0.8)',
+              border: msg.isAI ? '1px solid rgba(6, 255, 165, 0.3)' : 'none',
+              fontSize: '15px',
+              lineHeight: '1.5',
+              fontFamily: msg.isAI ? 'Crimson Text, serif' : 'inherit',
+              fontStyle: msg.isAI ? 'italic' : 'normal'
+            }}>
+              {msg.text}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Message Input */}
+      <div style={{
+        padding: '16px 24px',
+        background: 'rgba(26, 31, 58, 0.8)',
+        borderTop: '1px solid rgba(255, 248, 240, 0.1)',
+        backdropFilter: 'blur(10px)'
+      }}>
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center'
+        }}>
+          <input
+            type="text"
+            value={messageInput}
+            onChange={(e) => setMessageInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+            placeholder="Add fuel to the fire..."
+            style={{
+              flex: 1,
+              background: 'rgba(45, 49, 66, 0.6)',
+              border: '1px solid rgba(255, 248, 240, 0.1)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              color: '#FFF8F0',
+              fontSize: '15px',
+              outline: 'none'
+            }}
+          />
+          <button
+            onClick={sendMessage}
+            style={{
+              background: 'linear-gradient(135deg, #FF8C42, #FFB347)',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '12px 24px',
+              color: '#0A0E27',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'transform 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <Sparkles size={18} /> Spark
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* Discover View */}
+  {view === 'discover' && (
+    <div style={{
+      padding: '40px',
+      maxWidth: '1200px',
+      margin: '0 auto'
+    }}>
+      <h2 style={{ fontSize: '28px', fontWeight: 600, marginBottom: '24px' }}>
+        Discover New Circles
+      </h2>
+      
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        gap: '20px'
+      }}>
+        {fires.map((fire) => (
+          <div
+            key={fire.id}
+            onClick={() => setSelectedFire(fire)}
+            style={{
+              background: 'rgba(45, 49, 66, 0.4)',
+              border: '1px solid rgba(255, 248, 240, 0.1)',
+              borderRadius: '16px',
+              padding: '24px',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.borderColor = getFlameColor(fire.intensity);
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.borderColor = 'rgba(255, 248, 240, 0.1)';
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: '100px',
+              height: '100px',
+              background: `radial-gradient(circle, ${getFlameColor(fire.intensity)}20, transparent 70%)`,
+              pointerEvents: 'none'
+            }} />
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <Flame size={32} color={getFlameColor(fire.intensity)} fill={getFlameColor(fire.intensity)} />
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>
+                {fire.name}
+              </h3>
+            </div>
+            
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              marginBottom: '12px',
+              fontSize: '14px',
+              color: '#9FA4B8'
+            }}>
+              <span>{fire.mood}</span>
+              <span>•</span>
+              <span>{fire.members} souls</span>
+            </div>
+            
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px'
+            }}>
+              {fire.recentTopics.map((topic, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    background: 'rgba(255, 140, 66, 0.15)',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    color: '#FFB347'
+                  }}
+                >
+                  {topic}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
+```
+
+);
+};
+
+export default CampfiresApp;
