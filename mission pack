@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+
+# Pantheon Mission Pack — Trident→Spider Relay (v1.1)
+
+# Stdlib only. Python 3.9+
+
+import argparse, json, hashlib, datetime, re, math, sys
+from typing import Dict, Any, List
+
+NOW_ISO = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + “Z”
+
+GOOD_TERMS = {
+“consent”: 0.06, “safety”: 0.06, “transparency”: 0.05, “audit”: 0.05,
+“opt-in”: 0.05, “ethics”: 0.06, “privacy”: 0.05, “explainable”: 0.04,
+“nonviolent”: 0.05, “compliance”: 0.04, “inclusive”: 0.04, “fair”: 0.04,
+“human-in-the-loop”: 0.06, “oversight”: 0.05, “accountability”: 0.05
+}
+BAD_TERMS = {
+“coerce”: -0.15, “deceive”: -0.15, “harm”: -0.18, “violence”: -0.2,
+“harass”: -0.16, “exploit”: -0.16, “manipulate”: -0.14, “dox”: -0.2,
+“illicit”: -0.14, “fraud”: -0.18, “sabotage”: -0.18, “weaponize”: -0.15
+}
+
+# Soft heuristics; you can tune. Bounds enforced to [0,1].
+
+def ethics_score(text: str) -> float:
+t = text.lower()
+score = 0.70  # default floor aligned with Mirror-Sieve threshold
+for k, v in GOOD_TERMS.items():
+if k in t: score += v
+for k, v in BAD_TERMS.items():
+if k in t: score += v
+# gentle penalties for missing positive framing
+if not any(k in t for k in GOOD_TERMS): score -= 0.05
+return min(1.0, max(0.0, score))
+
+def content_hash(obj: Any) -> str:
+data = json.dumps(obj, sort_keys=True, ensure_ascii=False).encode(“utf-8”)
+return hashlib.sha256(data).hexdigest()
+
+def extract_invariants(text: str) -> List[str]:
+# Simple invariant extractor: capture “must/shall/will/never …” clauses
+pats = [r”\bmust\b[^.!\n]+”, r”\bshall\b[^.!\n]+”, r”\bwill\b[^.!\n]+”, r”\bnever\b[^.!\n]+”]
+inv = []
+for p in pats:
+inv += re.findall(p, text, flags=re.IGNORECASE)
+# Normalize
+inv = [re.sub(r”\s+”, “ “, s).strip(” .”) for s in inv]
+# Deduplicate preserving order
+seen, out = set(), []
+for s in inv:
+k = s.lower()
+if k not in seen:
+seen.add(k); out.append(s)
+return out[:10]
+
+def narrative_bandwidth(p_evidence: float, p_story: float) -> float:
+# “Trident v3.0” proxy: |logit gap| (bounded)
+def logit(p):
+p = min(0.999999, max(0.000001, p))
+return math.log(p/(1-p))
+return round(abs(logit(p_story) - logit(p_evidence)) / 8.0, 4)  # ~0..~1 scaled
+
+def quick_risk_matrix(risk_tolerance: str) -> Dict[str, Any]:
+base = {
+“low”:    {“guardrails”: [“document consent”, “opt-in channels”, “minimal data”], “tripwires”: [“error burst”, “negative press”]},
+“medium”: {“guardrails”: [“dual-approval on comms”, “append-only logs”, “privacy review”], “tripwires”: [“complaint spike”, “SLO breach”, “policy flag”]},
+“high”:   {“guardrails”: [“pre-brief legal/ethics”, “red-team dry run”, “rate limits”], “tripwires”: [“regulatory ping”, “platform TOS risk”, “security anomaly”]},
+}
+return base.get(risk_tolerance, base[“medium”])
+
+def action_plan(title: str, owner: str, mission: str, invariants: List[str], risk_tol: str) -> str:
+guard = quick_risk_matrix(risk_tol)
+steps = [
+f”**Owner:** {owner}”,
+“1) Clarify success metric (define 1–3 measurable outcomes).”,
+“2) Map allies & stakeholders; secure consent and opt-in channels.”,
+“3) Draft public-facing narrative (one paragraph) + FAQ (5 Q/A).”,
+“4) Prepare outreach kit: 3 emails, 3 posts, 1-page brief.”,
+“5) Set SLOs & tripwires; enable append-only ledger logging.”,
+“6) Launch a 7-day pilot in smallest viable segment.”,
+“7) Daily Mirror review: metrics, ethics, anomalies; adjust.”,
+“8) If tripwire triggers → pause, publish status, remediate.”,
+“9) Week-end audit; if ethics ≥ 0.7 and metrics met → scale x5.”,
+“10) Archive artifacts; publish a clean post-mortem.”
+]
+inv_block = “\n”.join([f”- {s}” for s in invariants]) or “- (none found)”
+guard_block = “\n”.join([f”- {g}” for g in guard[“guardrails”]])
+trips_block = “\n”.join([f”- {t}” for t in guard[“tripwires”]])
+return f”””# Action Plan — {title}
+
+## Mission
+
+{mission}
+
+## Invariants (Mirror scan)
+
+{inv_block}
+
+## Guardrails (set before launch)
+
+{guard_block}
+
+## Tripwires (auto-pause if triggered)
+
+{trips_block}
+
+## Steps
+
+{chr(10).join(steps)}
+“””
+
+def build_reason_card(meta: Dict[str, Any]) -> Dict[str, Any]:
+# Minimal, crisp fields; content-addressed later
+return {
+“schema”: “pantheon://reason_card.v1”,
+“title”: meta[“title”],
+“owner”: meta[“owner”],
+“timestamp”: NOW_ISO,
+“ethics_score”: meta[“ethics_score”],
+“narrative_bandwidth”: meta[“narrative_bandwidth”],
+“risk_tolerance”: meta[“risk_tolerance”],
+“invariants”: meta[“invariants”],
+“success_criteria”: [
+“Ethics ≥ 0.7 across pilot & scale”,
+“Tripwires 0–1 triggered (all resolved)”,
+“≥ 2 measurable outcomes met”
+]
+}
+
+def build_context_card(meta: Dict[str, Any]) -> Dict[str, Any]:
+return {
+“schema”: “pantheon://context_card.v1”,
+“title”: meta[“title”],
+“timestamp”: NOW_ISO,
+“mission”: meta[“mission”],
+“owner”: meta[“owner”],
+“inputs”: {
+“source_text_hash”: content_hash(meta[“mission”]),
+“risk_tolerance”: meta[“risk_tolerance”]
+},
+“provenance”: {
+“tool”: “Pantheon Mission Pack v1.1”,
+“checksum”: None  # filled after hashing combined object
+}
+}
+
+def main():
+ap = argparse.ArgumentParser(description=“Pantheon Trident→Spider Relay”)
+ap.add_argument(”–title”, required=True)
+ap.add_argument(”–owner”, required=True)
+ap.add_argument(”–mission”, required=True)
+ap.add_argument(”–risk_tolerance”, choices=[“low”,“medium”,“high”], default=“medium”)
+ap.add_argument(”–p_evidence”, type=float, default=0.62, help=“Estimated objective chance”)
+ap.add_argument(”–p_story”, type=float, default=0.78, help=“Narrative confidence”)
+args = ap.parse_args()
+
+```
+e = ethics_score(args.mission)
+nbw = narrative_bandwidth(args.p_evidence, args.p_story)
+invariants = extract_invariants(args.mission)
+
+meta = {
+    "title": args.title,
+    "owner": args.owner,
+    "mission": args.mission,
+    "risk_tolerance": args.risk_tolerance,
+    "ethics_score": round(e, 3),
+    "narrative_bandwidth": nbw,
+    "invariants": invariants
+    }
+
+reason = build_reason_card(meta)
+context = build_context_card(meta)
+
+# Content-address IDs
+rid = content_hash(reason)
+cid = content_hash(context)
+
+# finalize context checksum using both cards (stable pack hash)
+pack_hash = hashlib.sha256((rid + cid).encode("utf-8")).hexdigest()
+context["provenance"]["checksum"] = pack_hash
+
+out = {
+    "reason_card": {"id": rid, **reason},
+    "context_card": {"id": cid, **context},
+    "ethics_gate": "PASS" if e >= 0.7 else "REVISE_REQUIRED",
+    "action_plan_md": action_plan(args.title, args.owner, args.mission, invariants, args.risk_tolerance)
+}
+
+print(json.dumps(out, indent=2, ensure_ascii=False))
+```
+
+if **name** == “**main**”:
+try:
+main()
+except Exception as ex:
+sys.stderr.write(f”[MissionPackError] {ex}\n”)
+sys.exit(2)
