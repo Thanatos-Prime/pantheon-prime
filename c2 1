@@ -1,0 +1,237 @@
+import numpy as np
+from dataclasses import dataclass
+from typing import List, Dict, Optional
+
+@dataclass
+class Node:
+“”“Represents a cluster/node in semantic terrain”””
+mu: np.ndarray  # centroid
+n_k: int        # count of embeddings
+E_k: float      # total energy/importance
+t_last: float   # last access time
+neighbors: List[int]  # indices of neighboring nodes
+
+class C2Engine:
+def **init**(self, dim=1536, alpha=0.8, t_half=600, a_half=0.7, e_half=900,
+cluster_threshold=0.15, min_cluster_size=2):
+self.dim = dim
+self.alpha = alpha
+self.turn = 0
+self.emb_history = []
+self.angle_history = []
+self.H = None  # heading
+self.clusters: List[Node] = []
+self.salience: Dict[int, float] = {}
+self.params = dict(T_half=t_half, A_half=a_half, E_half=e_half)
+self.cluster_threshold = cluster_threshold
+self.min_cluster_size = min_cluster_size
+
+```
+def ingest(self, e_t: np.ndarray, now: float):
+    """Main ingestion function"""
+    self.turn += 1
+    self.emb_history.append(e_t)
+
+    # angle + heading
+    if self.turn > 1:
+        e_prev = self.emb_history[-2]
+        sim = self._cosine(e_t, e_prev)
+        theta = self._arccos_clip(sim)
+        self.angle_history.append(theta)
+        v = self._normalize(e_t - e_prev)
+        self.H = self._normalize(self.alpha*(self.H if self.H is not None else v) + (1-self.alpha)*v)
+    else:
+        self.H = self._normalize(e_t)
+
+    # update terrain (incremental clustering)
+    nid = self._assign_or_create_cluster(e_t, now)
+
+    # water deposition
+    neigh = self._nearest_nodes(e_t, k=min(5, len(self.clusters)))
+    if neigh:
+        deposits = self._softmax([self._cosine(e_t, self.clusters[i].mu)/0.07 for i in neigh])
+        for i, w in zip(neigh, deposits):
+            self.salience[i] = self.salience.get(i, 0.0) + 0.5*w
+
+    # runoff (optional graph diffusion)
+    self._runoff_step()
+
+    # decay by time and angle
+    self._decay(now)
+
+    # return top salient nodes for recall
+    return self.top_nodes_for_recall()
+
+def top_nodes_for_recall(self, k=5, lam=0.3):
+    """Return top-k most salient nodes, biased by heading alignment"""
+    if not self.salience:
+        return []
+        
+    scored = []
+    for i, S in self.salience.items():
+        if i >= len(self.clusters):
+            continue
+        mu = self.clusters[i].mu
+        align = self._cosine(self.H, self._normalize(mu))
+        score = S * (1 + lam*align)
+        scored.append((score, i))
+    scored.sort(reverse=True)
+    return [i for _, i in scored[:k]]
+
+# --- internal helpers ---
+def _assign_or_create_cluster(self, e_t: np.ndarray, now: float) -> int:
+    """Assign embedding to nearest cluster or create new one"""
+    if not self.clusters:
+        # Create first cluster
+        node = Node(mu=e_t.copy(), n_k=1, E_k=1.0, t_last=now, neighbors=[])
+        self.clusters.append(node)
+        self.salience[0] = 1.0
+        return 0
+    
+    # Find nearest cluster
+    distances = [np.linalg.norm(e_t - node.mu) for node in self.clusters]
+    nearest_idx = np.argmin(distances)
+    nearest_dist = distances[nearest_idx]
+    
+    # If too far, create new cluster
+    if nearest_dist > self.cluster_threshold:
+        nid = len(self.clusters)
+        node = Node(mu=e_t.copy(), n_k=1, E_k=1.0, t_last=now, neighbors=[nearest_idx])
+        self.clusters.append(node)
+        self.salience[nid] = 1.0
+        
+        # Update neighbor's neighbor list
+        self.clusters[nearest_idx].neighbors.append(nid)
+        return nid
+    
+    # Update existing cluster (online centroid update)
+    node = self.clusters[nearest_idx]
+    node.n_k += 1
+    node.mu = node.mu + (e_t - node.mu) / node.n_k
+    node.E_k += 1.0
+    node.t_last = now
+    
+    return nearest_idx
+
+def _nearest_nodes(self, e_t: np.ndarray, k: int) -> List[int]:
+    """Return indices of k nearest clusters"""
+    if not self.clusters:
+        return []
+    
+    distances = [(np.linalg.norm(e_t - node.mu), i) for i, node in enumerate(self.clusters)]
+    distances.sort()
+    return [i for _, i in distances[:k]]
+
+def _runoff_step(self, diffusion_rate=0.2):
+    """Diffuse salience along graph edges"""
+    if not self.salience or not self.clusters:
+        return
+    
+    new_salience = {}
+    for i, S in self.salience.items():
+        if i >= len(self.clusters):
+            continue
+            
+        # Keep most salience
+        new_salience[i] = new_salience.get(i, 0.0) + S * (1 - diffusion_rate)
+        
+        # Distribute some to neighbors
+        neighbors = self.clusters[i].neighbors
+        if neighbors:
+            flow = S * diffusion_rate / len(neighbors)
+            for n in neighbors:
+                new_salience[n] = new_salience.get(n, 0.0) + flow
+    
+    self.salience = new_salience
+
+def _decay(self, now: float):
+    """Apply time-based and angle-based decay to salience"""
+    T_half = self.params['T_half']
+    A_half = self.params['A_half']
+    
+    # Time decay
+    to_remove = []
+    for i, S in self.salience.items():
+        if i >= len(self.clusters):
+            to_remove.append(i)
+            continue
+            
+        node = self.clusters[i]
+        dt = now - node.t_last
+        
+        # Exponential decay based on time
+        time_decay = 0.5 ** (dt / T_half)
+        
+        # Angle decay (higher angle = more decay)
+        angle_decay = 1.0
+        if self.angle_history:
+            recent_angles = self.angle_history[-5:]  # last 5 turns
+            avg_angle = np.mean(recent_angles)
+            angle_decay = 0.5 ** (avg_angle / A_half)
+        
+        # Combined decay
+        new_S = S * time_decay * angle_decay
+        
+        # Remove if below threshold
+        if new_S < 0.01:
+            to_remove.append(i)
+        else:
+            self.salience[i] = new_S
+    
+    for i in to_remove:
+        del self.salience[i]
+
+# --- utility functions ---
+@staticmethod
+def _cosine(a: np.ndarray, b: np.ndarray) -> float:
+    """Cosine similarity"""
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10)
+
+@staticmethod
+def _normalize(v: np.ndarray) -> np.ndarray:
+    """Normalize vector"""
+    norm = np.linalg.norm(v)
+    return v / (norm + 1e-10) if norm > 0 else v
+
+@staticmethod
+def _arccos_clip(x: float) -> float:
+    """Safe arccos"""
+    return np.arccos(np.clip(x, -1.0, 1.0))
+
+@staticmethod
+def _softmax(x: List[float]) -> np.ndarray:
+    """Softmax function"""
+    x = np.array(x)
+    exp_x = np.exp(x - np.max(x))
+    return exp_x / exp_x.sum()
+
+def get_memory_state(self) -> Dict:
+    """Return current state for debugging/visualization"""
+    return {
+        'turn': self.turn,
+        'num_clusters': len(self.clusters),
+        'active_nodes': len(self.salience),
+        'heading_norm': np.linalg.norm(self.H) if self.H is not None else 0,
+        'avg_salience': np.mean(list(self.salience.values())) if self.salience else 0
+    }
+```
+
+# Example usage
+
+if **name** == “**main**”:
+engine = C2Engine(dim=128)
+
+```
+# Simulate conversation with embeddings
+np.random.seed(42)
+for t in range(10):
+    # Random walk in embedding space
+    if t == 0:
+        e_t = np.random.randn(128)
+    else:
+        e_t = e_t + np.random.randn(128) * 0.3
+    e_t = e_t / np.linalg.norm(e_t)
+    
+    recalled = engine.ingest(e_t, now=t*10.0)
+    print(f"Turn {t+1}: Recalled nodes {recalled}, State: {engine.get_memory_state()}")
+```
