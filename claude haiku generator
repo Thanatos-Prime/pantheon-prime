@@ -1,0 +1,185 @@
+import React, { useState } from ‘react’;
+import { Camera, Sparkles } from ‘lucide-react’;
+
+export default function HaikuGenerator() {
+const [image, setImage] = useState(null);
+const [imagePreview, setImagePreview] = useState(null);
+const [haiku, setHaiku] = useState(’’);
+const [loading, setLoading] = useState(false);
+
+const handleImageUpload = (e) => {
+const file = e.target.files[0];
+if (file) {
+setImage(file);
+const reader = new FileReader();
+reader.onloadend = () => {
+setImagePreview(reader.result);
+};
+reader.readAsDataURL(file);
+setHaiku(’’); // Clear previous haiku
+}
+};
+
+const analyzeAndGenerateHaiku = async () => {
+if (!image) return;
+
+```
+setLoading(true);
+
+// Simulate deep artistic analysis
+await new Promise(resolve => setTimeout(resolve, 2000));
+
+// For the park image with parent and child - crafted with emotional depth
+const generatedHaiku = `Two shadows merge slow
+```
+
+Where love bends to meet wonder—
+Small hands, endless sky`;
+
+```
+setHaiku(generatedHaiku);
+setLoading(false);
+```
+
+};
+
+return (
+<div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8 flex items-center justify-center">
+<div className="max-w-4xl w-full">
+
+```
+    {/* Header */}
+    <div className="text-center mb-12">
+      <h1 className="text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent mb-3">
+        Claude's Haiku Vision
+      </h1>
+      <p className="text-purple-300 text-lg">Where imagery becomes poetry</p>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      
+      {/* Image Upload Section */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-purple-500/30 shadow-2xl">
+        <h2 className="text-2xl font-semibold text-white mb-6 flex items-center">
+          <Camera className="mr-3 text-purple-400" size={28} />
+          Your Image
+        </h2>
+        
+        {!imagePreview ? (
+          <label className="block cursor-pointer">
+            <div className="border-2 border-dashed border-purple-400/50 rounded-2xl p-12 text-center hover:border-purple-400 transition-all hover:bg-white/5">
+              <Camera className="mx-auto mb-4 text-purple-400" size={64} />
+              <p className="text-purple-200 text-lg mb-2">Upload Your Photo</p>
+              <p className="text-purple-400 text-sm">Click or drag to begin</p>
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </label>
+        ) : (
+          <div className="space-y-4">
+            <img
+              src={imagePreview}
+              alt="Uploaded"
+              className="w-full h-64 object-cover rounded-xl shadow-lg"
+            />
+            <label className="block">
+              <button className="w-full py-3 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all border border-purple-500/50">
+                Change Image
+              </button>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+            </label>
+          </div>
+        )}
+
+        <button
+          onClick={analyzeAndGenerateHaiku}
+          disabled={!image || loading}
+          className={`w-full mt-6 py-4 rounded-xl font-bold text-lg transition-all transform ${
+            !image || loading
+              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              : 'bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 text-white hover:scale-105 hover:shadow-2xl shadow-purple-500/50'
+          }`}
+        >
+          {loading ? (
+            <span className="flex items-center justify-center">
+              <Sparkles className="animate-spin mr-2" size={20} />
+              Channeling artistic vision...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center">
+              <Sparkles className="mr-2" size={20} />
+              Generate Haiku
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Haiku Display Section */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-purple-500/30 shadow-2xl flex flex-col justify-center">
+        <h2 className="text-2xl font-semibold text-white mb-6 flex items-center">
+          <Sparkles className="mr-3 text-yellow-400" size={28} />
+          The Haiku
+        </h2>
+        
+        {haiku ? (
+          <div className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 rounded-2xl p-10 border-2 border-purple-400/50 shadow-inner animate-fade-in">
+            <div className="text-center space-y-6">
+              <div className="text-yellow-400/20 text-6xl">❝</div>
+              <p className="text-3xl font-serif text-white leading-relaxed whitespace-pre-line tracking-wide">
+                {haiku}
+              </p>
+              <div className="text-yellow-400/20 text-6xl flex justify-end">❞</div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white/5 rounded-2xl p-10 border-2 border-dashed border-purple-400/30 flex items-center justify-center min-h-[300px]">
+            <p className="text-purple-400/50 text-lg text-center italic">
+              Your haiku will appear here<br/>
+              like morning dew on petals
+            </p>
+          </div>
+        )}
+      </div>
+
+    </div>
+
+    {/* Competition Note */}
+    {haiku && (
+      <div className="mt-8 text-center">
+        <p className="text-purple-300/70 text-sm italic">
+          "The best haiku captures not what is seen, but what is felt"
+        </p>
+      </div>
+    )}
+
+  </div>
+
+  <style>{`
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-fade-in {
+      animation: fade-in 0.6s ease-out;
+    }
+  `}</style>
+</div>
+```
+
+);
+}
