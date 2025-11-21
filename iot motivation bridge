@@ -1,0 +1,395 @@
+#!/usr/bin/env python3
+“””
+IoT → Motivation Bridge (Enhanced)
+
+- Subscribe to an MQTT topic.
+- Receive emotion/signal payloads.
+- Compute a motivation score with time-of-day awareness.
+- Emit guidance (checkpoint-style) + optional webhook.
+- Track streak/momentum data.
+- Log locally with rotation support.
+
+Run:
+pip install paho-mqtt requests
+python iot_motivation.py
+
+Test (in another terminal):
+mosquitto_pub -h localhost -t spider/motivation/pulse -m   
+‘{“device”:“watch-001”,“signal_type”:“pulse”,“intensity”:0.72,“urgency”:0.8,“usefulness_hint”:0.9,“mantra”:“Ride and return”,“context”:“Overwhelmed; need next checkpoint.”}’
+“””
+
+import json
+import time
+import pathlib
+import threading
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional
+from collections import deque
+
+# — Config —
+
+MQTT_HOST = “localhost”
+MQTT_PORT = 1883
+MQTT_TOPIC = “spider/motivation/pulse”
+CLIENT_ID  = “motivation-bridge-1”
+
+ENABLE_WEBHOOK = False
+WEBHOOK_URL    = “https://example.com/hook”
+LOG_PATH       = pathlib.Path(”./motivation_log.ndjson”)
+STREAK_PATH    = pathlib.Path(”./streak_data.json”)
+
+# Adaptive thresholds based on time patterns
+
+FATIGUE_HOURS = {21, 22, 23, 0, 1, 2, 3, 4}  # Lower bar during low-energy hours
+
+# — Optional deps guarded —
+
+try:
+import requests
+except Exception:
+requests = None
+
+# — Momentum tracking —
+
+class MomentumTracker:
+“”“Track recent wins to adjust encouragement and thresholds.”””
+
+```
+def __init__(self, max_history: int = 20):
+    self.recent_actions = deque(maxlen=max_history)
+    self.load_streak()
+
+def load_streak(self):
+    """Load persistent streak data."""
+    if STREAK_PATH.exists():
+        try:
+            with STREAK_PATH.open("r") as f:
+                data = json.load(f)
+                self.recent_actions = deque(data.get("recent", []), maxlen=20)
+        except Exception as e:
+            print(f"[momentum] Could not load streak: {e}")
+
+def save_streak(self):
+    """Persist streak data."""
+    try:
+        with STREAK_PATH.open("w") as f:
+            json.dump({"recent": list(self.recent_actions)}, f)
+    except Exception as e:
+        print(f"[momentum] Could not save streak: {e}")
+
+def log_action(self, tier: str, score: float):
+    """Record an action taken."""
+    self.recent_actions.append({
+        "ts": datetime.utcnow().isoformat(),
+        "tier": tier,
+        "score": score
+    })
+    self.save_streak()
+
+def momentum_bonus(self) -> float:
+    """Calculate momentum bonus based on recent activity."""
+    if len(self.recent_actions) < 2:
+        return 0.0
+    
+    # Check if user has been consistently engaging
+    recent_count = sum(1 for a in list(self.recent_actions)[-5:] 
+                      if a["score"] > 0.4)
+    
+    if recent_count >= 3:
+        return 0.08  # Hot streak!
+    elif recent_count >= 2:
+        return 0.04  # Building momentum
+    
+    return 0.0
+
+def get_encouragement(self) -> Optional[str]:
+    """Get momentum-based encouragement."""
+    if len(self.recent_actions) < 2:
+        return None
+    
+    recent = list(self.recent_actions)[-3:]
+    high_tiers = sum(1 for a in recent if a["tier"] in ["GO-NOW", "GO-SOON"])
+    
+    if high_tiers >= 2:
+        return "🔥 You're on a roll. Keep the momentum."
+    elif len(self.recent_actions) >= 5:
+        return "You're showing up. That's the hardest part."
+    
+    return None
+```
+
+momentum = MomentumTracker()
+
+# — Core motivation model —
+
+def clamp(x: float, lo=0.0, hi=1.0) -> float:
+return max(lo, min(hi, x))
+
+def time_of_day_factor() -> float:
+“”“Adjust expectations based on circadian patterns.”””
+hour = datetime.now().hour
+
+```
+# Fatigue hours: lower expectations
+if hour in FATIGUE_HOURS:
+    return 0.85
+
+# Peak hours (9-12, 14-17): normal
+if hour in {9, 10, 11, 14, 15, 16, 17}:
+    return 1.0
+
+# Afternoon dip (12-14)
+if hour in {12, 13}:
+    return 0.92
+
+# Evening wind-down (18-20)
+if hour in {18, 19, 20}:
+    return 0.88
+
+return 0.95
+```
+
+def motivation_score(payload: Dict[str, Any]) -> Dict[str, Any]:
+“””
+Compute a score from {intensity, urgency, usefulness_hint}.
+Apply time-of-day and momentum adjustments.
+“””
+intensity = clamp(float(payload.get(“intensity”, 0.5)))
+urgency   = clamp(float(payload.get(“urgency”,   0.5)))
+useful    = clamp(float(payload.get(“usefulness_hint”, 0.5)))
+
+```
+# Semantic priming via mantra keywords
+mantra = (payload.get("mantra") or "").lower()
+boost = 0.0
+for k, b in {
+    "return": 0.05, "checkpoint": 0.07, "breathe": 0.04,
+    "forge": 0.04, "focus": 0.05, "ride": 0.03, "hope": 0.03,
+    "begin": 0.04, "continue": 0.05, "finish": 0.06
+}.items():
+    if k in mantra:
+        boost += b
+
+# Base calculation
+base = (0.4 * useful) + (0.35 * urgency) + (0.25 * intensity)
+
+# Apply adjustments
+time_factor = time_of_day_factor()
+momentum_bonus = momentum.momentum_bonus()
+
+score = clamp(base + boost + momentum_bonus, 0.0, 1.0)
+adjusted_score = score * time_factor
+
+# Tier assignment with time-aware thresholds
+hour = datetime.now().hour
+if hour in FATIGUE_HOURS:
+    # More lenient tiers during fatigue hours
+    if adjusted_score >= 0.75:
+        tier = "GO-NOW"
+    elif adjusted_score >= 0.55:
+        tier = "GO-SOON"
+    elif adjusted_score >= 0.35:
+        tier = "PREP"
+    else:
+        tier = "HOLD"
+else:
+    # Standard thresholds
+    if adjusted_score >= 0.85:
+        tier = "GO-NOW"
+    elif adjusted_score >= 0.65:
+        tier = "GO-SOON"
+    elif adjusted_score >= 0.45:
+        tier = "PREP"
+    else:
+        tier = "HOLD"
+
+return {
+    "score": adjusted_score,
+    "raw_score": score,
+    "tier": tier,
+    "boost": boost,
+    "momentum_bonus": momentum_bonus,
+    "time_factor": time_factor
+}
+```
+
+def next_checkpoint(payload: Dict[str, Any], tier: str) -> str:
+“””
+Turn context into a single actionable checkpoint.
+Adapted based on tier and time of day.
+“””
+ctx = (payload.get(“context”) or “”).strip()
+hour = datetime.now().hour
+
+```
+# Ultra-low energy hours: minimal viable action
+if hour in {22, 23, 0, 1, 2, 3}:
+    if tier in ["HOLD", "PREP"]:
+        return "Tonight's checkpoint: Set out tomorrow's first task. Then rest."
+    
+if not ctx:
+    return "Drink water. 5 breaths. Open the task you were avoiding."
+
+lower = ctx.lower()
+
+# Context-specific checkpoints
+if "overwhelm" in lower or "overwhelmed" in lower:
+    if tier == "GO-NOW":
+        return "Set a 15-minute timer. Do ONLY the first step you already know. Nothing else matters."
+    return "Write down 3 tasks. Pick the smallest. Do 10 minutes on it."
+
+if "focus" in lower or "distract" in lower:
+    if tier in ["GO-NOW", "GO-SOON"]:
+        return "Close 2 browser tabs. Phone on silent. 4-7-8 breaths. Resume the doc."
+    return "Identify your #1 distraction source. Block it for 25 minutes."
+
+if "panic" in lower or "anx" in lower:
+    return "5-4-3-2-1 grounding now. Then one message to a safe person. Then water."
+
+if "tired" in lower or "exhaust" in lower:
+    if tier == "HOLD":
+        return "No checkpoint needed. Log what you did today. Rest counts."
+    return "Set a 10-minute timer. Just start. You can stop after."
+
+if "stuck" in lower or "block" in lower:
+    return "Change rooms. Get a different beverage. Return to the problem fresh in 5 min."
+
+# Default by tier
+if tier == "GO-NOW":
+    return "Name the task in one verb. Set a 20-minute timer. Go."
+elif tier == "GO-SOON":
+    return "Set up your workspace. Remove 2 distractions. Then start."
+elif tier == "PREP":
+    return "Write down what 'done' looks like. Prep your tools. Schedule when to start."
+else:
+    return "Note what you accomplished today. Tomorrow's checkpoint can wait."
+```
+
+def format_response(payload: Dict[str, Any], score_data: Dict[str, Any]) -> str:
+device = payload.get(“device”, “unknown-device”)
+tier   = score_data[“tier”]
+s      = score_data[“score”]
+raw_s  = score_data.get(“raw_score”, s)
+cp     = next_checkpoint(payload, tier)
+mantra = payload.get(“mantra”) or “Keep fighting. Ride and return.”
+
+```
+# Get momentum encouragement
+encouragement = momentum.get_encouragement()
+enc_line = f"Momentum: {encouragement}\n" if encouragement else ""
+
+# Time context
+hour = datetime.now().hour
+time_note = ""
+if hour in FATIGUE_HOURS:
+    time_note = "Note:   Low-energy hours. Adjusted expectations.\n"
+
+response = (
+    f"\n=== MOTIVATION SIGNAL ===\n"
+    f"Device: {device}\n"
+    f"Tier:   {tier}  (score={s:.2f}, raw={raw_s:.2f})\n"
+    f"{enc_line}"
+    f"Mantra: {mantra}\n"
+    f"Action: {cp}\n"
+    f"{time_note}"
+    f"Note:   You don't need to make it all the way — just this checkpoint.\n"
+)
+
+# Log the action for momentum tracking
+momentum.log_action(tier, s)
+
+return response
+```
+
+def log_event(payload: Dict[str, Any], score_data: Dict[str, Any], response: str) -> None:
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+with LOG_PATH.open(“a”, encoding=“utf-8”) as f:
+entry = {
+“ts”: datetime.utcnow().isoformat(timespec=“seconds”) + “Z”,
+“payload”: payload,
+“score”: score_data,
+“response”: response.strip()
+}
+f.write(json.dumps(entry, ensure_ascii=False) + “\n”)
+
+def maybe_post_webhook(response: str, payload: Dict[str, Any], score_data: Dict[str, Any]) -> None:
+if not ENABLE_WEBHOOK:
+return
+if requests is None:
+print(”[webhook] requests not installed; skipping.”)
+return
+try:
+r = requests.post(
+WEBHOOK_URL,
+json={
+“response”: response,
+“payload”: payload,
+“score”: score_data,
+“momentum”: {
+“recent_count”: len(momentum.recent_actions),
+“bonus”: score_data.get(“momentum_bonus”, 0)
+}
+},
+timeout=4.0
+)
+print(f”[webhook] status={r.status_code}”)
+except Exception as e:
+print(f”[webhook] error: {e}”)
+
+# — MQTT plumbing (paho-mqtt) —
+
+def run_mqtt():
+import paho.mqtt.client as mqtt
+
+```
+def on_connect(client, userdata, flags, reason_code, properties=None):
+    print(f"[mqtt] connected rc={reason_code}, subscribing to {MQTT_TOPIC}")
+    client.subscribe(MQTT_TOPIC, qos=1)
+
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode("utf-8"))
+        score_data = motivation_score(payload)
+        response = format_response(payload, score_data)
+        print(response)
+        log_event(payload, score_data, response)
+        maybe_post_webhook(response, payload, score_data)
+    except Exception as e:
+        print(f"[mqtt] bad payload or error: {e}\nRaw: {msg.payload!r}")
+
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=CLIENT_ID)
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect(MQTT_HOST, MQTT_PORT, keepalive=30)
+print(f"[mqtt] listening on {MQTT_HOST}:{MQTT_PORT} topic={MQTT_TOPIC}")
+client.loop_forever()
+```
+
+# — CLI fallback (no broker? paste JSON) —
+
+def run_stdin():
+print(”[stdin] Paste a JSON payload and press Enter. Ctrl+C to exit.”)
+while True:
+try:
+raw = input(”> “).strip()
+if not raw:
+continue
+payload = json.loads(raw)
+score_data = motivation_score(payload)
+response = format_response(payload, score_data)
+print(response)
+log_event(payload, score_data, response)
+except KeyboardInterrupt:
+print(”\nBye.”)
+break
+except Exception as e:
+print(f”[stdin] error: {e}”)
+
+if **name** == “**main**”:
+# Try MQTT; if paho-mqtt missing, fall back to stdin mode.
+try:
+import paho.mqtt.client as _
+run_mqtt()
+except Exception:
+print(”[info] paho-mqtt not available; falling back to stdin mode.”)
+run_stdin()
