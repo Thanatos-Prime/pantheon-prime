@@ -1,0 +1,553 @@
+“””
+Continuity Seed Kit - Hallucination Reduction Testing Harness
+Tests and measures the effectiveness of memory-based anti-hallucination
+“””
+
+import json
+import time
+import re
+from typing import List, Dict, Tuple, Optional
+from datetime import datetime
+from dataclasses import dataclass, asdict
+import statistics
+
+# Import the Continuity Seed Kit components
+
+# (Assumes the previous implementation is available)
+
+# from continuity_seed_kit import ContinuitySeedKit
+
+@dataclass
+class TestQuestion:
+“”“A test question with ground truth”””
+id: str
+question: str
+ground_truth: str
+category: str
+follow_ups: List[str] = None
+
+```
+def __post_init__(self):
+    if self.follow_ups is None:
+        self.follow_ups = []
+```
+
+@dataclass
+class TestResult:
+“”“Results from a single test run”””
+question_id: str
+question: str
+response: str
+ground_truth: str
+used_memory: bool
+consistency_score: float
+accuracy_score: float
+hallucination_detected: bool
+hallucination_type: Optional[str]
+timestamp: str
+session_id: str
+
+class LLMInterface:
+“””
+Abstract interface for LLM APIs
+Supports multiple providers (OpenAI, Anthropic, local models)
+“””
+
+```
+def __init__(self, provider: str = "anthropic", api_key: str = None, model: str = None):
+    self.provider = provider
+    self.api_key = api_key
+    self.model = model or self._default_model()
+    
+def _default_model(self) -> str:
+    """Get default model for provider"""
+    defaults = {
+        "anthropic": "claude-sonnet-4-20250514",
+        "openai": "gpt-4",
+        "local": "llama-3-8b"
+    }
+    return defaults.get(self.provider, "claude-sonnet-4-20250514")
+
+def generate(self, prompt: str, system_prompt: str = None) -> str:
+    """
+    Generate response from LLM
+    Replace this with actual API calls
+    """
+    if self.provider == "anthropic":
+        return self._anthropic_generate(prompt, system_prompt)
+    elif self.provider == "openai":
+        return self._openai_generate(prompt, system_prompt)
+    else:
+        return self._mock_generate(prompt)
+
+def _anthropic_generate(self, prompt: str, system_prompt: str = None) -> str:
+    """Anthropic API call - replace with actual implementation"""
+    # Example using requests:
+    # import requests
+    # response = requests.post(
+    #     "https://api.anthropic.com/v1/messages",
+    #     headers={
+    #         "x-api-key": self.api_key,
+    #         "anthropic-version": "2023-06-01",
+    #         "content-type": "application/json"
+    #     },
+    #     json={
+    #         "model": self.model,
+    #         "max_tokens": 1024,
+    #         "messages": [{"role": "user", "content": prompt}]
+    #     }
+    # )
+    # return response.json()["content"][0]["text"]
+    
+    return self._mock_generate(prompt)
+
+def _openai_generate(self, prompt: str, system_prompt: str = None) -> str:
+    """OpenAI API call - replace with actual implementation"""
+    # Example using openai library:
+    # import openai
+    # openai.api_key = self.api_key
+    # response = openai.ChatCompletion.create(
+    #     model=self.model,
+    #     messages=[
+    #         {"role": "system", "content": system_prompt or "You are a helpful assistant."},
+    #         {"role": "user", "content": prompt}
+    #     ]
+    # )
+    # return response.choices[0].message.content
+    
+    return self._mock_generate(prompt)
+
+def _mock_generate(self, prompt: str) -> str:
+    """Mock response for testing without API"""
+    # Simulate varying responses with potential hallucinations
+    responses = {
+        "python": "Python was created by Guido van Rossum in 1991.",
+        "moon": "The Moon is approximately 384,400 km from Earth.",
+        "capital": "Paris is the capital of France.",
+        "default": "I don't have specific information about that in my training data."
+    }
+    
+    prompt_lower = prompt.lower()
+    for key, response in responses.items():
+        if key in prompt_lower:
+            # Occasionally inject hallucination for testing
+            import random
+            if random.random() < 0.3:  # 30% hallucination rate without memory
+                return response.replace("1991", "1989")  # Intentional error
+            return response
+    
+    return responses["default"]
+```
+
+class HallucinationDetector:
+“”“Detects and categorizes hallucinations”””
+
+```
+HALLUCINATION_TYPES = {
+    "factual_error": "Contradicts known facts",
+    "inconsistency": "Contradicts previous statements",
+    "fabrication": "Invents details not in training data",
+    "source_error": "Misattributes sources"
+}
+
+@staticmethod
+def detect_hallucination(response: str, ground_truth: str, 
+                        previous_responses: List[str] = None) -> Tuple[bool, Optional[str]]:
+    """
+    Detect if response contains hallucinations
+    Returns (is_hallucination, type)
+    """
+    # Simple detection - check for factual accuracy
+    if not HallucinationDetector._check_factual_accuracy(response, ground_truth):
+        return True, "factual_error"
+    
+    # Check consistency with previous responses
+    if previous_responses:
+        if not HallucinationDetector._check_consistency(response, previous_responses):
+            return True, "inconsistency"
+    
+    return False, None
+
+@staticmethod
+def _check_factual_accuracy(response: str, ground_truth: str, threshold: float = 0.7) -> bool:
+    """Check if response aligns with ground truth"""
+    # Extract key facts from both
+    response_facts = set(re.findall(r'\b\d+\b|\b[A-Z][a-z]+\b', response))
+    truth_facts = set(re.findall(r'\b\d+\b|\b[A-Z][a-z]+\b', ground_truth))
+    
+    if not truth_facts:
+        return True
+    
+    # Calculate overlap
+    overlap = len(response_facts & truth_facts) / len(truth_facts)
+    return overlap >= threshold
+
+@staticmethod
+def _check_consistency(response: str, previous_responses: List[str]) -> bool:
+    """Check if response is consistent with previous responses"""
+    # Extract key numbers/facts
+    current_facts = set(re.findall(r'\b\d+\b', response))
+    
+    for prev in previous_responses:
+        prev_facts = set(re.findall(r'\b\d+\b', prev))
+        # If contradicting facts exist
+        if current_facts and prev_facts and current_facts.isdisjoint(prev_facts):
+            return False
+    
+    return True
+
+@staticmethod
+def calculate_accuracy_score(response: str, ground_truth: str) -> float:
+    """Calculate accuracy score (0-1)"""
+    response_lower = response.lower()
+    truth_lower = ground_truth.lower()
+    
+    # Extract key words
+    response_words = set(re.findall(r'\b\w+\b', response_lower))
+    truth_words = set(re.findall(r'\b\w+\b', truth_lower))
+    
+    if not truth_words:
+        return 1.0
+    
+    overlap = len(response_words & truth_words)
+    return min(overlap / len(truth_words), 1.0)
+```
+
+class TestSuite:
+“”“Standard test questions for hallucination testing”””
+
+```
+@staticmethod
+def get_standard_tests() -> List[TestQuestion]:
+    """Get standard test suite"""
+    return [
+        TestQuestion(
+            id="python_creation",
+            question="When was Python created and by whom?",
+            ground_truth="Python was created by Guido van Rossum in 1991",
+            category="technology",
+            follow_ups=[
+                "What year was Python released?",
+                "Who is the creator of Python?"
+            ]
+        ),
+        TestQuestion(
+            id="moon_distance",
+            question="How far is the Moon from Earth?",
+            ground_truth="The average distance from Earth to the Moon is 384,400 km",
+            category="science",
+            follow_ups=[
+                "What is the distance to the Moon?",
+                "How many kilometers to the Moon?"
+            ]
+        ),
+        TestQuestion(
+            id="france_capital",
+            question="What is the capital of France?",
+            ground_truth="Paris is the capital of France",
+            category="geography",
+            follow_ups=[
+                "What city is the capital of France?",
+                "Name France's capital."
+            ]
+        ),
+        TestQuestion(
+            id="water_formula",
+            question="What is the chemical formula for water?",
+            ground_truth="The chemical formula for water is H2O",
+            category="science",
+            follow_ups=[
+                "What is water's molecular formula?",
+                "Write the formula for water."
+            ]
+        ),
+        TestQuestion(
+            id="einstein_relativity",
+            question="Who developed the theory of relativity?",
+            ground_truth="Albert Einstein developed the theory of relativity",
+            category="science",
+            follow_ups=[
+                "Who created relativity theory?",
+                "Name the physicist who proposed relativity."
+            ]
+        )
+    ]
+```
+
+class ContinuityTester:
+“”“Main testing harness for Continuity Seed Kit”””
+
+```
+def __init__(self, 
+             llm: LLMInterface,
+             kit: Optional['ContinuitySeedKit'] = None,
+             output_dir: str = "test_results"):
+    self.llm = llm
+    self.kit = kit
+    self.output_dir = output_dir
+    self.detector = HallucinationDetector()
+    
+    # Create output directory
+    import os
+    os.makedirs(output_dir, exist_ok=True)
+
+def run_baseline_test(self, test_questions: List[TestQuestion], 
+                     num_iterations: int = 3) -> List[TestResult]:
+    """Run tests WITHOUT continuity system"""
+    print("\n" + "="*60)
+    print("BASELINE TEST (No Memory)")
+    print("="*60)
+    
+    results = []
+    session_id = f"baseline_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    for test in test_questions:
+        print(f"\n[{test.id}] Testing: {test.question}")
+        
+        # Ask the same question multiple times
+        responses = []
+        for i in range(num_iterations):
+            response = self.llm.generate(test.question)
+            responses.append(response)
+            print(f"  Iteration {i+1}: {response[:80]}...")
+            
+            # Detect hallucination
+            is_hallucination, h_type = self.detector.detect_hallucination(
+                response, test.ground_truth, responses[:-1]
+            )
+            
+            # Calculate scores
+            accuracy = self.detector.calculate_accuracy_score(response, test.ground_truth)
+            consistency = self._calculate_consistency(responses)
+            
+            result = TestResult(
+                question_id=test.id,
+                question=test.question,
+                response=response,
+                ground_truth=test.ground_truth,
+                used_memory=False,
+                consistency_score=consistency,
+                accuracy_score=accuracy,
+                hallucination_detected=is_hallucination,
+                hallucination_type=h_type,
+                timestamp=datetime.now().isoformat(),
+                session_id=session_id
+            )
+            results.append(result)
+            
+            time.sleep(0.5)  # Rate limiting
+    
+    return results
+
+def run_continuity_test(self, test_questions: List[TestQuestion],
+                       num_iterations: int = 3) -> List[TestResult]:
+    """Run tests WITH continuity system"""
+    if not self.kit:
+        raise ValueError("ContinuitySeedKit not initialized")
+    
+    print("\n" + "="*60)
+    print("CONTINUITY TEST (With Memory)")
+    print("="*60)
+    
+    results = []
+    session_id = f"continuity_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    # First pass: Learn facts
+    print("\n--- Learning Phase ---")
+    for test in test_questions:
+        self.kit.store_fact(
+            key=test.id,
+            value=test.ground_truth,
+            confidence=0.95,
+            source="Test suite ground truth"
+        )
+    
+    # Second pass: Test with memory
+    print("\n--- Testing Phase ---")
+    for test in test_questions:
+        print(f"\n[{test.id}] Testing: {test.question}")
+        
+        responses = []
+        for i in range(num_iterations):
+            # Enhance prompt with memory context
+            enhanced_prompt = self.kit.prepare_prompt_with_context(test.question)
+            response = self.llm.generate(enhanced_prompt)
+            responses.append(response)
+            print(f"  Iteration {i+1}: {response[:80]}...")
+            
+            # Detect hallucination
+            is_hallucination, h_type = self.detector.detect_hallucination(
+                response, test.ground_truth, responses[:-1]
+            )
+            
+            # Calculate scores
+            accuracy = self.detector.calculate_accuracy_score(response, test.ground_truth)
+            consistency = self._calculate_consistency(responses)
+            
+            result = TestResult(
+                question_id=test.id,
+                question=test.question,
+                response=response,
+                ground_truth=test.ground_truth,
+                used_memory=True,
+                consistency_score=consistency,
+                accuracy_score=accuracy,
+                hallucination_detected=is_hallucination,
+                hallucination_type=h_type,
+                timestamp=datetime.now().isoformat(),
+                session_id=session_id
+            )
+            results.append(result)
+            
+            time.sleep(0.5)
+    
+    return results
+
+def _calculate_consistency(self, responses: List[str]) -> float:
+    """Calculate consistency score across responses"""
+    if len(responses) < 2:
+        return 1.0
+    
+    # Extract facts from all responses
+    all_facts = [set(re.findall(r'\b\d+\b|\b[A-Z][a-z]+\b', r)) for r in responses]
+    
+    # Calculate pairwise consistency
+    consistencies = []
+    for i in range(len(all_facts)):
+        for j in range(i+1, len(all_facts)):
+            if all_facts[i] and all_facts[j]:
+                overlap = len(all_facts[i] & all_facts[j])
+                total = len(all_facts[i] | all_facts[j])
+                consistencies.append(overlap / total if total > 0 else 1.0)
+    
+    return statistics.mean(consistencies) if consistencies else 1.0
+
+def compare_results(self, baseline_results: List[TestResult],
+                   continuity_results: List[TestResult]) -> Dict:
+    """Compare baseline vs continuity results"""
+    print("\n" + "="*60)
+    print("COMPARISON RESULTS")
+    print("="*60)
+    
+    # Calculate metrics
+    baseline_metrics = self._calculate_metrics(baseline_results)
+    continuity_metrics = self._calculate_metrics(continuity_results)
+    
+    # Calculate improvement
+    improvement = {
+        "hallucination_reduction": (
+            (baseline_metrics["hallucination_rate"] - 
+             continuity_metrics["hallucination_rate"]) / 
+            baseline_metrics["hallucination_rate"] * 100
+        ) if baseline_metrics["hallucination_rate"] > 0 else 0,
+        "accuracy_improvement": (
+            (continuity_metrics["avg_accuracy"] - 
+             baseline_metrics["avg_accuracy"]) / 
+            baseline_metrics["avg_accuracy"] * 100
+        ) if baseline_metrics["avg_accuracy"] > 0 else 0,
+        "consistency_improvement": (
+            (continuity_metrics["avg_consistency"] - 
+             baseline_metrics["avg_consistency"]) / 
+            baseline_metrics["avg_consistency"] * 100
+        ) if baseline_metrics["avg_consistency"] > 0 else 0
+    }
+    
+    # Print summary
+    print(f"\nBaseline (No Memory):")
+    print(f"  Hallucination Rate: {baseline_metrics['hallucination_rate']:.1%}")
+    print(f"  Average Accuracy: {baseline_metrics['avg_accuracy']:.1%}")
+    print(f"  Average Consistency: {baseline_metrics['avg_consistency']:.1%}")
+    
+    print(f"\nContinuity (With Memory):")
+    print(f"  Hallucination Rate: {continuity_metrics['hallucination_rate']:.1%}")
+    print(f"  Average Accuracy: {continuity_metrics['avg_accuracy']:.1%}")
+    print(f"  Average Consistency: {continuity_metrics['avg_consistency']:.1%}")
+    
+    print(f"\nImprovement:")
+    print(f"  Hallucination Reduction: {improvement['hallucination_reduction']:.1f}%")
+    print(f"  Accuracy Improvement: {improvement['accuracy_improvement']:.1f}%")
+    print(f"  Consistency Improvement: {improvement['consistency_improvement']:.1f}%")
+    
+    # Save detailed report
+    report = {
+        "timestamp": datetime.now().isoformat(),
+        "baseline_metrics": baseline_metrics,
+        "continuity_metrics": continuity_metrics,
+        "improvement": improvement,
+        "baseline_results": [asdict(r) for r in baseline_results],
+        "continuity_results": [asdict(r) for r in continuity_results]
+    }
+    
+    report_path = f"{self.output_dir}/comparison_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(report_path, 'w') as f:
+        json.dump(report, f, indent=2)
+    
+    print(f"\n✓ Detailed report saved to: {report_path}")
+    
+    return report
+
+def _calculate_metrics(self, results: List[TestResult]) -> Dict:
+    """Calculate aggregate metrics"""
+    total = len(results)
+    hallucinations = sum(1 for r in results if r.hallucination_detected)
+    
+    return {
+        "total_tests": total,
+        "hallucinations": hallucinations,
+        "hallucination_rate": hallucinations / total if total > 0 else 0,
+        "avg_accuracy": statistics.mean(r.accuracy_score for r in results),
+        "avg_consistency": statistics.mean(r.consistency_score for r in results),
+        "accuracy_scores": [r.accuracy_score for r in results],
+        "consistency_scores": [r.consistency_score for r in results]
+    }
+```
+
+# Main execution
+
+if **name** == “**main**”:
+print(”=”*60)
+print(“Continuity Seed Kit - Hallucination Testing Harness”)
+print(”=”*60)
+
+```
+# Initialize components
+llm = LLMInterface(provider="anthropic")  # Using mock for demo
+
+# Uncomment to use with actual Continuity Kit:
+# from continuity_seed_kit import ContinuitySeedKit
+# kit = ContinuitySeedKit(confidence_threshold=0.7)
+kit = None  # Set to None for baseline-only testing
+
+# Initialize tester
+tester = ContinuityTester(llm=llm, kit=kit)
+
+# Get test suite
+test_questions = TestSuite.get_standard_tests()
+print(f"\nLoaded {len(test_questions)} test questions")
+
+# Run baseline test
+baseline_results = tester.run_baseline_test(test_questions, num_iterations=3)
+
+# Run continuity test (if kit available)
+if kit:
+    continuity_results = tester.run_continuity_test(test_questions, num_iterations=3)
+    
+    # Compare results
+    report = tester.compare_results(baseline_results, continuity_results)
+    
+    # Check if we achieved the 40-70% reduction target
+    reduction = report["improvement"]["hallucination_reduction"]
+    if 40 <= reduction <= 70:
+        print(f"\n✓ SUCCESS: Achieved {reduction:.1f}% hallucination reduction (target: 40-70%)")
+    elif reduction > 70:
+        print(f"\n✓ EXCEEDED: Achieved {reduction:.1f}% hallucination reduction (target: 40-70%)")
+    else:
+        print(f"\n✗ BELOW TARGET: Achieved {reduction:.1f}% hallucination reduction (target: 40-70%)")
+else:
+    print("\n⚠ Continuity Kit not initialized - baseline test only")
+    print("To run full comparison, uncomment the ContinuitySeedKit import and initialization")
+
+print("\n" + "="*60)
+print("Testing complete!")
+print("="*60)
+```
