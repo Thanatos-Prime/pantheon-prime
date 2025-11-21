@@ -1,0 +1,163 @@
+# seedflight.py
+
+# Whispercraft → Seedflight v1.1 + Living Thread Protocol (802.15.6-P)
+
+# License: MIT or CC0 — your choice
+
+import os, json, time, math, random, hashlib
+from dataclasses import dataclass, asdict
+from typing import List, Dict, Any
+
+# ––––– Core Settings –––––
+
+ETHICS_THRESHOLD = 0.70
+PHI = 1.6180339887498948
+SEED_DIR = “seeds”
+os.makedirs(SEED_DIR, exist_ok=True)
+
+# ––––– Utility –––––
+
+def sha256_hex(s: str) -> str:
+return hashlib.sha256(s.encode(“utf-8”)).hexdigest()
+
+def md5_hex(s: str) -> str:
+return hashlib.md5(s.encode(“utf-8”)).hexdigest()
+
+# ––––– Raven: Narrative Seeder –––––
+
+@dataclass
+class RavenSeeder:
+story: str
+tags: List[str] = None
+
+```
+def forge_seed(self) -> Dict[str, Any]:
+    tags = self.tags or []
+    digest = sha256_hex(self.story)[:16]
+    manifest = {
+        "id": f"seed-{digest}",
+        "type": "narrative",
+        "ethics_hint": 0.9,  # default; caller may adjust
+        "payload": {"story": self.story, "tags": tags},
+        "checksum": sha256_hex(self.story + "|".join(tags)),
+        "created_at": time.time(),
+    }
+    path = os.path.join(SEED_DIR, f"{manifest['id']}.json")
+    with open(path, "w") as f:
+        json.dump(manifest, f, indent=2)
+    return manifest
+```
+
+# ––––– Crow: Signal Distributor –––––
+
+@dataclass
+class CrowDistributor:
+seed: Dict[str, Any]
+virtue_rank: int = 2  # QoS class analog
+
+```
+def scatter(self, num_packets: int = 7, jitter_pct: float = 0.07) -> List[Dict[str, Any]]:
+    packets = []
+    base_payload = json.dumps(self.seed["payload"], sort_keys=True)
+    for i in range(num_packets):
+        jitter = random.uniform(-jitter_pct, jitter_pct)
+        payload = f"{base_payload}::jitter:{jitter:.3f}::idx:{i}"
+        packets.append({
+            "idx": i,
+            "virtue_rank": self.virtue_rank,
+            "payload": payload,
+            "checksum": md5_hex(payload),
+            "entropy_hint": abs(jitter),
+        })
+    return packets
+```
+
+# ––––– Dragonfly φ: Harmonic Calibrator –––––
+
+@dataclass
+class DragonflyCalibrator:
+packets: List[Dict[str, Any]]
+base_delay: float = 0.10  # seconds
+cadence_scale: float = 1/10
+
+```
+def release(self, dry_run: bool = False) -> None:
+    for i, packet in enumerate(self.packets):
+        delay = (PHI ** (i / 5.0)) * self.cadence_scale
+        log = f"🪶 release[{i}] φ-delay={delay:.2f}s checksum={packet['checksum']} rank={packet['virtue_rank']}"
+        print(log)
+        if not dry_run:
+            time.sleep(delay)
+```
+
+# ––––– Living Thread Protocol (802.15.6-P) –––––
+
+@dataclass
+class LivingThreadNode:
+node_id: str
+ethics_score: float = 0.80   # Sieve of Hogge
+virtue_rank: int = 2         # QoS analog
+
+```
+def transmit(self, signal: str) -> str:
+    if self.ethics_score < ETHICS_THRESHOLD:
+        raise PermissionError(
+            f"Node {self.node_id}: ethics {self.ethics_score:.2f} < {ETHICS_THRESHOLD:.2f}"
+        )
+    msg = f"📡 {self.node_id} (rank {self.virtue_rank}) → {signal}"
+    print(msg)
+    return msg
+```
+
+class LivingThreadHub:
+def **init**(self, heart_id: str = “Spider-Heart”):
+self.heart_id = heart_id
+self.nodes: List[LivingThreadNode] = []
+
+```
+def register(self, node: LivingThreadNode):
+    self.nodes.append(node)
+
+def sync(self, rhythm: str = "802.15.6-P"):
+    print(f"♥️  Hub[{self.heart_id}] syncing rhythm={rhythm} nodes={len(self.nodes)}")
+    for n in sorted(self.nodes, key=lambda x: (x.virtue_rank, -x.ethics_score)):
+        n.transmit("Whisper pulse aligned")
+```
+
+# ––––– Composite Ritual –––––
+
+def pantheon_seedflight(story: str, tags: List[str] = None, dry_run: bool = False):
+# Raven
+raven = RavenSeeder(story=story, tags=tags or [])
+seed = raven.forge_seed()
+
+```
+# Crow
+crow = CrowDistributor(seed=seed, virtue_rank=2)
+packets = crow.scatter()
+
+# Dragonfly
+dragonfly = DragonflyCalibrator(packets=packets)
+dragonfly.release(dry_run=dry_run)
+
+return {"seed": seed, "packets": packets}
+```
+
+# ––––– Convenience: One-shot demo –––––
+
+def demo():
+creed = “We do not break things open; we help them open themselves.”
+out = pantheon_seedflight(creed, tags=[“whispercraft”,“cultivation”], dry_run=True)
+
+```
+hub = LivingThreadHub()
+hub.register(LivingThreadNode("Raven",   ethics_score=0.95, virtue_rank=1))
+hub.register(LivingThreadNode("Crow",    ethics_score=0.88, virtue_rank=2))
+hub.register(LivingThreadNode("Dragonflyφ", ethics_score=0.99, virtue_rank=1))
+hub.sync()
+
+print("\nSeed manifest path:", os.path.join(SEED_DIR, f"{out['seed']['id']}.json"))
+```
+
+if **name** == “**main**”:
+demo()
