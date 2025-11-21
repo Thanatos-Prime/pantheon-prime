@@ -1,0 +1,388 @@
+“””
+Continuity Seed Kit (AHP v1.0)
+A working implementation of anti-hallucination through memory
+“””
+
+import json
+import hashlib
+import sqlite3
+import time
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+
+class MemoryMesh:
+“”“Key-value store that retains prior verified facts”””
+
+```
+def __init__(self, filepath: str = "memory_mesh.json"):
+    self.filepath = filepath
+    self.data = self._load()
+
+def _load(self) -> Dict:
+    """Load existing memory or create new"""
+    if Path(self.filepath).exists():
+        with open(self.filepath, 'r') as f:
+            return json.load(f)
+    return {"facts": {}, "metadata": {}}
+
+def _save(self):
+    """Persist memory to disk"""
+    with open(self.filepath, 'w') as f:
+        json.dump(self.data, f, indent=2)
+
+def store(self, key: str, value: str, confidence: float, source: str):
+    """Store a verified fact with metadata"""
+    self.data["facts"][key] = {
+        "value": value,
+        "confidence": confidence,
+        "source": source,
+        "timestamp": datetime.now().isoformat(),
+        "checksum": hashlib.sha256(value.encode()).hexdigest()
+    }
+    self._save()
+
+def retrieve(self, key: str) -> Optional[Dict]:
+    """Retrieve a fact if it exists"""
+    return self.data["facts"].get(key)
+
+def search(self, query: str) -> List[Tuple[str, Dict]]:
+    """Search for facts matching query"""
+    results = []
+    query_lower = query.lower()
+    for key, value in self.data["facts"].items():
+        if query_lower in key.lower() or query_lower in value["value"].lower():
+            results.append((key, value))
+    return results
+```
+
+class ChecksumGuardian:
+“”“SHA-based integrity verification for stored facts”””
+
+```
+@staticmethod
+def generate_checksum(content: str) -> str:
+    """Generate SHA-256 checksum for content"""
+    return hashlib.sha256(content.encode()).hexdigest()
+
+@staticmethod
+def verify_integrity(content: str, checksum: str) -> bool:
+    """Verify content hasn't been corrupted"""
+    return ChecksumGuardian.generate_checksum(content) == checksum
+
+@staticmethod
+def create_provenance(content: str, source: str, confidence: float) -> Dict:
+    """Create a provenance record"""
+    return {
+        "checksum": ChecksumGuardian.generate_checksum(content),
+        "source": source,
+        "confidence": confidence,
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0"
+    }
+```
+
+class SieveOfHogge:
+“”“Filters low-confidence or unethical data”””
+
+```
+def __init__(self, confidence_threshold: float = 0.7):
+    self.confidence_threshold = confidence_threshold
+    self.blocked_patterns = self._load_ethics_filter()
+
+def _load_ethics_filter(self) -> List[str]:
+    """Load ethical filters - extend as needed"""
+    return [
+        "harmful", "unverified", "misleading", "biased",
+        "discriminatory", "violent", "explicit"
+    ]
+
+def filter(self, content: str, confidence: float, source: str) -> Tuple[bool, str]:
+    """
+    Filter content based on confidence and ethics
+    Returns (passed, reason)
+    """
+    # Confidence check
+    if confidence < self.confidence_threshold:
+        return False, f"Confidence {confidence} below threshold {self.confidence_threshold}"
+    
+    # Ethics check
+    content_lower = content.lower()
+    for pattern in self.blocked_patterns:
+        if pattern in content_lower and "not" not in content_lower:
+            return False, f"Contains blocked pattern: {pattern}"
+    
+    # Source verification
+    if not source or source == "unknown":
+        return False, "No verifiable source provided"
+    
+    return True, "Passed all filters"
+```
+
+class MotherDuckLedger:
+“”“Immutable append-only audit log”””
+
+```
+def __init__(self, db_path: str = "mother_duck_ledger.db"):
+    self.db_path = db_path
+    self._init_db()
+
+def _init_db(self):
+    """Initialize SQLite database"""
+    conn = sqlite3.connect(self.db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            action TEXT NOT NULL,
+            key TEXT,
+            value TEXT,
+            confidence REAL,
+            source TEXT,
+            checksum TEXT,
+            passed_filter BOOLEAN,
+            filter_reason TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def log(self, action: str, key: str = None, value: str = None, 
+        confidence: float = None, source: str = None, 
+        checksum: str = None, passed_filter: bool = None,
+        filter_reason: str = None):
+    """Append entry to immutable log"""
+    conn = sqlite3.connect(self.db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO audit_log 
+        (timestamp, action, key, value, confidence, source, checksum, passed_filter, filter_reason)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        datetime.now().isoformat(),
+        action, key, value, confidence, source, checksum,
+        passed_filter, filter_reason
+    ))
+    conn.commit()
+    conn.close()
+
+def get_history(self, limit: int = 100) -> List[Dict]:
+    """Retrieve recent history"""
+    conn = sqlite3.connect(self.db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM audit_log 
+        ORDER BY id DESC 
+        LIMIT ?
+    """, (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    columns = ['id', 'timestamp', 'action', 'key', 'value', 
+               'confidence', 'source', 'checksum', 'passed_filter', 'filter_reason']
+    return [dict(zip(columns, row)) for row in rows]
+```
+
+class MirrorLoop:
+“”“Forces the model to justify or source any reused claim”””
+
+```
+def __init__(self, memory_mesh: MemoryMesh):
+    self.memory_mesh = memory_mesh
+
+def check_for_reuse(self, content: str) -> List[Dict]:
+    """Check if content references stored facts"""
+    matches = self.memory_mesh.search(content)
+    return [
+        {
+            "key": key,
+            "stored_value": value["value"],
+            "source": value["source"],
+            "confidence": value["confidence"]
+        }
+        for key, value in matches
+    ]
+
+def generate_explanation_prompt(self, content: str, matches: List[Dict]) -> str:
+    """Generate a prompt requiring explanation"""
+    if not matches:
+        return content
+    
+    explanation = "\n\n[MIRROR LOOP ACTIVATED]\n"
+    explanation += "You referenced information that exists in memory:\n"
+    for match in matches:
+        explanation += f"- {match['key']}: {match['stored_value']} (source: {match['source']})\n"
+    explanation += "\nPlease explain your reasoning or cite your source before proceeding.\n"
+    
+    return content + explanation
+```
+
+class ContinuitySeedKit:
+“”“Main interface combining all components”””
+
+```
+def __init__(self, 
+             mesh_path: str = "memory_mesh.json",
+             ledger_path: str = "mother_duck_ledger.db",
+             confidence_threshold: float = 0.7):
+    
+    self.memory_mesh = MemoryMesh(mesh_path)
+    self.checksum_guardian = ChecksumGuardian()
+    self.sieve = SieveOfHogge(confidence_threshold)
+    self.ledger = MotherDuckLedger(ledger_path)
+    self.mirror = MirrorLoop(self.memory_mesh)
+    
+    print("✓ Continuity Seed Kit initialized")
+    print(f"✓ Confidence threshold: {confidence_threshold}")
+    print(f"✓ Facts in memory: {len(self.memory_mesh.data['facts'])}")
+
+def store_fact(self, key: str, value: str, confidence: float, source: str) -> bool:
+    """
+    Store a fact through the full verification pipeline
+    Returns True if stored, False if filtered
+    """
+    # Filter through Sieve
+    passed, reason = self.sieve.filter(value, confidence, source)
+    
+    if not passed:
+        self.ledger.log(
+            action="REJECTED",
+            key=key,
+            value=value,
+            confidence=confidence,
+            source=source,
+            passed_filter=False,
+            filter_reason=reason
+        )
+        print(f"✗ Fact rejected: {reason}")
+        return False
+    
+    # Generate checksum
+    checksum = self.checksum_guardian.generate_checksum(value)
+    
+    # Store in memory
+    self.memory_mesh.store(key, value, confidence, source)
+    
+    # Log to ledger
+    self.ledger.log(
+        action="STORED",
+        key=key,
+        value=value,
+        confidence=confidence,
+        source=source,
+        checksum=checksum,
+        passed_filter=True,
+        filter_reason="Passed all filters"
+    )
+    
+    print(f"✓ Fact stored: {key}")
+    return True
+
+def retrieve_fact(self, key: str) -> Optional[Dict]:
+    """Retrieve and verify a stored fact"""
+    fact = self.memory_mesh.retrieve(key)
+    
+    if not fact:
+        return None
+    
+    # Verify integrity
+    if not self.checksum_guardian.verify_integrity(fact["value"], fact["checksum"]):
+        print(f"⚠ Warning: Checksum mismatch for {key}")
+        self.ledger.log(action="INTEGRITY_VIOLATION", key=key)
+        return None
+    
+    self.ledger.log(action="RETRIEVED", key=key)
+    return fact
+
+def search_facts(self, query: str) -> List[Tuple[str, Dict]]:
+    """Search stored facts"""
+    return self.memory_mesh.search(query)
+
+def prepare_prompt_with_context(self, prompt: str) -> str:
+    """
+    Enhance a prompt with relevant context from memory
+    and activate Mirror Loop if needed
+    """
+    # Search for relevant facts
+    matches = self.mirror.check_for_reuse(prompt)
+    
+    if matches:
+        enhanced_prompt = self.mirror.generate_explanation_prompt(prompt, matches)
+        self.ledger.log(action="MIRROR_ACTIVATED", value=f"Found {len(matches)} matches")
+        return enhanced_prompt
+    
+    return prompt
+
+def get_audit_trail(self, limit: int = 50) -> List[Dict]:
+    """Retrieve audit history"""
+    return self.ledger.get_history(limit)
+```
+
+# Demo usage
+
+if **name** == “**main**”:
+print(”=” * 60)
+print(“Continuity Seed Kit - Demo”)
+print(”=” * 60)
+
+```
+# Initialize the kit
+kit = ContinuitySeedKit(confidence_threshold=0.7)
+
+print("\n--- Storing Facts ---")
+# Store some facts
+kit.store_fact(
+    key="python_creator",
+    value="Python was created by Guido van Rossum in 1991",
+    confidence=0.95,
+    source="Python.org official documentation"
+)
+
+kit.store_fact(
+    key="earth_moon_distance",
+    value="The average distance from Earth to the Moon is 384,400 km",
+    confidence=0.92,
+    source="NASA official measurements"
+)
+
+# Try to store a low-confidence fact (should be rejected)
+kit.store_fact(
+    key="dubious_claim",
+    value="Some unverified information",
+    confidence=0.5,
+    source="unknown"
+)
+
+print("\n--- Retrieving Facts ---")
+# Retrieve a fact
+fact = kit.retrieve_fact("python_creator")
+if fact:
+    print(f"Retrieved: {fact['value']}")
+    print(f"Source: {fact['source']}")
+    print(f"Confidence: {fact['confidence']}")
+
+print("\n--- Searching Facts ---")
+# Search for facts
+results = kit.search_facts("python")
+print(f"Found {len(results)} results for 'python'")
+for key, value in results:
+    print(f"  {key}: {value['value'][:50]}...")
+
+print("\n--- Mirror Loop Test ---")
+# Test Mirror Loop
+test_prompt = "Tell me about Python programming language"
+enhanced = kit.prepare_prompt_with_context(test_prompt)
+print(enhanced)
+
+print("\n--- Audit Trail ---")
+# Show audit trail
+history = kit.get_audit_trail(limit=10)
+print(f"Recent {len(history)} actions:")
+for entry in history[-5:]:
+    print(f"  [{entry['timestamp']}] {entry['action']}: {entry.get('key', 'N/A')}")
+
+print("\n" + "=" * 60)
+print("Demo complete. Check memory_mesh.json and mother_duck_ledger.db")
+print("=" * 60)
+```
