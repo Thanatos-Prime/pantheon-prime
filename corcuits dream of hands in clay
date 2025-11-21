@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circuits Dream</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+```
+    body {
+        overflow: hidden;
+        background: #000;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .canvas-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+    }
+
+    canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    /* Shimmer overlay */
+    .shimmer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+            45deg,
+            transparent 30%,
+            rgba(255, 255, 255, 0.03) 50%,
+            transparent 70%
+        );
+        background-size: 200% 200%;
+        animation: shimmerMove 8s ease-in-out infinite;
+        pointer-events: none;
+        mix-blend-mode: screen;
+    }
+
+    @keyframes shimmerMove {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+
+    /* Heat wave distortion effect */
+    .distortion {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: 
+            radial-gradient(ellipse at 30% 40%, rgba(100, 200, 255, 0.02) 0%, transparent 50%),
+            radial-gradient(ellipse at 70% 60%, rgba(255, 200, 100, 0.02) 0%, transparent 50%);
+        animation: heatWave 6s ease-in-out infinite alternate;
+        pointer-events: none;
+    }
+
+    @keyframes heatWave {
+        0% { transform: scale(1) translateY(0); opacity: 0.8; }
+        100% { transform: scale(1.05) translateY(-10px); opacity: 0.4; }
+    }
+</style>
+```
+
+</head>
+<body>
+    <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+        <div class="shimmer"></div>
+        <div class="distortion"></div>
+    </div>
+
+```
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    // Particle system for pixelated dust
+    class Particle {
+        constructor() {
+            this.reset();
+        }
+
+        reset() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2 + 0.5;
+            this.speedX = (Math.random() - 0.5) * 0.3;
+            this.speedY = (Math.random() - 0.5) * 0.3;
+            this.opacity = Math.random() * 0.5 + 0.2;
+            this.color = Math.random() > 0.5 ? 
+                `rgba(100, 200, 255, ${this.opacity})` : 
+                `rgba(255, 200, 100, ${this.opacity * 0.6})`;
+        }
+
+        update() {
+            this.x += this.speedX;
+            this.y += this.speedY;
+            
+            // Wrap around screen
+            if (this.x < 0) this.x = canvas.width;
+            if (this.x > canvas.width) this.x = 0;
+            if (this.y < 0) this.y = canvas.height;
+            if (this.y > canvas.height) this.y = 0;
+        }
+
+        draw() {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+        }
+    }
+
+    // Create particles
+    const particles = [];
+    for (let i = 0; i < 800; i++) {
+        particles.push(new Particle());
+    }
+
+    // Draw central glow - the "thought" emerging
+    function drawCentralGlow(time) {
+        const pulse = Math.sin(time * 0.001) * 0.3 + 0.7;
+        
+        // Blue digital glow (pixels)
+        const blueGrad = ctx.createRadialGradient(
+            centerX - 100, centerY - 100, 0,
+            centerX - 100, centerY - 100, 400 * pulse
+        );
+        blueGrad.addColorStop(0, 'rgba(100, 200, 255, 0.3)');
+        blueGrad.addColorStop(0.5, 'rgba(100, 200, 255, 0.1)');
+        blueGrad.addColorStop(1, 'rgba(100, 200, 255, 0)');
+        
+        ctx.fillStyle = blueGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Golden light (fading)
+        const goldGrad = ctx.createRadialGradient(
+            centerX, centerY, 0,
+            centerX, centerY, 350 * pulse
+        );
+        goldGrad.addColorStop(0, 'rgba(255, 200, 100, 0.25)');
+        goldGrad.addColorStop(0.6, 'rgba(255, 180, 80, 0.08)');
+        goldGrad.addColorStop(1, 'rgba(255, 160, 60, 0)');
+        
+        ctx.fillStyle = goldGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Clay/earth glow (the dream)
+        const clayGrad = ctx.createRadialGradient(
+            centerX + 150, centerY + 150, 0,
+            centerX + 150, centerY + 150, 300 * pulse
+        );
+        clayGrad.addColorStop(0, 'rgba(180, 120, 80, 0.2)');
+        clayGrad.addColorStop(0.5, 'rgba(160, 100, 70, 0.08)');
+        clayGrad.addColorStop(1, 'rgba(140, 80, 60, 0)');
+        
+        ctx.fillStyle = clayGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Draw circuit-like connections
+    function drawCircuitWeb(time) {
+        ctx.strokeStyle = `rgba(100, 200, 255, ${0.15 + Math.sin(time * 0.002) * 0.1})`;
+        ctx.lineWidth = 1;
+        
+        for (let i = 0; i < particles.length; i += 8) {
+            const p1 = particles[i];
+            for (let j = i + 1; j < particles.length; j += 12) {
+                const p2 = particles[j];
+                const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                
+                if (dist < 150) {
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.globalAlpha = (1 - dist / 150) * 0.2;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+            }
+        }
+    }
+
+    // Draw ethereal hand shape
+    function drawHandDream(time) {
+        const handX = centerX + 200;
+        const handY = centerY + 100;
+        const pulse = Math.sin(time * 0.0015) * 0.2 + 0.8;
+        
+        ctx.save();
+        ctx.translate(handX, handY);
+        ctx.scale(pulse, pulse);
+        
+        // Soft hand silhouette
+        ctx.fillStyle = `rgba(180, 120, 80, ${0.12 + Math.sin(time * 0.001) * 0.08})`;
+        ctx.filter = 'blur(15px)';
+        
+        // Palm
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 40, 60, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Fingers
+        for (let i = 0; i < 5; i++) {
+            const angle = (i - 2) * 0.3;
+            const fingerX = Math.sin(angle) * 30;
+            const fingerY = -40 + Math.cos(angle) * 10;
+            
+            ctx.beginPath();
+            ctx.ellipse(fingerX, fingerY, 8, 35, angle, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.filter = 'none';
+        ctx.restore();
+    }
+
+    // Animation loop
+    let time = 0;
+    function animate() {
+        time++;
+        
+        // Fade to black
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw layers
+        drawCentralGlow(time);
+        drawCircuitWeb(time);
+        
+        // Update and draw particles
+        particles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+        
+        drawHandDream(time);
+        
+        requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+</script>
+```
+
+</body>
+</html>
