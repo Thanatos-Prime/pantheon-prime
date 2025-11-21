@@ -1,0 +1,61 @@
+"""
+Demo: Golden Dragon Theorem "flavor" simulation.
+
+This script:
+- defines a set of prime chakras,
+- generates a soul-thread orbit from some initial phase,
+- reports which primes the orbit passes near and how often.
+
+Run:
+    python examples/demo_orbit.py
+"""
+
+from collections import Counter
+
+from src.golden_dragon.model import golden_seed
+from src.golden_dragon.orbits import (
+    generate_orbit,
+    prime_chakras,
+    find_nearby_chakras,
+)
+
+
+def main():
+    # Choose some primes to act as chakras
+    primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+
+    chakras = prime_chakras(primes)
+    print("Prime Chakras (p -> phase):")
+    for p, theta in chakras.items():
+        print(f"  p={p:2d} -> theta={theta:.6f}")
+
+    # Generate an orbit from the Golden Seed or another starting phase
+    x0 = golden_seed  # you could also try x0 = 0.12345, etc.
+    steps = 500
+    orbit = generate_orbit(x0, steps=steps)
+
+    print(f"\nGenerated orbit of length {len(orbit)} from x0 = {x0:.6f}")
+
+    # Find nearby prime chakras
+    epsilon = 0.02  # closeness threshold on the circle
+    encounters = find_nearby_chakras(orbit, chakras, epsilon=epsilon)
+
+    counter = Counter(p for (p, _, _) in encounters)
+
+    print(f"\nEncounters with prime chakras (epsilon = {epsilon}):")
+    if not encounters:
+        print("  No close encounters detected; try increasing steps or epsilon.")
+        return
+
+    for p in primes:
+        count = counter[p]
+        print(f"  p={p:2d}: {count} encounter(s)")
+
+    # Optionally print a few detailed encounters
+    print("\nSample encounters (up to 10):")
+    for p, x, d in encounters[:10]:
+        print(f"  orbit point {x:.6f} near prime {p} (distance {d:.6f})")
+
+
+if __name__ == "__main__":
+    main()
