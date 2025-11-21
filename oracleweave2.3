@@ -1,0 +1,506 @@
+import React, { useState } from ‘react’;
+import { Clock, Brain, Link2, AlertCircle, TrendingDown, FileText } from ‘lucide-react’;
+
+const OracleWeave = () => {
+const [text, setText] = useState(“Recent studies have demonstrated that large language models exhibit emergent capabilities at scale. The technology sector has rapidly adopted these systems, with significant implications for medicine, law, and education. However, long-term effects remain unclear and contested among researchers.”);
+const [domain, setDomain] = useState(“technology”);
+const [ageMonths, setAgeMonths] = useState(6);
+const [result, setResult] = useState(null);
+const [activeTab, setActiveTab] = useState(“input”);
+
+const DOMAIN_DECAY = {
+“technology”: 6, “medicine”: 18, “law”: 24, “science”: 36,
+“culture”: 12, “business”: 9, “politics”: 4, “finance”: 8
+};
+
+const SYNERGY_MATRIX = {
+“technology,medicine”: 0.92, “technology,science”: 0.88,
+“medicine,science”: 0.95, “law,technology”: 0.75,
+“business,technology”: 0.83, “culture,technology”: 0.68,
+“finance,technology”: 0.79, “politics,law”: 0.85,
+“medicine,law”: 0.71, “business,finance”: 0.90
+};
+
+const CERTAINTY_MARKERS = {
+“proven”: 0.95, “validated”: 0.90, “demonstrated”: 0.85, “observed”: 0.80,
+“likely”: 0.70, “suggested”: 0.60, “preliminary”: 0.50, “speculative”: 0.35,
+“theoretical”: 0.40, “hypothetical”: 0.30, “disputed”: 0.25
+};
+
+const UNCERTAINTY_MARKERS = {
+“unclear”: -0.15, “contested”: -0.20, “debated”: -0.12, “controversial”: -0.18,
+“unverified”: -0.25, “anecdotal”: -0.20, “rumored”: -0.30
+};
+
+const computeFreshness = (dom, age) => {
+const halfLife = DOMAIN_DECAY[dom] || 18;
+const decayConstant = Math.log(2) / halfLife;
+return Math.exp(-decayConstant * Math.max(0, age));
+};
+
+const extractClaims = (txt) => {
+const sentences = txt.split(/[.!?]\s+/).filter(s => s.split(’ ’).length >= 5);
+return sentences.map(sent => {
+let confidence = 0.65;
+const markers = [];
+const sentLower = sent.toLowerCase();
+
+```
+  Object.entries(CERTAINTY_MARKERS).forEach(([marker, val]) => {
+    if (sentLower.includes(marker)) {
+      confidence = Math.max(confidence, val);
+      markers.push(marker);
+    }
+  });
+
+  Object.entries(UNCERTAINTY_MARKERS).forEach(([marker, val]) => {
+    if (sentLower.includes(marker)) {
+      confidence += val;
+      markers.push(`!${marker}`);
+    }
+  });
+
+  return {
+    text: sent.trim(),
+    confidence: Math.min(0.99, Math.max(0.05, confidence)),
+    markers,
+    wordCount: sent.split(' ').length
+  };
+});
+```
+
+};
+
+const detectBridges = (txt) => {
+const txtLower = txt.toLowerCase();
+const keywords = {
+“technology”: [“software”, “algorithm”, “digital”, “ai”, “data”, “cyber”, “tech”],
+“medicine”: [“health”, “clinical”, “patient”, “medical”, “treatment”, “diagnosis”],
+“science”: [“research”, “study”, “experiment”, “theory”, “hypothesis”, “evidence”],
+“law”: [“legal”, “regulation”, “policy”, “compliance”, “statute”, “court”],
+“business”: [“market”, “customer”, “revenue”, “strategy”, “operations”, “roi”],
+“culture”: [“social”, “community”, “cultural”, “tradition”, “artistic”],
+“finance”: [“investment”, “capital”, “funding”, “portfolio”, “asset”],
+“politics”: [“government”, “legislative”, “political”, “election”]
+};
+
+```
+const present = Object.entries(keywords)
+  .filter(([_, kws]) => kws.some(kw => txtLower.includes(kw)))
+  .map(([d]) => d);
+
+const bridges = [];
+for (let i = 0; i < present.length; i++) {
+  for (let j = i + 1; j < present.length; j++) {
+    const key1 = `${present[i]},${present[j]}`;
+    const key2 = `${present[j]},${present[i]}`;
+    const synergy = SYNERGY_MATRIX[key1] || SYNERGY_MATRIX[key2] || 0.50;
+    bridges.push({ from: present[i], to: present[j], synergy });
+  }
+}
+return bridges;
+```
+
+};
+
+const calculateNovelty = (txt, claims) => {
+const words = txt.toLowerCase().match(/\b\w+\b/g) || [];
+const uniqueRatio = new Set(words).size / Math.max(words.length, 1);
+const highConfRatio = claims.filter(c => c.confidence > 0.85).length / Math.max(claims.length, 1);
+const avgLength = claims.reduce((s, c) => s + c.wordCount, 0) / Math.max(claims.length, 1);
+const complexityBonus = Math.min(0.25, Math.max(0, (avgLength - 10) * 0.02));
+return Math.min(0.95, Math.max(0.05, uniqueRatio * 0.6 + complexityBonus - highConfRatio * 0.3 + 0.2));
+};
+
+const generateTimeline = (dom) => {
+return [0, 3, 6, 12, 18, 24, 36].map(month => {
+const freshness = computeFreshness(dom, month);
+return {
+month,
+freshness,
+status: freshness > 0.75 ? “fresh” : freshness > 0.50 ? “aging” : “stale”
+};
+});
+};
+
+const synthesizeInsights = (claims, bridges, novelty) => {
+const insights = [];
+const highConf = claims.filter(c => c.confidence > 0.80).length;
+
+```
+if (highConf / Math.max(claims.length, 1) > 0.6) {
+  insights.push("High epistemic confidence: majority of claims well-established.");
+} else {
+  insights.push("Exploratory epistemic stance: significant uncertainty present.");
+}
+
+if (bridges.length > 2) {
+  insights.push(`Rich interdisciplinary synthesis: ${bridges.length} domain bridges detected.`);
+  const top = bridges.reduce((a, b) => a.synergy > b.synergy ? a : b);
+  insights.push(`Strongest synergy: ${top.from} ↔ ${top.to} (${top.synergy.toFixed(2)}).`);
+}
+
+if (novelty > 0.70) {
+  insights.push("High novelty: significant original synthesis or unique framing.");
+} else if (novelty < 0.35) {
+  insights.push("Established knowledge: primarily well-known information.");
+}
+
+if (claims.length > 0) {
+  const avgConf = claims.reduce((s, c) => s + c.confidence, 0) / claims.length;
+  insights.push(`Average claim confidence: ${avgConf.toFixed(2)} — ${avgConf > 0.7 ? 'stable foundation' : 'evolving understanding'}.`);
+}
+
+return insights;
+```
+
+};
+
+const generateStrategy = (dom, freshness, novelty) => {
+const halfLife = DOMAIN_DECAY[dom] || 18;
+let cadence = “annual”;
+if (halfLife < 8) cadence = “quarterly”;
+else if (halfLife < 20) cadence = “biannual”;
+
+```
+let priority = "LOW - still fresh";
+if (freshness < 0.5) priority = "HIGH - knowledge aging rapidly";
+else if (freshness < 0.75) priority = "MEDIUM - monitor for changes";
+
+let method = "archived reference (historical context)";
+if (novelty > 0.7) method = "snapshot + rationale (capture original thinking)";
+else if (freshness > 0.8) method = "living document (active updates)";
+
+const riskScore = (1 - freshness) * 0.6 + (1 - novelty) * 0.4;
+let risk = "LOW";
+if (riskScore > 0.7) risk = "HIGH";
+else if (riskScore > 0.4) risk = "MEDIUM";
+
+return { cadence, priority, method, risk };
+```
+
+};
+
+const analyze = () => {
+const claims = extractClaims(text);
+const bridges = detectBridges(text);
+const novelty = calculateNovelty(text, claims);
+const freshness = computeFreshness(domain, ageMonths);
+const timeline = generateTimeline(domain);
+const insights = synthesizeInsights(claims, bridges, novelty);
+const strategy = generateStrategy(domain, freshness, novelty);
+
+```
+setResult({
+  freshness,
+  novelty,
+  claims,
+  bridges,
+  timeline,
+  insights,
+  strategy,
+  domain,
+  ageMonths
+});
+setActiveTab("results");
+```
+
+};
+
+const getFreshnessColor = (f) => {
+if (f > 0.75) return “text-green-600”;
+if (f > 0.50) return “text-yellow-600”;
+return “text-red-600”;
+};
+
+const getFreshnessIcon = (f) => {
+if (f > 0.75) return “🟢”;
+if (f > 0.50) return “🟡”;
+return “🔴”;
+};
+
+return (
+<div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-6">
+<div className="max-w-6xl mx-auto">
+{/* Header */}
+<div className="bg-white rounded-xl shadow-lg p-6 mb-6 border-t-4 border-indigo-600">
+<div className="flex items-center gap-3 mb-2">
+<Brain className="w-8 h-8 text-indigo-600" />
+<h1 className="text-3xl font-bold text-gray-800">Oracle Weave v2.3</h1>
+</div>
+<p className="text-gray-600">Temporal Knowledge Synthesis Engine</p>
+</div>
+
+```
+    {/* Tab Navigation */}
+    <div className="flex gap-2 mb-4">
+      <button
+        onClick={() => setActiveTab("input")}
+        className={`px-6 py-3 rounded-lg font-medium transition-all ${
+          activeTab === "input"
+            ? "bg-indigo-600 text-white shadow-lg"
+            : "bg-white text-gray-700 hover:bg-gray-50"
+        }`}
+      >
+        <FileText className="w-4 h-4 inline mr-2" />
+        Input
+      </button>
+      <button
+        onClick={() => setActiveTab("results")}
+        disabled={!result}
+        className={`px-6 py-3 rounded-lg font-medium transition-all ${
+          activeTab === "results" && result
+            ? "bg-indigo-600 text-white shadow-lg"
+            : "bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        }`}
+      >
+        <Brain className="w-4 h-4 inline mr-2" />
+        Analysis
+      </button>
+    </div>
+
+    {/* Input Tab */}
+    {activeTab === "input" && (
+      <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Text to Analyze
+          </label>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="w-full h-40 p-4 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
+            placeholder="Enter knowledge to analyze..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Domain
+            </label>
+            <select
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            >
+              {Object.keys(DOMAIN_DECAY).map(d => (
+                <option key={d} value={d}>
+                  {d} ({DOMAIN_DECAY[d]}mo half-life)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Age (months)
+            </label>
+            <input
+              type="number"
+              value={ageMonths}
+              onChange={(e) => setAgeMonths(parseFloat(e.target.value))}
+              min="0"
+              max="120"
+              className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={analyze}
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02]"
+        >
+          🔮 Analyze Knowledge
+        </button>
+      </div>
+    )}
+
+    {/* Results Tab */}
+    {activeTab === "results" && result && (
+      <div className="space-y-4">
+        {/* Knowledge Profile */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Clock className="w-6 h-6 text-indigo-600" />
+            Knowledge Profile
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">Domain</div>
+              <div className="text-xl font-bold text-indigo-900 capitalize">{result.domain}</div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">Age</div>
+              <div className="text-xl font-bold text-purple-900">{result.ageMonths} months</div>
+            </div>
+            <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">Freshness</div>
+              <div className={`text-xl font-bold ${getFreshnessColor(result.freshness)}`}>
+                {result.freshness.toFixed(3)} {getFreshnessIcon(result.freshness)}
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">Novelty</div>
+              <div className="text-xl font-bold text-amber-900">
+                {result.novelty.toFixed(3)} {result.novelty > 0.7 ? "⭐" : ""}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Claims Analysis */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <AlertCircle className="w-6 h-6 text-indigo-600" />
+            Epistemic Assessment
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-indigo-600">{result.claims.length}</div>
+              <div className="text-sm text-gray-600">Total Claims</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-600">
+                {result.claims.filter(c => c.confidence > 0.80).length}
+              </div>
+              <div className="text-sm text-gray-600">High Confidence</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-red-600">
+                {result.claims.filter(c => c.confidence < 0.50).length}
+              </div>
+              <div className="text-sm text-gray-600">Uncertain</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-600">
+                {(result.claims.reduce((s, c) => s + c.confidence, 0) / result.claims.length).toFixed(2)}
+              </div>
+              <div className="text-sm text-gray-600">Avg Confidence</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Cross-Domain Bridges */}
+        {result.bridges.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Link2 className="w-6 h-6 text-indigo-600" />
+              Cross-Domain Synthesis
+            </h2>
+            <div className="space-y-3">
+              {result.bridges.map((b, i) => (
+                <div key={i} className="flex items-center justify-between bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-indigo-900 capitalize">{b.from}</span>
+                    <span className="text-gray-400">↔</span>
+                    <span className="font-semibold text-purple-900 capitalize">{b.to}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-600">Synergy</div>
+                    <div className="text-lg font-bold text-indigo-600">{b.synergy.toFixed(2)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Meta Insights */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Brain className="w-6 h-6 text-indigo-600" />
+            Meta-Insights
+          </h2>
+          <ul className="space-y-2">
+            {result.insights.map((insight, i) => (
+              <li key={i} className="flex items-start gap-3 p-3 bg-indigo-50 rounded-lg">
+                <span className="text-indigo-600 mt-1">•</span>
+                <span className="text-gray-700">{insight}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Preservation Strategy */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <FileText className="w-6 h-6 text-indigo-600" />
+            Preservation Strategy
+          </h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">Review Cadence</div>
+              <div className="text-lg font-semibold text-blue-900 capitalize">{result.strategy.cadence}</div>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">Update Priority</div>
+              <div className="text-lg font-semibold text-purple-900">{result.strategy.priority}</div>
+            </div>
+            <div className="bg-pink-50 p-4 rounded-lg md:col-span-2">
+              <div className="text-sm text-gray-600 mb-1">Preservation Method</div>
+              <div className="text-lg font-semibold text-pink-900">{result.strategy.method}</div>
+            </div>
+            <div className="bg-amber-50 p-4 rounded-lg md:col-span-2">
+              <div className="text-sm text-gray-600 mb-1">Obsolescence Risk</div>
+              <div className={`text-lg font-semibold ${
+                result.strategy.risk === "HIGH" ? "text-red-900" :
+                result.strategy.risk === "MEDIUM" ? "text-yellow-900" : "text-green-900"
+              }`}>{result.strategy.risk}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Decay Timeline */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <TrendingDown className="w-6 h-6 text-indigo-600" />
+            Decay Projection
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b-2 border-gray-200">
+                  <th className="text-left p-3 text-gray-700">Month</th>
+                  <th className="text-right p-3 text-gray-700">Freshness</th>
+                  <th className="text-right p-3 text-gray-700">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.timeline.map((point, i) => (
+                  <tr key={i} className="border-b border-gray-100">
+                    <td className="p-3 font-semibold">{point.month}</td>
+                    <td className={`p-3 text-right font-semibold ${getFreshnessColor(point.freshness)}`}>
+                      {point.freshness.toFixed(3)}
+                    </td>
+                    <td className="p-3 text-right">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        point.status === "fresh" ? "bg-green-100 text-green-800" :
+                        point.status === "aging" ? "bg-yellow-100 text-yellow-800" :
+                        "bg-red-100 text-red-800"
+                      }`}>
+                        {point.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Footer */}
+    <div className="mt-8 text-center text-gray-500 text-sm">
+      <p>Oracle Weave v2.3 — Temporal Knowledge Synthesis</p>
+      <p className="mt-1">This analysis decays; revalidate quarterly</p>
+    </div>
+  </div>
+</div>
+```
+
+);
+};
+
+export default OracleWeave;
