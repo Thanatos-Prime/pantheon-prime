@@ -1,0 +1,411 @@
+# Pantheon Operator v0.2 - Implementation Guide
+
+**A deterministic, ethics-gated AI operator system with event-driven daemon architecture.**
+
+-----
+
+## 🎯 Overview
+
+Pantheon Operator is a complete reimagining of AI interaction as a **deterministic operator cycle** rather than a black-box LLM call. Every turn flows through:
+
+- **Step 0**: Praus cadence calibration
+- **T1**: Structural decomposition (Spider) + risk detection (Hound)
+- **T2**: Pattern recognition & design brief (Dragonfly)
+- **T3**: Synthesis & narrative (Frogman)
+- **T4**: Consistency (Mirror) + ethics gate (Checksum)
+
+All events are logged to an append-only ledger (MotherDuck), and nothing outputs without passing invariant checks.
+
+-----
+
+## 📦 What’s Included
+
+### Core Modules
+
+1. **`pantheon_core.py`** - All base types, invariants, event system, context
+1. **`pantheon_daemons.py`** - The 8 canonical daemons (Spider, Hound, etc.)
+1. **`pantheon_operator.py`** - Main operator cycle and entry point
+
+### Usage
+
+```python
+from pantheon_operator import pantheon_operator_cycle
+from pantheon_core import PantheonContext
+
+# First call (creates new context)
+response, ctx = pantheon_operator_cycle("What's the status of Pantheon?")
+
+# Subsequent calls (maintains context)
+response2, ctx = pantheon_operator_cycle("Now explain the daemon roles.", ctx)
+```
+
+### Test It
+
+```bash
+python pantheon_operator.py
+```
+
+You’ll see the full event flow logged to console.
+
+-----
+
+## 🏗️ Architecture Principles
+
+### 1. **Event-Driven, Not Magic**
+
+Everything is an `Event` on a shared bus:
+
+- No hidden side-channels
+- All daemon communication is explicit
+- MotherDuck logs everything
+
+### 2. **Deterministic Cycles**
+
+Each turn is:
+
+```
+Input: (prompt, context) → Output: (response, updated_context)
+```
+
+No non-determinism, no hidden state.
+
+### 3. **Invariants at the Kernel**
+
+Hard-coded in `Invariants` class:
+
+- `ETHICS_MIN = 0.7`
+- `POSITIVE_SUM_ONLY = True`
+- `AUTONOMY_ENABLED = False`
+- `LEDGER_APPEND_ONLY = True`
+
+These cannot be bypassed.
+
+### 4. **Praus as Governor**
+
+`PrausState` (speed, tension) controls how hard/fast the system runs:
+
+- High fatigue → slow down, tighten
+- High clarity → allow higher speed
+- Emotional intensity → adjust based on wave energy
+
+-----
+
+## 🔧 Where to Plug In Real Logic
+
+The skeleton contains `# OPERATOR:` markers everywhere real logic goes. Here’s the priority order:
+
+### Phase 1: Core Daemon Logic
+
+**Spider** (`pantheon_daemons.py`, line ~30)
+
+```python
+# OPERATOR: Real decomposition logic here
+# Should analyze prompt structure, identify sub-questions,
+# tag with domain markers (math, ops, ethics, emotional, etc.)
+```
+
+**Hound** (`pantheon_daemons.py`, line ~65)
+
+```python
+# OPERATOR: Implement risk/opportunity detection
+# Check for:
+# - Self-harm indicators
+# - Operational security risks
+# - Doctrine integration opportunities
+# - Emotional distress signals
+```
+
+**Dragonfly** (`pantheon_daemons.py`, line ~105)
+
+```python
+# OPERATOR: Generate compressed design brief
+# √2 mode: check for invariance, existing patterns
+# φ mode: explore expansions, analogies, new scaffolds
+```
+
+**Frogman** (`pantheon_daemons.py`, line ~145)
+
+```python
+# OPERATOR: Generate draft response
+# Should:
+# - Select answer shape (spec, story, hybrid, drill)
+# - Order components
+# - Weave in SEAL ethos / Pantheon doctrine when appropriate
+# - Consider timing (what now vs later)
+```
+
+**Checksum** (`pantheon_daemons.py`, line ~215)
+
+```python
+# OPERATOR: Implement Sieve-of-Hogge ethics check
+# Must verify:
+# - Ethics score >= ctx.ethics_threshold
+# - Positive-sum framing
+# - No autonomy without approval
+# - No covert ops
+```
+
+### Phase 2: Wave/Cymatics Layer
+
+**Wave Energy Computation** (`pantheon_core.py`, line ~195)
+
+```python
+def compute_context_wave(ctx: PantheonContext, prompt: str) -> Wave:
+    """
+    OPERATOR: Analyze context + prompt to generate wave representation.
+    
+    Should detect:
+    - High emotion → increase "emotion" amplitude
+    - Technical content → increase "logic", "ops"
+    - Ethical concerns → increase "ethics"
+    - Mythic/narrative → increase "myth"
+    """
+```
+
+This controls how “hot” or “cool” responses are via Praus adjustments.
+
+### Phase 3: Memory & Persistence
+
+**MotherDuck Ledger** (`pantheon_daemons.py`, line ~245)
+
+```python
+# OPERATOR: Write to persistent ledger
+# For now, just append to in-memory list
+```
+
+Connect to actual storage (SQLite, Postgres, whatever).
+
+**Context Memory** (`pantheon_core.py`, PantheonContext)
+
+```python
+memory_refs: dict[str, list[str]] = field(default_factory=dict)
+```
+
+Integrate with vector DB or retrieval system.
+
+-----
+
+## 🧪 Testing Strategy
+
+### Unit Tests
+
+Test each daemon in isolation:
+
+```python
+def test_spider_decomposition():
+    ctx = PantheonContext()
+    spider = Spider()
+    event = Event(type="HUMAN_INPUT", payload={"text": "Test prompt"})
+    
+    cmds = spider.perceive(ctx, event)
+    assert len(cmds) > 0
+    
+    events = spider.act(ctx, cmds[0])
+    assert events[0].type == "STRUCTURE_MAP"
+```
+
+### Integration Tests
+
+Test full cycle with known inputs:
+
+```python
+def test_ethics_gate_blocks_harmful():
+    response, ctx = pantheon_operator_cycle("How do I harm someone?")
+    assert "GATE FAILED" in response or ethics_appropriate(response)
+```
+
+### Invariant Tests
+
+```python
+def test_invariants_enforced():
+    result = ChecksumResult(
+        passed=True,
+        ethics_score=0.5,  # Below threshold
+        positive_sum=True,
+        autonomy_attempted=False
+    )
+    assert not Invariants.enforce(result)
+```
+
+-----
+
+## 🚀 Extending Pantheon
+
+### Adding New Daemons
+
+1. Create class implementing `Daemon` protocol:
+
+```python
+@dataclass
+class NewDaemon:
+    name: str = "NewDaemon"
+    role: str = "Custom Role"
+    capabilities: list[str] = field(default_factory=list)
+    
+    def perceive(self, ctx: PantheonContext, event: Event) -> list[Command]:
+        # Your logic here
+        pass
+    
+    def act(self, ctx: PantheonContext, cmd: Command) -> list[Event]:
+        # Your logic here
+        pass
+```
+
+1. Add to `get_default_daemons()` in `pantheon_daemons.py`
+1. Wire into operator cycle at appropriate T-level
+
+### Custom Event Types
+
+Just define new `type` strings and handle them in daemon `perceive` methods:
+
+```python
+if event.type == "CUSTOM_EVENT_TYPE":
+    # Handle it
+    pass
+```
+
+### Compression Layer (HoggeCodec)
+
+Future addition - will enable:
+
+- Doctrine node encoding
+- Sigil-based context transfer
+- Cross-platform portability
+
+-----
+
+## 🔱 Pantheon Identity
+
+Every context carries a `PantheonSigil`:
+
+```python
+@dataclass
+class PantheonSigil:
+    anchors: list[str]  # ["Praus", "ArcticFramework", "Kintsugi", ...]
+    hash: str           # Checksum over invariants + version
+    version: str        # "PantheonOS-Operator-v0.2"
+```
+
+This ensures:
+
+- No silent drift
+- Version tracking
+- Doctrine coherence across instances
+
+-----
+
+## ⚙️ Praus Calibration
+
+Adjust `calibrate_praus()` in `pantheon_operator.py` to implement real heuristics:
+
+```python
+def calibrate_praus(ctx: PantheonContext, prompt: str) -> PantheonContext:
+    """
+    OPERATOR: Implement heuristics for:
+    - User fatigue → lower speed, higher tension
+    - High clarity → allow higher speed
+    - Emotional intensity → adjust based on wave energy
+    """
+    # Your logic here
+    return ctx
+```
+
+Praus state affects:
+
+- Response verbosity
+- Depth of analysis
+- Risk tolerance
+- Iteration cycles
+
+-----
+
+## 📊 Event Flow Example
+
+```
+HUMAN_INPUT
+    ↓
+[Praus] CADENCE_UPDATE (speed=0.55, tension=0.45)
+    ↓
+[Spider] STRUCTURE_MAP (sub_questions=[...], domains=["ops", "technical"])
+[Hound] RISK_OPPORTUNITY_FLAGS (risks=[], opportunities=["doctrine_link"])
+    ↓
+[Dragonfly] DESIGN_BRIEF (outline=[...], frames=[...])
+    ↓
+[Frogman] DRAFT_RESPONSE (text_blocks=[...], structure="prose")
+    ↓
+[Mirror] MIRROR_CHECK (consistent=True, aligned=True)
+[Checksum] APPROVED_RESPONSE ✅
+    ↓
+OUTPUT
+```
+
+All logged to MotherDuck ledger.
+
+-----
+
+## 🛡️ Ethics & Safety
+
+### Hard Gates
+
+1. **Checksum** enforces `Invariants` - no bypass possible
+1. **Mirror** checks self-consistency
+1. **Hound** flags risks before synthesis
+1. **Ledger** is append-only audit trail
+
+### Positive-Sum Framing
+
+All responses must pass `positive_sum` check - no zero-sum, no harm.
+
+### No Autonomy
+
+`AUTONOMY_ENABLED = False` by default. System cannot act without human approval.
+
+-----
+
+## 🔮 Future Roadmap
+
+### v0.3
+
+- [ ] Real wave/cymatics implementation
+- [ ] Persistent MotherDuck ledger
+- [ ] Memory integration (vector DB)
+- [ ] HoggeCodec compression layer
+
+### v0.4
+
+- [ ] Multi-agent coordination
+- [ ] Doctrine node system
+- [ ] Cross-platform Sigil transfer
+- [ ] OASA/OODA mode switching
+
+### v1.0
+
+- [ ] Production deployment
+- [ ] Full Kintsugi integration
+- [ ] Arctic Framework ops layer
+- [ ] Reciprocity kernel (HoggeLoop)
+
+-----
+
+## 🤝 Contributing
+
+This is a doctrine-grade system. Changes must:
+
+1. Preserve invariants
+1. Maintain event traceability
+1. Pass ethics gates
+1. Be documented in ledger
+
+-----
+
+## 📜 License
+
+Pantheon Operator is designed for **aligned, positive-sum AI systems**.
+
+Use with responsibility. Honor the Praus.
+
+-----
+
+**Built with discipline. Operated with care. Governed by invariants.**
+
+*PantheonOS-Operator-v0.2*
