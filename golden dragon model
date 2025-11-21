@@ -1,0 +1,39 @@
+import math
+from typing import Callable
+
+# Golden ratio
+phi = (1.0 + math.sqrt(5.0)) / 2.0
+
+# For the toy model, we use the fractional part of (phi) as a rotation step.
+# alpha = phi - 1 ≈ 0.618...
+alpha = phi - 1.0
+
+# The Golden Seed (phase 0 on the unit circle)
+golden_seed = 0.0
+
+
+def phi_step(x: float) -> float:
+    """
+    Heartbeat map Phi: one step of the Golden Dragon's heartbeat on the unit circle.
+
+    Phi(x) = (x + alpha) mod 1
+
+    where alpha is derived from the golden ratio. This defines an irrational rotation
+    on the circle and yields dense orbits for almost all starting points.
+    """
+    y = x + alpha
+    # bring back to [0, 1)
+    return y - math.floor(y)
+
+
+def make_phi_step(alpha_value: float) -> Callable[[float], float]:
+    """
+    Factory to create a custom Phi-step map with a different rotation increment.
+
+    This allows experimentation with other irrational (or even rational) steps.
+    """
+    def _step(x: float) -> float:
+        y = x + alpha_value
+        return y - math.floor(y)
+
+    return _step
