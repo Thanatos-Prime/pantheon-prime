@@ -1,0 +1,237 @@
+---
+
+## `src/kernel/kernel.py`
+
+Create `src/kernel/kernel.py` and drop this in:
+
+```python
+"""
+PantheonOS Kernel v1.0 (skeleton)
+
+The Kernel is the Continuity Engine:
+- Maintains the StateVector
+- Emits and ingests ThoughtObjects
+- Routes work to daemons and drivers
+- Enforces governance invariants before committing new state
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field, asdict
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Protocol, Callable
+import hashlib
+import uuid
+import json
+
+
+# ---------- Core Data Structures ---------- #
+
+@dataclass
+class ThoughtObject:
+    """Atomic unit of reasoning/state in PantheonOS."""
+
+    id: str
+    timestamp: str
+    origin_model: Optional[str]
+    daemon_signature: Optional[str]
+    content: str
+    tags: List[str] = field(default_factory=list)
+    state_hash: Optional[str] = None
+    meta: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def new(
+        cls,
+        content: str,
+        origin_model: Optional[str] = None,
+        daemon_signature: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        prev_state: Optional[Dict[str, Any]] = None,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> "ThoughtObject":
+        now = datetime.now(timezone.utc).isoformat()
+        tid = str(uuid.uuid4())
+        tags = tags or []
+        meta = meta or {}
+        state_hash = None
+        if prev_state is not None:
+            # Stable hash of previous state for continuity/audit
+            state_hash = hashlib.sha256(
+                json.dumps(prev_state, sort_keys=True).encode("utf-8")
+            ).hexdigest()
+        return cls(
+            id=tid,
+            timestamp=now,
+            origin_model=origin_model,
+            daemon_signature=daemon_signature,
+            content=content,
+            tags=tags,
+            state_hash=state_hash,
+            meta=meta,
+        )
+
+
+@dataclass
+class KernelConfig:
+    """Configuration for a PantheonKernel instance."""
+    project_name: str
+    invariants: List[str] = field(default_factory=list)
+    log_thoughts: bool = True
+    max_history: int = 2048  # number of ThoughtObjects to keep in memory
+
+
+@dataclass
+class StateVector:
+    """
+    Minimal in-memory representation of continuity.
+
+    In a full implementation this would have:
+    - summary embeddings
+    - graph references
+    - rolling window summaries
+    - pointer to external stores
+    """
+
+    project_name: str
+    history: List[ThoughtObject] = field(default_factory=list)
+    meta: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "project_name": self.project_name,
+            "history": [asdict(t) for t in self.history],
+            "meta": self.meta,
+        }
+
+
+# ---------- Daemon Interface ---------- #
+
+class Daemon(Protocol):
+    """
+    Interface all daemons must satisfy.
+
+    Daemons receive:
+    - the current StateVector
+    - an incoming ThoughtObject or user request
+    and can:
+    - emit new ThoughtObjects
+    - update state (via kernel hooks)
+    """
+
+    name: str
+
+    def handle(
+        self,
+        kernel: "PantheonKernel",
+        thought: ThoughtObject,
+    ) -> ThoughtObject:
+        ...
+
+
+# ---------- Kernel Implementation ---------- #
+
+class PantheonKernel:
+    """
+    The PantheonOS Kernel (skeleton implementation).
+
+    Responsibilities:
+    - Maintain StateVector
+    - Register and route to daemons
+    - Apply governance checks
+    - Emit new ThoughtObjects
+    """
+
+    def __init__(self, config: KernelConfig):
+        self.config = config
+        self.state = StateVector(project_name=config.project_name)
+        self._daemons: Dict[str, Daemon] = {}
+        self._hooks_before_commit: List[Callable[[ThoughtObject], None]] = []
+
+    # --- Registration ---
+
+    def register_daemon(self, name: str, daemon: Daemon) -> None:
+        """Register a daemon under a string key."""
+        self._daemons[name] = daemon
+
+    def add_before_commit_hook(self, hook: Callable[[ThoughtObject], None]) -> None:
+        """Register a hook to run before new thoughts are committed."""
+        self._hooks_before_commit.append(hook)
+
+    # --- Public API ---
+
+    def process_input(
+        self,
+        user_id: str,
+        content: str,
+        tags: Optional[List[str]] = None,
+        daemon: Optional[str] = None,
+    ) -> ThoughtObject:
+        """
+        Entry point for external callers (CLI, API, UI).
+
+        - Wraps raw content in a ThoughtObject
+        - Optionally routes through a specific daemon
+        - Applies governance before committing
+        """
+        base_thought = ThoughtObject.new(
+            content=content,
+            origin_model=None,  # filled later by drivers, if needed
+            daemon_signature=daemon,
+            tags=(tags or []) + ["user_input"],
+            prev_state=self.state.to_dict(),
+            meta={"user_id": user_id},
+        )
+
+        if daemon:
+            if daemon not in self._daemons:
+                raise ValueError(f"Daemon '{daemon}' is not registered.")
+            processed = self._daemons[daemon].handle(self, base_thought)
+        else:
+            # In a full implementation, this might route to a default planner daemon.
+            processed = base_thought
+
+        # Governance layer
+        self._apply_governance(processed)
+
+        # Commit to state
+        self._commit(processed)
+
+        return processed
+
+    # --- Governance & State Management ---
+
+    def _apply_governance(self, thought: ThoughtObject) -> None:
+        """
+        Enforce architectural invariants.
+
+        This is where we would:
+        - run policy checks
+        - enforce ΣC ≥ threshold
+        - block or redact unsafe content
+        """
+        # Skeleton: no-op with placeholder for future logic.
+        # In a real implementation, you’d call out to src/governance.
+        _ = self.config.invariants  # reference to avoid lint warnings
+        return
+
+    def _commit(self, thought: ThoughtObject) -> None:
+        """Append a ThoughtObject to the StateVector with hooks & trimming."""
+        for hook in self._hooks_before_commit:
+            hook(thought)
+
+        self.state.history.append(thought)
+
+        # trim history if needed
+        if len(self.state.history) > self.config.max_history:
+            overflow = len(self.state.history) - self.config.max_history
+            self.state.history = self.state.history[overflow:]
+
+    # --- Introspection ---
+
+    def export_state(self) -> Dict[str, Any]:
+        """Export current state as a serializable dict (for persistence, audit, etc.)."""
+        return self.state.to_dict()
+
+    def latest_thought(self) -> Optional[ThoughtObject]:
+        return self.state.history[-1] if self.state.history else None
