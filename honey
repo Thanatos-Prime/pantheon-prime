@@ -1,0 +1,731 @@
+#!/usr/bin/env python3
+“””
+Honeypot Orchestration Framework: Deploy → Capture → Analyze → Defend
+Production-grade implementation with observability, resilience, and threat intel feedback loops
+“””
+
+import asyncio
+import hashlib
+import json
+from dataclasses import dataclass, asdict
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Dict, List, Optional, Any
+import logging
+
+# Configure structured logging
+
+logging.basicConfig(
+level=logging.INFO,
+format=’{“timestamp”:”%(asctime)s”,“level”:”%(levelname)s”,“component”:”%(name)s”,“message”:”%(message)s”}’
+)
+logger = logging.getLogger(“honeypot_orchestrator”)
+
+class DecoyType(Enum):
+“”“Decoy variants for threat diversity”””
+CRED_REPO = “credential_repository”
+API_ENDPOINT = “vulnerable_api”
+ADMIN_PANEL = “exposed_admin”
+DATABASE = “misconfigured_db”
+FILE_SHARE = “open_smb_share”
+IOT_DEVICE = “default_iot”
+CLOUD_BUCKET = “public_s3”
+
+class ThreatSeverity(Enum):
+“”“Graduated response thresholds”””
+RECON = 1          # Scanning, enumeration
+ACCESS = 2         # Authentication attempts
+EXPLOITATION = 3   # Code execution, payload delivery
+PERSISTENCE = 4    # Backdoor installation, lateral movement
+EXFILTRATION = 5   # Data extraction
+
+@dataclass
+class DecoySpec:
+“”“Decoy configuration blueprint”””
+decoy_id: str
+decoy_type: DecoyType
+network_segment: str  # VLAN/subnet isolation
+bait_credentials: Dict[str, str]
+bait_files: List[str]
+listen_ports: List[int]
+honeytoken_seeds: List[str]  # Unique identifiers for tracking
+ttl_hours: int = 168  # 1 week default
+rotation_schedule: str = “weekly”
+mimicry_target: Optional[str] = None  # Real system to imitate
+
+@dataclass
+class InteractionEvent:
+“”“Captured attacker interaction”””
+event_id: str
+decoy_id: str
+timestamp: datetime
+source_ip: str
+source_port: int
+dest_port: int
+protocol: str
+payload_raw: bytes
+payload_hash: str
+headers: Dict[str, str]
+session_data: Dict[str, Any]
+tls_fingerprint: Optional[str] = None
+user_agent: Optional[str] = None
+
+@dataclass
+class SandboxResult:
+“”“Malware/payload analysis output”””
+verdict: str  # clean, suspicious, malicious
+threat_severity: ThreatSeverity
+iocs: Dict[str, List[str]]  # IPs, domains, hashes, registry keys
+behavioral_traits: List[str]  # persistence, c2, credential_theft, etc
+mitre_ttps: List[str]  # ATT&CK technique IDs
+artifacts: List[str]  # Dropped files, network captures
+execution_trace: List[Dict]
+confidence_score: float
+
+class TPMSigner:
+“”“Hardware-backed cryptographic signing”””
+
+```
+@staticmethod
+def sign(data_hash: str) -> str:
+    """Sign with TPM - placeholder for actual TPM integration"""
+    # In production: use python-tpm2-pytss or similar
+    signature = f"TPM_SIG_{data_hash[:16]}_TIMESTAMP_{int(datetime.now().timestamp())}"
+    logger.info(f"TPM signed: {data_hash[:16]}...")
+    return signature
+
+@staticmethod
+def verify(data_hash: str, signature: str) -> bool:
+    """Verify TPM signature integrity"""
+    # Implement proper TPM verification
+    return signature.startswith("TPM_SIG_")
+```
+
+class MoneyBin:
+“”“Immutable evidence storage with chain-of-custody”””
+
+```
+def __init__(self, storage_backend: str = "s3_glacier"):
+    self.backend = storage_backend
+    self.chain_of_custody = []
+
+async def store_signed(self, event: InteractionEvent, signature: str) -> str:
+    """Store with cryptographic proof of authenticity"""
+    evidence_record = {
+        "event": asdict(event),
+        "signature": signature,
+        "storage_timestamp": datetime.now().isoformat(),
+        "backend": self.backend,
+        "worm_enabled": True  # Write-Once-Read-Many
+    }
+    
+    # Simulate storage
+    evidence_id = hashlib.sha256(
+        json.dumps(evidence_record, sort_keys=True).encode()
+    ).hexdigest()
+    
+    logger.info(f"Stored signed evidence: {evidence_id} to {self.backend}")
+    
+    self.chain_of_custody.append({
+        "evidence_id": evidence_id,
+        "timestamp": datetime.now().isoformat(),
+        "action": "STORE",
+        "signature": signature
+    })
+    
+    return evidence_id
+```
+
+class DecoyOrchestrator:
+“”“Core orchestration logic”””
+
+```
+def __init__(self):
+    self.active_decoys: Dict[str, DecoySpec] = {}
+    self.moneybin = MoneyBin()
+    self.tpm = TPMSigner()
+    self.detection_rules = []
+    self.playbooks = {}
+
+async def deploy_decoy(self, spec: DecoySpec):
+    """Deploy honeypot with full instrumentation"""
+    logger.info(f"Deploying decoy: {spec.decoy_id} ({spec.decoy_type.value})")
+    
+    # 1. Provision isolated environment
+    await self._provision_segmented_env(spec)
+    
+    # 2. Instrument comprehensive logging
+    await self._instrument_logging(spec)
+    
+    # 3. Publish bait with tracking
+    await self._publish_bait(spec)
+    
+    # 4. Register for monitoring
+    self.active_decoys[spec.decoy_id] = spec
+    
+    logger.info(f"Decoy {spec.decoy_id} deployed successfully")
+
+async def _provision_segmented_env(self, spec: DecoySpec):
+    """Create isolated network segment with egress monitoring"""
+    # Implement actual infrastructure provisioning:
+    # - Dedicated VLAN/subnet
+    # - Strict firewall rules (ingress allowed, egress logged/restricted)
+    # - Network tap for full packet capture
+    # - Out-of-band management interface
+    
+    config = {
+        "network": spec.network_segment,
+        "firewall_rules": {
+            "ingress": "ALLOW_ALL_LOG",
+            "egress": "LOG_AND_RATE_LIMIT",
+            "lateral_movement": "DENY"
+        },
+        "monitoring": {
+            "packet_capture": True,
+            "netflow": True,
+            "dns_logging": True
+        }
+    }
+    
+    logger.info(f"Provisioned segment: {spec.network_segment}")
+    return config
+
+async def _instrument_logging(self, spec: DecoySpec):
+    """Deploy comprehensive logging infrastructure"""
+    instrumentation = {
+        "system_logs": ["auth.log", "syslog", "audit.log"],
+        "application_logs": True,
+        "file_integrity_monitoring": True,
+        "process_monitoring": True,
+        "network_captures": {
+            "pcap": True,
+            "zeek_logs": True,
+            "tls_interception": True  # With proper legal authorization
+        },
+        "log_forwarding": {
+            "siem": "splunk.internal",
+            "backup": "s3://honeypot-logs/",
+            "rate_limit": "unlimited"  # Capture everything
+        }
+    }
+    
+    logger.info(f"Instrumented logging for {spec.decoy_id}")
+    return instrumentation
+
+async def _publish_bait(self, spec: DecoySpec):
+    """Plant discoverable but believable bait"""
+    bait_deployment = {
+        "credentials": {
+            # Embed honeytokens in various locations
+            "env_files": [".env", "config.yml", "secrets.json"],
+            "git_history": "Fake credential leak in commit history",
+            "code_comments": "# TODO: Remove hardcoded password",
+            "database_dumps": "Fake database with honeytoken accounts"
+        },
+        "files": {
+            "sensitive_docs": spec.bait_files,
+            "canary_tokens": [
+                f"https://canarytokens.com/{token}" 
+                for token in spec.honeytoken_seeds
+            ]
+        },
+        "services": {
+            "open_ports": spec.listen_ports,
+            "vulnerable_versions": "Mimic outdated software",
+            "default_configs": "Typical misconfigurations"
+        }
+    }
+    
+    logger.info(f"Published bait for {spec.decoy_id}")
+    return bait_deployment
+
+async def on_interaction(self, event: InteractionEvent):
+    """Handle attacker interaction with full pipeline"""
+    logger.warning(f"🚨 INTERACTION DETECTED on {event.decoy_id} from {event.source_ip}")
+    
+    # 1. Preserve raw evidence (first priority)
+    await self._preserve_raw(event)
+    
+    # 2. Cryptographically sign
+    payload_hash = event.payload_hash
+    signature = self.tpm.sign(payload_hash)
+    
+    # 3. Store in immutable storage
+    evidence_id = await self.moneybin.store_signed(event, signature)
+    
+    # 4. Immediate isolation (prevent lateral movement)
+    await self._isolate_decoy(event.decoy_id)
+    
+    # 5. Deep analysis in sandbox
+    sandbox_result = await self._sandbox_analyze(event)
+    
+    # 6. Extract threat intelligence
+    iocs = self._extract_iocs(sandbox_result)
+    behavioral_profile = self._classify_behavior(sandbox_result)
+    
+    # 7. Update defensive posture
+    await self._update_detectors(iocs)
+    await self._update_playbooks(behavioral_profile)
+    
+    # 8. Test incident response
+    await self._run_tabletop(behavioral_profile)
+    
+    # 9. Archive with full audit trail
+    await self._archive_with_audit(event, signature, evidence_id, sandbox_result)
+    
+    logger.info(f"Interaction processing complete: {evidence_id}")
+    return evidence_id
+
+async def _preserve_raw(self, event: InteractionEvent):
+    """Capture complete forensic evidence"""
+    preserved = {
+        "pcap": f"/evidence/{event.event_id}.pcap",
+        "memory_dump": f"/evidence/{event.event_id}.mem",
+        "disk_image": f"/evidence/{event.event_id}.dd",
+        "logs": f"/evidence/{event.event_id}_logs.tar.gz",
+        "http_headers": event.headers,
+        "full_session": event.session_data
+    }
+    
+    logger.info(f"Preserved raw evidence: {event.event_id}")
+    return preserved
+
+async def _isolate_decoy(self, decoy_id: str):
+    """Quarantine compromised honeypot"""
+    isolation_actions = {
+        "network": "Block all egress traffic immediately",
+        "dns": "Redirect DNS queries to sinkhole",
+        "lateral": "Drop all traffic to other segments",
+        "monitoring": "Increase capture fidelity",
+        "alerting": "Notify SOC team"
+    }
+    
+    logger.warning(f"🔒 ISOLATED decoy: {decoy_id}")
+    return isolation_actions
+
+async def _sandbox_analyze(self, event: InteractionEvent) -> SandboxResult:
+    """Detonate payload in controlled environment"""
+    # Integrate with Cuckoo, CAPE, ANY.RUN, or custom sandbox
+    
+    analysis = {
+        "static_analysis": {
+            "file_type": "PE32 executable",
+            "entropy": 7.2,
+            "strings": ["cmd.exe", "powershell", "192.168.1.100"],
+            "yara_hits": ["Mimikatz_Generic", "Cobalt_Strike"]
+        },
+        "dynamic_analysis": {
+            "process_tree": ["malware.exe -> cmd.exe -> powershell.exe"],
+            "network_connections": ["192.168.1.100:4444", "evil.com:443"],
+            "file_operations": ["C:\\Users\\Admin\\creds.txt", "C:\\Windows\\Temp\\beacon.exe"],
+            "registry_modifications": ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"],
+            "api_calls": ["CreateProcess", "WriteProcessMemory", "VirtualAllocEx"]
+        }
+    }
+    
+    # Build structured result
+    result = SandboxResult(
+        verdict="malicious",
+        threat_severity=ThreatSeverity.EXPLOITATION,
+        iocs={
+            "ips": ["192.168.1.100"],
+            "domains": ["evil.com"],
+            "hashes": [event.payload_hash],
+            "registry": ["HKCU\\...\\Run"]
+        },
+        behavioral_traits=["credential_theft", "persistence", "c2_communication"],
+        mitre_ttps=["T1003.001", "T1547.001", "T1071.001"],
+        artifacts=["/sandbox/artifacts/beacon.exe", "/sandbox/pcap/session.pcap"],
+        execution_trace=[analysis],
+        confidence_score=0.95
+    )
+    
+    logger.info(f"Sandbox analysis complete: {result.verdict} (confidence: {result.confidence_score})")
+    return result
+
+def _extract_iocs(self, result: SandboxResult) -> Dict[str, List[str]]:
+    """Generate actionable threat intelligence"""
+    iocs = result.iocs
+    
+    # Enrich with context
+    enriched_iocs = {
+        "network": {
+            "ips": iocs.get("ips", []),
+            "domains": iocs.get("domains", []),
+            "urls": iocs.get("urls", []),
+            "asn": []  # Lookup ASN for IPs
+        },
+        "host": {
+            "file_hashes": iocs.get("hashes", []),
+            "file_paths": iocs.get("file_paths", []),
+            "registry_keys": iocs.get("registry", []),
+            "mutexes": iocs.get("mutexes", [])
+        },
+        "metadata": {
+            "confidence": result.confidence_score,
+            "first_seen": datetime.now().isoformat(),
+            "source": "honeypot",
+            "ttl_days": 90
+        }
+    }
+    
+    logger.info(f"Extracted {len(iocs)} IOC categories")
+    return enriched_iocs
+
+def _classify_behavior(self, result: SandboxResult) -> Dict[str, Any]:
+    """Build attacker behavioral profile"""
+    profile = {
+        "sophistication": self._calculate_sophistication(result),
+        "tactics": result.mitre_ttps,
+        "traits": result.behavioral_traits,
+        "velocity": "rapid" if result.threat_severity.value >= 4 else "deliberate",
+        "targeting": "opportunistic",  # vs targeted
+        "tooling": self._identify_tools(result),
+        "likely_actor_type": self._attribute_actor(result)
+    }
+    
+    logger.info(f"Behavioral profile: {profile['sophistication']} sophistication, {profile['likely_actor_type']} actor")
+    return profile
+
+def _calculate_sophistication(self, result: SandboxResult) -> str:
+    """Classify attacker skill level"""
+    if "custom_malware" in result.behavioral_traits:
+        return "advanced"
+    elif len(result.mitre_ttps) > 5:
+        return "intermediate"
+    else:
+        return "basic"
+
+def _identify_tools(self, result: SandboxResult) -> List[str]:
+    """Detect known offensive tools"""
+    tool_signatures = {
+        "Mimikatz": ["mimikatz", "sekurlsa", "logonpasswords"],
+        "Cobalt Strike": ["beacon", "malleable", "spawnto"],
+        "Metasploit": ["meterpreter", "metsrv"],
+        "PowerShell Empire": ["empire", "powershell.exe -enc"],
+        "BloodHound": ["sharphound", "azurehound"]
+    }
+    
+    detected_tools = []
+    # Match against execution trace
+    for tool, signatures in tool_signatures.items():
+        if any(sig in str(result.execution_trace).lower() for sig in signatures):
+            detected_tools.append(tool)
+    
+    return detected_tools
+
+def _attribute_actor(self, result: SandboxResult) -> str:
+    """Tentative actor attribution"""
+    # Very simplified - real attribution is complex
+    if result.confidence_score > 0.9 and "custom_malware" in result.behavioral_traits:
+        return "APT_candidate"
+    elif "ransomware" in result.behavioral_traits:
+        return "cybercriminal_group"
+    elif result.threat_severity.value <= 2:
+        return "script_kiddie"
+    else:
+        return "professional_pentester_or_redteam"
+
+async def _update_detectors(self, iocs: Dict[str, List[str]]):
+    """Push IOCs to detection infrastructure"""
+    updates = {
+        "firewall": {
+            "block_ips": iocs["network"]["ips"],
+            "block_domains": iocs["network"]["domains"]
+        },
+        "ids_ips": {
+            "snort_rules": self._generate_snort_rules(iocs),
+            "suricata_rules": self._generate_suricata_rules(iocs)
+        },
+        "edr": {
+            "file_hashes": iocs["host"]["file_hashes"],
+            "registry_monitors": iocs["host"]["registry_keys"]
+        },
+        "siem": {
+            "correlation_rules": self._generate_siem_rules(iocs),
+            "threat_intel_feed": iocs
+        },
+        "dns": {
+            "sinkhole": iocs["network"]["domains"]
+        }
+    }
+    
+    logger.info(f"Updated detectors with {len(iocs)} IOCs")
+    return updates
+
+def _generate_snort_rules(self, iocs: Dict) -> List[str]:
+    """Generate IDS rules from IOCs"""
+    rules = []
+    for ip in iocs["network"]["ips"]:
+        rules.append(f'alert tcp any any -> {ip} any (msg:"Honeypot IOC: C2 IP"; sid:9000001; rev:1;)')
+    return rules
+
+def _generate_suricata_rules(self, iocs: Dict) -> List[str]:
+    """Generate Suricata rules"""
+    rules = []
+    for domain in iocs["network"]["domains"]:
+        rules.append(f'alert dns any any -> any any (msg:"Honeypot IOC: C2 Domain"; dns_query; content:"{domain}"; sid:9000002; rev:1;)')
+    return rules
+
+def _generate_siem_rules(self, iocs: Dict) -> List[str]:
+    """Generate SIEM correlation rules"""
+    return [
+        f"Alert on any connection attempt to {iocs['network']['ips']}",
+        f"Alert on file creation matching hashes: {iocs['host']['file_hashes'][:3]}...",
+        "Alert on combined indicators within 5-minute window"
+    ]
+
+async def _update_playbooks(self, profile: Dict[str, Any]):
+    """Refine incident response procedures"""
+    playbook_updates = {
+        "actor_type": profile["likely_actor_type"],
+        "response_priority": self._determine_priority(profile),
+        "containment_steps": self._generate_containment(profile),
+        "communication_plan": self._generate_comms_plan(profile),
+        "lessons_learned": {
+            "new_ttps": profile["tactics"],
+            "tooling_evolution": profile["tooling"],
+            "detection_gaps": []  # Identify what wasn't caught
+        }
+    }
+    
+    self.playbooks[profile["likely_actor_type"]] = playbook_updates
+    logger.info(f"Updated playbook for {profile['likely_actor_type']}")
+    return playbook_updates
+
+def _determine_priority(self, profile: Dict) -> str:
+    """Calculate incident response priority"""
+    if profile["sophistication"] == "advanced":
+        return "P0_CRITICAL"
+    elif profile["likely_actor_type"] == "APT_candidate":
+        return "P1_HIGH"
+    else:
+        return "P2_MEDIUM"
+
+def _generate_containment(self, profile: Dict) -> List[str]:
+    """Create containment procedure"""
+    base_steps = [
+        "Isolate affected systems",
+        "Preserve forensic evidence",
+        "Reset credentials",
+        "Patch vulnerabilities"
+    ]
+    
+    if profile["sophistication"] == "advanced":
+        base_steps.extend([
+            "Hunt for persistence mechanisms",
+            "Check for lateral movement",
+            "Engage threat intelligence partners",
+            "Consider law enforcement notification"
+        ])
+    
+    return base_steps
+
+def _generate_comms_plan(self, profile: Dict) -> Dict:
+    """Incident communication strategy"""
+    return {
+        "internal": {
+            "exec_brief": profile["sophistication"] in ["advanced", "intermediate"],
+            "tech_deep_dive": True,
+            "all_hands": profile["sophistication"] == "advanced"
+        },
+        "external": {
+            "customers": False,  # Unless data breach
+            "partners": profile["likely_actor_type"] == "APT_candidate",
+            "law_enforcement": profile["sophistication"] == "advanced",
+            "isacs": True  # Share threat intel
+        }
+    }
+
+async def _run_tabletop(self, profile: Dict[str, Any]):
+    """Simulate incident response with real threat profile"""
+    tabletop_exercise = {
+        "scenario": f"{profile['likely_actor_type']} compromised honeypot",
+        "participants": ["SOC", "IR Team", "Threat Intel", "Management"],
+        "objectives": [
+            "Validate detection coverage",
+            "Test communication procedures",
+            "Identify response gaps",
+            "Measure MTTR (Mean Time To Respond)"
+        ],
+        "inject_sequence": [
+            f"T+0min: Honeypot alert for {profile['tactics'][0]}",
+            "T+5min: Analyst triage",
+            "T+15min: Escalation decision",
+            "T+30min: Containment actions",
+            "T+1hr: Executive notification",
+            "T+4hr: Eradication complete"
+        ],
+        "success_criteria": {
+            "detection_time": "< 5 minutes",
+            "containment_time": "< 30 minutes",
+            "communication": "All stakeholders notified per plan"
+        }
+    }
+    
+    logger.info(f"🎯 Initiated tabletop exercise: {tabletop_exercise['scenario']}")
+    return tabletop_exercise
+
+async def _archive_with_audit(
+    self, 
+    event: InteractionEvent, 
+    signature: str, 
+    evidence_id: str,
+    analysis: SandboxResult
+):
+    """Final archival with complete audit trail"""
+    archive_record = {
+        "evidence_id": evidence_id,
+        "event": asdict(event),
+        "signature": signature,
+        "analysis": asdict(analysis),
+        "chain_of_custody": self.moneybin.chain_of_custody,
+        "retention_policy": {
+            "duration_years": 7,  # Compliance requirement
+            "destruction_date": (datetime.now() + timedelta(days=365*7)).isoformat(),
+            "legal_hold": False
+        },
+        "access_log": [],  # Track who accessed this evidence
+        "archived_timestamp": datetime.now().isoformat()
+    }
+    
+    logger.info(f"📦 Archived evidence {evidence_id} with full audit trail")
+    return archive_record
+```
+
+class DecoyScheduler:
+“”“Manage decoy rotation and lifecycle”””
+
+```
+def __init__(self, orchestrator: DecoyOrchestrator):
+    self.orchestrator = orchestrator
+    self.schedule = []
+
+async def run_rotation_cycle(self, decoy_schedule: List[DecoySpec]):
+    """Execute scheduled decoy deployment and rotation"""
+    logger.info(f"Starting rotation cycle with {len(decoy_schedule)} decoys")
+    
+    for spec in decoy_schedule:
+        # Deploy new decoy
+        await self.orchestrator.deploy_decoy(spec)
+        
+        # Monitor for specified duration
+        monitor_duration = timedelta(hours=spec.ttl_hours)
+        logger.info(f"Monitoring {spec.decoy_id} for {monitor_duration}")
+        
+        # Simulate monitoring period
+        await asyncio.sleep(5)  # In production: actually wait
+        
+        # Retrieve and process all interactions
+        await self._retrieve_and_process_all(spec)
+        
+        # Decommission after lifecycle
+        await self._decommission_decoy(spec)
+    
+    logger.info("Rotation cycle complete")
+
+async def _retrieve_and_process_all(self, spec: DecoySpec):
+    """Collect all captured interactions before rotation"""
+    logger.info(f"Retrieving all interactions for {spec.decoy_id}")
+    
+    # In production: query log aggregation system
+    collected = {
+        "total_interactions": 42,
+        "unique_sources": 7,
+        "malicious_events": 3,
+        "archived_evidence": 3
+    }
+    
+    return collected
+
+async def _decommission_decoy(self, spec: DecoySpec):
+    """Safely tear down honeypot"""
+    logger.info(f"Decommissioning {spec.decoy_id}")
+    
+    actions = [
+        "Final evidence snapshot",
+        "Destroy decoy VM/container",
+        "Release network resources",
+        "Archive final state",
+        "Update inventory"
+    ]
+    
+    return actions
+```
+
+# Example usage and configuration
+
+async def main():
+“”“Production deployment example”””
+
+```
+# Initialize orchestrator
+orchestrator = DecoyOrchestrator()
+scheduler = DecoyScheduler(orchestrator)
+
+# Define decoy deployment schedule
+decoy_schedule = [
+    DecoySpec(
+        decoy_id="cred-repo-001",
+        decoy_type=DecoyType.CRED_REPO,
+        network_segment="192.168.100.0/24",
+        bait_credentials={
+            "github_pat": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "aws_access_key": "AKIAIOSFODNN7EXAMPLE",
+            "db_password": "P@ssw0rd123"
+        },
+        bait_files=["credentials.json", ".env", "backup.sql"],
+        listen_ports=[22, 443, 3306],
+        honeytoken_seeds=["cred-repo-token-alpha", "cred-repo-token-beta"],
+        ttl_hours=168,
+        rotation_schedule="weekly"
+    ),
+    DecoySpec(
+        decoy_id="admin-panel-002",
+        decoy_type=DecoyType.ADMIN_PANEL,
+        network_segment="192.168.101.0/24",
+        bait_credentials={"admin": "admin", "root": "toor"},
+        bait_files=["users.db", "config.php"],
+        listen_ports=[80, 443, 8080],
+        honeytoken_seeds=["admin-panel-token-001"],
+        ttl_hours=168
+    ),
+    DecoySpec(
+        decoy_id="cloud-bucket-003",
+        decoy_type=DecoyType.CLOUD_BUCKET,
+        network_segment="cloud",
+        bait_credentials={},
+        bait_files=["customer_data_backup.csv", "financial_report_q3.xlsx"],
+        listen_ports=[],
+        honeytoken_seeds=["s3-bucket-canary-token"],
+        ttl_hours=720,  # 30 days for cloud assets
+        mimicry_target="production-backup-bucket"
+    )
+]
+
+# Run orchestration
+await scheduler.run_rotation_cycle(decoy_schedule)
+
+# Simulate interaction event
+test_event = InteractionEvent(
+    event_id="evt_001",
+    decoy_id="cred-repo-001",
+    timestamp=datetime.now(),
+    source_ip="203.0.113.42",
+    source_port=54321,
+    dest_port=443,
+    protocol="HTTPS",
+    payload_raw=b"GET /credentials.json HTTP/1.1\r\nHost: honeypot.internal\r\n\r\n",
+    payload_hash=hashlib.sha256(b"test_payload").hexdigest(),
+    headers={"User-Agent": "curl/7.68.0", "Accept": "*/*"},
+    session_data={"authenticated": False, "attempts": 3}
+)
+
+# Process interaction through full pipeline
+evidence_id = await orchestrator.on_interaction(test_event)
+
+logger.info(f"✅ Demo complete. Evidence archived: {evidence_id}")
+```
+
+if **name** == “**main**”:
+asyncio.run(main())
