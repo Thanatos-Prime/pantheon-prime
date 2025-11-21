@@ -1,0 +1,499 @@
+# Pantheon Project Structure
+
+Complete GitHub repository structure with CI/CD workflows.
+
+```
+pantheon/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                    # Main CI pipeline
+│       ├── ethics-gate.yml           # Arctic ethics enforcement
+│       ├── deploy-backend.yml        # Backend deployment
+│       └── deploy-frontend.yml       # Frontend deployment
+│
+├── backend/
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── main.py                   # FastAPI app (from artifact 1)
+│   │   ├── models.py                 # Pydantic models
+│   │   └── routes/
+│   │       ├── experiments.py
+│   │       ├── logs.py
+│   │       └── health.py
+│   ├── core/
+│   │   ├── mother_duck.py            # Logger implementation
+│   │   ├── arctic_ethics.py          # Ethics evaluator
+│   │   └── ledger.py                 # Conservation ledger
+│   ├── tests/
+│   │   ├── test_api.py
+│   │   ├── test_ethics.py
+│   │   └── test_ledger.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── pyproject.toml
+│
+├── frontend/
+│   ├── tuner-pro/                    # AI Tuner Pro app
+│   │   ├── src/
+│   │   │   ├── App.jsx               # From artifact 1
+│   │   │   ├── index.jsx
+│   │   │   └── api/
+│   │   │       └── client.js
+│   │   ├── public/
+│   │   ├── package.json
+│   │   └── tailwind.config.js
+│   │
+│   └── microscope/                   # Quantum Microscope
+│       ├── src/
+│       │   ├── App.jsx               # From artifact 2
+│       │   ├── index.jsx
+│       │   └── components/
+│       │       ├── TokenView.jsx
+│       │       ├── KLView.jsx
+│       │       └── AttentionView.jsx
+│       ├── public/
+│       └── package.json
+│
+├── packages/
+│   ├── physics-backbone/             # Physics→CS kit
+│   │   ├── src/
+│   │   │   ├── __init__.py
+│   │   │   ├── ledger.py             # From artifact 3
+│   │   │   ├── entropy.py
+│   │   │   └── slo.py
+│   │   ├── tests/
+│   │   ├── README.md
+│   │   └── setup.py
+│   │
+│   └── qrae/                         # Resource allocator
+│       ├── src/
+│       │   ├── __init__.py
+│       │   ├── engine.py             # From artifact 4
+│       │   ├── scenarios.py
+│       │   └── cli.py
+│       ├── tests/
+│       └── setup.py
+│
+├── manifests/
+│   ├── hephaestus_daemon_v1.json     # Forge node config
+│   ├── pantheon_codex_bridge_v1.json # Codex integration
+│   └── arctic_config.json            # Ethics thresholds
+│
+├── docs/
+│   ├── architecture.md
+│   ├── api-reference.md
+│   ├── deployment.md
+│   └── ethics-guide.md
+│
+├── scripts/
+│   ├── setup.sh                      # One-command setup
+│   ├── seed-data.py                  # Generate sample data
+│   └── run-local.sh                  # Local development
+│
+├── docker-compose.yml                # Local stack
+├── README.md
+├── LICENSE
+└── .gitignore
+```
+
+-----
+
+## CI/CD Workflow Files
+
+### `.github/workflows/ci.yml`
+
+```yaml
+name: Pantheon CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest ruff mypy
+      
+      - name: Run ruff (linter)
+        run: |
+          cd backend
+          ruff check .
+      
+      - name: Run mypy (type checker)
+        run: |
+          cd backend
+          mypy api/ core/
+      
+      - name: Run tests
+        run: |
+          cd backend
+          pytest tests/ -v --cov=api --cov=core
+      
+      - name: Ethics Gate Check
+        run: |
+          cd backend
+          python -m core.arctic_ethics --threshold 0.7
+
+  lint-and-test-frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [tuner-pro, microscope]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: |
+          cd frontend/${{ matrix.app }}
+          npm ci
+      
+      - name: Run ESLint
+        run: |
+          cd frontend/${{ matrix.app }}
+          npm run lint
+      
+      - name: Run tests
+        run: |
+          cd frontend/${{ matrix.app }}
+          npm test -- --watchAll=false
+      
+      - name: Build
+        run: |
+          cd frontend/${{ matrix.app }}
+          npm run build
+
+  test-packages:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [physics-backbone, qrae]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install package
+        run: |
+          cd packages/${{ matrix.package }}
+          pip install -e .
+          pip install pytest
+      
+      - name: Run tests
+        run: |
+          cd packages/${{ matrix.package }}
+          pytest tests/ -v
+```
+
+-----
+
+### `.github/workflows/ethics-gate.yml`
+
+```yaml
+name: Arctic Ethics Gate
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  ethics-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for diff
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install ethics scanner
+        run: |
+          pip install anthropic openai
+          cd backend
+          pip install -r requirements.txt
+      
+      - name: Scan code changes
+        id: scan
+        run: |
+          python scripts/ethics_scanner.py \
+            --diff origin/main...HEAD \
+            --threshold 0.7 \
+            --output ethics_report.json
+      
+      - name: Upload ethics report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ethics-report
+          path: ethics_report.json
+      
+      - name: Check threshold
+        run: |
+          SCORE=$(jq -r '.overall_score' ethics_report.json)
+          echo "Ethics Score: $SCORE"
+          if (( $(echo "$SCORE < 0.7" | bc -l) )); then
+            echo "❌ Ethics score below threshold (0.7)"
+            exit 1
+          fi
+          echo "✅ Ethics gate passed"
+      
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('ethics_report.json'));
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🛡️ Arctic Ethics Report
+              
+              **Overall Score:** ${report.overall_score.toFixed(3)}
+              **Status:** ${report.overall_score >= 0.7 ? '✅ PASS' : '❌ FAIL'}
+              
+              **Analysis:**
+              - Files scanned: ${report.files_scanned}
+              - Red flags detected: ${report.red_flags}
+              - Recommendation: ${report.recommendation}
+              `
+            });
+```
+
+-----
+
+### `.github/workflows/deploy-backend.yml`
+
+```yaml
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Railway
+        uses: railway/deploy@v1
+        with:
+          service: pantheon-api
+          environment: production
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      
+      - name: Health check
+        run: |
+          sleep 10
+          curl -f https://pantheon-api.railway.app/health || exit 1
+```
+
+-----
+
+### `.github/workflows/deploy-frontend.yml`
+
+```yaml
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  deploy-tuner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_TUNER_PROJECT_ID }}
+          working-directory: ./frontend/tuner-pro
+
+  deploy-microscope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_MICROSCOPE_PROJECT_ID }}
+          working-directory: ./frontend/microscope
+```
+
+-----
+
+## Quick Start Scripts
+
+### `scripts/setup.sh`
+
+```bash
+#!/bin/bash
+set -e
+
+echo "🔥 Setting up Pantheon Development Environment"
+
+# Backend
+echo "📦 Installing backend dependencies..."
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -e ../packages/physics-backbone
+pip install -e ../packages/qrae
+
+# Frontend - Tuner Pro
+echo "⚛️ Installing Tuner Pro dependencies..."
+cd ../frontend/tuner-pro
+npm install
+
+# Frontend - Microscope
+echo "🔬 Installing Microscope dependencies..."
+cd ../microscope
+npm install
+
+echo "✅ Setup complete!"
+echo ""
+echo "To start development:"
+echo "  Backend:  cd backend && uvicorn api.main:app --reload"
+echo "  Tuner:    cd frontend/tuner-pro && npm start"
+echo "  Scope:    cd frontend/microscope && npm start"
+```
+
+-----
+
+## Docker Compose Stack
+
+### `docker-compose.yml`
+
+```yaml
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - POSTGRES_URL=${POSTGRES_URL}
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+  
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=pantheon
+      - POSTGRES_USER=pantheon
+      - POSTGRES_PASSWORD=pantheon_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  tuner-frontend:
+    build: ./frontend/tuner-pro
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend/tuner-pro:/app
+      - /app/node_modules
+  
+  microscope-frontend:
+    build: ./frontend/microscope
+    ports:
+      - "3001:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend/microscope:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+```
+
+-----
+
+## GitHub Secrets Required
+
+```
+# API Keys
+ANTHROPIC_API_KEY
+OPENAI_API_KEY
+
+# Deployment
+RAILWAY_TOKEN
+VERCEL_TOKEN
+VERCEL_ORG_ID
+VERCEL_TUNER_PROJECT_ID
+VERCEL_MICROSCOPE_PROJECT_ID
+
+# Database
+POSTGRES_URL
+```
+
+-----
+
+## Branch Strategy
+
+```
+main          ← Production deployments (protected)
+  ↑
+develop       ← Integration branch
+  ↑
+feature/*     ← Feature branches
+hotfix/*      ← Emergency fixes
+```
+
+All PRs to `main` must pass:
+
+1. All tests (backend, frontend, packages)
+1. Linting (ruff, ESLint)
+1. Type checking (mypy, TypeScript)
+1. Ethics gate (Arctic ≥ 0.7)
+1. 2+ approvals from maintainers
