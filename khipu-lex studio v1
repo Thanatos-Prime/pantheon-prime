@@ -1,0 +1,544 @@
+import React, { useState } from ‘react’;
+import { Download, Upload, Check, X, Plus, Trash2, Eye, Code } from ‘lucide-react’;
+
+const KhipuLexStudio = () => {
+const [quipu, setQuipu] = useState({
+meta: {
+author: “Anonymous”,
+date: new Date().toISOString().split(‘T’)[0],
+location: “Digital Studio”,
+version: “1.0”
+},
+cords: []
+});
+
+const [viewMode, setViewMode] = useState(‘visual’);
+const [validationErrors, setValidationErrors] = useState([]);
+
+// Constants from spec
+const COLOR_MAP = {
+1: { name: “Red”, hex: “#dc2626”, field: “action” },
+2: { name: “Orange”, hex: “#ea580c”, field: “emotion” },
+3: { name: “Yellow”, hex: “#facc15”, field: “divine” },
+4: { name: “Green”, hex: “#16a34a”, field: “growth” },
+5: { name: “Blue”, hex: “#2563eb”, field: “water” },
+6: { name: “Indigo”, hex: “#4f46e5”, field: “sky” },
+7: { name: “Violet”, hex: “#9333ea”, field: “mystery” },
+8: { name: “Brown”, hex: “#92400e”, field: “earth” },
+9: { name: “Black”, hex: “#1f2937”, field: “death” },
+10: { name: “White”, hex: “#f3f4f6”, field: “purity” },
+11: { name: “Gray”, hex: “#6b7280”, field: “balance” },
+12: { name: “Gold”, hex: “#fbbf24”, field: “royalty” }
+};
+
+const MATERIAL_MAP = {
+1: “cotton”,
+2: “llama”,
+3: “alpaca”,
+4: “vicuña”
+};
+
+const TWIST_MAP = {
+1: “S”,
+2: “Z”
+};
+
+const KNOT_MAP = {
+1: { name: “single”, symbol: “k” },
+2: { name: “long”, symbol: “m” },
+3: { name: “figure8”, symbol: “n” },
+4: { name: “spiral”, symbol: “s” },
+5: { name: “loop”, symbol: “t” },
+6: { name: “square”, symbol: “p” }
+};
+
+const VOWEL_MAP = {
+1: “a”, 2: “e”, 3: “i”, 4: “o”, 5: “u”,
+6: “á”, 7: “é”, 8: “í”, 9: “ó”
+};
+
+// Validation function
+const validateQuipu = (q) => {
+const errors = [];
+
+```
+if (!q.meta.author) errors.push("Missing author in metadata");
+if (!q.meta.date) errors.push("Missing date in metadata");
+
+q.cords.forEach((cord, i) => {
+  if (!cord.color || cord.color < 1 || cord.color > 12) {
+    errors.push(`Cord ${i}: Invalid color`);
+  }
+  if (!cord.material || cord.material < 1 || cord.material > 4) {
+    errors.push(`Cord ${i}: Invalid material`);
+  }
+  if (!cord.twist || (cord.twist !== 1 && cord.twist !== 2)) {
+    errors.push(`Cord ${i}: Invalid twist`);
+  }
+  if (!cord.knots || cord.knots.length === 0) {
+    errors.push(`Cord ${i}: Must have at least one knot`);
+  }
+  
+  // Check spacing monotonicity
+  if (cord.spacing) {
+    for (let j = 1; j < cord.spacing.length; j++) {
+      if (cord.spacing[j] < cord.spacing[j-1]) {
+        errors.push(`Cord ${i}: Spacing must be monotonically increasing`);
+      }
+    }
+  }
+});
+
+setValidationErrors(errors);
+return errors.length === 0;
+```
+
+};
+
+// Encoding function
+const encodeSymbol = (cord, knot) => {
+const C = cord.color;
+const M = cord.material;
+const T = cord.twist;
+const K = knot.type;
+const R = knot.turns;
+
+```
+return C * Math.pow(16, 4) + M * Math.pow(16, 3) + T * Math.pow(16, 2) + K * 16 + R;
+```
+
+};
+
+// Decoding function
+const decodeKnot = (cord, knot) => {
+const consonant = KNOT_MAP[knot.type]?.symbol || ‘?’;
+const vowel = VOWEL_MAP[knot.turns] || ‘?’;
+return consonant + vowel;
+};
+
+const decodeCord = (cord) => {
+return cord.knots.map(k => decodeKnot(cord, k)).join(’’);
+};
+
+// Add new cord
+const addCord = () => {
+const newCord = {
+id: quipu.cords.length + 1,
+parentId: null,
+color: 1,
+material: 1,
+twist: 1,
+knots: [{ type: 1, turns: 1, position: 0 }],
+spacing: [0]
+};
+setQuipu({ …quipu, cords: […quipu.cords, newCord] });
+};
+
+// Update cord
+const updateCord = (index, field, value) => {
+const newCords = […quipu.cords];
+newCords[index] = { …newCords[index], [field]: value };
+setQuipu({ …quipu, cords: newCords });
+};
+
+// Add knot to cord
+const addKnot = (cordIndex) => {
+const newCords = […quipu.cords];
+const lastPos = newCords[cordIndex].knots.length > 0
+? newCords[cordIndex].knots[newCords[cordIndex].knots.length - 1].position + 1
+: 0;
+newCords[cordIndex].knots.push({ type: 1, turns: 1, position: lastPos });
+newCords[cordIndex].spacing.push(lastPos * 1.5);
+setQuipu({ …quipu, cords: newCords });
+};
+
+// Update knot
+const updateKnot = (cordIndex, knotIndex, field, value) => {
+const newCords = […quipu.cords];
+newCords[cordIndex].knots[knotIndex] = {
+…newCords[cordIndex].knots[knotIndex],
+[field]: parseInt(value)
+};
+setQuipu({ …quipu, cords: newCords });
+};
+
+// Remove cord
+const removeCord = (index) => {
+const newCords = quipu.cords.filter((_, i) => i !== index);
+setQuipu({ …quipu, cords: newCords });
+};
+
+// Export JSON
+const exportJSON = () => {
+const dataStr = JSON.stringify(quipu, null, 2);
+const dataBlob = new Blob([dataStr], { type: ‘application/json’ });
+const url = URL.createObjectURL(dataBlob);
+const link = document.createElement(‘a’);
+link.href = url;
+link.download = ‘document.klex.json’;
+link.click();
+};
+
+// Import JSON
+const importJSON = (e) => {
+const file = e.target.files[0];
+if (file) {
+const reader = new FileReader();
+reader.onload = (event) => {
+try {
+const imported = JSON.parse(event.target.result);
+setQuipu(imported);
+} catch (err) {
+alert(‘Invalid JSON file’);
+}
+};
+reader.readAsText(file);
+}
+};
+
+// Visual rendering of a cord
+const renderCordVisual = (cord, index) => {
+const color = COLOR_MAP[cord.color];
+const material = MATERIAL_MAP[cord.material];
+const twist = TWIST_MAP[cord.twist];
+const phonetic = decodeCord(cord);
+
+```
+return (
+  <div key={index} className="mb-6 p-4 border-2 rounded-lg" style={{ borderColor: color.hex }}>
+    <div className="flex justify-between items-start mb-3">
+      <div className="flex gap-4 flex-wrap items-center">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-8 h-8 rounded-full border-2 border-gray-700" 
+            style={{ backgroundColor: color.hex }}
+          />
+          <span className="font-mono text-sm">{color.name} → {color.field}</span>
+        </div>
+        <div className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+          {material} / {twist}-twist
+        </div>
+        <div className="font-bold text-lg px-3 py-1 bg-blue-100 rounded">
+          /{phonetic}/
+        </div>
+      </div>
+      <button onClick={() => removeCord(index)} className="text-red-600 hover:text-red-800">
+        <Trash2 size={18} />
+      </button>
+    </div>
+
+    {/* Visual knot representation */}
+    <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-2">
+      <div className="h-2 rounded-full flex-shrink-0" style={{ 
+        width: '40px', 
+        backgroundColor: color.hex,
+        opacity: 0.3 
+      }} />
+      {cord.knots.map((knot, ki) => (
+        <React.Fragment key={ki}>
+          <div 
+            className="flex-shrink-0 rounded-lg border-2 p-2 flex flex-col items-center justify-center"
+            style={{ 
+              borderColor: color.hex,
+              backgroundColor: color.hex + '20',
+              minWidth: '60px'
+            }}
+          >
+            <div className="text-xs font-mono">{KNOT_MAP[knot.type]?.name}</div>
+            <div className="text-2xl font-bold" style={{ color: color.hex }}>
+              {knot.turns}
+            </div>
+            <div className="text-xs text-gray-600">{decodeKnot(cord, knot)}</div>
+          </div>
+          {ki < cord.knots.length - 1 && (
+            <div className="h-2 rounded-full flex-shrink-0" style={{ 
+              width: `${Math.max(20, (cord.spacing[ki+1] - cord.spacing[ki]) * 10)}px`,
+              backgroundColor: color.hex,
+              opacity: 0.3 
+            }} />
+          )}
+        </React.Fragment>
+      ))}
+      <div className="h-2 rounded-full flex-shrink-0" style={{ 
+        width: '40px', 
+        backgroundColor: color.hex,
+        opacity: 0.3 
+      }} />
+    </div>
+
+    {/* Knot editor */}
+    <div className="space-y-2">
+      {cord.knots.map((knot, ki) => (
+        <div key={ki} className="flex gap-2 items-center text-sm">
+          <span className="w-16 text-gray-600">Knot {ki + 1}:</span>
+          <select 
+            value={knot.type}
+            onChange={(e) => updateKnot(index, ki, 'type', e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            {Object.entries(KNOT_MAP).map(([k, v]) => (
+              <option key={k} value={k}>{v.name}</option>
+            ))}
+          </select>
+          <select 
+            value={knot.turns}
+            onChange={(e) => updateKnot(index, ki, 'turns', e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            {Object.entries(VOWEL_MAP).map(([k, v]) => (
+              <option key={k} value={k}>{k} ({v})</option>
+            ))}
+          </select>
+          <span className="font-mono text-gray-600">σ = {encodeSymbol(cord, knot)}</span>
+        </div>
+      ))}
+      <button 
+        onClick={() => addKnot(index)}
+        className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+      >
+        <Plus size={16} /> Add knot
+      </button>
+    </div>
+
+    {/* Cord properties */}
+    <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-2 text-sm">
+      <div>
+        <label className="block text-gray-600 mb-1">Color</label>
+        <select 
+          value={cord.color}
+          onChange={(e) => updateCord(index, 'color', parseInt(e.target.value))}
+          className="border rounded px-2 py-1 w-full"
+        >
+          {Object.entries(COLOR_MAP).map(([k, v]) => (
+            <option key={k} value={k}>{v.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-gray-600 mb-1">Material</label>
+        <select 
+          value={cord.material}
+          onChange={(e) => updateCord(index, 'material', parseInt(e.target.value))}
+          className="border rounded px-2 py-1 w-full"
+        >
+          {Object.entries(MATERIAL_MAP).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-gray-600 mb-1">Twist</label>
+        <select 
+          value={cord.twist}
+          onChange={(e) => updateCord(index, 'twist', parseInt(e.target.value))}
+          className="border rounded px-2 py-1 w-full"
+        >
+          {Object.entries(TWIST_MAP).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  </div>
+);
+```
+
+};
+
+return (
+<div className="max-w-6xl mx-auto p-6 bg-gradient-to-br from-amber-50 to-orange-50 min-h-screen">
+<header className="mb-8 text-center">
+<h1 className="text-4xl font-bold text-gray-900 mb-2">
+Khipu-Lex Studio v1.0
+</h1>
+<p className="text-gray-600 italic">
+Formal tactile writing system — encode knowledge in cord, color & knot
+</p>
+</header>
+
+```
+  {/* Meta editor */}
+  <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+      <Code size={20} /> Document Metadata
+    </h2>
+    <div className="grid grid-cols-3 gap-4">
+      <div>
+        <label className="block text-sm text-gray-600 mb-1">Author</label>
+        <input 
+          type="text"
+          value={quipu.meta.author}
+          onChange={(e) => setQuipu({...quipu, meta: {...quipu.meta, author: e.target.value}})}
+          className="border rounded px-3 py-2 w-full"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-gray-600 mb-1">Date</label>
+        <input 
+          type="date"
+          value={quipu.meta.date}
+          onChange={(e) => setQuipu({...quipu, meta: {...quipu.meta, date: e.target.value}})}
+          className="border rounded px-3 py-2 w-full"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-gray-600 mb-1">Location</label>
+        <input 
+          type="text"
+          value={quipu.meta.location}
+          onChange={(e) => setQuipu({...quipu, meta: {...quipu.meta, location: e.target.value}})}
+          className="border rounded px-3 py-2 w-full"
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* Controls */}
+  <div className="bg-white rounded-lg shadow-lg p-4 mb-6 flex justify-between items-center flex-wrap gap-3">
+    <div className="flex gap-2">
+      <button
+        onClick={() => setViewMode('visual')}
+        className={`px-4 py-2 rounded flex items-center gap-2 ${viewMode === 'visual' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+      >
+        <Eye size={18} /> Visual
+      </button>
+      <button
+        onClick={() => setViewMode('json')}
+        className={`px-4 py-2 rounded flex items-center gap-2 ${viewMode === 'json' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+      >
+        <Code size={18} /> JSON
+      </button>
+    </div>
+    
+    <div className="flex gap-2">
+      <button
+        onClick={addCord}
+        className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700"
+      >
+        <Plus size={18} /> Add Cord
+      </button>
+      <button
+        onClick={() => validateQuipu(quipu)}
+        className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
+      >
+        <Check size={18} /> Validate
+      </button>
+      <button
+        onClick={exportJSON}
+        className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700"
+      >
+        <Download size={18} /> Export
+      </button>
+      <label className="bg-orange-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-orange-700 cursor-pointer">
+        <Upload size={18} /> Import
+        <input type="file" onChange={importJSON} className="hidden" accept=".json" />
+      </label>
+    </div>
+  </div>
+
+  {/* Validation errors */}
+  {validationErrors.length > 0 && (
+    <div className="bg-red-50 border-2 border-red-600 rounded-lg p-4 mb-6">
+      <h3 className="font-bold text-red-900 mb-2 flex items-center gap-2">
+        <X size={20} /> Validation Errors
+      </h3>
+      <ul className="list-disc list-inside text-red-800">
+        {validationErrors.map((err, i) => (
+          <li key={i}>{err}</li>
+        ))}
+      </ul>
+    </div>
+  )}
+
+  {/* Main content */}
+  <div className="bg-white rounded-lg shadow-lg p-6">
+    {viewMode === 'visual' ? (
+      <div>
+        <h2 className="text-2xl font-bold mb-4">Cords ({quipu.cords.length})</h2>
+        {quipu.cords.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            No cords yet. Click "Add Cord" to begin weaving your message.
+          </p>
+        ) : (
+          quipu.cords.map((cord, i) => renderCordVisual(cord, i))
+        )}
+      </div>
+    ) : (
+      <div>
+        <h2 className="text-2xl font-bold mb-4">JSON Output</h2>
+        <pre className="bg-gray-900 text-green-400 p-4 rounded overflow-x-auto text-sm font-mono">
+          {JSON.stringify(quipu, null, 2)}
+        </pre>
+      </div>
+    )}
+  </div>
+
+  {/* Info capacity */}
+  {quipu.cords.length > 0 && (
+    <div className="mt-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6 text-center">
+      <h3 className="font-bold text-lg mb-2">Information Capacity</h3>
+      <div className="flex justify-center gap-8 text-sm">
+        <div>
+          <div className="text-3xl font-bold text-indigo-600">
+            {quipu.cords.reduce((sum, c) => sum + c.knots.length, 0)}
+          </div>
+          <div className="text-gray-600">Total Knots</div>
+        </div>
+        <div>
+          <div className="text-3xl font-bold text-purple-600">
+            {(quipu.cords.reduce((sum, c) => sum + c.knots.length, 0) * 12.3 / 8 / 1024).toFixed(2)} KB
+          </div>
+          <div className="text-gray-600">Approx. Data</div>
+        </div>
+        <div>
+          <div className="text-3xl font-bold text-pink-600">
+            {quipu.cords.map(c => decodeCord(c)).join(' ')}
+          </div>
+          <div className="text-gray-600">Phonetic Output</div>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* Legend */}
+  <details className="mt-6 bg-gray-50 rounded-lg p-4">
+    <summary className="cursor-pointer font-bold text-lg mb-2">
+      📖 Khipu-Lex Reference
+    </summary>
+    <div className="grid grid-cols-2 gap-4 text-sm">
+      <div>
+        <h4 className="font-bold mb-2">Color Semantics</h4>
+        <div className="space-y-1">
+          {Object.entries(COLOR_MAP).map(([k, v]) => (
+            <div key={k} className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: v.hex }} />
+              <span>{v.name} → {v.field}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h4 className="font-bold mb-2">Knot Phonemes</h4>
+        <div className="space-y-1">
+          {Object.entries(KNOT_MAP).map(([k, v]) => (
+            <div key={k}>
+              <span className="font-mono">{v.name} → /{v.symbol}/</span>
+            </div>
+          ))}
+        </div>
+        <h4 className="font-bold mt-4 mb-2">Spacing Rules</h4>
+        <div className="space-y-1">
+          <div>&lt; 1.5 cm → intra-word</div>
+          <div>1.5–3 cm → word boundary</div>
+          <div>≥ 3 cm → clause boundary</div>
+        </div>
+      </div>
+    </div>
+  </details>
+</div>
+```
+
+);
+};
+
+export default KhipuLexStudio;
