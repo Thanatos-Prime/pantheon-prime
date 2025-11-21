@@ -1,0 +1,453 @@
+#!/usr/bin/env python3
+“””
+Oracle Weave v2.3 - Temporal Knowledge Synthesis Engine
+Detects knowledge decay, synthesizes cross-domain insights, generates future-proof documentation
+Stdlib only. Python 3.9+
+“””
+import argparse, json, hashlib, datetime, re, math, sys
+from typing import Dict, Any, List, Tuple
+from collections import defaultdict
+
+NOW_ISO = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + “Z”
+
+# Domain decay rates (half-life in months)
+
+DOMAIN_DECAY = {
+“technology”: 6, “medicine”: 18, “law”: 24, “science”: 36,
+“culture”: 12, “business”: 9, “politics”: 4, “finance”: 8
+}
+
+# Cross-pollination synergy matrix (how well domains fertilize each other)
+
+SYNERGY_MATRIX = {
+(“technology”, “medicine”): 0.92, (“technology”, “science”): 0.88,
+(“medicine”, “science”): 0.95, (“law”, “technology”): 0.75,
+(“business”, “technology”): 0.83, (“culture”, “technology”): 0.68,
+(“finance”, “technology”): 0.79, (“politics”, “law”): 0.85,
+(“medicine”, “law”): 0.71, (“business”, “finance”): 0.90
+}
+
+# Epistemic confidence markers
+
+CERTAINTY_MARKERS = {
+“proven”: 0.95, “validated”: 0.90, “demonstrated”: 0.85, “observed”: 0.80,
+“likely”: 0.70, “suggested”: 0.60, “preliminary”: 0.50, “speculative”: 0.35,
+“theoretical”: 0.40, “hypothetical”: 0.30, “disputed”: 0.25
+}
+
+UNCERTAINTY_MARKERS = {
+“unclear”: -0.15, “contested”: -0.20, “debated”: -0.12, “controversial”: -0.18,
+“unverified”: -0.25, “anecdotal”: -0.20, “rumored”: -0.30
+}
+
+def compute_knowledge_freshness(domain: str, age_months: float) -> float:
+“”“Calculate how ‘fresh’ knowledge is based on domain-specific decay rates”””
+half_life = DOMAIN_DECAY.get(domain, 18)  # default 18 months
+decay_constant = math.log(2) / half_life
+freshness = math.exp(-decay_constant * age_months)
+return round(freshness, 4)
+
+def extract_claims(text: str) -> List[Dict[str, Any]]:
+“”“Extract factual claims with epistemic markers”””
+# Simple sentence splitting
+sentences = re.split(r’[.!?]\s+’, text)
+claims = []
+
+```
+for sent in sentences:
+    if len(sent.split()) < 5:  # Skip fragments
+        continue
+        
+    # Check for epistemic markers
+    confidence = 0.65  # baseline
+    markers_found = []
+    
+    sent_lower = sent.lower()
+    for marker, val in CERTAINTY_MARKERS.items():
+        if marker in sent_lower:
+            confidence = max(confidence, val)
+            markers_found.append(marker)
+    
+    for marker, val in UNCERTAINTY_MARKERS.items():
+        if marker in sent_lower:
+            confidence += val
+            markers_found.append(f"!{marker}")
+    
+    confidence = min(0.99, max(0.05, confidence))
+    
+    claims.append({
+        "text": sent.strip(),
+        "confidence": round(confidence, 3),
+        "markers": markers_found,
+        "word_count": len(sent.split())
+    })
+
+return claims
+```
+
+def detect_domain_bridges(text: str) -> List[Tuple[str, str, float]]:
+“”“Detect cross-domain knowledge bridges and their synergy scores”””
+text_lower = text.lower()
+domains_present = []
+
+```
+# Simple keyword detection for domains
+domain_keywords = {
+    "technology": ["software", "algorithm", "digital", "AI", "data", "cyber", "tech"],
+    "medicine": ["health", "clinical", "patient", "medical", "treatment", "diagnosis"],
+    "science": ["research", "study", "experiment", "theory", "hypothesis", "evidence"],
+    "law": ["legal", "regulation", "policy", "compliance", "statute", "court"],
+    "business": ["market", "customer", "revenue", "strategy", "operations", "ROI"],
+    "culture": ["social", "community", "cultural", "tradition", "artistic"],
+    "finance": ["investment", "capital", "funding", "portfolio", "asset"],
+    "politics": ["government", "legislative", "political", "policy", "election"]
+}
+
+for domain, keywords in domain_keywords.items():
+    if any(kw in text_lower for kw in keywords):
+        domains_present.append(domain)
+
+# Find bridges
+bridges = []
+for i, d1 in enumerate(domains_present):
+    for d2 in domains_present[i+1:]:
+        pair = tuple(sorted([d1, d2]))
+        synergy = SYNERGY_MATRIX.get(pair, 0.50)  # default medium synergy
+        bridges.append((d1, d2, synergy))
+
+return bridges
+```
+
+def calculate_novelty_score(text: str, claims: List[Dict]) -> float:
+“”“Estimate how novel/original the content is”””
+# Factors: claim diversity, unique word ratio, structural complexity
+words = text.lower().split()
+unique_ratio = len(set(words)) / max(len(words), 1)
+
+```
+# High confidence claims suggest established knowledge
+high_conf_ratio = sum(1 for c in claims if c["confidence"] > 0.85) / max(len(claims), 1)
+novelty_penalty = high_conf_ratio * 0.3
+
+# Longer, more complex claims suggest deeper synthesis
+avg_claim_length = sum(c["word_count"] for c in claims) / max(len(claims), 1)
+complexity_bonus = min(0.25, (avg_claim_length - 10) * 0.02)
+
+novelty = (unique_ratio * 0.6) + complexity_bonus - novelty_penalty + 0.2
+return round(min(0.95, max(0.05, novelty)), 4)
+```
+
+def generate_decay_timeline(domain: str, months_ahead: int = 36) -> List[Dict]:
+“”“Project knowledge freshness decay over time”””
+timeline = []
+for month in [0, 3, 6, 12, 18, 24, 36]:
+if month > months_ahead:
+break
+freshness = compute_knowledge_freshness(domain, month)
+timeline.append({
+“month”: month,
+“freshness”: freshness,
+“status”: “fresh” if freshness > 0.75 else “aging” if freshness > 0.50 else “stale”
+})
+return timeline
+
+def synthesize_meta_insights(claims: List[Dict], bridges: List[Tuple], novelty: float) -> List[str]:
+“”“Generate meta-level insights about the knowledge structure”””
+insights = []
+
+```
+# Epistemic quality
+high_conf = sum(1 for c in claims if c["confidence"] > 0.80)
+if high_conf / max(len(claims), 1) > 0.6:
+    insights.append("High epistemic confidence: majority of claims well-established")
+else:
+    insights.append("Exploratory epistemic stance: significant uncertainty present")
+
+# Cross-domain synthesis
+if len(bridges) > 2:
+    insights.append(f"Rich interdisciplinary synthesis: {len(bridges)} domain bridges detected")
+    top_bridge = max(bridges, key=lambda x: x[2])
+    insights.append(f"Strongest synergy: {top_bridge[0]} ↔ {top_bridge[1]} ({top_bridge[2]:.2f})")
+
+# Novelty assessment
+if novelty > 0.70:
+    insights.append("High novelty: significant original synthesis or unique framing")
+elif novelty < 0.35:
+    insights.append("Established knowledge: primarily well-known information")
+
+# Claim structure
+if claims:
+    avg_conf = sum(c["confidence"] for c in claims) / len(claims)
+    insights.append(f"Average claim confidence: {avg_conf:.2f} — {'stable foundation' if avg_conf > 0.7 else 'evolving understanding'}")
+
+return insights
+```
+
+def generate_preservation_strategy(domain: str, freshness: float, novelty: float) -> Dict[str, Any]:
+“”“Recommend how to preserve and update this knowledge over time”””
+strategy = {
+“review_cadence”: None,
+“update_priority”: None,
+“preservation_method”: None,
+“risk_of_obsolescence”: None
+}
+
+```
+# Review cadence based on domain decay
+half_life = DOMAIN_DECAY.get(domain, 18)
+if half_life < 8:
+    strategy["review_cadence"] = "quarterly"
+elif half_life < 20:
+    strategy["review_cadence"] = "biannual"
+else:
+    strategy["review_cadence"] = "annual"
+
+# Update priority
+if freshness < 0.5:
+    strategy["update_priority"] = "HIGH - knowledge aging rapidly"
+elif freshness < 0.75:
+    strategy["update_priority"] = "MEDIUM - monitor for changes"
+else:
+    strategy["update_priority"] = "LOW - still fresh"
+
+# Preservation method
+if novelty > 0.7:
+    strategy["preservation_method"] = "snapshot + rationale (capture original thinking)"
+elif freshness > 0.8:
+    strategy["preservation_method"] = "living document (active updates)"
+else:
+    strategy["preservation_method"] = "archived reference (historical context)"
+
+# Obsolescence risk
+risk_score = (1 - freshness) * 0.6 + (1 - novelty) * 0.4
+if risk_score > 0.7:
+    strategy["risk_of_obsolescence"] = "HIGH"
+elif risk_score > 0.4:
+    strategy["risk_of_obsolescence"] = "MEDIUM"
+else:
+    strategy["risk_of_obsolescence"] = "LOW"
+
+return strategy
+```
+
+def content_fingerprint(text: str) -> str:
+“”“Generate a semantic fingerprint (not just hash)”””
+# Extract key n-grams and concepts
+words = re.findall(r’\b\w+\b’, text.lower())
+# Simple semantic fingerprint: most frequent meaningful words
+word_freq = defaultdict(int)
+stopwords = {‘the’, ‘a’, ‘an’, ‘and’, ‘or’, ‘but’, ‘in’, ‘on’, ‘at’, ‘to’, ‘for’, ‘of’, ‘with’, ‘by’}
+
+```
+for word in words:
+    if len(word) > 3 and word not in stopwords:
+        word_freq[word] += 1
+
+# Top 10 words form semantic signature
+top_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:10]
+signature = "_".join([w for w, _ in top_words])
+
+return hashlib.sha256(signature.encode()).hexdigest()[:16]
+```
+
+def build_weave_card(text: str, domain: str, age_months: float,
+claims: List[Dict], bridges: List[Tuple],
+novelty: float, freshness: float) -> Dict[str, Any]:
+“”“Build the primary knowledge weave card”””
+meta_insights = synthesize_meta_insights(claims, bridges, novelty)
+preservation = generate_preservation_strategy(domain, freshness, novelty)
+
+```
+return {
+    "schema": "oracle://weave_card.v2",
+    "fingerprint": content_fingerprint(text),
+    "timestamp": NOW_ISO,
+    "domain": domain,
+    "age_months": age_months,
+    "knowledge_metrics": {
+        "freshness": freshness,
+        "novelty": novelty,
+        "claim_count": len(claims),
+        "avg_confidence": round(sum(c["confidence"] for c in claims) / max(len(claims), 1), 3),
+        "domain_bridges": len(bridges)
+    },
+    "epistemic_profile": {
+        "high_confidence_claims": sum(1 for c in claims if c["confidence"] > 0.80),
+        "uncertain_claims": sum(1 for c in claims if c["confidence"] < 0.50),
+        "markers_detected": list(set([m for c in claims for m in c["markers"]]))
+    },
+    "synthesis_quality": {
+        "meta_insights": meta_insights,
+        "cross_domain_bridges": [{"from": b[0], "to": b[1], "synergy": b[2]} for b in bridges]
+    },
+    "preservation": preservation,
+    "decay_projection": generate_decay_timeline(domain, 36)
+}
+```
+
+def build_oracle_manifest(weave_card: Dict, text: str) -> Dict[str, Any]:
+“”“Build the complete Oracle manifest”””
+return {
+“schema”: “oracle://manifest.v2”,
+“generated”: NOW_ISO,
+“source_hash”: hashlib.sha256(text.encode()).hexdigest(),
+“weave_card”: weave_card,
+“provenance”: {
+“engine”: “Oracle Weave v2.3”,
+“method”: “temporal_synthesis”,
+“confidence”: “This analysis is itself subject to decay; revalidate quarterly”
+},
+“usage_guidance”: {
+“best_for”: [
+“Tracking knowledge evolution over time”,
+“Identifying cross-domain innovation opportunities”,
+“Planning documentation refresh cycles”,
+“Assessing information reliability”
+],
+“limitations”: [
+“Heuristic-based; not ground truth”,
+“Domain detection is keyword-driven”,
+“Decay rates are statistical averages”,
+“Cannot predict paradigm shifts”
+]
+}
+}
+
+def generate_markdown_report(manifest: Dict, text: str) -> str:
+“”“Generate a human-readable markdown report”””
+wc = manifest[“weave_card”]
+km = wc[“knowledge_metrics”]
+ep = wc[“epistemic_profile”]
+sq = wc[“synthesis_quality”]
+pres = wc[“preservation”]
+
+```
+report = f"""# Oracle Weave Analysis Report
+```
+
+**Generated:** {manifest[‘generated’]}  
+**Fingerprint:** `{wc['fingerprint']}`
+
+## Knowledge Profile
+
+- **Domain:** {wc[‘domain’]}
+- **Age:** {wc[‘age_months’]} months
+- **Freshness Score:** {km[‘freshness’]} {‘🟢’ if km[‘freshness’] > 0.75 else ‘🟡’ if km[‘freshness’] > 0.5 else ‘🔴’}
+- **Novelty Score:** {km[‘novelty’]} {‘⭐’ if km[‘novelty’] > 0.7 else ‘’}
+
+## Epistemic Assessment
+
+- **Total Claims Extracted:** {km[‘claim_count’]}
+- **Average Confidence:** {km[‘avg_confidence’]}
+- **High Confidence:** {ep[‘high_confidence_claims’]} claims
+- **Uncertain:** {ep[‘uncertain_claims’]} claims
+- **Markers Found:** {’, ’.join(ep[‘markers_detected’][:5]) if ep[‘markers_detected’] else ‘none’}
+
+## Cross-Domain Synthesis
+
+“””
+
+```
+if sq['cross_domain_bridges']:
+    report += "**Domain Bridges Detected:**\n"
+    for bridge in sq['cross_domain_bridges'][:5]:
+        report += f"- {bridge['from']} ↔ {bridge['to']} (synergy: {bridge['synergy']:.2f})\n"
+else:
+    report += "*No cross-domain bridges detected*\n"
+
+report += "\n## Meta-Insights\n"
+for insight in sq['meta_insights']:
+    report += f"- {insight}\n"
+
+report += f"""
+```
+
+## Preservation Strategy
+
+- **Review Cadence:** {pres[‘review_cadence’]}
+- **Update Priority:** {pres[‘update_priority’]}
+- **Method:** {pres[‘preservation_method’]}
+- **Obsolescence Risk:** {pres[‘risk_of_obsolescence’]}
+
+## Decay Projection
+
+|Month|Freshness|Status|
+|-----|---------|------|
+|“””  |         |      |
+
+```
+for point in wc['decay_projection']:
+    report += f"| {point['month']} | {point['freshness']:.3f} | {point['status']} |\n"
+
+report += f"""
+```
+
+-----
+
+*Oracle Weave v2.3 - Temporal Knowledge Synthesis*  
+*This analysis decays; revalidate by {(datetime.datetime.utcnow() + datetime.timedelta(days=90)).strftime(’%Y-%m’)}*
+“””
+
+```
+return report
+```
+
+def main():
+parser = argparse.ArgumentParser(
+description=“Oracle Weave: Temporal Knowledge Synthesis Engine”
+)
+parser.add_argument(”–text”, required=True, help=“Text to analyze”)
+parser.add_argument(”–domain”, required=True,
+choices=list(DOMAIN_DECAY.keys()),
+help=“Primary knowledge domain”)
+parser.add_argument(”–age_months”, type=float, default=0.0,
+help=“How old is this knowledge? (0 = brand new)”)
+parser.add_argument(”–format”, choices=[“json”, “markdown”, “both”],
+default=“both”,
+help=“Output format”)
+parser.add_argument(”–file”, help=“Output file path (optional)”)
+
+```
+args = parser.parse_args()
+
+# Core analysis
+claims = extract_claims(args.text)
+bridges = detect_domain_bridges(args.text)
+novelty = calculate_novelty_score(args.text, claims)
+freshness = compute_knowledge_freshness(args.domain, args.age_months)
+
+# Build cards
+weave_card = build_weave_card(
+    args.text, args.domain, args.age_months,
+    claims, bridges, novelty, freshness
+)
+manifest = build_oracle_manifest(weave_card, args.text)
+
+# Generate output
+output_parts = []
+
+if args.format in ["json", "both"]:
+    output_parts.append(json.dumps(manifest, indent=2, ensure_ascii=False))
+
+if args.format in ["markdown", "both"]:
+    if args.format == "both":
+        output_parts.append("\n" + "="*80 + "\n")
+    output_parts.append(generate_markdown_report(manifest, args.text))
+
+output = "\n".join(output_parts)
+
+# Write to file or print
+if args.file:
+    with open(args.file, 'w', encoding='utf-8') as f:
+        f.write(output)
+    print(f"Oracle Weave analysis written to {args.file}", file=sys.stderr)
+else:
+    print(output)
+```
+
+if **name** == “**main**”:
+try:
+main()
+except Exception as ex:
+sys.stderr.write(f”[OracleWeaveError] {ex}\n”)
+sys.exit(2)
