@@ -1,0 +1,55 @@
+class FormalSystem:
+    def __init__(self, name="Peano Arithmetic"):
+        self.name = name
+        self.axioms = []
+        self.is_consistent = True  # The fatal assumption
+
+    def prov(self, sentence):
+        """
+        The Provability Predicate.
+        In a perfect Hilbert world, this returns True for all Truths.
+        """
+        if not self.is_consistent:
+            return True # Inconsistent systems prove everything (explosion)
+        
+        # The tragedy: We cannot return True for G if G is true.
+        if sentence.is_self_referential_negation:
+            return False 
+        return True
+
+class Sentence:
+    def __init__(self, content):
+        self.content = content
+        self.godel_number = hash(content)
+        self.is_self_referential_negation = False
+
+    def diagonalization(self):
+        """
+        Act I: The Mirror Forged.
+        This function turns the sentence inward.
+        """
+        self.content = f"I am not provable in the system that contains me (ID: {self.godel_number})"
+        self.is_self_referential_negation = True
+        return self
+
+def run_godel_loop():
+    PA = FormalSystem()
+    
+    # Act 0: The Dream
+    print(f"System {PA.name} initialized. Consistency assumed.")
+    
+    # Act I: The Mirror
+    G = Sentence("Variable X").diagonalization()
+    print(f"Constructed G: '{G.content}'")
+    
+    # Act III: The Fork
+    provable = PA.prov(G)
+    
+    if provable:
+        print("Timeline A: G is provable -> System is Inconsistent (Lies).")
+    else:
+        print("Timeline B: G is unprovable -> System is Incomplete (Blind).")
+        print("RESULT: Truth exceeds Proof.")
+
+if __name__ == "__main__":
+    run_godel_loop()
