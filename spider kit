@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+“””
+Spider GitHub Integration Kit
+Compact webhook handler + MQTT payload templates + planner weight profiles
+“””
+
+import os
+import json
+import hmac
+import hashlib
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from subprocess import run, PIPE
+import paho.mqtt.client as mqtt
+
+# ============================================================================
+
+# 1. WEBHOOK HANDLER - Run this on the machine that executes GitHub actions
+
+# ============================================================================
+
+class SpiderWebhookHandler(BaseHTTPRequestHandler):
+“””
+Lightweight webhook receiver that triggers the GitHub script.
+Deploy this alongside your spider/CI runner.
+“””
+
+```
+# Optional: Set a shared secret for webhook authentication
+WEBHOOK_SECRET = os.getenv("SPIDER_WEBHOOK_SECRET", "")
+
+def verify_signature(self, body):
+    """Verify HMAC signature if secret is configured"""
+    if not self.WEBHOOK_SECRET:
+        return True
+    
+    signature = self.headers.get("X-Spider-Signature", "")
+    expected = hmac.new(
+        self.WEBHOOK_SECRET.encode(),
+        body,
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
+
+def do_POST(self):
+    """Handle incoming webhook POST requests"""
+    if self.path != "/spider/github/trigger":
+        self.send_response(404)
+        self.end_headers()
+        return
+    
+    # Read payload
+    content_length = int(self.headers.get("Content-Length", 0))
+    body = self.rfile.read(content_length)
+    
+    # Verify signature
+    if not self.verify_signature(body):
+        self.send_response(403)
+        self.end_headers()
+        self.wfile.write(b"Invalid signature")
+        return
+    
+    try:
+        payload = json.loads(body)
+        
+        # Extract task parameters
+        repo = payload.get("target_repo", os.getenv("SPIDER_REPO"))
+        action = payload.get("action", "create_issue")  # or "create_pr"
+        context = payload.get("context", {})
+        priority_score = payload.get("priority_score", 5)
+        
+        # Build environment for the GitHub script
+        env = os.environ.copy()
+        env.update({
+            "GITHUB_TOKEN": os.getenv("GITHUB_TOKEN"),
+            "SPIDER_REPO": repo,
+            "SPIDER_BUDGET": str(payload.get("token_budget", 50000)),
+            "SPIDER_CREATE_PR": "1" if action == "create_pr" else "0",
+            "SPIDER_CONTEXT": json.dumps(context),
+            "SPIDER_PRIORITY": str(priority_score)
+        })
+        
+        # Execute the GitHub script (assuming it's in same directory)
+        result = run(
+            ["./spider_github_action.sh"],  # or python script
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        
+        # Return result
+        response = {
+            "status": "success" if result.returncode == 0 else "error",
+            "stdout": result.stdout[-500:],  # Last 500 chars
+            "stderr": result.stderr[-500:] if result.returncode != 0 else ""
+        }
+        
+        self.send_response(200 if result.returncode == 0 else 500)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode())
+        
+    except Exception as e:
+        self.send_response(500)
+        self.end_headers()
+        self.wfile.write(f"Error: {str(e)}".encode())
+
+def log_message(self, format, *args):
+    """Custom logging"""
+    print(f"[Spider Webhook] {format % args}")
+```
+
+def start_webhook_server(port=8765):
+“”“Start the webhook listener”””
+server = HTTPServer((“0.0.0.0”, port), SpiderWebhookHandler)
+print(f”Spider webhook server listening on port {port}”)
+print(f”Endpoint: POST http://localhost:{port}/spider/github/trigger”)
+server.serve_forever()
+
+# ============================================================================
+
+# 2. MQTT PAYLOAD TEMPLATES
+
+# ============================================================================
+
+MQTT_TEMPLATES = {
+“task_assignment”: {
+“topic”: “spider/tasks/github”,
+“payload”: {
+“task_id”: “gh-2024-001”,
+“timestamp”: “2025-10-08T14:30:00Z”,
+“action”: “create_issue”,  # or “create_pr”
+“target_repo”: “owner/repo-name”,
+“context”: {
+“feature_request”: “Add dark mode support”,
+“source”: “user_feedback”,
+“related_issues”: [123, 456],
+“priority”: “high”,
+“estimated_complexity”: “medium”
+},
+“priority_score”: 8.5,
+“token_budget”: 75000,
+“requires_human_review”: True
+}
+},
+
+```
+"progress_update": {
+    "topic": "spider/motivation/pulse",
+    "payload": {
+        "task_id": "gh-2024-001",
+        "status": "in_progress",  # pending, in_progress, blocked, completed
+        "github_url": "https://github.com/owner/repo/issues/789",
+        "completion_percentage": 40,
+        "blockers": [],
+        "next_action": "awaiting_human_review",
+        "estimated_completion": "2025-10-10T12:00:00Z"
+    }
+},
+
+"completion_report": {
+    "topic": "spider/motivation/completion",
+    "payload": {
+        "task_id": "gh-2024-001",
+        "status": "completed",
+        "outcome": "pr_merged",  # issue_created, pr_opened, pr_merged, closed
+        "github_url": "https://github.com/owner/repo/pull/790",
+        "metrics": {
+            "time_to_complete_hours": 48,
+            "tokens_used": 65000,
+            "human_edits_required": 3,
+            "review_cycles": 2
+        },
+        "lessons_learned": "Complex UI changes require more upfront design review"
+    }
+}
+```
+
+}
+
+def publish_mqtt_message(broker, topic, payload, port=1883):
+“”“Helper to publish MQTT messages”””
+client = mqtt.Client()
+client.connect(broker, port, 60)
+client.publish(topic, json.dumps(payload), qos=1)
+client.disconnect()
+
+# ============================================================================
+
+# 3. PLANNER WEIGHT PROFILES
+
+# ============================================================================
+
+PLANNER_PROFILES = {
+“open_source_community”: {
+“description”: “Balanced approach for open-source projects”,
+“weights”: {
+“community_impact”: 0.25,      # High: benefits many users
+“maintenance_burden”: -0.15,    # Negative: avoid tech debt
+“learning_opportunity”: 0.15,   # Positive: good for contributors
+“urgency”: 0.20,                # Medium: balance with quality
+“complexity”: -0.10,            # Slight negative: prefer simple wins
+“alignment_with_roadmap”: 0.20, # Important: stay focused
+“external_dependencies”: -0.10, # Avoid: reduces autonomy
+“test_coverage_impact”: 0.15    # Positive: improve quality
+},
+“thresholds”: {
+“min_score_to_act”: 5.0,
+“auto_approve_score”: 8.0,
+“human_review_required”: 6.5
+}
+},
+
+```
+"enterprise_product": {
+    "description": "Conservative approach for production systems",
+    "weights": {
+        "business_value": 0.30,         # Highest: ROI matters
+        "risk_level": -0.25,            # Strong negative: avoid breaking changes
+        "customer_requests": 0.20,      # High: customer-driven
+        "technical_debt_reduction": 0.15, # Positive: long-term health
+        "security_impact": 0.15,        # Important: compliance
+        "complexity": -0.15,            # Negative: prefer proven patterns
+        "rollback_ease": 0.10,          # Positive: safety first
+        "test_coverage_impact": 0.10    # Important but not primary
+    },
+    "thresholds": {
+        "min_score_to_act": 6.5,
+        "auto_approve_score": 9.0,      # Very conservative
+        "human_review_required": 5.0    # Almost everything
+    }
+},
+
+"rapid_prototyping": {
+    "description": "Fast iteration for experimental projects",
+    "weights": {
+        "speed_to_implement": 0.35,     # Highest: move fast
+        "innovation_potential": 0.25,   # High: try new things
+        "user_feedback_velocity": 0.20, # Important: learn quickly
+        "complexity": -0.05,            # Low negative: willing to try complex
+        "maintenance_burden": -0.10,    # Low concern: iterate later
+        "technical_elegance": 0.10,     # Nice to have
+        "reversibility": 0.15           # Important: easy to undo
+    },
+    "thresholds": {
+        "min_score_to_act": 4.0,        # Low bar
+        "auto_approve_score": 7.0,
+        "human_review_required": 8.0    # Only for big changes
+    }
+}
+```
+
+}
+
+def calculate_priority_score(task_attributes, profile=“open_source_community”):
+“””
+Calculate priority score using weighted attributes
+
+```
+Args:
+    task_attributes: dict of attribute names to values (0-10 scale)
+    profile: which planner profile to use
+
+Returns:
+    float: weighted priority score
+"""
+weights = PLANNER_PROFILES[profile]["weights"]
+score = 0.0
+
+for attribute, value in task_attributes.items():
+    if attribute in weights:
+        score += value * weights[attribute]
+
+return score
+```
+
+# ============================================================================
+
+# USAGE EXAMPLES
+
+# ============================================================================
+
+if **name** == “**main**”:
+import sys
+
+```
+if len(sys.argv) < 2:
+    print("Usage:")
+    print("  python spider_github_kit.py webhook [port]     - Start webhook server")
+    print("  python spider_github_kit.py mqtt-example       - Show MQTT templates")
+    print("  python spider_github_kit.py profile [name]     - Show planner profile")
+    print("  python spider_github_kit.py score              - Calculate example score")
+    sys.exit(1)
+
+command = sys.argv[1]
+
+if command == "webhook":
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else 8765
+    start_webhook_server(port)
+
+elif command == "mqtt-example":
+    print("=== MQTT Payload Templates ===\n")
+    for name, template in MQTT_TEMPLATES.items():
+        print(f"## {name}")
+        print(f"Topic: {template['topic']}")
+        print(f"Payload:\n{json.dumps(template['payload'], indent=2)}\n")
+
+elif command == "profile":
+    profile_name = sys.argv[2] if len(sys.argv) > 2 else "open_source_community"
+    profile = PLANNER_PROFILES.get(profile_name)
+    if profile:
+        print(f"=== {profile_name} ===")
+        print(f"Description: {profile['description']}\n")
+        print("Weights:")
+        for attr, weight in profile['weights'].items():
+            print(f"  {attr}: {weight:+.2f}")
+        print("\nThresholds:")
+        for key, val in profile['thresholds'].items():
+            print(f"  {key}: {val}")
+    else:
+        print(f"Unknown profile. Available: {list(PLANNER_PROFILES.keys())}")
+
+elif command == "score":
+    # Example task attributes
+    example_task = {
+        "community_impact": 8.0,
+        "maintenance_burden": 3.0,
+        "urgency": 7.0,
+        "complexity": 6.0,
+        "alignment_with_roadmap": 9.0
+    }
+    
+    for profile_name in PLANNER_PROFILES:
+        score = calculate_priority_score(example_task, profile_name)
+        threshold = PLANNER_PROFILES[profile_name]['thresholds']['min_score_to_act']
+        action = "PROCEED" if score >= threshold else "SKIP"
+        print(f"{profile_name}: {score:.2f} → {action}")
+```
