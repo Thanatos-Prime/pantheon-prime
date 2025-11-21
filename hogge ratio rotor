@@ -1,0 +1,400 @@
+import React, { useEffect, useRef, useState } from ‘react’;
+
+// ============================================================
+// QUATERNION MATH LIBRARY
+// ============================================================
+
+const quat = (w, x, y, z) => ({ w, x, y, z });
+
+const quatMul = (a, b) => quat(
+a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w
+);
+
+const quatConj = (q) => quat(q.w, -q.x, -q.y, -q.z);
+
+const quatExpPure = (vx, vy, vz) => {
+const theta = Math.sqrt(vx*vx + vy*vy + vz*vz);
+if (theta < 1e-8) return quat(1, 0, 0, 0);
+const s = Math.sin(theta) / theta;
+return quat(Math.cos(theta), vx * s, vy * s, vz * s);
+};
+
+const quatRotateVector = (q, v) => {
+const p = quat(0, v[0], v[1], v[2]);
+const qConj = quatConj(q);
+const r = quatMul(quatMul(q, p), qConj);
+return [r.x, r.y, r.z];
+};
+
+// ============================================================
+// HOGGE → QUATERNION MAPPING
+// ============================================================
+
+const buildHoggeQuaternion = (state, context) => {
+const dt = state.t - context.t;
+const dz = state.z - context.z;
+const de = state.e - context.e;
+const dn = state.n - context.n;
+const dl = state.l - context.l;
+
+const vx = dt;
+const vy = dz;
+const vz = de + dn * 0.5;
+
+const rotor = quatExpPure(vx, vy, vz);
+
+return {
+rotor,
+ethicalDelta: dl,
+narrativeDelta: dn,
+magnitude: Math.sqrt(vx*vx + vy*vy + vz*vz)
+};
+};
+
+// ============================================================
+// 4x4 MATRIX MATH
+// ============================================================
+
+const mul4x4 = (a, b) => {
+const out = new Float32Array(16);
+for (let i = 0; i < 4; i++)
+for (let j = 0; j < 4; j++)
+for (let k = 0; k < 4; k++)
+out[i*4+j] += a[i*4+k] * b[k*4+j];
+return out;
+};
+
+const perspective = (fov, aspect, near, far) => {
+const f = 1 / Math.tan(fov / 2);
+const nf = 1 / (near - far);
+return new Float32Array([
+f / aspect, 0, 0, 0,
+0, f, 0, 0,
+0, 0, (far + near) * nf, -1,
+0, 0, 2 * far * near * nf, 0
+]);
+};
+
+const lookAt = (eyeX, eyeY, eyeZ, targetX, targetY, targetZ, upX, upY, upZ) => {
+const zx = eyeX - targetX;
+const zy = eyeY - targetY;
+const zz = eyeZ - targetZ;
+const zlen = Math.sqrt(zx*zx + zy*zy + zz*zz);
+const zxn = zx / zlen, zyn = zy / zlen, zzn = zz / zlen;
+
+const xx = upY * zzn - upZ * zyn;
+const xy = upZ * zxn - upX * zzn;
+const xz = upX * zyn - upY * zxn;
+const xlen = Math.sqrt(xx*xx + xy*xy + xz*xz);
+const xxn = xx / xlen, xyn = xy / xlen, xzn = xz / xlen;
+
+const yx = zyn * xzn - zzn * xyn;
+const yy = zzn * xxn - zxn * xzn;
+const yz = zxn * xyn - zyn * xxn;
+
+return new Float32Array([
+xxn, yx, zxn, 0,
+xyn, yy, zyn, 0,
+xzn, yz, zzn, 0,
+-(xxn*eyeX + xyn*eyeY + xzn*eyeZ),
+-(yx*eyeX + yy*eyeY + yz*eyeZ),
+-(zxn*eyeX + zyn*eyeY + zzn*eyeZ),
+1
+]);
+};
+
+// ============================================================
+// WEBGL VISUALIZATION COMPONENT
+// ============================================================
+
+const HoggeRotorVisualizer = () => {
+const canvasRef = useRef(null);
+const [state, setState] = useState({ t: 0, z: 0, e: 0, n: 0, l: 0 });
+const [context, setContext] = useState({ t: 0, z: 0, e: 0, n: 0, l: 0 });
+const [mode, setMode] = useState(‘neutral’);
+const [showTrace, setShowTrace] = useState(false);
+const traceRef = useRef([]);
+
+useEffect(() => {
+const canvas = canvasRef.current;
+const gl = canvas.getContext(‘webgl’, { alpha: false, antialias: true });
+if (!gl) {
+alert(‘WebGL not supported’);
+return;
+}
+
+```
+gl.enable(gl.DEPTH_TEST);
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+// Shaders
+const vsSrc = `
+  attribute vec3 aPosition;
+  attribute vec4 aColor;
+  varying vec4 vColor;
+  uniform mat4 uMVP;
+  void main() {
+    vColor = aColor;
+    gl_Position = uMVP * vec4(aPosition, 1.0);
+  }
+`;
+
+const fsSrc = `
+  precision mediump float;
+  varying vec4 vColor;
+  void main() {
+    gl_FragColor = vColor;
+  }
+`;
+
+const compileShader = (type, src) => {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s));
+    return null;
+  }
+  return s;
+};
+
+const vs = compileShader(gl.VERTEX_SHADER, vsSrc);
+const fs = compileShader(gl.FRAGMENT_SHADER, fsSrc);
+const prog = gl.createProgram();
+gl.attachShader(prog, vs);
+gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+
+gl.useProgram(prog);
+
+const aPosition = gl.getAttribLocation(prog, 'aPosition');
+const aColor = gl.getAttribLocation(prog, 'aColor');
+const uMVP = gl.getUniformLocation(prog, 'uMVP');
+
+const buffer = gl.createBuffer();
+
+let time = 0;
+let frameId;
+
+const render = () => {
+  time += 0.008;
+  
+  const effectiveContext = mode === 'neutral'
+    ? { t: 0, z: 0, e: 0, n: 0, l: 0 }
+    : context;
+
+  const { rotor, ethicalDelta, narrativeDelta } = buildHoggeQuaternion(state, effectiveContext);
+
+  gl.clearColor(0.02, 0.04, 0.08, 1.0);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  const aspect = canvas.width / canvas.height;
+  const proj = perspective(Math.PI / 3, aspect, 0.1, 100);
+
+  const camDist = 4.5;
+  const camX = Math.sin(time * 0.3) * camDist;
+  const camY = Math.sin(time * 0.15) * 0.8;
+  const camZ = Math.cos(time * 0.3) * camDist;
+  const view = lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
+
+  const mvp = mul4x4(proj, view);
+  gl.uniformMatrix4fv(uMVP, false, mvp);
+
+  const vertices = [];
+
+  // Base frame (grey, dimmer)
+  const baseVecs = [[1,0,0], [0,1,0], [0,0,1]];
+  baseVecs.forEach(v => {
+    vertices.push(
+      0, 0, 0, 0.3, 0.3, 0.3, 0.6,
+      v[0], v[1], v[2], 0.3, 0.3, 0.3, 0.6
+    );
+  });
+
+  // Rotated frame (colored by ethics/narrative)
+  const rotVecs = baseVecs.map(v => quatRotateVector(rotor, v));
+  
+  const eMag = Math.min(Math.abs(ethicalDelta), 1.0);
+  const nMag = Math.min(Math.abs(narrativeDelta), 1.0);
+  
+  const r = ethicalDelta > 0 ? 0.3 + 0.7 * eMag : 0.3;
+  const g = ethicalDelta < 0 ? 0.3 + 0.7 * eMag : 0.3;
+  const b = 0.4 + 0.6 * nMag;
+
+  rotVecs.forEach((v, i) => {
+    const fade = 1.0 - i * 0.2;
+    vertices.push(
+      0, 0, 0, r * fade, g * fade, b * fade, 1.0,
+      v[0], v[1], v[2], r * fade, g * fade, b * fade, 1.0
+    );
+  });
+
+  // Trace mode: store and render historical positions
+  if (showTrace) {
+    const tipPos = rotVecs[0]; // track the X-axis tip
+    traceRef.current.push({
+      pos: tipPos,
+      color: [r, g, b],
+      age: 0
+    });
+
+    // Age and fade traces
+    traceRef.current = traceRef.current
+      .map(t => ({ ...t, age: t.age + 1 }))
+      .filter(t => t.age < 150); // keep 150 frames
+
+    // Draw trace as connected line segments
+    for (let i = 1; i < traceRef.current.length; i++) {
+      const prev = traceRef.current[i - 1];
+      const curr = traceRef.current[i];
+      const alpha = 1.0 - curr.age / 150;
+      
+      vertices.push(
+        prev.pos[0], prev.pos[1], prev.pos[2], 
+        prev.color[0], prev.color[1], prev.color[2], alpha * 0.5,
+        curr.pos[0], curr.pos[1], curr.pos[2],
+        curr.color[0], curr.color[1], curr.color[2], alpha * 0.5
+      );
+    }
+  } else {
+    traceRef.current = []; // clear when disabled
+  }
+
+  const data = new Float32Array(vertices);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+
+  gl.enableVertexAttribArray(aPosition);
+  gl.enableVertexAttribArray(aColor);
+  gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 7 * 4, 0);
+  gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 7 * 4, 3 * 4);
+
+  gl.drawArrays(gl.LINES, 0, vertices.length / 7);
+
+  frameId = requestAnimationFrame(render);
+};
+
+const handleResize = () => {
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+};
+
+handleResize();
+window.addEventListener('resize', handleResize);
+render();
+
+return () => {
+  cancelAnimationFrame(frameId);
+  window.removeEventListener('resize', handleResize);
+};
+```
+
+}, [state, context, mode, showTrace]);
+
+const Slider = ({ label, value, onChange, color }) => (
+<div className="flex items-center gap-2 mb-2">
+<span className={`w-4 font-mono font-bold text-${color}-400`}>{label}</span>
+<input
+type=“range”
+min=”-2”
+max=“2”
+step=“0.01”
+value={value}
+onChange={(e) => onChange(parseFloat(e.target.value))}
+className=“flex-1 h-2 accent-cyan-500”
+/>
+<span className="w-12 text-right text-xs text-gray-400 font-mono">
+{value.toFixed(2)}
+</span>
+</div>
+);
+
+return (
+<div className="w-full h-screen bg-gray-950 text-gray-100 flex">
+<div className="w-80 p-4 bg-gray-900 overflow-y-auto border-r border-gray-800">
+<h1 className="text-xl font-bold mb-4 text-cyan-400">
+Hogge Ratio Rotor
+</h1>
+
+```
+    <div className="mb-4 p-3 bg-gray-800 rounded">
+      <div className="text-sm mb-2 text-gray-300">Reference Frame</div>
+      <select 
+        value={mode} 
+        onChange={(e) => setMode(e.target.value)}
+        className="w-full bg-gray-700 p-2 rounded text-sm"
+      >
+        <option value="neutral">Neutral → State</option>
+        <option value="context">Context → State</option>
+      </select>
+      
+      <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          checked={showTrace}
+          onChange={(e) => setShowTrace(e.target.checked)}
+          className="accent-cyan-500"
+        />
+        <span className="text-gray-300">Show trace path</span>
+      </label>
+    </div>
+
+    <div className="mb-6">
+      <h2 className="text-sm font-semibold mb-2 text-green-400">State |S⟩</h2>
+      <Slider label="t" value={state.t} onChange={(v) => setState({...state, t: v})} color="red" />
+      <Slider label="z" value={state.z} onChange={(v) => setState({...state, z: v})} color="yellow" />
+      <Slider label="e" value={state.e} onChange={(v) => setState({...state, e: v})} color="blue" />
+      <Slider label="n" value={state.n} onChange={(v) => setState({...state, n: v})} color="purple" />
+      <Slider label="l" value={state.l} onChange={(v) => setState({...state, l: v})} color="pink" />
+    </div>
+
+    {mode === 'context' && (
+      <div className="mb-6">
+        <h2 className="text-sm font-semibold mb-2 text-orange-400">Context |C⟩</h2>
+        <Slider label="t" value={context.t} onChange={(v) => setContext({...context, t: v})} color="red" />
+        <Slider label="z" value={context.z} onChange={(v) => setContext({...context, z: v})} color="yellow" />
+        <Slider label="e" value={context.e} onChange={(v) => setContext({...context, e: v})} color="blue" />
+        <Slider label="n" value={context.n} onChange={(v) => setContext({...context, n: v})} color="purple" />
+        <Slider label="l" value={context.l} onChange={(v) => setContext({...context, l: v})} color="pink" />
+      </div>
+    )}
+
+    <div className="mt-6 p-3 bg-gray-800 rounded text-xs space-y-2">
+      <div className="font-semibold text-cyan-400 mb-2">Hogge Axes</div>
+      <div><span className="text-red-400 font-mono">t</span> timing · when</div>
+      <div><span className="text-yellow-400 font-mono">z</span> nullity · what didn't happen</div>
+      <div><span className="text-blue-400 font-mono">e</span> energy · intensity</div>
+      <div><span className="text-purple-400 font-mono">n</span> narrative · story thickness</div>
+      <div><span className="text-pink-400 font-mono">l</span> ethics · moral load</div>
+      
+      <div className="mt-4 pt-3 border-t border-gray-700 text-gray-400">
+        <div className="mb-1">Grey = basis frame</div>
+        <div className="mb-1">Color = rotated by ℛ = exp(Q)</div>
+        <div>Hue encodes ethical tension</div>
+      </div>
+    </div>
+  </div>
+
+  <div className="flex-1 relative">
+    <canvas 
+      ref={canvasRef} 
+      className="w-full h-full"
+      style={{ display: 'block' }}
+    />
+    <div className="absolute top-4 right-4 bg-gray-900/90 p-3 rounded text-xs text-gray-300 font-mono">
+      <div>Orbiting meaning-space</div>
+      <div className="text-gray-500 mt-1">Rotor = exp(Δt·i + Δz·j + Δe·k)</div>
+    </div>
+  </div>
+</div>
+```
+
+);
+};
+
+export default HoggeRotorVisualizer;
