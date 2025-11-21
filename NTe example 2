@@ -1,0 +1,86 @@
+# examples/proof_sum_1_to_n.py
+
+from src.nte_core import Structure, Tension, Beat, NTEState
+
+def main():
+    # Initial NTE state
+    S0 = Structure(
+        entities={
+            "statement": "1 + 2 + ... + n = n(n+1)/2",
+            "domain": "n in N, n >= 1",
+        },
+        invariants={}
+    )
+    T0 = Tension(components={"global_validity": 1.0})  # 1.0 = fully unresolved
+    state = NTEState(structure=S0, tension=T0)
+
+    # Beat 1: Base case n = 1
+    def base_case_apply(S, T):
+        # pretend we checked 1 = 1; lower tension a bit
+        new_T = Tension(components=dict(T.components))
+        new_T.components["global_validity"] = 0.7  # some tension remains, but base is confirmed
+        return (S, new_T)
+
+    base_case = Beat(
+        name="base_case",
+        description="Verify the formula holds for n = 1.",
+        apply_fn=base_case_apply,
+    )
+    state = state.apply_beat(base_case)
+
+    # Beat 2: Inductive hypothesis
+    def hypothesis_apply(S, T):
+        new_S = Structure(
+            entities=dict(S.entities),
+            invariants=dict(S.invariants),
+        )
+        new_S.entities["hypothesis"] = "Assume P(k) holds."
+        new_T = Tension(components=dict(T.components))
+        new_T.components["local_step"] = 1.0  # new local tension
+        return (new_S, new_T)
+
+    hypothesis = Beat(
+        name="inductive_hypothesis",
+        description="Assume the formula holds for an arbitrary k.",
+        apply_fn=hypothesis_apply,
+    )
+    state = state.apply_beat(hypothesis)
+
+    # Beat 3: Inductive step (P(k) -> P(k+1))
+    def step_apply(S, T):
+        # we 'do the algebra' conceptually and resolve the local step
+        new_T = Tension(components=dict(T.components))
+        new_T.components["local_step"] = 0.0      # local tension resolved
+        new_T.components["global_validity"] = 0.2 # global tension almost gone
+        return (S, new_T)
+
+    inductive_step = Beat(
+        name="inductive_step",
+        description="Show that P(k) => P(k+1) using algebra.",
+        apply_fn=step_apply,
+    )
+    state = state.apply_beat(inductive_step)
+
+    # Beat 4: Global closure
+    def closure_apply(S, T):
+        new_T = Tension(components=dict(T.components))
+        new_T.components["global_validity"] = 0.0
+        return (S, new_T)
+
+    closure = Beat(
+        name="closure",
+        description="Use induction principle to conclude P(n) holds for all n >= 1.",
+        apply_fn=closure_apply,
+    )
+    state = state.apply_beat(closure)
+
+    # Print trace
+    print("=== NTE TRACE: Sum 1..n Proof ===")
+    for i, beat in enumerate(state.history, start=1):
+        print(f"\nStep {i}: {beat.name}")
+        print(f"  {beat.description}")
+    print("\nFinal tension:", state.tension.components)
+    print("Resolved?", state.resolved())
+
+if __name__ == "__main__":
+    main()
