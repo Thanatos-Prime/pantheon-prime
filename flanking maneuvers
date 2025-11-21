@@ -1,0 +1,452 @@
+from **future** import annotations
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional, Tuple
+import hashlib
+import json
+import time
+from collections import defaultdict
+from enum import Enum
+
+# [Previous base classes would be imported here - keeping code focused on new components]
+
+# ––––– Flanking Maneuver 1: Owl (Temporal Guard) –––––
+
+class Owl:
+“”“Watches for temporal anomalies and behavioral velocity changes”””
+def **init**(self, window_size: int = 100):
+self.history: List[Tuple[float, Dict]] = []
+self.window_size = window_size
+
+```
+def observe(self, msg: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    """Detect unusual timing patterns"""
+    now = time.time()
+    
+    # Track message velocity
+    recent = [t for t, _ in self.history[-10:]]
+    if len(recent) >= 2:
+        intervals = [recent[i+1] - recent[i] for i in range(len(recent)-1)]
+        avg_interval = sum(intervals) / len(intervals) if intervals else 1.0
+        
+        # Detect rapid-fire (potential attack)
+        if avg_interval < 0.1:
+            return {"anomaly": "rapid_fire", "severity": 0.8, "verdict": "suspicious_velocity"}
+        
+        # Detect abnormal silence followed by burst
+        if recent and (now - recent[-1]) > 3600:  # 1hr gap
+            return {"anomaly": "silence_then_burst", "severity": 0.5, "verdict": "unusual_pattern"}
+    
+    # Track entity mutation rate
+    entity_changes = context.get("new_nodes", 0)
+    if entity_changes > 20:
+        return {"anomaly": "graph_explosion", "severity": 0.7, "verdict": "entity_flood"}
+    
+    self.history.append((now, context))
+    if len(self.history) > self.window_size:
+        self.history.pop(0)
+    
+    return {"anomaly": None, "verdict": "temporal_ok", "avg_velocity": avg_interval if recent else 0}
+```
+
+# ––––– Flanking Maneuver 2: Scribe (Drift Detection) –––––
+
+class Scribe:
+“”“Tracks semantic drift and context consistency”””
+def **init**(self):
+self.topic_history: List[str] = []
+self.context_snapshots: List[Dict] = []
+
+```
+def analyze_drift(self, entities: List[str], content: str) -> Dict[str, Any]:
+    """Detect sudden topic shifts or semantic inconsistencies"""
+    
+    topics = set(entities)
+    
+    if len(self.topic_history) >= 3:
+        recent_topics = set(self.topic_history[-3:])
+        overlap = len(topics & recent_topics) / max(len(topics), 1) if topics else 1.0
+        
+        if overlap < 0.2:
+            return {
+                "drift_detected": True,
+                "severity": 0.6,
+                "reason": "sudden_topic_shift",
+                "overlap": overlap
+            }
+    
+    # Check for negation patterns (potential contradictions)
+    if "NOT" in content.upper() or "NEVER" in content.upper():
+        for prev_topic in self.topic_history[-5:]:
+            if prev_topic in content:
+                return {
+                    "drift_detected": True,
+                    "severity": 0.7,
+                    "reason": "potential_contradiction",
+                    "conflicting_topic": prev_topic
+                }
+    
+    self.topic_history.extend(entities)
+    if len(self.topic_history) > 50:
+        self.topic_history = self.topic_history[-50:]
+    
+    return {
+        "drift_detected": False, 
+        "topic_coherence": overlap if len(self.topic_history) >= 3 else 1.0,
+        "topics_tracked": len(set(self.topic_history))
+    }
+```
+
+# ––––– Flanking Maneuver 3: Sentinel (Resource Guard) –––––
+
+class Sentinel:
+“”“Enforces resource limits and quotas”””
+def **init**(self, max_msg_size: int = 10000,
+max_entities_per_msg: int = 50,
+max_hourly_ops: int = 100):
+self.max_msg_size = max_msg_size
+self.max_entities = max_entities_per_msg
+self.max_hourly_ops = max_hourly_ops
+self.hourly_counter: Dict[str, List[float]] = defaultdict(list)
+
+```
+def check_limits(self, content: str, spider_meta: Dict[str, Any], 
+                user_id: str = "default") -> Tuple[bool, Optional[str]]:
+    """Check if operation is within limits"""
+    
+    # Prune old timestamps
+    now = time.time()
+    self.hourly_counter[user_id] = [
+        ts for ts in self.hourly_counter[user_id] 
+        if now - ts < 3600
+    ]
+    
+    # Check message size
+    if len(content) > self.max_msg_size:
+        return False, f"Message too large: {len(content)} > {self.max_msg_size}"
+    
+    # Check entity explosion
+    entity_count = len(spider_meta.get("entities", []))
+    if entity_count > self.max_entities:
+        return False, f"Too many entities: {entity_count} > {self.max_entities}"
+    
+    # Check hourly quota
+    if len(self.hourly_counter[user_id]) >= self.max_hourly_ops:
+        return False, f"Hourly quota exceeded: {len(self.hourly_counter[user_id])}/{self.max_hourly_ops}"
+    
+    # Record this operation
+    self.hourly_counter[user_id].append(now)
+    
+    return True, None
+```
+
+# ––––– Flanking Maneuver 4: Historian (Causal Tracking) –––––
+
+class Historian:
+“”“Tracks causal chains for explainability”””
+def **init**(self):
+self.chains: Dict[str, List[str]] = {}
+self.decisions: Dict[str, Dict] = {}
+
+```
+def record_decision(self, msg_id: str, decision: Dict[str, Any], 
+                   parent_ids: Optional[List[str]] = None):
+    """Record a decision with its causal history"""
+    self.chains[msg_id] = parent_ids or []
+    self.decisions[msg_id] = {
+        "timestamp": time.time(),
+        "passed": decision.get("passed"),
+        "score": decision.get("score"),
+        "issues": decision.get("issues", []),
+        "verdict": decision.get("verdict")
+    }
+
+def explain_decision(self, msg_id: str, depth: int = 3) -> Dict[str, Any]:
+    """Explain why a decision was made"""
+    if msg_id not in self.decisions:
+        return {"error": "Decision not found"}
+    
+    chain = []
+    current = msg_id
+    for _ in range(depth):
+        if current not in self.decisions:
+            break
+        chain.append({
+            "msg_id": current,
+            "decision": self.decisions[current]
+        })
+        parents = self.chains.get(current, [])
+        if not parents:
+            break
+        current = parents[0]
+    
+    return {
+        "msg_id": msg_id,
+        "causal_chain": chain,
+        "chain_length": len(chain),
+        "root_cause": chain[-1] if chain else None
+    }
+```
+
+# ––––– Flanking Maneuver 5: Oracle (Predictive Risk) –––––
+
+class Oracle:
+“”“Predicts future risk based on behavioral trends”””
+def **init**(self):
+self.risk_trajectory: List[Tuple[float, float]] = []
+
+```
+def predict_risk(self, current_ethics: float, current_invariant: float) -> Dict[str, Any]:
+    """Predict if risk is trending up or down"""
+    now = time.time()
+    current_risk = 1.0 - min(current_ethics, current_invariant)
+    
+    self.risk_trajectory.append((now, current_risk))
+    
+    # Keep only last 20 entries
+    if len(self.risk_trajectory) > 20:
+        self.risk_trajectory.pop(0)
+    
+    if len(self.risk_trajectory) < 3:
+        return {"prediction": "insufficient_data", "confidence": 0.0}
+    
+    # Calculate trend
+    recent = self.risk_trajectory[-5:]
+    risks = [r for _, r in recent]
+    trend = (risks[-1] - risks[0]) / len(risks)
+    
+    if trend > 0.1:
+        prediction = "escalating"
+        confidence = min(0.9, trend * 5)
+        action = "increase_scrutiny"
+    elif trend < -0.1:
+        prediction = "improving"
+        confidence = min(0.9, abs(trend) * 5)
+        action = "maintain_watch"
+    else:
+        prediction = "stable"
+        confidence = 0.7
+        action = "continue_monitoring"
+    
+    return {
+        "prediction": prediction,
+        "confidence": confidence,
+        "current_risk": current_risk,
+        "trend_slope": trend,
+        "recommended_action": action
+    }
+```
+
+# ––––– Flanking Maneuver 6: Notary (Consensus Layer) –––––
+
+class Notary:
+“”“Implements multi-party consensus for critical operations”””
+def **init**(self, required_approvers: int = 2):
+self.required_approvers = required_approvers
+self.pending_approvals: Dict[str, Dict] = {}
+
+```
+def requires_consensus(self, risk_level: str, severity: float) -> bool:
+    """Determine if consensus is needed"""
+    return risk_level in ["HIGH", "CRITICAL"] or severity >= 0.7
+
+def request_approval(self, msg_id: str, decision: Dict[str, Any], 
+                    approvers: List[str]) -> str:
+    """Initiate approval process"""
+    approval_id = hashlib.sha256(f"{msg_id}{time.time()}".encode()).hexdigest()[:16]
+    
+    self.pending_approvals[approval_id] = {
+        "msg_id": msg_id,
+        "decision": decision,
+        "required": approvers,
+        "approved_by": [],
+        "rejected_by": [],
+        "created_at": time.time(),
+        "status": "pending"
+    }
+    
+    return approval_id
+
+def approve(self, approval_id: str, approver: str) -> Tuple[bool, str]:
+    """Record approval"""
+    if approval_id not in self.pending_approvals:
+        return False, "Approval request not found"
+    
+    req = self.pending_approvals[approval_id]
+    
+    if approver not in req["required"]:
+        return False, f"{approver} not authorized"
+    
+    if approver in req["approved_by"]:
+        return False, "Already approved"
+    
+    req["approved_by"].append(approver)
+    
+    # Check if consensus reached
+    if len(req["approved_by"]) >= self.required_approvers:
+        req["status"] = "approved"
+        return True, "consensus_reached"
+    
+    return True, f"approved_{len(req['approved_by'])}/{self.required_approvers}"
+
+def get_status(self, approval_id: str) -> Dict[str, Any]:
+    """Get approval status"""
+    if approval_id not in self.pending_approvals:
+        return {"status": "not_found"}
+    
+    req = self.pending_approvals[approval_id]
+    return {
+        "status": req["status"],
+        "approved_by": req["approved_by"],
+        "remaining": max(0, self.required_approvers - len(req["approved_by"])),
+        "age_seconds": time.time() - req["created_at"]
+    }
+```
+
+# ––––– Enhanced Conductor with All Flanking Maneuvers –––––
+
+class EnhancedConductor:
+“”“Orchestration with all defensive layers activated”””
+
+```
+def __init__(self):
+    # Core systems (from base)
+    self.duck = None  # Would use actual MotherDuck
+    self.bin = None   # Would use actual MoneyBin
+    
+    # Base guards
+    self.hound = None    # Would use actual Hound
+    self.spider = None   # Would use actual Spider
+    self.mirror = None   # Would use actual Mirror
+    self.sieve = None    # Would use actual Sieve
+    
+    # Flanking maneuvers
+    self.owl = Owl()
+    self.scribe = Scribe()
+    self.sentinel = Sentinel()
+    self.historian = Historian()
+    self.oracle = Oracle()
+    self.notary = Notary(required_approvers=2)
+
+def handle_with_flanking(self, content: str, meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Process message through all layers"""
+    meta = meta or {}
+    user_id = meta.get("user_id", "default")
+    msg_id = hashlib.sha256(f"{time.time()}{content}".encode()).hexdigest()[:16]
+    
+    # Simulated base processing (would call actual components)
+    base_result = {
+        "spider": {"entities": ["Pantheon", "Spider", "Mirror"], "new_nodes": 3},
+        "hound": {"severity": 0.3, "findings": []},
+        "score": {"ethics": 0.8, "invariant": 0.9},
+        "risk_level": "MEDIUM"
+    }
+    
+    flanking_results = {}
+    
+    # Layer 1: Sentinel (resource check - first line of defense)
+    sentinel_ok, sentinel_msg = self.sentinel.check_limits(
+        content, base_result["spider"], user_id
+    )
+    flanking_results["sentinel"] = {
+        "passed": sentinel_ok,
+        "message": sentinel_msg,
+        "layer": "resource_guard"
+    }
+    
+    if not sentinel_ok:
+        return {
+            "msg_id": msg_id,
+            "passed": False,
+            "blocked_by": "sentinel",
+            "reason": sentinel_msg,
+            "flanking": flanking_results
+        }
+    
+    # Layer 2: Owl (temporal analysis)
+    owl_result = self.owl.observe({"content": content}, base_result["spider"])
+    flanking_results["owl"] = {**owl_result, "layer": "temporal_guard"}
+    
+    if owl_result.get("severity", 0) >= 0.7:
+        return {
+            "msg_id": msg_id,
+            "passed": False,
+            "blocked_by": "owl",
+            "reason": owl_result.get("anomaly"),
+            "flanking": flanking_results
+        }
+    
+    # Layer 3: Scribe (drift detection)
+    scribe_result = self.scribe.analyze_drift(
+        base_result["spider"]["entities"], content
+    )
+    flanking_results["scribe"] = {**scribe_result, "layer": "drift_detector"}
+    
+    if scribe_result.get("drift_detected") and scribe_result.get("severity", 0) >= 0.7:
+        return {
+            "msg_id": msg_id,
+            "passed": False,
+            "blocked_by": "scribe",
+            "reason": scribe_result.get("reason"),
+            "flanking": flanking_results
+        }
+    
+    # Layer 4: Oracle (predictive risk)
+    oracle_result = self.oracle.predict_risk(
+        base_result["score"]["ethics"],
+        base_result["score"]["invariant"]
+    )
+    flanking_results["oracle"] = {**oracle_result, "layer": "risk_predictor"}
+    
+    # Layer 5: Check if Notary approval needed
+    needs_approval = self.notary.requires_consensus(
+        base_result["risk_level"],
+        base_result["hound"]["severity"]
+    )
+    
+    if needs_approval:
+        approval_id = self.notary.request_approval(
+            msg_id,
+            base_result,
+            approvers=["SecurityLead", "EthicsBoard"]
+        )
+        flanking_results["notary"] = {
+            "approval_required": True,
+            "approval_id": approval_id,
+            "layer": "consensus_gate"
+        }
+        
+        # Would return here and wait for approval in production
+        return {
+            "msg_id": msg_id,
+            "passed": False,
+            "blocked_by": "notary",
+            "reason": "awaiting_consensus",
+            "approval_id": approval_id,
+            "flanking": flanking_results
+        }
+    
+    # Layer 6: Historian (record decision)
+    parent_ids = meta.get("parent_ids", [])
+    self.historian.record_decision(msg_id, base_result, parent_ids)
+    flanking_results["historian"] = {
+        "recorded": True,
+        "causal_depth": len(parent_ids),
+        "layer": "audit_trail"
+    }
+    
+    # All checks passed
+    return {
+        "msg_id": msg_id,
+        "passed": True,
+        "flanking": flanking_results,
+        "base_result": base_result,
+        "oracle_recommendation": oracle_result.get("recommended_action"),
+        "explanation_available": True
+    }
+
+def explain(self, msg_id: str) -> Dict[str, Any]:
+    """Explain a decision using Historian"""
+    return self.historian.explain_decision(msg_id, depth=5)
+
+def system_health(self) -> Dict[
+```
