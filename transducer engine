@@ -1,0 +1,9 @@
+class TransducerEngine:
+    archetypes: List[Archetype]
+
+    method process(packet: MetaphorPacket) -> FunctionalModule:
+        ns = self.extract_structure(packet)
+        ops = self.collect_operators(ns)
+        ops_refined = self.refine_operators(ops)
+        constraints = self.infer_constraints(ns)
+        return FunctionalModule(..., operator_specs=ops_refined, safety_constraints=constraints)
