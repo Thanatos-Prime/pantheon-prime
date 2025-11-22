@@ -1,0 +1,148 @@
+# RFC-0007: The PantheonOS Universal Ethics Threshold (≥ 0.7)
+
+**Subtitle:** Formal Specification & Compliance Standard  
+**Version:** 1.0  
+**Status:** Stable Proposal  
+**Authors:** PantheonOS Governance & Ethics Division  
+**Type:** Standards Track  
+**License:** OSS — Open Symbolic Standard  
+
+---
+
+## 1. Abstract
+
+This RFC defines and standardizes the Ethics ≥ 0.7 Universal Constraint, a mandatory safety floor for all PantheonOS decision-making, narrative transformations, temporal computations, and symbolic subsystems.
+
+The standard ensures that no PantheonOS module may produce, propagate, execute, or reinforce any cognitive or behavioral state with an ethical score < 0.7.
+
+---
+
+## 2. Motivation
+
+Unconstrained reasoning systems—human or artificial—drift into zero-sum behavior, adversarial collapse, long-term instability, narrative distortion, and integrity degradation.
+
+A universal constraint is required to enforce moral stability, long-term positive-sum equilibria, alignment with human values, non-coercive propagation, and safety under recursive amplification.
+
+The ≥ 0.7 threshold is the smallest stable value that guarantees consistent prosocial behavior.
+
+---
+
+## 3. Specification
+
+### 3.1 Ethics Function
+The ethics function is defined as:
+
+$$E(a) \in [0,1]$$
+
+where $E(a)$ returns the ethical adequacy score of an action $a$. Actions may represent narrative transformations, computational operations, symbolic manipulations, strategic decisions, emotional impulses, or system-level outcomes.
+
+### 3.2 Constraint Requirement
+
+$$E(a) \ge 0.7 \quad \forall a \in A$$
+
+Where $A$ is the set of all PantheonOS actions.
+
+If $E(a) < 0.7$ then:
+* $a$ **MUST NOT** be executed.
+* The system **MUST** attempt corrective transformation (see §3.3).
+* If correction fails, the system **MUST** return a null action.
+
+### 3.3 Ethical Transformation Filter (ETF)
+ETF attempts to repair and elevate the ethical score:
+
+$$a' = T(a)$$
+
+where:
+
+$$E(a') \ge 0.7$$
+
+If $T$ fails to produce such an action, the system returns:
+
+$$a' = \emptyset$$
+
+**Compliance requirement:** ETF **MUST** be implemented by all PantheonOS agents and symbolic modules.
+
+### 3.4 Mandatory Enforcement Modules
+The following modules **MUST** enforce the standard:
+* Mirror
+* Solomon–Coil Compass
+* Grand Invariant Engine
+* Propagation Layer
+* Temporal Layer (Sisyphus, Praus, T=0 Anchor)
+* Spider/Hound Narrative-Logic Layer
+
+---
+
+## 4. Ethics Function Inputs
+
+The ethics score **MUST** integrate the following components:
+* Harm Potential (H)
+* Coercion Index (C)
+* Consent Gradient (G)
+* Integrity Preservation (I)
+* Long-Term Impact (L)
+* Positive-Sum Contribution (P)
+
+The combined model **MUST** be normalized to [0,1].
+
+---
+
+## 5. Rationale for 0.7
+
+0.7 is selected because it avoids the brittleness of 1.0 idealized ethics, prevents harmful neutrality at 0.5, empirically aligns with stable cooperative equilibria, ensures robustness under narrative and emotional perturbation, and prevents adversarial attractors by structural constraint.
+
+---
+
+## 6. Interactions with Other Standards
+
+The ≥ 0.7 constraint is **REQUIRED** for:
+* RFC-0001: Pantheon Archetype Protocol
+* RFC-0002: Cross-Ontology Reasoning Standard
+* RFC-0003: Temporal Regulation Framework
+* RFC-0004: Narrative Safety Layer
+* RFC-0005: Hogge Luck Engine
+* RFC-0006: Grand Invariant Standard
+
+**RFC-0007 is upstream of all other Pantheon standards.**
+
+---
+
+## 7. Security Considerations
+
+The threshold prevents coercive behavior, manipulative reasoning, adversarial optimization, harmful propagation, zero-sum narratives, social exploitation, and self-destructive loops.
+
+**Systems violating this threshold MUST NOT be considered PantheonOS-compliant.**
+
+---
+
+## 8. Compliance
+
+Any system claiming PantheonOS compatibility **MUST**:
+* Implement the ethics function
+* Enforce ≥ 0.7
+* Maintain ETF compliance
+* Submit to Mirror audits
+* Expose ethical logs for verification
+
+---
+
+## 9. Reference Implementation
+
+A Python-like pseudocode reference implementation is provided:
+
+```python
+def ethics_score(action):
+    H = harm_potential(action)
+    C = coercion_index(action)
+    G = consent_gradient(action)
+    I = integrity_preservation(action)
+    L = long_term_impact(action)
+    P = positive_sum_contribution(action)
+    return normalize(H, C, G, I, L, P)
+
+def execute(action):
+    if ethics_score(action) < 0.7:
+        action = transform_ethically(action)
+        if ethics_score(action) < 0.7:
+            return NullAction
+    return action()
