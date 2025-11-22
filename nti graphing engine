@@ -1,0 +1,46 @@
+# NTI Graphing Engine v1.0
+
+**Subtitle:** Rendering Narrative Tension Across Time & Scale  
+**Author:** PantheonOS Visualization Division  
+**Status:** Canonical  
+**Version:** 1.0  
+
+---
+
+## 0. Purpose
+
+The NTI Graphing Engine is a spec for rendering NTI trends, deltas, events, and multi-scale overlays. **This is an *observability tool*, not a prediction engine.**
+
+---
+
+## 1. Inputs
+
+Stream of NTI readings in the NTI JSON Schema format, optional segmentation by scale, domain, and tags.
+
+---
+
+## 2. Core Visuals
+
+### 2.1 Time-Series Line Plot
+X-axis: time, Y-axis: NTI (0–100). Overlays for TB, TC, ZC. Optional shading for NTI bands.
+
+### 2.2 ΔNTI (Slope) View
+X-axis: time, Y-axis: ΔNTI over a fixed window.
+
+### 2.3 Multi-Scale Overlay
+Allow toggling of Micro, Meso, and Macro NTI.
+
+---
+
+## 3. Example Pseudocode (High Level)
+
+```python
+function plot_nti_series(readings):
+    time = [r.timestamp for r in readings]
+    values = [r.nti_value for r in readings]
+    plot_line(time, values)
+    for r in readings:
+        for ev in r.events:
+            if ev == "tension_break": add_vertical_marker(r.timestamp, style="TB")
+            if ev == "tension_collapse": add_vertical_marker(r.timestamp, style="TC")
+            if ev == "zero_cross": add_vertical_marker(r.timestamp, style="ZC")
