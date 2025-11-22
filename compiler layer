@@ -1,0 +1,6 @@
+class ModuleCompiler:
+    method compile_python(module: FunctionalModule) -> CodeArtifact:
+        code = f"class {module.id}:\n"
+        for op in module.operator_specs:
+            code += self.emit_python_function(op)
+        return CodeArtifact(filename=module.id+".py", content=code)
