@@ -1,0 +1,47 @@
+# Pantheon Interpreter API v1.0  
+
+**Subtitle:** Omnilingual Interface for Human–AI Coherence  
+**Status:** Canonical  
+**Domain:** PantheonOS → Services → Interpreter  
+**Version:** 1.0  
+
+---
+
+## 0. Purpose
+
+This API defines how clients (humans, tools, or other daemons) talk to the **Pantheon Interpreter**.
+
+The Interpreter accepts text, symbols, metadata, or structured objects from any domain; normalizes them into Pantheon’s internal symbolic form; and returns either human-facing explanations, machine-facing structured representations, or both.
+
+---
+
+## 1. Core Concepts
+
+### 1.1 Modes
+* **HUMAN_EXPLANATION:** Return natural-language explanation, metaphors, examples, steps.
+* **MACHINE_STRUCTURED:** Return structured JSON representation (roles, invariants, arcs).
+* **DUAL:** Return both, in separate sections.
+
+### 1.2 Levels
+* **surface:** Minimal explanation, practical, no math.
+* **intermediate:** Add structure & operators.
+* **deep:** Full symbolic framing, math, invariants.
+
+---
+
+## 2. Request Schema
+
+```jsonc
+{
+  "input": {
+    "raw": "string or object describing what needs interpreting",
+    "metadata": {
+      "domain": "optional string (e.g. 'finance', 'law', 'therapy', 'code', 'myth')",
+      "language": "optional language code (e.g. 'en', 'es', 'fr')",
+      "modality": "text | code | math | narrative | mixed",
+      "time_context": "optional, e.g. 'short_term', 'long_term'"
+    }
+  },
+  "mode": "HUMAN_EXPLANATION | MACHINE_STRUCTURED | DUAL",
+  "depth": "surface | intermediate | deep"
+}
