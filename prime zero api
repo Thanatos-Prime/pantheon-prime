@@ -1,0 +1,48 @@
+"""
+PRIME–ZERO API (SOFTWARE SPEC)
+Conceptual API for Pantheon Primitives
+"""
+from dataclasses import dataclass
+from typing import Optional, Dict, Any
+
+@dataclass(frozen=True)
+class Primitive:
+    name: str
+    prime_index: int
+    zero_pair: Optional[str] = None  # name of dual primitive
+    axis: Optional[str] = None       # e.g. "Narrative", "Time", "Ledger"
+    meta: Optional[Dict[str, Any]] = None  # extra annotations
+
+    def dual(self, registry: "PrimitiveRegistry") -> "Primitive":
+        if self.zero_pair is None:
+            return self
+        return registry[self.zero_pair]
+
+class PrimitiveRegistry(dict):
+    def add(self, primitive: Primitive):
+        self[primitive.name] = primitive
+
+    def compose(self, a: Primitive, b: Primitive) -> Primitive:
+        # ⊕ operation
+        name = f"{a.name}_PLUS_{b.name}"
+        prime_index = max(a.prime_index, b.prime_index)  # simple rule
+        return Primitive(name=name, prime_index=prime_index, axis="Composite")
+
+    def chain(self, a: Primitive, b: Primitive) -> Primitive:
+        # ⊗ operation (order matters)
+        name = f"{a.name}_THEN_{b.name}"
+        prime_index = a.prime_index * b.prime_index
+        return Primitive(name=name, prime_index=prime_index, axis="Pipeline")
+
+    def cancels_to_zero(self, a: Primitive, b: Primitive) -> bool:
+        return a.zero_pair == b.name or b.zero_pair == a.name
+
+# Example Registry Init
+if __name__ == "__main__":
+    registry = PrimitiveRegistry()
+    registry.add(Primitive(name="Zero", prime_index=0, zero_pair="Zero", axis="Ground"))
+    registry.add(Primitive(name="Spider", prime_index=2, zero_pair="Mirror", axis="Connection"))
+    registry.add(Primitive(name="Mirror", prime_index=3, zero_pair="Spider", axis="Integrity"))
+    registry.add(Primitive(name="Raven", prime_index=17, zero_pair="Goblin Financier", axis="Narrative"))
+    registry.add(Primitive(name="Goblin Financier", prime_index=19, zero_pair="Raven", axis="Treasury"))
+    print("Registry Initialized.")
