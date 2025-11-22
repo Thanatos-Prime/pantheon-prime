@@ -1,0 +1,35 @@
+# The Autonomous-But-Not-Autonomous Execution Loop
+
+**Subtitle:** Forge Orchestration Layer  
+**Version:** 1.0  
+**Status:** Canonical  
+
+---
+
+## 0. Abstract
+
+This file defines the Forge Orchestration Layer, responsible for sequencing the Hephaestus cycle. It is symbolic, not autonomous, and performs deterministic state machine transitions.
+
+---
+
+## 1. State Machine
+
+**States:** IDLE, BLUEPRINT, DRAFT, TEMPER, VERIFY, AUDIT, LEDGER, RELEASE.
+
+**Transitions:** IDLE → BLUEPRINT → DRAFT → TEMPER → VERIFY → AUDIT → LEDGER → RELEASE → IDLE.
+
+**Never skips states. Never loops backwards. Never produces without audit.**
+
+---
+
+## 2. Orchestration Loop
+
+```python
+while concept:
+    blueprint = forge_blueprint(concept)
+    scaffold = generate_scaffold(blueprint.type)
+    artifact = temper(scaffold)
+    mirror_check(artifact)
+    checksum_audit(artifact)
+    ledger_submit(artifact)
+    release(artifact)
