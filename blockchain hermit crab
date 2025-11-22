@@ -1,0 +1,268 @@
+"""
+blockchain_hermit_crab.py
+
+A "blockchain hermit crab":
+
+- The hermit crab is a unique digital creature (an asset).
+- Each time it changes owners, it "moves" into a new, slightly larger shell.
+- Each shell is a blockchain-style block:
+    - owner_id: who owned it at that layer
+    - essence: some description or metadata about that owner
+    - shell_size: increasing integer representing growing shell size
+    - timestamp
+    - previous_hash: hash of the previous shell layer
+    - hash: hash of this shell layer
+
+You can:
+- create a genesis owner (first shell)
+- transfer ownership (new shell grows on top)
+- verify the chain's integrity
+- inspect full provenance (ownership history)
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, asdict
+from typing import List, Optional
+import hashlib
+import json
+import time
+
+
+# ---------- Utility -----------------------------------------------------------
+
+def hash_dict(data: dict) -> str:
+    """
+    Deterministically hash a dict by:
+    - sorting keys
+    - JSON-encoding
+    - hashing with SHA-256
+    """
+    encoded = json.dumps(data, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+# ---------- Core Data Structures ---------------------------------------------
+
+@dataclass
+class ShellLayer:
+    """
+    One shell in the hermit crab's history.
+
+    Interpret it as:
+    - a "block" in the chain
+    - a "shell layer" the crab once inhabited
+    - containing the essence of that owner
+    """
+    index: int            # 0 = first shell, 1 = second, ...
+    shell_size: int       # always grows by +1 each time
+    owner_id: str         # who owned the hermit crab at this layer
+    essence: str          # textual / metadata essence of the owner
+    timestamp: float      # UNIX timestamp
+    previous_hash: str    # hash of the previous shell
+    hash: str             # hash of THIS shell
+
+    @staticmethod
+    def create(
+        index: int,
+        shell_size: int,
+        owner_id: str,
+        essence: str,
+        previous_hash: str
+    ) -> "ShellLayer":
+        """
+        Factory method to create a new shell layer and compute its hash.
+        """
+        timestamp = time.time()
+        payload = {
+            "index": index,
+            "shell_size": shell_size,
+            "owner_id": owner_id,
+            "essence": essence,
+            "timestamp": timestamp,
+            "previous_hash": previous_hash,
+        }
+        layer_hash = hash_dict(payload)
+        return ShellLayer(
+            index=index,
+            shell_size=shell_size,
+            owner_id=owner_id,
+            essence=essence,
+            timestamp=timestamp,
+            previous_hash=previous_hash,
+            hash=layer_hash,
+        )
+
+
+class HermitCrab:
+    """
+    A blockchain hermit crab that grows a new shell for each owner.
+
+    - shells[0] = genesis shell (first owner)
+    - shells[-1] = current shell (current owner)
+    """
+
+    def __init__(self, name: str):
+        self.name = name
+        self.shells: List[ShellLayer] = []
+
+    # ----- Genesis ------------------------------------------------------------
+
+    def adopt_genesis_owner(self, owner_id: str, essence: str) -> None:
+        """
+        Create the first shell (genesis block).
+
+        Can only be called once.
+        """
+        if self.shells:
+            raise ValueError("Genesis owner already set.")
+
+        index = 0
+        shell_size = 1  # smallest shell
+        previous_hash = "0" * 64  # null hash for genesis
+
+        layer = ShellLayer.create(
+            index=index,
+            shell_size=shell_size,
+            owner_id=owner_id,
+            essence=essence,
+            previous_hash=previous_hash,
+        )
+        self.shells.append(layer)
+
+    # ----- Ownership Transfer -------------------------------------------------
+
+    def transfer_ownership(self, new_owner_id: str, new_essence: str) -> ShellLayer:
+        """
+        Transfer the hermit crab to a new owner.
+
+        This:
+        - grows a new shell (shell_size + 1)
+        - etches the new owner's essence into that shell
+        - links to previous shell via hash
+        """
+        if not self.shells:
+            raise ValueError("No genesis owner set. Call adopt_genesis_owner first.")
+
+        last_layer = self.shells[-1]
+        new_index = last_layer.index + 1
+        new_shell_size = last_layer.shell_size + 1
+        previous_hash = last_layer.hash
+
+        new_layer = ShellLayer.create(
+            index=new_index,
+            shell_size=new_shell_size,
+            owner_id=new_owner_id,
+            essence=new_essence,
+            previous_hash=previous_hash,
+        )
+
+        self.shells.append(new_layer)
+        return new_layer
+
+    # ----- Introspection ------------------------------------------------------
+
+    def current_owner(self) -> Optional[str]:
+        """
+        Return the current owner's ID (top shell), or None if no shells.
+        """
+        if not self.shells:
+            return None
+        return self.shells[-1].owner_id
+
+    def verify_chain(self) -> bool:
+        """
+        Verify the integrity of the shell chain.
+
+        Checks:
+        - each layer's previous_hash matches the hash of the previous layer
+        - each layer's hash matches a recomputed hash of its payload
+        """
+        if not self.shells:
+            return True  # empty chain is trivially valid
+
+        for i, layer in enumerate(self.shells):
+            # Recompute hash from data
+            payload = {
+                "index": layer.index,
+                "shell_size": layer.shell_size,
+                "owner_id": layer.owner_id,
+                "essence": layer.essence,
+                "timestamp": layer.timestamp,
+                "previous_hash": layer.previous_hash,
+            }
+            recalculated_hash = hash_dict(payload)
+            if recalculated_hash != layer.hash:
+                return False
+
+            # Check previous hash link
+            if i > 0:
+                if layer.previous_hash != self.shells[i - 1].hash:
+                    return False
+            else:
+                # Genesis previous hash should be 64 zeros
+                if layer.previous_hash != "0" * 64:
+                    return False
+
+        return True
+
+    def owner_history(self) -> List[dict]:
+        """
+        Return the history of owners in chronological order.
+
+        Each entry includes:
+        - index
+        - shell_size
+        - owner_id
+        - essence
+        - timestamp
+        - hash
+        """
+        return [asdict(layer) for layer in self.shells]
+
+    # ----- Pretty Printing ----------------------------------------------------
+
+    def print_history(self) -> None:
+        """
+        Pretty-print the hermit crab's ownership + shell history.
+        """
+        print(f"🐚 Hermit Crab: {self.name}")
+        if not self.shells:
+            print("  No shells yet.")
+            return
+
+        for layer in self.shells:
+            print(f"\nShell #{layer.index} (size = {layer.shell_size})")
+            print(f"  Owner:   {layer.owner_id}")
+            print(f"  Essence: {layer.essence}")
+            print(f"  Time:    {time.ctime(layer.timestamp)}")
+            print(f"  Hash:    {layer.hash[:16]}...")  # short preview
+            print(f"  Prev:    {layer.previous_hash[:16]}...")
+
+
+# ---------- Example Usage ----------------------------------------------------
+if __name__ == "__main__":
+    crab = HermitCrab(name="Pantheon Hermit")
+
+    # 1. First owner (genesis)
+    crab.adopt_genesis_owner(
+        owner_id="0xGENESIS",
+        essence="The original summoner of the hermit crab."
+    )
+
+    # 2. Transfer to a second owner
+    crab.transfer_ownership(
+        new_owner_id="0xALICE",
+        new_essence="Alice the explorer, lover of weird shells."
+    )
+
+    # 3. Transfer to a third owner
+    crab.transfer_ownership(
+        new_owner_id="0xBOB",
+        new_essence="Bob the collector, archivist of rare creatures."
+    )
+
+    # Print full history
+    crab.print_history()
+
+    # Verify chain integrity
+    print("\nChain valid:", crab.verify_chain())
