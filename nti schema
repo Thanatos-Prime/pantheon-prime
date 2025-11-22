@@ -1,0 +1,63 @@
+# Narrative Tension Index (NTI) JSON Schema v1.0
+
+**Author:** PantheonOS Data & Interface Division  
+**Status:** Canonical  
+**Version:** 1.0  
+
+---
+
+## 0. Purpose
+
+This schema defines a standard, machine-readable representation for NTI readings.
+
+---
+
+## 1. JSON Schema
+
+```json
+{
+  "$schema": "[http://json-schema.org/draft-07/schema#](http://json-schema.org/draft-07/schema#)",
+  "title": "Narrative Tension Index Reading",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "scale": { "type": "string", "enum": ["micro", "meso", "macro", "meta"] },
+    "nti_value": { "type": "number", "minimum": 0, "maximum": 100 },
+    "components": {
+      "type": "object",
+      "properties": {
+        "emotion": { "type": "number", "minimum": 0, "maximum": 1 },
+        "uncertainty": { "type": "number", "minimum": 0, "maximum": 1 },
+        "relevance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coherence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "noise": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "required": ["emotion", "uncertainty", "relevance", "coherence", "noise"]
+    },
+    "weights": {
+      "type": "object",
+      "properties": {
+        "alpha": { "type": "number" },
+        "beta": { "type": "number" },
+        "gamma": { "type": "number" }
+      },
+      "required": ["alpha", "beta", "gamma"]
+    },
+    "nti_state": {
+      "type": "string",
+      "enum": ["dormant", "warming", "building", "elevated", "accelerating", "high", "critical"]
+    },
+    "nti_delta": { "type": "number" },
+    "delta_state": {
+      "type": "string",
+      "enum": ["stable", "gentle_build", "gentle_release", "rapid_build", "rapid_release"]
+    },
+    "events": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["tension_break", "tension_collapse", "zero_cross"] }
+    },
+    "context": { "type": "object" }
+  },
+  "required": ["id", "timestamp", "scale", "nti_value", "components", "weights"]
+}
