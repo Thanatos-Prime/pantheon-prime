@@ -1,0 +1,9 @@
+class Praus(Archetype):
+    name = "Praus"
+    role = "Variance Damping / Poise"
+
+    method propose_operators(ns: NarrativeStructure) -> List[OperatorSpec]:
+        if "calm" in ns.forces:
+            op = OperatorSpec(name="variance_dampen", formula="y = x / (1 + λ * var(x))")
+            return [op]
+        return []
