@@ -1,0 +1,70 @@
+# pantheon_memory_engine/db.py
+import sqlite3
+from pathlib import Path
+
+DEFAULT_DB_PATH = Path(__file__).resolve().parent / "pantheon_memory.db"
+
+
+def get_connection(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db(db_path: Path = DEFAULT_DB_PATH) -> None:
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+
+    # Core entries table
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,         -- e.g. 'daemon', 'doctrine', 'note'
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            tags TEXT,                  -- comma-separated tags
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        """
+    )
+
+    # Links between entries (graph edges)
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            from_id INTEGER NOT NULL,
+            to_id INTEGER NOT NULL,
+            relation TEXT NOT NULL,     -- e.g. 'references', 'depends_on'
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY(from_id) REFERENCES entries(id),
+            FOREIGN KEY(to_id) REFERENCES entries(id)
+        );
+        """
+    )
+
+    # Simple full-text-ish index (title + body)
+    cur.execute(
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts
+        USING fts5(title, body, content='entries', content_rowid='id');
+        """
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def update_fts(conn: sqlite3.Connection, entry_id: int, title: str, body: str) -> None:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO entries_fts(rowid, title, body)
+        VALUES (?, ?, ?)
+        ON CONFLICT(rowid) DO UPDATE SET title=excluded.title, body=excluded.body;
+        """,
+        (entry_id, title, body),
+    )
+    conn.commit()
