@@ -1,0 +1,28 @@
+from .config import MeshConfig
+from .graph import MeshGraph
+from .field import MeshField
+from .dynamics import step
+from .energy import total_energy
+
+def build_demo_graph():
+    g = MeshGraph(num_nodes=6)
+    # 0:Spider, 1:Hound, 2:Dragonfly, 3:Bombadil, 4:Praus, 5:Mirror
+    edges = [(0,1), (0,2), (0,4), (1,5), (2,4), (3,4), (4,5)]
+    for i, j in edges:
+        g.add_edge(i, j)
+    g.labels = ["Spider", "Hound", "Dragonfly", "Bombadil", "Praus", "Mirror"]
+    return g
+
+def run():
+    config = MeshConfig()
+    graph = build_demo_graph()
+    field = MeshField(graph, config)
+    field.add_attractor(field.phi.copy()) # Save initial state as attractor
+
+    for step_idx in range(config.steps):
+        step(field, config)
+        if step_idx % 10 == 0:
+            print(f"Step {step_idx:4d} | E = {total_energy(field, config):.4f}")
+
+if __name__ == "__main__":
+    run()
