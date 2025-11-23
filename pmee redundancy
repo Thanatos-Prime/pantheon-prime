@@ -1,0 +1,72 @@
+# Pantheon Memetic Evolution Engine (PMEE)
+
+The **Pantheon Memetic Evolution Engine (PMEE)** is a **safe, research-oriented simulation engine** for evolving *ideas* (“memes”) inside a sandboxed environment.
+
+It does **not** operate on real people or social networks.  
+It **only** works with abstract representations of ideas in code.
+
+PMEE is built to:
+
+- explore **how ideas mutate and evolve**,
+- study **which structures are robust** (coherence, ethics, clarity),
+- test **creative variants** in a controlled way,
+- support PantheonOS whitepapers like:
+  - Hogge Creativity Dice  
+  - Hogge Principle of Emergent Structure  
+  - Evolutionary Insulated Umbrella  
+  - X-Gap Phenomenon  
+  - Mythic Encoding  
+
+## Key Concepts
+
+- **MemeUnit** — a single idea candidate (text + metadata).
+- **MemePopulation** — a collection of MemeUnits evolving over generations.
+- **Fitness Function** — a pluggable scoring function:
+  - coherence
+  - originality
+  - ethical alignment
+  - structural elegance
+- **Mutation Operators** — small, configurable transformations to ideas.
+- **Selection Loop** — evolutionary algorithm:
+  - evaluate → select → mutate → reproduce.
+
+## Safety & Scope
+
+- No scraping, no social graphs, no user-level data.
+- No persuasion targeting, no behavioral manipulation.
+- All inputs are **abstract idea strings** you provide manually.
+- Intended for:
+  - creative writing,
+  - R&D concept exploration,
+  - symbolic architecture experiments,
+  - studying emergent structure.
+
+## Quick Example
+
+```python
+from memetics.memetic_engine import (
+    MemeUnit, MemePopulation, MemeticEngine, MemeticConfig
+)
+
+initial_memes = [
+    MemeUnit(text="PantheonOS as a cognitive OS."),
+    MemeUnit(text="Wave Language as a symbolic interface."),
+    MemeUnit(text="Fractal governance for AI safety."),
+]
+
+config = MemeticConfig(
+    population_size=12,
+    generations=5,
+    mutation_rate=0.35,
+    crossover_rate=0.2,
+    max_text_length=200
+)
+
+engine = MemeticEngine(config=config)
+population = MemePopulation(units=initial_memes)
+
+history = engine.run(population)
+
+print("Top memes after evolution:")
+for meme in history[-1].top_k(3):
+    print("-", meme.text, f"(fitness={meme.fitness:.3f})")
