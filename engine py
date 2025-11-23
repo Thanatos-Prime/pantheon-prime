@@ -1,0 +1,157 @@
+# pantheon_memory_engine/engine.py
+from __future__ import annotations
+from typing import List, Optional
+from pathlib import Path
+import sqlite3
+
+from .db import get_connection, init_db, update_fts
+from .models import Entry, Link
+
+
+class MemoryEngine:
+    def __init__(self, db_path: Optional[Path] = None) -> None:
+        self.db_path = db_path
+        init_db(self.db_path or Path(__file__).resolve().parent / "pantheon_memory.db")
+
+    def _conn(self) -> sqlite3.Connection:
+        return get_connection(self.db_path or Path(__file__).resolve().parent / "pantheon_memory.db")
+
+    # ---- Entries ----
+
+    def add_entry(
+        self,
+        kind: str,
+        title: str,
+        body: str,
+        tags: Optional[List[str]] = None,
+    ) -> int:
+        conn = self._conn()
+        cur = conn.cursor()
+        tags_str = ",".join(tags or [])
+        cur.execute(
+            """
+            INSERT INTO entries(kind, title, body, tags)
+            VALUES (?, ?, ?, ?)
+            """,
+            (kind, title, body, tags_str),
+        )
+        entry_id = cur.lastrowid
+        update_fts(conn, entry_id, title, body)
+        conn.commit()
+        conn.close()
+        return entry_id
+
+    def get_entry(self, entry_id: int) -> Optional[Entry]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM entries WHERE id = ?", (entry_id,))
+        row = cur.fetchone()
+        conn.close()
+        if row is None:
+            return None
+        tags = row["tags"].split(",") if row["tags"] else []
+        return Entry(
+            id=row["id"],
+            kind=row["kind"],
+            title=row["title"],
+            body=row["body"],
+            tags=tags,
+        )
+
+    def search(self, query: str, limit: int = 10) -> List[Entry]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT e.*
+            FROM entries_fts f
+            JOIN entries e ON e.id = f.rowid
+            WHERE entries_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?
+            """,
+            (query, limit),
+        )
+        rows = cur.fetchall()
+        conn.close()
+        results: List[Entry] = []
+        for row in rows:
+            tags = row["tags"].split(",") if row["tags"] else []
+            results.append(
+                Entry(
+                    id=row["id"],
+                    kind=row["kind"],
+                    title=row["title"],
+                    body=row["body"],
+                    tags=tags,
+                )
+            )
+        return results
+
+    def list_entries(self, kind: Optional[str] = None, limit: int = 20) -> List[Entry]:
+        conn = self._conn()
+        cur = conn.cursor()
+        if kind:
+            cur.execute(
+                "SELECT * FROM entries WHERE kind = ? ORDER BY created_at DESC LIMIT ?",
+                (kind, limit),
+            )
+        else:
+            cur.execute(
+                "SELECT * FROM entries ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            )
+        rows = cur.fetchall()
+        conn.close()
+        out: List[Entry] = []
+        for row in rows:
+            tags = row["tags"].split(",") if row["tags"] else []
+            out.append(
+                Entry(
+                    id=row["id"],
+                    kind=row["kind"],
+                    title=row["title"],
+                    body=row["body"],
+                    tags=tags,
+                )
+            )
+        return out
+
+    # ---- Links ----
+
+    def add_link(self, from_id: int, to_id: int, relation: str) -> int:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO links(from_id, to_id, relation)
+            VALUES (?, ?, ?)
+            """,
+            (from_id, to_id, relation),
+        )
+        link_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+        return link_id
+
+    def get_links_from(self, from_id: int) -> List[Link]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM links WHERE from_id = ?", (from_id,))
+        rows = cur.fetchall()
+        conn.close()
+        return [
+            Link(id=row["id"], from_id=row["from_id"], to_id=row["to_id"], relation=row["relation"])
+            for row in rows
+        ]
+
+    def get_links_to(self, to_id: int) -> List[Link]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM links WHERE to_id = ?", (to_id,))
+        rows = cur.fetchall()
+        conn.close()
+        return [
+            Link(id=row["id"], from_id=row["from_id"], to_id=row["to_id"], relation=row["relation"])
+            for row in rows
+        ]
