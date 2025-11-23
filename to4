@@ -1,0 +1,58 @@
+# src/thoughtobject/store.py
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Iterable, List, Optional, Tuple
+
+from .model import ThoughtObject
+from .codec import compute_thought_hash
+
+
+THOUGHT_DIR = Path("thoughtobjects")
+THOUGHT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass
+class StoredThought:
+    thought_hash: str
+    thought: ThoughtObject
+
+
+class ThoughtObjectStore:
+    """
+    Append-only ThoughtObject store using JSONL files.
+
+    Default strategy: one file per day, e.g. thoughtobjects/2025-11-23.jsonl
+    """
+
+    def __init__(self, base_dir: Path | None = None):
+        self.base_dir = base_dir or THOUGHT_DIR
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+
+    def _file_for_today(self) -> Path:
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        return self.base_dir / f"{today}.jsonl"
+
+    def store(self, thoughts: Iterable[ThoughtObject]) -> List[StoredThought]:
+        path = self._file_for_today()
+        stored: List[StoredThought] = []
+        with path.open("a", encoding="utf-8") as f:
+            for t in thoughts:
+                h = compute_thought_hash(t)
+                rec = {"thought_hash": h, "thought": t.to_dict()}
+                f.write(json.dumps(rec) + "\n")
+                stored.append(StoredThought(thought_hash=h, thought=t))
+        return stored
+
+    def iter_all(self) -> Iterable[StoredThought]:
+        for path in self.base_dir.glob("*.jsonl"):
+            with path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    data = json.loads(line)
+                    t = ThoughtObject.from_dict(data["thought"])
+                    yield StoredThought(thought_hash=data["thought_hash"], thought=t)
