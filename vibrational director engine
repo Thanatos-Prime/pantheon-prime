@@ -1,0 +1,96 @@
+# Vibrational Director Engine (VDE)
+
+The **Vibrational Director Engine (VDE)** is a PantheonOS-aligned tool for
+**planning scene rhythm, emotional pacing, and “vibe trajectories”** across
+time.
+
+It treats:
+
+- **story beats** like **musical notes**  
+- **scenes** like **waveforms**  
+- **emotional arcs** like **envelopes** (attack, sustain, release)  
+- **camera motion & color** like **harmonics** on top of the base wave  
+
+This is a **creative previsualization engine**, not a production tool.  
+It generates **structured timelines of beats** you can use for:
+
+- film / TV scene planning  
+- game cutscenes  
+- trailers and teasers  
+- music videos  
+- storyboards  
+- narrative UX flows  
+
+It integrates conceptually with:
+
+- **Mythic Encoding** (archetypal arcs)  
+- **Gravity Well Effect** (high-mass beats)  
+- **Hogge Creativity Dice** (variation & exploration)  
+- **Oracle Weave** (multi-layer reasoning)  
+
+---
+
+## Core Concepts
+
+- **Beat**  
+  A small unit of narrative time: emotion, intensity, color, and motion.
+
+- **Track**  
+  A continuous sequence of beats forming a “wave” (e.g., tension track, music track).
+
+- **ScenePlan**  
+  A full timeline composed of multiple tracks, aligned over total duration.
+
+The VDE maps:
+
+- **Narrative Arc → Envelope** (three-act or hero’s journey curve)  
+- **Emotion → Frequency / Energy**  
+- **Tension → Amplitude**  
+- **Relief → Resolution / Decay**  
+
+You give it:
+
+- a **scene description**  
+- a **vibe profile** (e.g., “slow-burn dread”, “heroic crescendo”)  
+- basic **timing config**
+
+It returns a **structured plan** of beats and tracks.
+
+---
+
+## Safety & Scope
+
+This engine:
+
+- does **not** touch real-time media or users
+- does **not** perform psychological targeting or influence
+- is strictly for **creative timing & structural planning**
+- is transparent and inspectable (you can see every beat and parameter)
+
+It is a **sandboxed creative tool**, not an optimization weapon.
+
+---
+
+## Quick Example
+
+```python
+from vde.vde_engine import VDEConfig, VibrationalDirectorEngine
+
+config = VDEConfig(
+    duration_seconds=120,
+    beats_per_minute=96,
+    arc_mode="three_act",
+    seed=42
+)
+
+engine = VibrationalDirectorEngine(config=config)
+
+scene_plan = engine.generate_scene_plan(
+    title="Rooftop Confrontation",
+    logline="Two former allies face off on a rain-soaked rooftop at night.",
+    vibe="slow-burn tension with a heroic release"
+)
+
+print("SCENE:", scene_plan.title)
+for beat in scene_plan.beats[:10]:
+    print(f"{beat.time_offset:6.1f}s  energy={beat.energy:.2f}  tone={beat.emotional_tone}  cam={beat.camera_motion}")
