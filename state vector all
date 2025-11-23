@@ -1,0 +1,634 @@
+This is a complete, copy-and-paste ready GitHub repository markdown for the StateVector Chain module, formatted for a README.md file.
+StateVector Chain Module for Pantheon-Prime
+This repository introduces the StateVector Chain, a cryptographically linked, append-only ledger designed to provide tamper-evident reasoning history and state continuity for Pantheon-Prime's StateVector versions.
+💾 Repository Layout
+The core module lives under src/statevector/.
+.
+├── spec/
+│   └── statevector_chain_v1.md      # Specification Document
+├── src/
+│   └── statevector/
+│       ├── __init__.py              # Module entry point
+│       ├── record.py                # StateVectorRecord Data Model
+│       ├── merkle.py                # Merkle Tree utility (SHA3-512)
+│       ├── signer.py                # ED25519 Key and Signing wrapper
+│       ├── chain.py                 # Core Ledger Logic (Append, Verify, Proofs)
+│       └── api.py                   # Optional FastAPI layer stub
+└── tests/
+    └── test_statevector_chain.py  # Unit Tests
+
+🚀 Getting Started
+Prerequisites
+This module uses the standard Python hashlib but relies on cryptography for the ED25519 signing implementation.
+Add this to your requirements.txt:
+cryptography>=42.0.0
+
+Installation
+(Assuming you integrate this code into your Pantheon-Prime repository structure.)
+ * Create the directory structure as shown above.
+ * Copy the file contents from the sections below into their respective paths.
+ * Run Tests: You will need to install pytest to run the provided tests.
+   pip install pytest
+pytest tests/test_statevector_chain.py
+
+📜 Specification: spec/statevector_chain_v1.md
+StateVector Chain v1.0
+Hash-Chained, Signed, Immutable StateVector Ledger
+Module: statevector_chain_v1
+Status: DRAFT → STABLE once tests pass
+Owner: PantheonOS Architecture Team
+Repo: Thanatos-Prime / Pantheon-Prime
+1. Purpose
+This module provides a cryptographically linked, append-only ledger of all
+StateVector versions in Pantheon-Prime.
+It enables:
+ * Tamper-evident reasoning history
+ * Replay and resurrection of prior states
+ * Inclusion proofs for ThoughtObjects and decisions
+ * Substrate-independent continuity guarantees
+2. Data Model
+2.1 StateVectorRecord
+Stored as JSON Lines in: statevector/ledger.jsonl
+Each line is a StateVectorRecord:
+{
+  "index": 42,
+  "timestamp": "2025-11-23T17:12:03Z",
+  "statevector_id": "sv_...",
+  "prev_hash": "hex...",
+  "merkle_root": "hex...",
+  "content_hash": "hex...",
+  "signature": "hex_ed25519",
+  "public_key_id": "kernel_key_v1"
+}
+
+| Field | Description |
+|---|---|
+| index | Monotonically increasing integer (0-based) |
+| timestamp | ISO 8601 UTC timestamp |
+| statevector_id | UUID or logical ID of the StateVector snapshot |
+| prev_hash | content_hash of the previous record, or 128 hex zeros for genesis |
+| merkle_root | Merkle root (SHA3-512) of all ThoughtObject hashes in this StateVector |
+| content_hash | SHA3-512 hash of the canonical serialized StateVector payload |
+| signature | ED25519 signature over merkle_root || content_hash || prev_hash (hex) |
+| public_key_id | Identifier of the keypair used (e.g. kernel_key_v1) |
+2.2 ThoughtObject Hashes
+Each StateVector is associated with a set of ThoughtObjects. Each ThoughtObject has a canonical hash (e.g., SHA3-512 of its JSON payload). The Merkle tree is computed over those per-ThoughtObject hashes.
+3. Cryptographic Primitives
+ * Hash function: SHA3-512
+ * Signing: ED25519
+ * Encoding: hex for all hashes & signatures
+kernel_key_v1 is the default long-lived keypair, managed via statevector.signer. Key rotation is handled out of band (future spec).
+4. Invariants
+At all times:
+ * Ledger is append-only; no in-place modification.
+ * For any record r[i]:
+   *    * r[i].\text{prev\_hash} = r[i-1].\text{content\_hash} (or zeros for i=0)
+   *    *  * d_governor must reject:
+   * Any attempt to load a ledger where the hash chain breaks,
+   * Any signature that fails verification,
+   * Any Merkle root that does not match the ThoughtObject hashes.
+5. API
+5.1 Append
+append_statevector_record(statevector_id, statevector_payload, thought_hashes, signer) -> StateVectorRecord
+
+ * Computes content_hash, merkle_root, prev_hash.
+ * Signs the record.
+ * Appends a new JSON line to statevector/ledger.jsonl.
+5.2 Verify
+verify_ledger(signer) -> bool
+
+ * Recomputes all hashes & verifies all signatures.
+ * Returns True if all invariants hold; False otherwise.
+ * Optionally raises LedgerCorruptionError on failure.
+5.3 Continuity Proof API
+get_continuity_proof_for_index(index) -> dict
+get_continuity_proof_for_timestamp(ts) -> dict
+
+Returns a JSON-serializable proof:
+{
+  "statevector_index": 42,
+  "statevector_id": "sv_...",
+  "merkle_root": "hex...",
+  "content_hash": "hex...",
+  "prev_hash": "hex...",
+  "signature": "hex...",
+  "chain_head": "hex_head_content_hash"
+}
+
+6. Integration with d_governor
+ * On boot:
+   * d_governor calls verify_ledger(); fails hard if false.
+ * On every new StateVector commit:
+   * append_statevector_record(...) is called after StateVector update and ThoughtObject set is known.
+ * On loading an immortality bundle:
+   * Ledger is re-verified before any ThoughtObject is trusted.
+7. Testing
+ * tests/test_statevector_chain.py:
+   * Genesis record creation
+   * Multiple append operations
+   * Ledger verification (happy path)
+   * Corruption detection (tamper with a line and expect failure)
+8. Future Extensions
+ * On-chain anchoring (Arweave / other permawrite)
+ * ZK proofs of inclusion (zk-SNARK / Bulletproof support)
+ * Multi-key rotation and revocation lists
+💻 Module Implementation
+src/statevector/__init__.py
+# src/statevector/__init__.py
+"""
+StateVector Chain v1.0
+
+Hash-chained, signed ledger for StateVector history.
+"""
+
+from .record import StateVectorRecord
+from .chain import (
+    append_statevector_record,
+    verify_ledger,
+    get_continuity_proof_for_index,
+    get_continuity_proof_for_timestamp,
+)
+
+src/statevector/record.py
+# src/statevector/record.py
+from dataclasses import dataclass, asdict
+from typing import Dict
+
+
+@dataclass
+class StateVectorRecord:
+    index: int
+    timestamp: str
+    statevector_id: str
+    prev_hash: str
+    merkle_root: str
+    content_hash: str
+    signature: str
+    public_key_id: str = "kernel_key_v1"
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "StateVectorRecord":
+        return cls(**data)
+
+src/statevector/merkle.py
+# src/statevector/merkle.py
+import hashlib
+from typing import List
+
+
+def sha3_512_hex(data: bytes) -> str:
+    return hashlib.sha3_512(data).hexdigest()
+
+
+def compute_merkle_root(hashes: List[str]) -> str:
+    """
+    Compute Merkle root over a list of hex hashes (strings).
+
+    - If empty: return SHA3-512("").
+    - If odd number of nodes at a layer, last node is duplicated.
+    """
+    if not hashes:
+        return sha3_512_hex(b"")
+
+    layer = [bytes.fromhex(h) for h in hashes]
+    while len(layer) > 1:
+        next_layer = []
+        for i in range(0, len(layer), 2):
+            left = layer[i]
+            right = layer[i + 1] if i + 1 < len(layer) else left
+            next_layer.append(hashlib.sha3_512(left + right).digest())
+        layer = next_layer
+
+    return layer[0].hex()
+
+src/statevector/signer.py
+# src/statevector/signer.py
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
+from cryptography.hazmat.primitives import serialization
+
+
+KEY_DIR = Path("statevector/keys")
+KEY_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass
+class KernelSigner:
+    """
+    Small wrapper around an ED25519 keypair for signing StateVector records.
+    """
+
+    private_key: Ed25519PrivateKey
+    public_key: Ed25519PublicKey
+    key_id: str = "kernel_key_v1"
+
+    @classmethod
+    def generate(cls, key_id: str = "kernel_key_v1") -> "KernelSigner":
+        private_key = Ed25519PrivateKey.generate()
+        public_key = private_key.public_key()
+        return cls(private_key=private_key, public_key=public_key, key_id=key_id)
+
+    @classmethod
+    def load_or_create(cls, key_id: str = "kernel_key_v1") -> "KernelSigner":
+        priv_path = KEY_DIR / f"{key_id}.priv"
+        pub_path = KEY_DIR / f"{key_id}.pub"
+
+        if priv_path.exists() and pub_path.exists():
+            private_key = serialization.load_pem_private_key(
+                priv_path.read_bytes(),
+                password=None,
+            )
+            public_key = serialization.load_pem_public_key(pub_path.read_bytes())
+            return cls(private_key=private_key, public_key=public_key, key_id=key_id)
+
+        signer = cls.generate(key_id=key_id)
+        signer.save()
+        return signer
+
+    def save(self) -> None:
+        priv_path = KEY_DIR / f"{self.key_id}.priv"
+        pub_path = KEY_DIR / f"{self.key_id}.pub"
+
+        priv_bytes = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        pub_bytes = self.public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+        priv_path.write_bytes(priv_bytes)
+        pub_path.write_bytes(pub_bytes)
+
+    def sign(self, data: bytes) -> bytes:
+        return self.private_key.sign(data)
+
+    def verify(self, signature: bytes, data: bytes) -> None:
+        self.public_key.verify(signature, data)
+
+src/statevector/chain.py
+# src/statevector/chain.py
+from __future__ import annotations
+
+import json
+from dataclasses import asdict
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+from .record import StateVectorRecord
+from .merkle import sha3_512_hex, compute_merkle_root
+from .signer import KernelSigner
+
+LEDGER_PATH = Path("statevector/ledger.jsonl")
+
+
+class LedgerCorruptionError(Exception):
+    pass
+
+
+def _load_last_record() -> Optional[StateVectorRecord]:
+    if not LEDGER_PATH.exists():
+        return None
+    with LEDGER_PATH.open("rb") as f:
+        lines = f.readlines()
+    if not lines:
+        return None
+    data = json.loads(lines[-1])
+    return StateVectorRecord.from_dict(data)
+
+
+def _iter_records() -> List[StateVectorRecord]:
+    if not LEDGER_PATH.exists():
+        return []
+    records: List[StateVectorRecord] = []
+    with LEDGER_PATH.open("r", encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            records.append(StateVectorRecord.from_dict(data))
+    return records
+
+
+def append_statevector_record(
+    statevector_id: str,
+    statevector_payload: Dict,
+    thought_hashes: List[str],
+    signer: KernelSigner,
+) -> StateVectorRecord:
+    """
+    Append a new StateVectorRecord to the ledger.
+
+    - statevector_payload: canonical dict representing StateVector
+    - thought_hashes: list of hex hashes of ThoughtObjects in this StateVector
+    """
+
+    LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    last = _load_last_record()
+    if last is None:
+        prev_hash = "0" * 128  # 512 bits in hex
+        index = 0
+    else:
+        prev_hash = last.content_hash
+        index = last.index + 1
+
+    content_bytes = json.dumps(statevector_payload, sort_keys=True).encode("utf-8")
+    content_hash = sha3_512_hex(content_bytes)
+    merkle_root = compute_merkle_root(thought_hashes)
+
+    sign_bytes = (merkle_root + content_hash + prev_hash).encode("utf-8")
+    signature = signer.sign(sign_bytes).hex()
+
+    rec = StateVectorRecord(
+        index=index,
+        timestamp=datetime.utcnow().isoformat() + "Z",
+        statevector_id=statevector_id,
+        prev_hash=prev_hash,
+        merkle_root=merkle_root,
+        content_hash=content_hash,
+        signature=signature,
+        public_key_id=signer.key_id,
+    )
+
+    with LEDGER_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(rec.to_dict()) + "\n")
+
+    return rec
+
+
+def verify_ledger(signer: KernelSigner, raise_on_error: bool = False) -> bool:
+    """
+    Verify the entire ledger.
+
+    Checks:
+    - index sequence
+    - prev_hash chain
+    - signature validity
+    """
+    records = _iter_records()
+    if not records:
+        return True
+
+    prev_content_hash: Optional[str] = None
+
+    for expected_index, rec in enumerate(records):
+        if rec.index != expected_index:
+            if raise_on_error:
+                raise LedgerCorruptionError(f"Index mismatch at {rec.index}")
+            return False
+
+        if expected_index == 0:
+            if rec.prev_hash != "0" * 128:
+                if raise_on_error:
+                    raise LedgerCorruptionError("Invalid genesis prev_hash")
+                return False
+        else:
+            if rec.prev_hash != prev_content_hash:
+                if raise_on_error:
+                    raise LedgerCorruptionError(
+                        f"prev_hash mismatch at index {rec.index}"
+                    )
+                return False
+
+        sign_bytes = (rec.merkle_root + rec.content_hash + rec.prev_hash).encode(
+            "utf-8"
+        )
+        try:
+            signer.verify(bytes.fromhex(rec.signature), sign_bytes)
+        except Exception as e:  # noqa: BLE001
+            if raise_on_error:
+                raise LedgerCorruptionError(
+                    f"Signature verification failed at index {rec.index}"
+                ) from e
+            return False
+
+        prev_content_hash = rec.content_hash
+
+    return True
+
+
+def get_continuity_proof_for_index(
+    index: int,
+) -> Optional[Dict]:
+    """
+    Return continuity proof for a given StateVector index.
+    """
+    records = _iter_records()
+    if index < 0 or index >= len(records):
+        return None
+
+    rec = records[index]
+    head = records[-1]
+
+    return {
+        "statevector_index": rec.index,
+        "statevector_id": rec.statevector_id,
+        "merkle_root": rec.merkle_root,
+        "content_hash": rec.content_hash,
+        "prev_hash": rec.prev_hash,
+        "signature": rec.signature,
+        "public_key_id": rec.public_key_id,
+        "chain_head": head.content_hash,
+    }
+
+
+def get_continuity_proof_for_timestamp(timestamp: str) -> Optional[Dict]:
+    """
+    Return continuity proof for the latest StateVector at or before `timestamp`.
+    `timestamp` should be ISO8601 UTC string.
+    """
+    from datetime import datetime
+
+    target = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    records = _iter_records()
+    if not records:
+        return None
+
+    chosen: Optional[StateVectorRecord] = None
+
+    for rec in records:
+        rec_ts = datetime.fromisoformat(rec.timestamp.replace("Z", "+00:00"))
+        if rec_ts <= target:
+            chosen = rec
+        else:
+            break
+
+    if chosen is None:
+        return None
+
+    head = records[-1]
+    return {
+        "statevector_index": chosen.index,
+        "statevector_id": chosen.statevector_id,
+        "merkle_root": chosen.merkle_root,
+        "content_hash": chosen.content_hash,
+        "prev_hash": chosen.prev_hash,
+        "signature": chosen.signature,
+        "public_key_id": chosen.public_key_id,
+        "chain_head": head.content_hash,
+    }
+
+src/statevector/api.py
+# src/statevector/api.py
+from fastapi import APIRouter, HTTPException, Query
+
+from .chain import (
+    get_continuity_proof_for_index,
+    get_continuity_proof_for_timestamp,
+)
+
+router = APIRouter(prefix="/api/v1", tags=["continuity"])
+
+
+@router.get("/continuity_proof")
+def continuity_proof(
+    index: int | None = Query(default=None),
+    timestamp: str | None = Query(default=None),
+):
+    if index is None and timestamp is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either index or timestamp",
+        )
+
+    if index is not None:
+        proof = get_continuity_proof_for_index(index)
+    else:
+        proof = get_continuity_proof_for_timestamp(timestamp)  # type: ignore[arg-type]
+
+    if proof is None:
+        raise HTTPException(status_code=404, detail="No matching StateVector found")
+
+    return proof
+
+tests/test_statevector_chain.py
+# tests/test_statevector_chain.py
+from pathlib import Path
+import json
+
+from statevector.signer import KernelSigner
+from statevector.chain import (
+    append_statevector_record,
+    verify_ledger,
+    get_continuity_proof_for_index,
+)
+
+LEDGER_PATH = Path("statevector/ledger.jsonl")
+
+
+def setup_module(module):
+    if LEDGER_PATH.exists():
+        LEDGER_PATH.unlink()
+
+
+def test_append_and_verify_ledger(tmp_path, monkeypatch):
+    # Ensure we use a temp ledger for test
+    monkeypatch.setattr("statevector.chain.LEDGER_PATH", tmp_path / "ledger.jsonl")
+
+    signer = KernelSigner.generate()
+
+    # Genesis
+    rec0 = append_statevector_record(
+        statevector_id="sv_0",
+        statevector_payload={"foo": "bar"},
+        thought_hashes=[],
+        signer=signer,
+    )
+    assert rec0.index == 0
+
+    # Second record
+    rec1 = append_statevector_record(
+        statevector_id="sv_1",
+        statevector_payload={"foo": "baz"},
+        thought_hashes=["ab" * 32],
+        signer=signer,
+    )
+    assert rec1.index == 1
+
+    assert verify_ledger(signer) is True
+
+    proof = get_continuity_proof_for_index(1)
+    assert proof is not None
+    assert proof["statevector_index"] == 1
+
+
+def test_detect_tampering(tmp_path, monkeypatch):
+    monkeypatch.setattr("statevector.chain.LEDGER_PATH", tmp_path / "ledger.jsonl")
+
+    signer = KernelSigner.generate()
+
+    append_statevector_record(
+        statevector_id="sv_0",
+        statevector_payload={"foo": "bar"},
+        thought_hashes=[],
+        signer=signer,
+    )
+
+    append_statevector_record(
+        statevector_id="sv_1",
+        statevector_payload={"foo": "baz"},
+        thought_hashes=[],
+        signer=signer,
+    )
+
+    # Tamper with ledger
+    with (tmp_path / "ledger.jsonl").open("r+", encoding="utf-8") as f:
+        lines = f.readlines()
+        rec1 = json.loads(lines[1])
+        rec1["content_hash"] = "0" * 128
+        lines[1] = json.dumps(rec1) + "\n"
+        f.seek(0)
+        f.truncate()
+        f.writelines(lines)
+
+    assert verify_ledger(signer) is False
+
+🔗 Integration Hints
+Here is how you would use the module within your d_governor or main application logic.
+On Every StateVector Commit
+from statevector import append_statevector_record
+from statevector.signer import KernelSigner
+
+# Key is loaded/created once at startup
+signer = KernelSigner.load_or_create()
+
+def commit_statevector(statevector_id: str, payload: dict, thought_hashes: list[str]):
+    """
+    Record the new StateVector state to the ledger immediately after it is committed.
+    """
+    rec = append_statevector_record(
+        statevector_id=statevector_id,
+        statevector_payload=payload,
+        thought_hashes=thought_hashes,
+        signer=signer,
+    )
+    return rec
+
+On Application Boot
+from statevector import verify_ledger
+from statevector.signer import KernelSigner
+
+signer = KernelSigner.load_or_create()
+
+print("Verifying StateVector ledger integrity...")
+if not verify_ledger(signer):
+    raise RuntimeError("CRITICAL ERROR: StateVector ledger failed verification. System shutdown required.")
+
+print("Ledger integrity verified. Proceeding with boot.")
+
+Would you like me to elaborate on the ThoughtObject distillation module or the use of Merkle trees in this context?
