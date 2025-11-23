@@ -1,0 +1,275 @@
+---
+
+## 3. `vde/whitepapers/Vibrational_Director_Engine_v1.0.md`
+
+```markdown
+# Vibrational Director Engine v1.0  
+*A PantheonOS Framework for Narrative, Musical, and Geometric Scene Pacing*
+
+**Author:** PantheonOS Research Group  
+**Version:** 1.0  
+**Date:** 2025-11-23  
+**Keywords:** vibrational directing, narrative pacing, waveform storytelling, emotional arcs, scene beats, PantheonOS
+
+---
+
+## 0. Abstract
+
+The **Vibrational Director Engine (VDE)** is a conceptual and computational
+framework for **designing scene pacing as a vibrational system**:
+
+- **Story beats** are discrete samples of a narrative waveform.  
+- **Tension and emotion** are modeled as amplitudes and envelopes.  
+- **Camera motion, color, and music** function as harmonic layers.  
+
+VDE does not generate media; it generates **structural timelines** that guide
+writers, directors, and designers in aligning **geometry, music theory, and
+narrative arcs**.
+
+This paper defines:
+
+- the **mathematical structure** of VDE  
+- the **Beat / Track / ScenePlan** constructs  
+- the mapping from **hero’s journey / three-act arcs** to envelopes  
+- integration with **PantheonOS components** (Mythic Encoding, Gravity Well, etc.)  
+
+---
+
+## 1. Motivation
+
+Traditional directing often relies on intuition for pacing:
+
+- “Hold this shot longer.”  
+- “Cut faster here.”  
+- “Build the tension then release.”  
+
+VDE aims to **externalize that intuition** by:
+
+- treating emotional arcs as **waveforms**,  
+- expressing beats as **discrete samples**,  
+- allowing designers to **see and tweak** pacing as a structured object.
+
+This allows:
+
+- reproducibility,  
+- collaborative communication,  
+- cross-modal alignment (music ↔ camera ↔ story).
+
+---
+
+## 2. Core Entities
+
+### 2.1 Beat
+
+A **Beat** is a discrete temporal unit with attributes:
+
+- `time_offset` (seconds from scene start)  
+- `duration`  
+- `energy` (0.0 – 1.0)  
+- `emotional_tone` (e.g., *dread*, *hope*, *relief*)  
+- `color_tag` (e.g., *blue*, *red*, *desaturated*)  
+- `camera_motion` (e.g., *static*, *push-in*, *whip-pan*)  
+- `music_mode` (e.g., *minor*, *major*, *sparse*)  
+
+### 2.2 Track
+
+A **Track** is a continuous signal across time, sampled as beats. Examples:
+
+- `tension_track`  
+- `hope_track`  
+- `danger_track`  
+- `motion_track`  
+
+Tracks can be treated as **functions**:
+
+\[
+T(t) \in [0, 1]
+\]
+
+### 2.3 ScenePlan
+
+A **ScenePlan** is a collection:
+
+- `title`, `logline`, `vibe`  
+- ordered list of Beats  
+- derived tracks (optionally visualizable)
+
+---
+
+## 3. Mathematical Structure
+
+We model a scene as:
+
+\[
+S(t) = \sum_{k} w_k \cdot f_k(t)
+\]
+
+Where:
+
+- \( f_k(t) \) are component waves (tension, hope, danger, etc.)  
+- \( w_k \) are their weights  
+
+### 3.1 Envelope: Three-Act Arc
+
+For many scenes, we use a simple envelope:
+
+1. **Act I (Setup)**: 0 → 0.4 of duration  
+   - energy rises slowly  
+2. **Act II (Confrontation)**: 0.4 → 0.8  
+   - energy peaks, oscillates  
+3. **Act III (Resolution)**: 0.8 → 1.0  
+   - energy decays or flips (triumph / tragedy)
+
+Mathematically, one simple envelope:
+
+\[
+E(t) =
+\begin{cases}
+\frac{t}{0.4}, & 0 \le t < 0.4 \\
+1.0, & 0.4 \le t < 0.8 \\
+1 - \frac{t - 0.8}{0.2}, & 0.8 \le t \le 1.0
+\end{cases}
+\]
+
+Where \( t \) is normalized time in \([0,1]\).
+
+### 3.2 Beat Sampling
+
+Given scene duration \( D \) and beats per minute (BPM):
+
+- beat interval:  
+\[
+\Delta t = \frac{60}{\text{BPM}}
+\]
+
+- sample times:  
+\[
+t_i = i \cdot \Delta t, \quad i = 0,1,\dots
+\]
+
+For each \( t_i \), we compute:
+
+- normalized \( \tau_i = t_i / D \)  
+- base energy \( E(\tau_i) \)  
+- small perturbations based on vibe parameters  
+
+---
+
+## 4. Mapping Narrative → Vibration
+
+### 4.1 Hero’s Journey Mapping
+
+Stages like:
+
+- Call to Adventure  
+- Refusal  
+- Crossing Threshold  
+- Ordeal  
+- Reward  
+- Return  
+
+can be mapped to energy landmarks—local maxima and minima in the energy curve.
+
+### 4.2 Music Theory Analogy
+
+- **Minor modes** ↔ tension, unresolved feelings  
+- **Major modes** ↔ resolution, triumph  
+- **Rhythmic density** ↔ cut frequency / camera movement  
+- **Syncopation** ↔ unexpected beats, jump cuts  
+
+VDE does not implement full music theory, but it uses these analogies as
+parameter hints (e.g., “more staccato” → shorter beats, higher energy spikes).
+
+### 4.3 Geometry & Camera
+
+- **Push-in** = increasing energy / narrowing focus  
+- **Pull-back** = contextualizing energy / revealing world  
+- **Static shot** = plateau or deliberate stillness  
+- **Whip-pan** = sharp transient spike  
+
+These map to changes in the derivative of the energy curve.
+
+---
+
+## 5. Implementation Overview
+
+The reference implementation (`vde_engine.py`) includes:
+
+- `VDEConfig` – timing & arc parameters  
+- `Beat` – dataclass representing a single beat  
+- `ScenePlan` – complete plan  
+- `VibrationalDirectorEngine` – main generator  
+
+Steps:
+
+1. Normalize time.  
+2. Build an energy envelope (three-act or other).  
+3. Apply vibe modifiers (e.g., “slow-burn”, “frantic”).  
+4. Assign:
+
+   - emotional tones  
+   - camera motions  
+   - color tags  
+   - music modes  
+
+5. Return the `ScenePlan` as a list of beats.
+
+---
+
+## 6. PantheonOS Integration
+
+VDE connects to:
+
+- **Mythic Encoding**  
+  - hero’s journey arcs as canonical patterns  
+- **Gravity Well Effect**  
+  - certain beats become “massive” anchor points  
+- **Hogge Creativity Dice**  
+  - used to introduce controlled variation in beat attributes  
+- **Oracle Weave**  
+  - can be used to reason about structural options for a scene  
+- **Memetic Evolution Engine**  
+  - evolve multiple scene variants and compare pacing profiles  
+
+This positions VDE as the **cinematic / temporal wing** of PantheonOS.
+
+---
+
+## 7. Safety Considerations
+
+- VDE is **not** a psychometric or manipulation tool.  
+- It generates **timelines for fictional or creative work**.  
+- It is transparent: every output is a visible beat list, not a black box.  
+- It adheres to PantheonOS ethics (Arctic Framework ≥ 0.7).
+
+---
+
+## 8. Use Cases
+
+- Planning a short film sequence  
+- Designing the pacing of a trailer  
+- Structuring a game cutscene  
+- Finding the emotional curve of a key argument in a talk  
+- Teaching narrative pacing and rhythm to students
+
+---
+
+## 9. Conclusion
+
+The **Vibrational Director Engine** reframes directing as **vibration design**:
+
+- energy as amplitude,  
+- emotion as frequency & tone,  
+- camera & color as harmonics,  
+- scenes as waveforms.
+
+This unlocks a more **conscious, tunable, and sharable** way to design experiences.
+
+---
+
+## Recommended Citation
+
+```text
+PantheonOS Research Group. (2025).
+Vibrational Director Engine v1.0.
+Pantheon-Prime Repository, Whitepapers.
