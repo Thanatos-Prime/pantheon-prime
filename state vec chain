@@ -1,0 +1,203 @@
+# src/statevector/chain.py
+from __future__ import annotations
+
+import json
+from dataclasses import asdict
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+from .record import StateVectorRecord
+from .merkle import sha3_512_hex, compute_merkle_root
+from .signer import KernelSigner
+
+LEDGER_PATH = Path("statevector/ledger.jsonl")
+
+
+class LedgerCorruptionError(Exception):
+    pass
+
+
+def _load_last_record() -> Optional[StateVectorRecord]:
+    if not LEDGER_PATH.exists():
+        return None
+    with LEDGER_PATH.open("rb") as f:
+        lines = f.readlines()
+    if not lines:
+        return None
+    data = json.loads(lines[-1])
+    return StateVectorRecord.from_dict(data)
+
+
+def _iter_records() -> List[StateVectorRecord]:
+    if not LEDGER_PATH.exists():
+        return []
+    records: List[StateVectorRecord] = []
+    with LEDGER_PATH.open("r", encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            records.append(StateVectorRecord.from_dict(data))
+    return records
+
+
+def append_statevector_record(
+    statevector_id: str,
+    statevector_payload: Dict,
+    thought_hashes: List[str],
+    signer: KernelSigner,
+) -> StateVectorRecord:
+    """
+    Append a new StateVectorRecord to the ledger.
+
+    - statevector_payload: canonical dict representing StateVector
+    - thought_hashes: list of hex hashes of ThoughtObjects in this StateVector
+    """
+
+    LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    last = _load_last_record()
+    if last is None:
+        prev_hash = "0" * 128  # 512 bits in hex
+        index = 0
+    else:
+        prev_hash = last.content_hash
+        index = last.index + 1
+
+    content_bytes = json.dumps(statevector_payload, sort_keys=True).encode("utf-8")
+    content_hash = sha3_512_hex(content_bytes)
+    merkle_root = compute_merkle_root(thought_hashes)
+
+    sign_bytes = (merkle_root + content_hash + prev_hash).encode("utf-8")
+    signature = signer.sign(sign_bytes).hex()
+
+    rec = StateVectorRecord(
+        index=index,
+        timestamp=datetime.utcnow().isoformat() + "Z",
+        statevector_id=statevector_id,
+        prev_hash=prev_hash,
+        merkle_root=merkle_root,
+        content_hash=content_hash,
+        signature=signature,
+        public_key_id=signer.key_id,
+    )
+
+    with LEDGER_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(rec.to_dict()) + "\n")
+
+    return rec
+
+
+def verify_ledger(signer: KernelSigner, raise_on_error: bool = False) -> bool:
+    """
+    Verify the entire ledger.
+
+    Checks:
+    - index sequence
+    - prev_hash chain
+    - signature validity
+    (Note: does NOT recompute merkle roots from ThoughtObjects here.)
+    """
+    records = _iter_records()
+    if not records:
+        return True
+
+    prev_content_hash: Optional[str] = None
+
+    for expected_index, rec in enumerate(records):
+        if rec.index != expected_index:
+            if raise_on_error:
+                raise LedgerCorruptionError(f"Index mismatch at {rec.index}")
+            return False
+
+        if expected_index == 0:
+            if rec.prev_hash != "0" * 128:
+                if raise_on_error:
+                    raise LedgerCorruptionError("Invalid genesis prev_hash")
+                return False
+        else:
+            if rec.prev_hash != prev_content_hash:
+                if raise_on_error:
+                    raise LedgerCorruptionError(
+                        f"prev_hash mismatch at index {rec.index}"
+                    )
+                return False
+
+        sign_bytes = (rec.merkle_root + rec.content_hash + rec.prev_hash).encode(
+            "utf-8"
+        )
+        try:
+            signer.verify(bytes.fromhex(rec.signature), sign_bytes)
+        except Exception as e:  # noqa: BLE001
+            if raise_on_error:
+                raise LedgerCorruptionError(
+                    f"Signature verification failed at index {rec.index}"
+                ) from e
+            return False
+
+        prev_content_hash = rec.content_hash
+
+    return True
+
+
+def get_continuity_proof_for_index(
+    index: int,
+) -> Optional[Dict]:
+    """
+    Return continuity proof for a given StateVector index.
+    """
+    records = _iter_records()
+    if index < 0 or index >= len(records):
+        return None
+
+    rec = records[index]
+    head = records[-1]
+
+    return {
+        "statevector_index": rec.index,
+        "statevector_id": rec.statevector_id,
+        "merkle_root": rec.merkle_root,
+        "content_hash": rec.content_hash,
+        "prev_hash": rec.prev_hash,
+        "signature": rec.signature,
+        "public_key_id": rec.public_key_id,
+        "chain_head": head.content_hash,
+    }
+
+
+def get_continuity_proof_for_timestamp(timestamp: str) -> Optional[Dict]:
+    """
+    Return continuity proof for the latest StateVector at or before `timestamp`.
+    `timestamp` should be ISO8601 UTC string.
+    """
+    from datetime import datetime
+
+    target = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    records = _iter_records()
+    if not records:
+        return None
+
+    chosen: Optional[StateVectorRecord] = None
+
+    for rec in records:
+        rec_ts = datetime.fromisoformat(rec.timestamp.replace("Z", "+00:00"))
+        if rec_ts <= target:
+            chosen = rec
+        else:
+            break
+
+    if chosen is None:
+        return None
+
+    head = records[-1]
+    return {
+        "statevector_index": chosen.index,
+        "statevector_id": chosen.statevector_id,
+        "merkle_root": chosen.merkle_root,
+        "content_hash": chosen.content_hash,
+        "prev_hash": chosen.prev_hash,
+        "signature": chosen.signature,
+        "public_key_id": chosen.public_key_id,
+        "chain_head": head.content_hash,
+    }
