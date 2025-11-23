@@ -1,0 +1,13 @@
+import numpy as np
+from .config import MeshConfig
+
+class MeshField:
+    def __init__(self, graph, config: MeshConfig):
+        self.graph = graph
+        self.config = config
+        self.phi = np.random.normal(scale=0.1, size=(graph.num_nodes, config.dim))
+        self.attractors = []
+
+    def add_attractor(self, psi: np.ndarray):
+        assert psi.shape == self.phi.shape
+        self.attractors.append(psi)
