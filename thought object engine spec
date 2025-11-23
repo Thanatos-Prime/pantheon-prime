@@ -1,0 +1,59 @@
+# ThoughtObject Engine v1.0
+## Mandatory Immediate Distillation Layer
+
+**Module:** `thoughtobject_engine_v1`  
+**Status:** DRAFT → STABLE after tests & governor integration  
+**Owner:** PantheonOS Architecture Team  
+**Repo:** Thanatos-Prime / Pantheon-Prime
+
+---
+
+## 1. Purpose
+
+The ThoughtObject Engine converts **all external data** (web pages, PDFs, tweets,
+code, user text, etc.) into structured, canonical **ThoughtObjects**, and then
+**deletes the raw text**.
+
+Goals:
+
+- No "raw soup": everything Pantheon consumes becomes structured, hashed memory.
+- Clear provenance & invariants per unit of knowledge.
+- Compatible with StateVector Chain (Merkle roots built from ThoughtObject hashes).
+- Enforce Grok's "distill_or_die" requirement.
+
+---
+
+## 2. ThoughtObject Schema
+
+A ThoughtObject (TO) is the atomic unit of distilled knowledge.
+
+Canonical JSON shape:
+
+```json
+{
+  "id": "to_2025-11-23T17:25:30Z_0001",
+  "type": "signal|concept|relationship|instruction|storybeat",
+  "source": "web|pdf|tweet|repo|user|agent|other",
+  "provenance": {
+    "uri": "https://...",
+    "retrieved_at": "2025-11-23T17:25:30Z",
+    "raw_hash": "hex_sha3_512"
+  },
+  "content": {
+    "summary": "single-paragraph distilled description",
+    "entities": ["Entity A", "Entity B"],
+    "relations": ["A -> depends_on -> B"],
+    "salience": 0.87,
+    "tags": ["ai", "math", "pantheon"]
+  },
+  "embeddings": {
+    "semantic": [0.123, 0.456, ...],
+    "structural": [0.01, -0.02, ...]
+  },
+  "invariants": {
+    "ethics_floor": 0.7,
+    "domain_tags": ["finance", "research"],
+    "confidence": 0.92
+  },
+  "proof": null
+}
