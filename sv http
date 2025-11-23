@@ -1,0 +1,31 @@
+# src/statevector/api.py
+from fastapi import APIRouter, HTTPException, Query
+
+from .chain import (
+    get_continuity_proof_for_index,
+    get_continuity_proof_for_timestamp,
+)
+
+router = APIRouter(prefix="/api/v1", tags=["continuity"])
+
+
+@router.get("/continuity_proof")
+def continuity_proof(
+    index: int | None = Query(default=None),
+    timestamp: str | None = Query(default=None),
+):
+    if index is None and timestamp is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either index or timestamp",
+        )
+
+    if index is not None:
+        proof = get_continuity_proof_for_index(index)
+    else:
+        proof = get_continuity_proof_for_timestamp(timestamp)  # type: ignore[arg-type]
+
+    if proof is None:
+        raise HTTPException(status_code=404, detail="No matching StateVector found")
+
+    return proof
