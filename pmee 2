@@ -1,0 +1,299 @@
+---
+
+## 4. `memetics/memetic_engine.py`
+
+```python
+"""
+memetic_engine.py
+
+Pantheon Memetic Evolution Engine (PMEE) v1.0
+
+A safe, sandboxed evolutionary engine for abstract ideas ("memes").
+
+- No external data or user graphs.
+- No predictive or manipulative targeting.
+- Intended for research, simulation, and creative exploration.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import List, Callable, Dict, Any, Optional
+import random
+import math
+import copy
+
+
+# ========= DATA CLASSES =========
+
+
+@dataclass
+class MemeUnit:
+    text: str
+    fitness: float = 0.0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def clone(self) -> "MemeUnit":
+        return MemeUnit(
+            text=self.text,
+            fitness=self.fitness,
+            metadata=copy.deepcopy(self.metadata),
+        )
+
+
+@dataclass
+class MemePopulation:
+    units: List[MemeUnit]
+
+    def __len__(self) -> int:
+        return len(self.units)
+
+    def __iter__(self):
+        return iter(self.units)
+
+    def top_k(self, k: int) -> List[MemeUnit]:
+        return sorted(self.units, key=lambda m: m.fitness, reverse=True)[:k]
+
+    def copy(self) -> "MemePopulation":
+        return MemePopulation([u.clone() for u in self.units])
+
+
+@dataclass
+class MemeticConfig:
+    population_size: int = 20
+    generations: int = 10
+    mutation_rate: float = 0.3  # 0..1
+    crossover_rate: float = 0.2 # 0..1
+    max_text_length: int = 280
+
+    # Hooks
+    fitness_fn: Optional[Callable[[MemeUnit, MemePopulation], float]] = None
+    mutation_fn: Optional[Callable[[MemeUnit], MemeUnit]] = None
+    crossover_fn: Optional[Callable[[MemeUnit, MemeUnit], MemeUnit]] = None
+
+    seed: Optional[int] = None
+    enable_debug: bool = False
+
+
+@dataclass
+class PopulationSnapshot:
+    generation: int
+    population: MemePopulation
+
+    def top_k(self, k: int) -> List[MemeUnit]:
+        return self.population.top_k(k)
+
+
+# ========= DEFAULT FUNCTIONS =========
+
+
+def default_fitness(meme: MemeUnit, population: MemePopulation) -> float:
+    """
+    Simple heuristic fitness:
+    - Reward medium length (not too short, not too long).
+    - Reward presence of certain Pantheon-ish tokens.
+    - Slight novelty bonus for uniqueness.
+    """
+    text = meme.text.strip()
+    length = len(text)
+
+    if length == 0:
+        return 0.0
+
+    # Length-based score (prefer mid-range)
+    target_len = 120
+    len_score = math.exp(-((length - target_len) ** 2) / (2 * (target_len ** 2)))
+
+    # Token score
+    tokens = text.lower().split()
+    pantheon_tokens = ["pantheon", "oracle", "sieve", "fractal", "wave", "prime", "luck"]
+    token_score = sum(1 for t in tokens if t in pantheon_tokens) / max(1, len(tokens))
+
+    # Novelty bonus: count how many memes share nearly identical text
+    similar = sum(1 for u in population if u.text.strip().lower() == text.lower())
+    novelty_score = 1.0 / similar if similar > 0 else 0.0
+
+    # Combine
+    score = 0.5 * len_score + 0.3 * token_score + 0.2 * novelty_score
+    return float(score)
+
+
+def default_mutation(meme: MemeUnit) -> MemeUnit:
+    """
+    Very lightweight text mutation:
+    - Occasionally append or prepend small modifiers.
+    - Truncate if too long.
+    This is intentionally simple and transparent.
+    """
+    text = meme.text.strip()
+    modifiers_prefix = ["Emergent", "Symbolic", "Fractal", "Mythic", "Evolutionary"]
+    modifiers_suffix = ["engine", "protocol", "framework", "kernel", "layer"]
+
+    # Decide mutation mode
+    r = random.random()
+    if r < 0.33:
+        # prepend
+        mod = random.choice(modifiers_prefix)
+        new_text = f"{mod} {text}"
+    elif r < 0.66:
+        # append
+        mod = random.choice(modifiers_suffix)
+        new_text = f"{text} {mod}"
+    else:
+        # small noop-ish mutation (space, punctuation)
+        new_text = text + "."
+
+    # Truncate if too long
+    new_text = new_text[: meme.metadata.get("max_text_length", 280)]
+    mutated = meme.clone()
+    mutated.text = new_text
+    return mutated
+
+
+def default_crossover(a: MemeUnit, b: MemeUnit) -> MemeUnit:
+    """
+    Simple crossover:
+    - Take prefix from A, suffix from B around a random split point.
+    """
+    a_text = a.text.strip()
+    b_text = b.text.strip()
+
+    if not a_text or not b_text:
+        # Fallback: clone A
+        return a.clone()
+
+    a_words = a_text.split()
+    b_words = b_text.split()
+
+    # Choose split points
+    split_a = random.randint(1, max(1, len(a_words) - 1))
+    split_b = random.randint(1, max(1, len(b_words) - 1))
+
+    new_words = a_words[:split_a] + b_words[split_b:]
+    new_text = " ".join(new_words)
+
+    child = MemeUnit(text=new_text)
+    return child
+
+
+# ========= ENGINE =========
+
+
+class MemeticEngine:
+    """
+    Main engine for the Pantheon Memetic Evolution framework.
+
+    Usage:
+        config = MemeticConfig(...)
+        engine = MemeticEngine(config)
+        history = engine.run(initial_population)
+    """
+
+    def __init__(self, config: MemeticConfig):
+        self.config = config
+        if config.seed is not None:
+            random.seed(config.seed)
+
+    def run(self, initial_population: MemePopulation) -> List[PopulationSnapshot]:
+        """
+        Runs the evolution process for the configured number of generations.
+        Returns a list of snapshots for analysis.
+        """
+        history: List[PopulationSnapshot] = []
+        population = self._initialize_population(initial_population)
+
+        for g in range(self.config.generations + 1):
+            # Evaluate
+            self._evaluate(population)
+            snapshot = PopulationSnapshot(generation=g, population=population.copy())
+            history.append(snapshot)
+
+            if self.config.enable_debug:
+                best = snapshot.top_k(1)[0]
+                print(f"[Generation {g}] Best fitness={best.fitness:.4f} | {best.text}")
+
+            if g == self.config.generations:
+                break
+
+            # Reproduce
+            population = self._next_generation(population)
+
+        return history
+
+    # ----- Internal methods -----
+
+    def _initialize_population(self, initial: MemePopulation) -> MemePopulation:
+        """
+        Expand or trim initial memes to match configured population size.
+        """
+        units: List[MemeUnit] = []
+
+        # Ensure each meme knows the max length context
+        for u in initial:
+            u.metadata.setdefault("max_text_length", self.config.max_text_length)
+            units.append(u.clone())
+
+        # Expand if too small
+        while len(units) < self.config.population_size:
+            template = random.choice(units)
+            units.append(template.clone())
+
+        # Trim if too large
+        if len(units) > self.config.population_size:
+            units = units[: self.config.population_size]
+
+        return MemePopulation(units=units)
+
+    def _evaluate(self, population: MemePopulation) -> None:
+        """
+        Evaluate and assign fitness to each meme.
+        """
+        fit_fn = self.config.fitness_fn or default_fitness
+        for meme in population.units:
+            meme.fitness = fit_fn(meme, population)
+
+    def _next_generation(self, population: MemePopulation) -> MemePopulation:
+        """
+        Create a new generation by selecting, crossing, and mutating memes.
+        """
+        new_units: List[MemeUnit] = []
+
+        while len(new_units) < self.config.population_size:
+            # Selection
+            parent_a = self._select(population)
+            parent_b = self._select(population)
+
+            # Crossover
+            child = parent_a.clone()
+            if random.random() < self.config.crossover_rate:
+                cross_fn = self.config.crossover_fn or default_crossover
+                child = cross_fn(parent_a, parent_b)
+
+            # Mutation
+            if random.random() < self.config.mutation_rate:
+                mut_fn = self.config.mutation_fn or default_mutation
+                child = mut_fn(child)
+
+            # Enforce metadata constraints
+            child.metadata.setdefault("max_text_length", self.config.max_text_length)
+            child.text = child.text[: self.config.max_text_length]
+
+            new_units.append(child)
+
+        return MemePopulation(units=new_units)
+
+    def _select(self, population: MemePopulation) -> MemeUnit:
+        """
+        Fitness-proportionate selection (roulette wheel).
+        """
+        total_fitness = sum(max(0.0, u.fitness) for u in population.units)
+        if total_fitness == 0:
+            return random.choice(population.units).clone()
+
+        r = random.uniform(0.0, total_fitness)
+        cum = 0.0
+        for u in population.units:
+            cum += max(0.0, u.fitness)
+            if r <= cum:
+                return u.clone()
+        return population.units[-1].clone()
