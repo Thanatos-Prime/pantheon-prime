@@ -1,0 +1,335 @@
+---
+
+## 4. `vde/vde_engine.py`
+
+```python
+"""
+vde_engine.py
+
+Vibrational Director Engine (VDE) v1.0
+
+A creative previsualization engine for scene pacing, emotional arcs,
+and vibrational structure. Generates structured "beats" across time.
+
+- No media generation.
+- No real-time user targeting.
+- Designed for writers, directors, and designers as a planning tool.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict, Any
+import math
+import random
+
+
+# ========= DATA CLASSES =========
+
+
+@dataclass
+class Beat:
+    """
+    A single scene beat.
+
+    Attributes:
+        time_offset: seconds from scene start.
+        duration: length of beat in seconds.
+        energy: normalized [0,1] intensity.
+        emotional_tone: brief label of emotional flavor.
+        color_tag: visual color vibe.
+        camera_motion: camera movement hint.
+        music_mode: high-level musical mood / mode.
+        metadata: optional extra attributes.
+    """
+    time_offset: float
+    duration: float
+    energy: float
+    emotional_tone: str
+    color_tag: str
+    camera_motion: str
+    music_mode: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ScenePlan:
+    """
+    Structured scene pacing plan.
+    """
+    title: str
+    logline: str
+    vibe: str
+    duration_seconds: float
+    beats: List[Beat]
+
+
+@dataclass
+class VDEConfig:
+    """
+    Configuration for the Vibrational Director Engine.
+    """
+    duration_seconds: float = 120.0
+    beats_per_minute: float = 96.0
+    arc_mode: str = "three_act"  # could be 'three_act', 'linear', etc.
+    seed: Optional[int] = None
+    enable_debug: bool = False
+
+    # Tuning parameters
+    base_energy: float = 0.6
+    vibe_intensity: float = 0.25  # amplitude of vibe modulation [0..1]
+
+
+# ========= ENGINE =========
+
+
+class VibrationalDirectorEngine:
+    """
+    Main Vibrational Director Engine.
+
+    Usage:
+        config = VDEConfig(...)
+        engine = VibrationalDirectorEngine(config)
+        plan = engine.generate_scene_plan("Title", "Logline", "vibe description")
+    """
+
+    def __init__(self, config: VDEConfig):
+        self.config = config
+        if config.seed is not None:
+            random.seed(config.seed)
+
+    # ----- Public API -----
+
+    def generate_scene_plan(
+        self,
+        title: str,
+        logline: str,
+        vibe: str,
+    ) -> ScenePlan:
+        """
+        Generate a scene plan given a title, logline, and vibe description.
+        """
+        beats = self._generate_beats(vibe=vibe)
+        return ScenePlan(
+            title=title,
+            logline=logline,
+            vibe=vibe,
+            duration_seconds=self.config.duration_seconds,
+            beats=beats,
+        )
+
+    # ----- Internal Methods -----
+
+    def _generate_beats(self, vibe: str) -> List[Beat]:
+        """
+        Build a beat timeline using a simple envelope + vibe modulation.
+        """
+        cfg = self.config
+        dt = 60.0 / cfg.beats_per_minute
+        n_beats = int(max(1, math.floor(cfg.duration_seconds / dt)))
+
+        beats: List[Beat] = []
+
+        for i in range(n_beats):
+            t = i * dt
+            tau = min(1.0, t / max(cfg.duration_seconds, 1e-6))  # normalized time
+
+            base_energy = self._envelope_energy(tau)
+            vibe_mod = self._vibe_modulation(tau, vibe)
+            noise = (random.random() - 0.5) * 0.1  # small jitter
+
+            energy = max(0.0, min(1.0, cfg.base_energy * base_energy + cfg.vibe_intensity * vibe_mod + noise))
+
+            emotional_tone = self._choose_emotional_tone(energy, tau, vibe)
+            color_tag = self._choose_color_tag(energy, emotional_tone)
+            camera_motion = self._choose_camera_motion(energy, tau, vibe)
+            music_mode = self._choose_music_mode(energy, tau, vibe)
+
+            beat = Beat(
+                time_offset=round(t, 3),
+                duration=dt,
+                energy=energy,
+                emotional_tone=emotional_tone,
+                color_tag=color_tag,
+                camera_motion=camera_motion,
+                music_mode=music_mode,
+                metadata={
+                    "normalized_time": tau,
+                    "index": i,
+                }
+            )
+            beats.append(beat)
+
+            if cfg.enable_debug and i < 5:
+                print(
+                    f"[Beat {i:03d}] t={t:6.2f}s tau={tau:.2f} energy={energy:.3f} tone={emotional_tone} cam={camera_motion}"
+                )
+
+        return beats
+
+    def _envelope_energy(self, tau: float) -> float:
+        """
+        Base envelope as a function of normalized time tau in [0,1].
+        Currently implements a three-act shaped curve.
+        """
+        mode = self.config.arc_mode.lower()
+        if mode == "three_act":
+            if tau < 0.4:
+                # rising
+                return tau / 0.4
+            elif tau < 0.8:
+                # sustained high
+                return 1.0
+            else:
+                # decay
+                return max(0.0, 1.0 - (tau - 0.8) / 0.2)
+        elif mode == "linear":
+            return tau
+        else:
+            # fallback: gentle bump
+            return math.sin(math.pi * tau)
+
+    def _vibe_modulation(self, tau: float, vibe: str) -> float:
+        """
+        Very simple vibe-based modulation.
+        We interpret certain keywords to shape a secondary waveform.
+        """
+        v = vibe.lower()
+
+        # Default: gentle undulation
+        mod = math.sin(2 * math.pi * tau)
+
+        if "slow-burn" in v:
+            # slower ramp, spike near end
+            mod = tau ** 2
+        elif "frantic" in v or "chaotic" in v:
+            mod = math.sin(6 * math.pi * tau)
+        elif "heroic" in v or "triumph" in v:
+            mod = (tau - 0.3) ** 3 + 0.2
+        elif "dread" in v or "horror" in v:
+            mod = -abs(math.sin(3 * math.pi * tau))
+        elif "melancholy" in v or "sad" in v:
+            mod = -tau
+        elif "playful" in v or "comic" in v:
+            mod = 0.5 * math.sin(4 * math.pi * tau)
+
+        return float(mod)
+
+    def _choose_emotional_tone(self, energy: float, tau: float, vibe: str) -> str:
+        """
+        Map energy + position + vibe to a qualitative emotional tone.
+        """
+        v = vibe.lower()
+        if "dread" in v or "horror" in v:
+            if energy < 0.3:
+                return "unease"
+            elif energy < 0.7:
+                return "rising dread"
+            else:
+                return "shock"
+        if "heroic" in v or "triumph" in v:
+            if tau < 0.3:
+                return "anticipation"
+            elif tau < 0.7:
+                return "struggle"
+            else:
+                return "victory"
+        if "melancholy" in v or "sad" in v:
+            if tau < 0.5:
+                return "wistful"
+            else:
+                return "resigned"
+        if "playful" in v or "comic" in v:
+            if energy < 0.4:
+                return "setup"
+            elif energy < 0.8:
+                return "mischief"
+            else:
+                return "punchline"
+
+        # generic mapping
+        if energy < 0.25:
+            return "calm"
+        elif energy < 0.5:
+            return "tension"
+        elif energy < 0.75:
+            return "heightened"
+        else:
+            return "crescendo"
+
+    def _choose_color_tag(self, energy: float, emotional_tone: str) -> str:
+        """
+        Simplified color mapping based on energy and tone.
+        """
+        tone = emotional_tone.lower()
+        if any(k in tone for k in ["dread", "shock", "horror"]):
+            return "cold_blue"
+        if any(k in tone for k in ["victory", "triumph", "punchline"]):
+            return "warm_gold"
+        if any(k in tone for k in ["wistful", "melancholy", "resigned"]):
+            return "desaturated_teal"
+        if "mischief" in tone:
+            return "neon_accent"
+
+        if energy < 0.3:
+            return "neutral"
+        elif energy < 0.7:
+            return "muted_color"
+        else:
+            return "high_contrast"
+
+    def _choose_camera_motion(self, energy: float, tau: float, vibe: str) -> str:
+        """
+        Choose a camera motion hint based on energy, position, and vibe.
+        """
+        v = vibe.lower()
+
+        if energy < 0.2:
+            return "static"
+        if "frantic" in v or "chaotic" in v:
+            if energy > 0.7:
+                return "handheld_whip"
+            else:
+                return "restless_handheld"
+        if "heroic" in v or "triumph" in v:
+            if tau > 0.7 and energy > 0.6:
+                return "slow_push_in"
+            else:
+                return "dramatic_dolly"
+        if "slow-burn" in v:
+            if tau < 0.5:
+                return "locked_off"
+            else:
+                return "gradual_push_in"
+
+        # generic
+        if energy < 0.4:
+            return "static"
+        elif energy < 0.7:
+            return "subtle_move"
+        else:
+            return "aggressive_move"
+
+    def _choose_music_mode(self, energy: float, tau: float, vibe: str) -> str:
+        """
+        Choose a high-level musical mode / texture suggestion.
+        """
+        v = vibe.lower()
+        if "dread" in v or "horror" in v:
+            return "sparse_minor" if energy < 0.6 else "clustered_dissonance"
+        if "heroic" in v or "triumph" in v:
+            return "minor_to_major" if tau > 0.6 else "driving_minor"
+        if "melancholy" in v or "sad" in v:
+            return "slow_minor"
+        if "playful" in v or "comic" in v:
+            return "light_major" if energy < 0.7 else "staccato_major"
+
+        # generic
+        if energy < 0.3:
+            return "ambient"
+        elif energy < 0.6:
+            return "understated_minor"
+        elif energy < 0.8:
+            return "driving_rhythm"
+        else:
+            return "full_orchestral"
