@@ -1,0 +1,105 @@
+# src/thoughtobject/distiller.py
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, Iterable, List, Protocol
+
+from .model import (
+    ThoughtObject,
+    ThoughtProvenance,
+    ThoughtContent,
+    ThoughtEmbeddings,
+    ThoughtInvariants,
+)
+
+
+class LLMClient(Protocol):
+    """
+    Very simple protocol for an LLM client used for distillation.
+
+    You can adapt this to your actual client. The only assumption is
+    a .complete(...) method that returns structured data.
+    """
+
+    def complete(self, prompt: str, **kwargs: Any) -> Dict[str, Any]:
+        ...
+
+
+@dataclass
+class DistillationInput:
+    """
+    Represents a unit of external data to be distilled.
+    """
+
+    uri: str
+    raw_text: str
+    source_type: str  # "web|pdf|tweet|repo|user|agent|other"
+    retrieved_at: str | None = None
+    raw_hash: str | None = None
+
+
+class ThoughtObjectDistiller:
+    """
+    High-level distiller that uses an LLM to convert raw text into ThoughtObjects.
+    """
+
+    def __init__(self, llm_client: LLMClient):
+        self.llm_client = llm_client
+
+    def distill(self, item: DistillationInput) -> List[ThoughtObject]:
+        """
+        Convert raw text into a list of ThoughtObjects.
+        This is intentionally left as a stub; you plug in your prompt + parsing.
+        """
+
+        # Example prompt; adapt to PantheonOS-specific schema.
+        prompt = (
+            "You are a distillation engine. Read the following text and produce "
+            "a JSON list of distilled 'thoughts', where each item has fields:\n"
+            "summary (string), entities (list of strings), relations (list of strings), "
+            "salience (0-1 float), tags (list of strings).\n\n"
+            f"URI: {item.uri}\n"
+            f"SourceType: {item.source_type}\n"
+            f"Text:\n{item.raw_text}\n"
+        )
+
+        # This should return something like:
+        # {"thoughts": [{"summary": "...", "entities": [...], ...}, ...]}
+        response = self.llm_client.complete(prompt)
+        thoughts_raw = response.get("thoughts", [])
+
+        retrieved_at = item.retrieved_at or datetime.utcnow().isoformat() + "Z"
+
+        results: List[ThoughtObject] = []
+        for idx, tr in enumerate(thoughts_raw):
+            prov = ThoughtProvenance(
+                uri=item.uri,
+                retrieved_at=retrieved_at,
+                raw_hash=item.raw_hash or "",
+            )
+            cont = ThoughtContent(
+                summary=tr.get("summary", "").strip(),
+                entities=tr.get("entities", []),
+                relations=tr.get("relations", []),
+                salience=float(tr.get("salience", 0.0)),
+                tags=tr.get("tags", []),
+            )
+            emb = ThoughtEmbeddings()  # can be filled later by embedding daemon
+            inv = ThoughtInvariants(
+                ethics_floor=float(tr.get("ethics_floor", 0.7)),
+                domain_tags=tr.get("domain_tags", []),
+                confidence=float(tr.get("confidence", 1.0)),
+            )
+            tobj = ThoughtObject(
+                id=ThoughtObject.new_id(),
+                type=tr.get("type", "concept"),
+                source=item.source_type,
+                provenance=prov,
+                content=cont,
+                embeddings=emb,
+                invariants=inv,
+            )
+            results.append(tobj)
+
+        return results
