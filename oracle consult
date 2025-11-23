@@ -1,0 +1,53 @@
+"""
+Example: Run a basic Oracle of Delphi consultation.
+
+Assumes the repo structure:
+- oracle/oracle_delphi.py
+"""
+
+from oracle.oracle_delphi import OracleOfDelphi, OracleConfig
+
+
+def main() -> None:
+    config = OracleConfig(
+        entropy=0.45,
+        max_ideas=4,
+        theme="PantheonOS + creative engines",
+        enable_debug=True,
+        seed=12345,
+    )
+    oracle = OracleOfDelphi(config)
+
+    question = "How could PantheonOS be used as a cross-domain creative assistant for film directors?"
+    response = oracle.consult(question)
+
+    print("QUESTION:")
+    print(" ", response.question)
+    print("\nSUMMARY:")
+    print(" ", response.summary)
+
+    print("\nIDEAS:")
+    for i, idea in enumerate(response.ideas, start=1):
+        print(f"\n[{i}] {idea.title}")
+        print(idea.description)
+        print("Rationale:", idea.rationale)
+        print("Next steps:")
+        for step in idea.possible_next_steps:
+            print("  -", step)
+
+    print("\nANGLES:")
+    for angle in response.angles:
+        print(" -", angle)
+
+    print("\nWARNINGS:")
+    for w in response.warnings:
+        print(" -", w)
+
+    if response.debug:
+        print("\nDEBUG (truncated):")
+        rolls = response.debug.get("dice_rolls", [])
+        print("  Number of rolls:", len(rolls))
+
+
+if __name__ == "__main__":
+    main()
