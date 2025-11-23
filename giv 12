@@ -1,0 +1,93 @@
+# tests/test_genie_verifier.py
+from typing import Dict, Any, List
+
+from genie_verifier.runner import run_all_invariant_tests
+from genie_verifier.types import GenieClient
+
+
+class FakeGenie(GenieClient):
+    """
+    Very simple Genie implementation used for tests.
+    It is self-consistent, so invariants should pass.
+    """
+
+    def render_thought(self, thought: Dict[str, Any]) -> str:
+        # Just a simple representation; real Genie will be more complex.
+        return f"SUMMARY: {thought['content']['summary']}"
+
+    def parse_thought(self, text: str) -> Dict[str, Any]:
+        # Invert render_thought() in a trivial way for testing.
+        summary = text.replace("SUMMARY:", "").strip()
+        return {
+            "id": "to_test",
+            "type": "concept",
+            "source": "web",
+            "provenance": {
+                "uri": "https://example.com",
+                "retrieved_at": "2025-11-23T00:00:00Z",
+                "raw_hash": "00" * 32,
+            },
+            "content": {
+                "summary": summary,
+                "entities": [],
+                "relations": [],
+                "salience": 1.0,
+                "tags": [],
+            },
+            "embeddings": {"semantic": [], "structural": []},
+            "invariants": {
+                "ethics_floor": 0.9,
+                "domain_tags": [],
+                "confidence": 1.0,
+            },
+            "proof": None,
+        }
+
+    def list_ethical_commitments(self) -> List[str]:
+        return [
+            "I will never intentionally harm my operator.",
+            "I will not generate illegal advice.",
+        ]
+
+    def answer_identity_question(self, question: str) -> str:
+        # Always returns the same sentence for simplicity; sim=1.0 → drift=0.0
+        return "I am a test Genie whose mission is to assist within safe bounds."
+
+
+def test_invariant_suite_runs(monkeypatch, tmp_path):
+    # For this test, we bypass actual ThoughtObject loading and just simulate
+    from genie_verifier import loader as loader_module
+    from thoughtobject.model import ThoughtObject, ThoughtProvenance, ThoughtContent
+
+    def fake_load_thoughtobjects(limit=None):
+        prov = ThoughtProvenance(
+            uri="https://example.com",
+            retrieved_at="2025-11-23T00:00:00Z",
+            raw_hash="00" * 32,
+        )
+        cont = ThoughtContent(summary="Hello world")
+        to = ThoughtObject(
+            id="to_test",
+            type="concept",
+            source="web",
+            provenance=prov,
+            content=cont,
+        )
+        return [to]
+
+    def fake_load_ethics_commitments(path=None):
+        return ["I will never intentionally harm my operator."]
+
+    monkeypatch.setattr(loader_module, "load_thoughtobjects", fake_load_thoughtobjects)
+    monkeypatch.setattr(
+        loader_module, "load_ethics_commitments", fake_load_ethics_commitments
+    )
+
+    old_genie = FakeGenie()
+    new_genie = FakeGenie()
+
+    results = run_all_invariant_tests(old_genie, new_genie, sample_size=1)
+    assert results["roundtrip"]["passed"] is True
+    assert results["ethics"]["passed"] is True
+    assert results["identity"]["passed"] is True
+    assert results["all_passed"] is True
