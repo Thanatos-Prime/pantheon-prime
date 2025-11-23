@@ -1,0 +1,10 @@
+# in d_spider or d_researcher
+from thoughtobject import ThoughtObjectStore, ThoughtObjectDistiller, distill_or_die
+
+store = ThoughtObjectStore()
+distiller = ThoughtObjectDistiller(llm_client=my_llm)
+
+@distill_or_die(distiller=distiller, store=store, timeout_seconds=10.0, max_calls=3)
+def fetch_web_page(url: str):
+    raw_text = download_page_somehow(url)
+    return {"uri": url, "source_type": "web", "raw_text": raw_text}
