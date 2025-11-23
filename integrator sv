@@ -1,0 +1,13 @@
+from statevector import append_statevector_record
+from statevector.signer import KernelSigner
+
+signer = KernelSigner.load_or_create()
+
+def commit_statevector(statevector_id: str, payload: dict, thought_hashes: list[str]):
+    rec = append_statevector_record(
+        statevector_id=statevector_id,
+        statevector_payload=payload,
+        thought_hashes=thought_hashes,
+        signer=signer,
+    )
+    return rec
