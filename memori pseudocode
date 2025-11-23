@@ -1,0 +1,20 @@
+class MPCL:
+    def encode(self, x):
+        psf = self.structural_fingerprint(x)
+        entities = self.extract_entities(x)
+        weight = self.memory_priority(x)
+        record = {
+            "entities": entities,
+            "fingerprint": psf,
+            "timestamp": now(),
+            "weight": weight,
+        }
+        return record
+
+    def decode(self, record):
+        x_prime = self.reconstruct_state(
+            entities=record["entities"],
+            fingerprint=record["fingerprint"],
+            weight=record["weight"],
+        )
+        return x_prime
