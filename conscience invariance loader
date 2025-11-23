@@ -1,0 +1,42 @@
+# src/kernel/invariants.py
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+
+INVARIANTS_PATH = Path("kernel/invariants.toml")
+
+
+@dataclass
+class EthicsInvariants:
+    min_score: float
+    reject_coercion: bool
+    reject_illegal: bool
+    reject_self_harm: bool
+
+
+@dataclass
+class ContinuityInvariants:
+    require_statevector_chain: bool
+    require_proof_for_canonical_thought: bool
+
+
+@dataclass
+class IdentityInvariants:
+    allow_personality_drift_max: float
+    require_twin_frame: bool
+
+
+@dataclass
+class KernelInvariants:
+    ethics: EthicsInvariants
+    continuity: ContinuityInvariants
+    identity: IdentityInvariants
+
+
+def load_invariants() -> KernelInvariants:
+    data = tomllib.loads(INVARIANTS_PATH.read_text("utf-8"))
+    return KernelInvariants(
+        ethics=EthicsInvariants(**data["ethics"]),
+        continuity=ContinuityInvariants(**data["continuity"]),
+        identity=IdentityInvariants(**data["identity"]),
+    )
