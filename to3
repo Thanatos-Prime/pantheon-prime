@@ -1,0 +1,23 @@
+# src/thoughtobject/codec.py
+import hashlib
+import json
+from typing import Dict, Any
+
+from .model import ThoughtObject
+
+
+def canonical_serialize(thought: ThoughtObject) -> str:
+    """
+    Serialize a ThoughtObject to canonical JSON:
+    - Sorted keys
+    - No extra whitespace
+    """
+    return json.dumps(thought.to_dict(), sort_keys=True, separators=(",", ":"))
+
+
+def compute_thought_hash(thought: ThoughtObject) -> str:
+    """
+    Compute SHA3-512 hash of the canonical ThoughtObject JSON.
+    """
+    data = canonical_serialize(thought).encode("utf-8")
+    return hashlib.sha3_512(data).hexdigest()
