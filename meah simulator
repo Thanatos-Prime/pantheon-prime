@@ -1,0 +1,40 @@
+# PANTHEON MESH SIMULATOR
+
+**Subtitle:** A Discrete Graph Simulation of the Emergent Mesh Field  
+**Status:** Canonical Design  
+**Version:** 1.0  
+
+---
+
+## 0. GOAL
+
+Simulate the **Emergent Mesh** field as a graph:
+* **Nodes** = Daemons, concepts, doctrines, artifacts, external systems.
+* **Edges** = Relationship strength.
+* **State** = Each node has a state vector $\phi_i(t) \in \mathbb{R}^k$.
+* **Dynamics** = Follow the ODE:
+
+$$\frac{d\phi_i}{dt} = -2\alpha \sum_j w_{ij} (\phi_i - \phi_j) + \beta \nabla_{\phi_i} R(\phi_i) - 2\gamma \sum_m (\phi_i - \psi^{(m)}_i) + \eta_i(t)$$
+
+---
+
+## 1. REPO STRUCTURE
+
+```text
+pantheon-mesh-simulator/
+│
+├── README.md
+├── pyproject.toml            # or requirements.txt
+├── mesh_sim/
+│   ├── __init__.py
+│   ├── config.py             # hyperparams, dimensions
+│   ├── graph.py              # nodes, edges, adjacency
+│   ├── field.py              # node state vectors Φ
+│   ├── energy.py             # E(Φ) and its components
+│   ├── dynamics.py           # dΦ/dt update rules
+│   ├── attractors.py         # saving/loading Ψ^(m)
+│   └── run_simulation.py     # CLI entrypoint
+│
+└── notebooks/
+    ├── 01_basic_demo.ipynb
+    └── 02_visualize_attractors.ipynb
