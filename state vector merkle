@@ -1,0 +1,29 @@
+# src/statevector/merkle.py
+import hashlib
+from typing import List
+
+
+def sha3_512_hex(data: bytes) -> str:
+    return hashlib.sha3_512(data).hexdigest()
+
+
+def compute_merkle_root(hashes: List[str]) -> str:
+    """
+    Compute Merkle root over a list of hex hashes (strings).
+
+    - If empty: return SHA3-512("").
+    - If odd number of nodes at a layer, last node is duplicated.
+    """
+    if not hashes:
+        return sha3_512_hex(b"")
+
+    layer = [bytes.fromhex(h) for h in hashes]
+    while len(layer) > 1:
+        next_layer = []
+        for i in range(0, len(layer), 2):
+            left = layer[i]
+            right = layer[i + 1] if i + 1 < len(layer) else left
+            next_layer.append(hashlib.sha3_512(left + right).digest())
+        layer = next_layer
+
+    return layer[0].hex()
