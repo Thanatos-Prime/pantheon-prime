@@ -1,0 +1,73 @@
+# src/statevector/signer.py
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
+from cryptography.hazmat.primitives import serialization
+
+
+KEY_DIR = Path("statevector/keys")
+KEY_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass
+class KernelSigner:
+    """
+    Small wrapper around an ED25519 keypair for signing StateVector records.
+    """
+
+    private_key: Ed25519PrivateKey
+    public_key: Ed25519PublicKey
+    key_id: str = "kernel_key_v1"
+
+    @classmethod
+    def generate(cls, key_id: str = "kernel_key_v1") -> "KernelSigner":
+        private_key = Ed25519PrivateKey.generate()
+        public_key = private_key.public_key()
+        return cls(private_key=private_key, public_key=public_key, key_id=key_id)
+
+    @classmethod
+    def load_or_create(cls, key_id: str = "kernel_key_v1") -> "KernelSigner":
+        priv_path = KEY_DIR / f"{key_id}.priv"
+        pub_path = KEY_DIR / f"{key_id}.pub"
+
+        if priv_path.exists() and pub_path.exists():
+            private_key = serialization.load_pem_private_key(
+                priv_path.read_bytes(),
+                password=None,
+            )
+            public_key = serialization.load_pem_public_key(pub_path.read_bytes())
+            return cls(private_key=private_key, public_key=public_key, key_id=key_id)
+
+        signer = cls.generate(key_id=key_id)
+        signer.save()
+        return signer
+
+    def save(self) -> None:
+        priv_path = KEY_DIR / f"{self.key_id}.priv"
+        pub_path = KEY_DIR / f"{self.key_id}.pub"
+
+        priv_bytes = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        pub_bytes = self.public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+        priv_path.write_bytes(priv_bytes)
+        pub_path.write_bytes(pub_bytes)
+
+    def sign(self, data: bytes) -> bytes:
+        return self.private_key.sign(data)
+
+    def verify(self, signature: bytes, data: bytes) -> None:
+        self.public_key.verify(signature, data)
