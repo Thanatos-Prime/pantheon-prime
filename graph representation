@@ -1,0 +1,14 @@
+import numpy as np
+
+class MeshGraph:
+    def __init__(self, num_nodes: int):
+        self.num_nodes = num_nodes
+        self.W = np.zeros((num_nodes, num_nodes), dtype=float)
+        self.labels = [f"node_{i}" for i in range(num_nodes)]
+
+    def add_edge(self, i: int, j: int, weight: float = 1.0):
+        self.W[i, j] = weight
+        self.W[j, i] = weight
+
+    def neighbors(self, i: int):
+        return np.nonzero(self.W[i])[0]
