@@ -1,0 +1,307 @@
+# Narrative Tensor Engine v1.0  
+### A Tensorial Framework for Modeling, Measuring, and Steering Story Arcs
+
+**Author:** PantheonOS Research Group  
+**Version:** 1.0  
+**Date:** 2025-11-23  
+**Keywords:** narrative tensor, story geometry, tension fields, curvature, story space, PantheonOS
+
+---
+
+## 0. Abstract
+
+The **Narrative Tensor Engine (NTE)** is a mathematical framework that treats stories as **tensors** defined over multiple narrative dimensions: time, character, stakes, tension, theme, and setting.
+
+Instead of describing a story as a linear sequence of events, the NTE:
+
+- embeds a narrative in a multi-dimensional space  
+- assigns coordinates to narrative elements  
+- defines **tension fields** and **curvature** over that space  
+- provides operations (projection, contraction, geodesics) to analyze and steer arcs  
+
+The goal is not only aesthetic but computational:
+
+> Turn story into structure, structure into tensors, tensors into controllable paths.
+
+NTE becomes a backbone for:
+
+- AI-assisted directing (Vibrational Director Engine)  
+- Story generation and analysis  
+- Emotional pacing control  
+- Cinematic rhythm and “feel” tuning  
+- Symbolic + numerical integration of narrative
+
+---
+
+## 1. Intuition
+
+We treat a story as:
+
+- a **trajectory** through a high-dimensional space  
+- where each axis is a narrative parameter (e.g., tension, intimacy, scale, hope, danger)  
+- and each “moment” in the story is a **point** or **fiber** in that space  
+
+Instead of:  
+> Scene 1 → Scene 2 → Scene 3  
+
+We have:
+
+> \( s(t) \in \mathcal{N} \), where \(\mathcal{N}\) is narrative space, and \(t\) is story time.
+
+The Narrative Tensor Engine then:
+
+- encodes how each dimension changes over time  
+- measures **curvature** (how sharply the story turns)  
+- defines **geodesics** (smooth arcs)  
+- and exposes knobs for “dialing in” pacing and emotional shape.
+
+---
+
+## 2. Narrative Space and Coordinates
+
+Define **Narrative Space** as an n-dimensional manifold:
+
+\[
+\mathcal{N} = \mathbb{R}^d
+\]
+
+with coordinates:
+
+\[
+x = (x^1, x^2, \dots, x^d)
+\]
+
+Example coordinate choices:
+
+- \( x^1 = T \) (tension)  
+- \( x^2 = S \) (stakes)  
+- \( x^3 = E \) (emotional intimacy)  
+- \( x^4 = C \) (complexity)  
+- \( x^5 = L \) (light vs dark tone)  
+- \( x^6 = V \) (violence risk)  
+- \( x^7 = H \) (hope level)  
+
+Each **story state** at time \(t\) is:
+
+\[
+s(t) = (T(t), S(t), E(t), C(t), L(t), V(t), H(t), \dots)
+\]
+
+---
+
+## 3. Narrative Tensor Definition
+
+We define a **Narrative Tensor**:
+
+\[
+\mathcal{T}_{ij}(t)
+\]
+
+as a rank-2 tensor encoding **interaction between narrative dimensions** at time \(t\).
+
+Example interpretation:
+
+- \( \mathcal{T}_{TS}(t) \) = how much tension and stakes reinforce each other  
+- \( \mathcal{T}_{TH}(t) \) = how much tension is eased by hope  
+- \( \mathcal{T}_{EV}(t) \) = relationship between intimacy and perceived violence  
+
+In general:
+
+\[
+\mathcal{T}_{ij}(t) = w_{ij} \cdot \frac{\partial x^i}{\partial t} \cdot \frac{\partial x^j}{\partial t}
+\]
+
+Where:
+
+- \(w_{ij}\) are weighting coefficients (importance of interaction)  
+- \( \frac{\partial x^i}{\partial t} \) is how fast dimension \(i\) is changing  
+
+This captures **how quickly and how strongly** narrative forces interact over time.
+
+---
+
+## 4. Narrative Curvature
+
+Analogy with differential geometry:
+
+- A flat story: low curvature, predictable arc  
+- A sharply twisting story: high curvature, sudden turns  
+
+We define a **Narrative Curvature Scalar**:
+
+\[
+K(t) = \sum_{i,j} g^{ij} \frac{d^2 x^i}{dt^2} \frac{d^2 x^j}{dt^2}
+\]
+
+Where:
+
+- \(g^{ij}\) is a metric tensor defining how dimensions relate  
+- \( \frac{d^2 x^i}{dt^2} \) is the “acceleration” of narrative dimension \(i\)  
+
+Interpretation:
+
+- High \(K(t)\): plot twist, big reveal, emotional snap  
+- Low \(K(t)\): steady pacing, calm development  
+
+You can impose constraints like:
+
+\[
+K(t) \leq K_{\max}
+\]
+
+to avoid whiplash pacing, or engineer controlled spikes at chosen moments.
+
+---
+
+## 5. Geodesics in Story Space
+
+A **geodesic** is the “smoothest” path between two narrative states.
+
+Given initial and final narrative states:
+
+\[
+s(t_0) = x_0,\quad s(t_1) = x_1
+\]
+
+We can define an **optimal curve** \(s^*(t)\) minimizing:
+
+\[
+J[s] = \int_{t_0}^{t_1} \left( \sum_i \left( \frac{dx^i}{dt} \right)^2 \right) dt
+\]
+
+This is the path of minimal “narrative jerk.”
+
+Use case:
+
+- You want to move from “low stakes, low tension” to “high stakes, high hope” smoothly.  
+- The geodesic provides a recommended pacing arc.
+
+---
+
+## 6. Narrative Tensor Engine: Algorithmic View
+
+We discretize time into **beats**:
+
+\[
+t_0, t_1, \dots, t_N
+\]
+
+Each beat has a feature vector:
+
+\[
+x_k \in \mathbb{R}^d
+\]
+
+We compute:
+
+1. **First derivative** (velocity of change):  
+   \[
+   v_k = x_{k+1} - x_k
+   \]
+
+2. **Second derivative** (acceleration / curvature proxy):  
+   \[
+   a_k = v_{k+1} - v_k
+   \]
+
+3. **Curvature scalar:**  
+   \[
+   K_k = a_k^\top G a_k
+   \]
+   where \(G\) is a metric matrix (e.g., identity or weighted).
+
+4. **Tensor components:**  
+   \[
+   \mathcal{T}_{ij}(k) = w_{ij} \cdot v_k^{(i)} \cdot v_k^{(j)}
+   \]
+
+Where \(v_k^{(i)}\) is the \(i\)-th component of the velocity vector at beat \(k\).
+
+---
+
+## 7. Pseudocode Implementation Sketch
+
+```python
+"""
+narrative_tensor_engine.py
+
+Pseudocode for Narrative Tensor Engine v1.0
+"""
+
+from dataclasses import dataclass
+from typing import List
+import numpy as np
+
+@dataclass
+class NarrativeBeat:
+    """
+    One discrete unit of the story.
+    x: narrative state vector in R^d
+    """
+    time_index: int
+    state: np.ndarray   # shape: (d,)
+    label: str = ""     # e.g., "inciting incident", "climax", etc.
+
+@dataclass
+class NTEConfig:
+    metric: np.ndarray          # shape: (d, d), symmetric positive-definite
+    interaction_weights: np.ndarray  # shape: (d, d)
+
+@dataclass
+class NarrativeTensorResult:
+    curvature: List[float]          # K_k at each step
+    tensors: List[np.ndarray]       # T_ij(k) at each step
+    velocities: List[np.ndarray]    # v_k
+    accelerations: List[np.ndarray] # a_k
+
+
+class NarrativeTensorEngine:
+    def __init__(self, config: NTEConfig):
+        self.G = config.metric
+        self.W = config.interaction_weights
+
+    def analyze(self, beats: List[NarrativeBeat]) -> NarrativeTensorResult:
+        """
+        Given a sequence of narrative beats, compute:
+        - velocities
+        - accelerations
+        - curvature scalar at each step
+        - narrative interaction tensors T_ij
+        """
+        states = [b.state for b in beats]
+        states = np.stack(states, axis=0)  # shape: (N, d)
+        N, d = states.shape
+
+        velocities = []
+        accelerations = []
+        curvature = []
+        tensors = []
+
+        # 1st derivative: v_k = x_{k+1} - x_k
+        for k in range(N - 1):
+            v_k = states[k+1] - states[k]
+            velocities.append(v_k)
+
+        # 2nd derivative: a_k = v_{k+1} - v_k
+        for k in range(len(velocities) - 1):
+            a_k = velocities[k+1] - velocities[k]
+            accelerations.append(a_k)
+
+            # Curvature scalar: K_k = a_k^T G a_k
+            K_k = float(a_k.T @ self.G @ a_k)
+            curvature.append(K_k)
+
+        # Tensors: T_ij(k) = w_ij * v_k^i * v_k^j
+        for k, v_k in enumerate(velocities):
+            T_k = np.zeros((d, d))
+            for i in range(d):
+                for j in range(d):
+                    T_k[i, j] = self.W[i, j] * v_k[i] * v_k[j]
+            tensors.append(T_k)
+
+        return NarrativeTensorResult(
+            curvature=curvature,
+            tensors=tensors,
+            velocities=velocities,
+            accelerations=accelerations,
+        )
