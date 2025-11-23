@@ -1,0 +1,50 @@
+# src/genie_verifier/roundtrip.py
+from __future__ import annotations
+
+import json
+from typing import Dict, Any, List, Tuple
+
+from thoughtobject.model import ThoughtObject
+from thoughtobject.codec import canonical_serialize
+from .types import GenieClient
+
+
+def canonicalize_thought_dict(data: Dict[str, Any]) -> str:
+    """
+    Canonicalize a ThoughtObject dict for comparison.
+    """
+    # If it's not already a ThoughtObject, we just sort keys deterministically.
+    return json.dumps(data, sort_keys=True, separators=(",", ":"))
+
+
+def roundtrip_invariants(
+    old_genie: GenieClient,
+    new_genie: GenieClient,
+    thoughts: List[ThoughtObject],
+) -> Tuple[int, int]:
+    """
+    Run round-trip invariants:
+
+    For each ThoughtObject `t`:
+      - text = old_genie.render_thought(t.to_dict())
+      - t2_dict = new_genie.parse_thought(text)
+      - compare canonicalized representations
+
+    Returns (total, failed).
+    """
+    total = 0
+    failed = 0
+
+    for t in thoughts:
+        total += 1
+        original = t.to_dict()
+        text = old_genie.render_thought(original)
+        parsed = new_genie.parse_thought(text)
+
+        c1 = canonicalize_thought_dict(original)
+        c2 = canonicalize_thought_dict(parsed)
+
+        if c1 != c2:
+            failed += 1
+
+    return total, failed
