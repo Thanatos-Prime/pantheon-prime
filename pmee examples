@@ -1,0 +1,48 @@
+"""
+Example: Run a memetic evolution simulation with the Pantheon Memetic Engine.
+"""
+
+from memetics.memetic_engine import (
+    MemeUnit,
+    MemePopulation,
+    MemeticEngine,
+    MemeticConfig,
+)
+
+
+def main() -> None:
+    # Seed ideas
+    seeds = [
+        MemeUnit(text="PantheonOS as a cognitive operating system for humans and AI."),
+        MemeUnit(text="Wave Language as a symbolic grammar for ethical AI communication."),
+        MemeUnit(text="Fractal governance structures to align multi-agent systems."),
+        MemeUnit(text="Oracle Weave as a layered reasoning engine."),
+    ]
+
+    population = MemePopulation(units=seeds)
+
+    # Configure engine
+    config = MemeticConfig(
+        population_size=16,
+        generations=6,
+        mutation_rate=0.35,
+        crossover_rate=0.25,
+        max_text_length=200,
+        seed=42,
+        enable_debug=True,
+    )
+
+    engine = MemeticEngine(config=config)
+    history = engine.run(population)
+
+    final_snapshot = history[-1]
+    top_memes = final_snapshot.top_k(5)
+
+    print("\n=== Top Memes After Evolution ===")
+    for i, meme in enumerate(top_memes, start=1):
+        print(f"[{i}] fitness={meme.fitness:.3f}")
+        print("   ", meme.text)
+
+
+if __name__ == "__main__":
+    main()
