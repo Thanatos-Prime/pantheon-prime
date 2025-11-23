@@ -1,0 +1,43 @@
+# src/distill/decorators.py
+import functools
+import time
+
+class DistillationError(Exception):
+    pass
+
+
+def distill_or_die(timeout_seconds: float = 10.0, max_calls: int = 3):
+    """
+    Wraps a function that fetches external data.
+    It must:
+      - call an LLM-based distiller <= max_calls times
+      - produce ThoughtObjects
+      - delete raw text
+    On failure: raises DistillationError.
+    """
+
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            context = fn(*args, **kwargs)  # e.g. raw text, URL, metadata
+            calls = 0
+            thought_objects = []
+
+            while (time.time() - start) < timeout_seconds and calls < max_calls:
+                # pseudo-LLM call
+                new_tos = run_thoughtobject_distiller(context)
+                thought_objects.extend(new_tos)
+                if thought_objects:
+                    break
+                calls += 1
+
+            if not thought_objects:
+                raise DistillationError("Failed to distill external data in time")
+
+            # IMPORTANT: do NOT keep raw text here
+            return thought_objects
+
+        return wrapper
+
+    return decorator
