@@ -1,0 +1,259 @@
+# Vibrational Director Engine (VDE) v1.0  
+### Wave-Based Control of Narrative Pacing, Emotion, and Tension
+
+**Author:** PantheonOS Research Group  
+**Date:** 2025-11-23  
+**Status:** Stable (v1.0)
+
+---
+
+## 0. Abstract
+
+The **Vibrational Director Engine (VDE)** treats a story (or any experience) as a **signal** over time:
+
+- tension
+- stakes
+- intimacy
+- hope/dread
+- information density
+
+These are encoded as **waveforms** that can be:
+
+- analyzed (spectral / curvature)
+- designed (target wave shapes)
+- tuned (smoothed / sharpened)
+- aligned to beats (scenes, acts, missions)
+
+VDE builds on the **Narrative Tensor Engine (NTE)**:
+
+- NTE: turns scenes → vectors + curvature in narrative space  
+- VDE: turns those vectors → time-series waveforms and frequencies
+
+The result is a **director’s instrument panel** for emotional and structural pacing.
+
+---
+
+## 1. Foundations: From Beats to Waves
+
+Assume a story is divided into discrete beats:
+
+\[
+t_0, t_1, \dots, t_N
+\]
+
+For each beat \(k\), the Narrative Tensor Engine gives a state vector:
+
+\[
+x_k \in \mathbb{R}^d
+\]
+
+Example components of \(x_k\):
+
+- \(T_k\): tension  
+- \(S_k\): stakes  
+- \(E_k\): emotional intimacy  
+- \(H_k\): hope  
+- \(D_k\): danger  
+- \(L_k\): light vs dark tone  
+
+The **VDE** extracts **one or more channels** as wave signals:
+
+\[
+\text{channel}_j(t_k) = x_k^{(j)}
+\]
+
+So we can define:
+
+- Tension Wave: \( \tau(t_k) = T_k \)
+- Stakes Wave:  \( \sigma(t_k) = S_k \)
+- Hope Wave:    \( h(t_k) = H_k \)
+- Density Wave: \( \delta(t_k) = D_k \) (e.g., 666 density)
+
+---
+
+## 2. Continuous Approximation
+
+We approximate discrete beats as samples of continuous functions:
+
+\[
+\tau(t),\; \sigma(t),\; h(t),\; \dots
+\]
+
+using interpolation (e.g., cubic splines).
+
+This allows:
+
+- derivatives  
+- curvature  
+- Fourier analysis  
+
+---
+
+## 3. Vibrational Profile
+
+A **vibrational profile** is the tuple:
+
+\[
+V(t) = (\tau(t), \sigma(t), h(t), \dots)
+\]
+
+We define an **Energy Envelope**:
+
+\[
+E(t) = w_T \tau(t)^2 + w_S \sigma(t)^2 + w_H h(t)^2 + \dots
+\]
+
+Where \(w_T, w_S, w_H\) are weights (importance).
+
+High \(E(t)\) → intense moment  
+Low \(E(t)\) → calm/rest moment  
+
+---
+
+## 4. Frequency Domain View
+
+For a chosen channel (say tension):
+
+\[
+\tau(t) \xrightarrow{\mathcal{F}} \hat{\tau}(\omega)
+\]
+
+The Fourier transform shows:
+
+- what “frequencies” of tension changes exist  
+- high frequencies → jittery pacing  
+- low frequencies → long, slow arcs  
+
+We can define a **smoothness criterion**:
+
+\[
+S_{\text{smooth}} = \int |\omega|^2 |\hat{\tau}(\omega)|^2 \, d\omega
+\]
+
+Lower \(S_{\text{smooth}}\) = smoother pacing.
+
+VDE can **penalize excessive high-frequency components** to reduce whiplash.
+
+---
+
+## 5. Target Waveforms
+
+We can design **ideal wave shapes** for arcs:
+
+### Example: Classic 3-Act Tension Shape
+
+Let \(t \in [0,1]\) normalized story time.
+
+Define:
+
+\[
+\tau_{\text{target}}(t) =
+\begin{cases}
+a t, & 0 \le t < t_1 \\
+b, & t_1 \le t < t_2 \\
+c(1 - t), & t_2 \le t \le 1
+\end{cases}
+\]
+
+Or more smoothly:
+
+\[
+\tau_{\text{target}}(t) = A \sin(\pi t)
+\]
+
+- low at start  
+- peak around middle  
+- resolve at end  
+
+We define a **Vibrational Deviation**:
+
+\[
+\Delta_{\tau} = \int_0^1 \left(\tau(t) - \tau_{\text{target}}(t)\right)^2 dt
+\]
+
+Goal: minimize \(\Delta_{\tau}\) subject to story constraints.
+
+---
+
+## 6. Vectorized Vibrational Error
+
+For multi-channel:
+
+\[
+\Delta_V = \int_0^1 \sum_j \alpha_j \left( v_j(t) - v_{j,\text{target}}(t) \right)^2 dt
+\]
+
+Where:
+
+- \(v_j\) ∈ {tension, stakes, intimacy, hope, etc.}  
+- \(\alpha_j\) weights (which channels matter more)
+
+---
+
+## 7. VDE as Control Loop
+
+VDE is a **feedback controller**:
+
+1. Measure current waves \(V(t)\)
+2. Compare to target \(V_{\text{target}}(t)\)
+3. Compute error \(\Delta_V\)
+4. Suggest structural changes:
+
+   - add rest  
+   - compress scenes  
+   - split scenes  
+   - reposition reveals  
+
+---
+
+## 8. Pseudocode Implementation
+
+```python
+import numpy as np
+from dataclasses import dataclass
+from typing import List, Dict
+
+@dataclass
+class Beat:
+    t: float           # normalized time in [0,1]
+    state: np.ndarray  # narrative state vector (T, S, H, ...)
+
+
+@dataclass
+class VDEConfig:
+    weights: Dict[str, float]  # e.g., {"tension": 1.0, "stakes": 0.7, "hope": 0.5}
+    channels_idx: Dict[str, int]  # mapping: "tension" -> 0, "stakes" -> 1, etc.
+
+
+class VibrationalDirectorEngine:
+    def __init__(self, config: VDEConfig):
+        self.config = config
+
+    def extract_channel(self, beats: List[Beat], channel: str):
+        idx = self.config.channels_idx[channel]
+        t = np.array([b.t for b in beats])
+        y = np.array([b.state[idx] for b in beats])
+        return t, y
+
+    def target_wave(self, t: np.ndarray, channel: str):
+        """
+        Example target: sinusoidal arc for tension, flat-ish for hope, etc.
+        Customize per channel.
+        """
+        if channel == "tension":
+            return np.sin(np.pi * t)  # classic rise-fall
+        elif channel == "stakes":
+            return 0.2 + 0.8 * t      # mostly rising
+        elif channel == "hope":
+            return 0.5 + 0.3 * np.sin(2 * np.pi * t)
+        else:
+            return np.zeros_like(t)
+
+    def vibrational_error(self, beats: List[Beat]) -> float:
+        total_error = 0.0
+        for ch, w in self.config.weights.items():
+            t, y = self.extract_channel(beats, ch)
+            y_target = self.target_wave(t, ch)
+            err = np.mean((y - y_target)**2)
+            total_error += w * err
+        return total_error
