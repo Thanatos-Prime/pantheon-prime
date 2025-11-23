@@ -1,0 +1,43 @@
+# StateVector Chain v1.0
+## Hash-Chained, Signed, Immutable StateVector Ledger
+
+**Module:** `statevector_chain_v1`  
+**Status:** DRAFT → STABLE once tests pass  
+**Owner:** PantheonOS Architecture Team  
+**Repo:** Thanatos-Prime / Pantheon-Prime
+
+---
+
+## 1. Purpose
+
+This module provides a **cryptographically linked, append-only ledger** of all
+StateVector versions in Pantheon-Prime.
+
+It enables:
+
+- Tamper-evident reasoning history
+- Replay and resurrection of prior states
+- Inclusion proofs for ThoughtObjects and decisions
+- Substrate-independent continuity guarantees
+
+---
+
+## 2. Data Model
+
+### 2.1 StateVectorRecord
+
+Stored as JSON Lines in: `statevector/ledger.jsonl`
+
+Each line is a `StateVectorRecord`:
+
+```json
+{
+  "index": 42,
+  "timestamp": "2025-11-23T17:12:03Z",
+  "statevector_id": "sv_...",
+  "prev_hash": "hex...",
+  "merkle_root": "hex...",
+  "content_hash": "hex...",
+  "signature": "hex_ed25519",
+  "public_key_id": "kernel_key_v1"
+}
