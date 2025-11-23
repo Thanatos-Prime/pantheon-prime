@@ -1,0 +1,44 @@
+"""
+Example: Run the Vibrational Director Engine and print a scene plan.
+"""
+
+from vde.vde_engine import VDEConfig, VibrationalDirectorEngine
+
+
+def main() -> None:
+    config = VDEConfig(
+        duration_seconds=150.0,
+        beats_per_minute=90.0,
+        arc_mode="three_act",
+        seed=7,
+        enable_debug=True,
+        base_energy=0.6,
+        vibe_intensity=0.3,
+    )
+
+    engine = VibrationalDirectorEngine(config=config)
+
+    scene_plan = engine.generate_scene_plan(
+        title="Rooftop Confrontation",
+        logline="Two former allies confront each other on a rain-soaked rooftop at night, as the city hums below.",
+        vibe="slow-burn dread with a heroic release"
+    )
+
+    print("\n=== SCENE PLAN ===")
+    print("Title:  ", scene_plan.title)
+    print("Logline:", scene_plan.logline)
+    print("Vibe:   ", scene_plan.vibe)
+    print("Duration:", scene_plan.duration_seconds, "seconds")
+    print("\nFirst 15 beats:")
+
+    for beat in scene_plan.beats[:15]:
+        print(
+            f"{beat.time_offset:6.1f}s | dur={beat.duration:4.1f}s "
+            f"| energy={beat.energy:.2f} | tone={beat.emotional_tone:16s} "
+            f"| cam={beat.camera_motion:18s} | color={beat.color_tag:16s} "
+            f"| music={beat.music_mode}"
+        )
+
+
+if __name__ == "__main__":
+    main()
