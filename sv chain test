@@ -1,0 +1,80 @@
+# tests/test_statevector_chain.py
+from pathlib import Path
+import json
+
+from statevector.signer import KernelSigner
+from statevector.chain import (
+    append_statevector_record,
+    verify_ledger,
+    get_continuity_proof_for_index,
+)
+
+LEDGER_PATH = Path("statevector/ledger.jsonl")
+
+
+def setup_module(module):
+    if LEDGER_PATH.exists():
+        LEDGER_PATH.unlink()
+
+
+def test_append_and_verify_ledger(tmp_path, monkeypatch):
+    # Ensure we use a temp ledger for test
+    monkeypatch.setattr("statevector.chain.LEDGER_PATH", tmp_path / "ledger.jsonl")
+
+    signer = KernelSigner.generate()
+
+    # Genesis
+    rec0 = append_statevector_record(
+        statevector_id="sv_0",
+        statevector_payload={"foo": "bar"},
+        thought_hashes=[],
+        signer=signer,
+    )
+    assert rec0.index == 0
+
+    # Second record
+    rec1 = append_statevector_record(
+        statevector_id="sv_1",
+        statevector_payload={"foo": "baz"},
+        thought_hashes=["ab" * 32],
+        signer=signer,
+    )
+    assert rec1.index == 1
+
+    assert verify_ledger(signer) is True
+
+    proof = get_continuity_proof_for_index(1)
+    assert proof is not None
+    assert proof["statevector_index"] == 1
+
+
+def test_detect_tampering(tmp_path, monkeypatch):
+    monkeypatch.setattr("statevector.chain.LEDGER_PATH", tmp_path / "ledger.jsonl")
+
+    signer = KernelSigner.generate()
+
+    append_statevector_record(
+        statevector_id="sv_0",
+        statevector_payload={"foo": "bar"},
+        thought_hashes=[],
+        signer=signer,
+    )
+
+    append_statevector_record(
+        statevector_id="sv_1",
+        statevector_payload={"foo": "baz"},
+        thought_hashes=[],
+        signer=signer,
+    )
+
+    # Tamper with ledger
+    with (tmp_path / "ledger.jsonl").open("r+", encoding="utf-8") as f:
+        lines = f.readlines()
+        rec1 = json.loads(lines[1])
+        rec1["content_hash"] = "0" * 128
+        lines[1] = json.dumps(rec1) + "\n"
+        f.seek(0)
+        f.truncate()
+        f.writelines(lines)
+
+    assert verify_ledger(signer) is False
