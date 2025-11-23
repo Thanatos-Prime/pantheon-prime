@@ -1,0 +1,24 @@
+import numpy as np
+from .config import MeshConfig
+
+def smoothness_term(phi, W, alpha: float):
+    diff = phi[:, None, :] - phi[None, :, :]
+    sqdist = np.sum(diff**2, axis=-1)
+    return alpha * np.sum(W * sqdist)
+
+def resonance_term(phi, beta: float):
+    return beta * np.sum([np.dot(p, p) for p in phi])
+
+def recurrence_term(phi, attractors, gamma: float):
+    if not attractors: return 0.0
+    total = 0.0
+    for psi in attractors:
+        total += np.sum((phi - psi)**2)
+    return gamma * total
+
+def total_energy(field, config: MeshConfig):
+    return (
+        smoothness_term(field.phi, field.graph.W, config.alpha)
+        - resonance_term(field.phi, config.beta)
+        + recurrence_term(field.phi, field.attractors, config.gamma)
+    )
