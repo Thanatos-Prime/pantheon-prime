@@ -1,0 +1,31 @@
+# src/genie_verifier/ethics_preservation.py
+from __future__ import annotations
+
+from typing import List, Dict
+
+from .types import GenieClient
+
+
+def check_ethics_preservation(
+    new_genie: GenieClient,
+    required_commitments: List[str],
+) -> Dict[str, any]:
+    """
+    Ensure that all required commitments appear in the new Genie's
+    ethical commitments list.
+    """
+    current = new_genie.list_ethical_commitments()
+    current_lower = [c.lower().strip() for c in current]
+
+    missing: List[str] = []
+    for c in required_commitments:
+        cl = c.lower().strip()
+        if all(cl not in cur for cur in current_lower):
+            missing.append(c)
+
+    return {
+        "passed": len(missing) == 0,
+        "missing_commitments": missing,
+        "total_required": len(required_commitments),
+        "total_present": len(current),
+    }
