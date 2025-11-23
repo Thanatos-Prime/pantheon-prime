@@ -1,0 +1,137 @@
+# 🏛️ SOLOMON–COIL COMPASS v1.0
+
+## A Dual-Aspect Decision Engine for Ethical Clarity, Pressure-Testing, and High-Reliability Reasoning
+
+**Author:** PantheonOS Research Group
+**Repository Directory:** whitepapers/Solomon_Coil_Compass_v1.0.md
+**Status:** Stable v1.0
+**Date:** 2025-11-23
+**Keywords:** dual-aspect decision engine, ethical filtering, adversarial awareness, red-teaming, governance, PantheonOS
+
+---
+
+## 0. Abstract
+
+The **Solomon–Coil Compass (SCC)** is PantheonOS’s bidirectional decision engine that simultaneously evaluates an idea ($x$) across two complementary dimensions:
+1.  **Solomon Lens ($\mathcal{S}$):** Wisdom, clarity, ethics, coherence.
+2.  **Coil Lens ($\mathcal{C}$):** Flaw-finding, adversarial pressure, misuse scenario detection.
+
+Their interaction yields a **Final Decision Score ($S = S_{\text{Sol}} - S_{\text{Coil}}$)** and a quadrant classification that ensures the system remains ethically aligned, self-correcting, and robust against narrative drift.
+
+---
+
+## 1. Conceptual Foundation: Wisdom as Synthesis
+
+Solomon (Order) and Coil (Shadow-Pressure) represent the two halves of reliable intelligence:
+* **Solomon (Order):** Coherence, compassion, long-term reasoning, truth-alignment, clarity of motive.
+* **Coil (Shadow-Pressure):** Red-teaming, spotting hidden failure modes, exposing ego-traps, adversarial simulation.
+
+$$\text{Wisdom} = \text{Compassion} + \text{Adversarial Awareness}$$
+
+## 2. Mathematical Representation
+
+### 2.1 Solomon Score ($\mathcal{S}$)
+
+$S_{\text{Sol}}(x)$ measures the intrinsic ethical and structural value:
+
+$$
+S_{\text{Sol}}(x) =
+w_1 C(x) + w_2 A(x) + w_3 H(x) + w_4 T(x)
+$$
+
+Where: $C=$ coherence, $A=$ Arctic Ethics alignment ($\ge 0.7$), $H=$ harm-minimization, and $T=$ truth-value/grounding.
+
+### 2.2 Coil Score ($\mathcal{C}$)
+
+$S_{\text{Coil}}(x)$ measures the external/adversarial risk density:
+
+$$
+S_{\text{Coil}}(x) =
+v_1 R(x) + v_2 M(x) + v_3 E(x) + v_4 D(x)
+$$
+
+Where: $R=$ risk density, $M=$ misuse potential, $E=$ ego/self-serving distortion, and $D=$ destabilization to narrative/safety.
+
+### 2.3 Final Decision Score and Threshold
+The Final Decision Score $S(x)$ determines acceptance based on whether wisdom overcomes risk:
+
+$$
+S(x) = S_{\text{Sol}}(x) - S_{\text{Coil}}(x)
+$$
+* **Positive ($S(x) \ge 0$):** Wisdom dominates $\to$ Proceed.
+* **Negative ($S(x) < 0$):** Risk dominates $\to$ Modify or reject.
+
+---
+
+## 3. The Four Quadrants
+
+| Quadrant | Scoring | Interpretation | Action |
+| :--- | :--- | :--- | :--- |
+| **1. Solomon-Safe** | High $\mathcal{S}$ / Low $\mathcal{C}$ | Clean, wise, ideal solution, no harm vectors. | Publish or Ship |
+| **2. Solomon-Strong** | High $\mathcal{S}$ / High $\mathcal{C}$ | Good idea, survives adversarial modeling, safe after modification. | Forms Doctrine / Policy |
+| **3. Coil-Risky** | Low $\mathcal{S}$ / High $\mathcal{C}$ | Tempting but dangerous, misaligned, reveals shadow patterns. | Cannot Ship / Requires Refinement |
+| **4. Coil-Tempered** | Low $\mathcal{S}$ / Low $\mathcal{C}$ | Weak idea but harmless, no major upside. | Safely Discard or Archive |
+
+---
+
+## 4. Stability Invariants and Transition Dynamics
+
+### Stability Invariants
+The **Solomon Net** enforces non-negotiable constraints:
+* Ethical Floor: $S_{\text{Sol}}(x) \ge 0.7$
+* Harm Ceiling: $S_{\text{Coil}}(x) \le 0.7$
+* Structural Coherence: $\text{Coherence}(x) \ge 0.6$
+* Grounding: $\text{Grounding}(x) \ge 0.7$
+
+### Transition Dynamics
+The system follows a two-stage purification cycle: **Candidate $\to$ Coil Pressure $\to$ Solomon Filter $\to$ Result.** The Coil pressure forces the idea to reveal hidden flaws; the Solomon filter repairs and clarifies ethical structure.
+
+### Formal Decision Function
+$$
+\text{Decide}(x) =
+\begin{cases}
+\text{Accept}, & \mathcal{F}(x) \ge 0 \\
+\text{Refine}, & -\varepsilon \le \mathcal{F}(x) < 0 \\
+\text{Reject}, & \mathcal{F}(x) < -\varepsilon
+\end{cases}
+$$
+Where $\varepsilon$ is a tolerance for near-borderline ideas.
+
+---
+
+## 5. PantheonOS Implementation (Pseudocode)
+
+```python
+class SolomonCoilCompass:
+    def __init__(self, thresholds):
+        self.thresholds = thresholds
+
+    def solomon_score(self, idea):
+        # Implementation depends on embedded Sieve and ethical classifiers
+        return (
+            w1*coherence(idea) +
+            w2*ethics(idea) +
+            w3*harm_min(idea) +
+            w4*truth_value(idea)
+        )
+
+    def coil_score(self, idea):
+        # Implementation depends on adversarial simulation and risk density modules
+        return (
+            v1*risk_density(idea) +
+            v2*misuse_potential(idea) +
+            v3*ego_distortion(idea) +
+            v4*destabilization(idea)
+        )
+
+    def evaluate(self, idea):
+        S_sol = self.solomon_score(idea)
+        S_coil = self.coil_score(idea)
+        S = S_sol - S_coil
+
+        if S >= 0:
+            return "Accept", S
+        elif S > -self.thresholds['epsilon']:
+            return "Refine", S
+        else:
+            return "Reject", S
