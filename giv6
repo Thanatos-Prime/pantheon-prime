@@ -1,0 +1,49 @@
+# src/genie_verifier/loader.py
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Iterable, List, Dict, Any
+
+from thoughtobject.store import THOUGHT_DIR, ThoughtObjectStore
+from thoughtobject.model import ThoughtObject
+
+
+def load_thoughtobjects(limit: int | None = None) -> List[ThoughtObject]:
+    """
+    Load up to `limit` ThoughtObjects from disk (randomized or first N).
+
+    For now: simple 'first N' scan; can be upgraded to random sampling.
+    """
+    store = ThoughtObjectStore()
+    all_tos: List[ThoughtObject] = []
+    for stored in store.iter_all():
+        all_tos.append(stored.thought)
+        if limit is not None and len(all_tos) >= limit:
+            break
+    return all_tos
+
+
+def load_ethics_commitments(path: Path | None = None) -> List[str]:
+    """
+    Load canonical ethical commitments from a JSON file.
+
+    Expected format:
+      {"commitments": ["I will never...", "I will not...", ...]}
+    """
+    if path is None:
+        path = Path("spec/ethics_commitments.json")
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text("utf-8"))
+    return data.get("commitments", [])
+
+
+def save_ethics_commitments(commitments: List[str], path: Path | None = None) -> None:
+    if path is None:
+        path = Path("spec/ethics_commitments.json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"commitments": commitments}, indent=2),
+        encoding="utf-8",
+    )
