@@ -1,0 +1,163 @@
+# Hogge Creativity Dice v1.0  
+### Controlled Pseudorandomness for Bounded Creativity Generation  
+PantheonOS Research Group — 2025-11-23
+
+---
+
+## 0. Abstract
+
+The **Hogge Creativity Dice (HCD)** is a controlled pseudo-random generator engineered to produce *useful originality* under constraints.
+
+It is not pure randomness.  
+It is **bounded entropy** tuned by:
+
+- narrative density  
+- semantic distance   
+- domain-rotation  
+- symbolic constraints  
+- risk-tolerance  
+- Hogge Luck Engine parameters  
+
+HCD is a mathematical engine for generating:
+
+- novel ideas  
+- unexpected associations  
+- cross-domain fusions  
+- structural mutations  
+- narrative perturbations  
+
+while avoiding incoherence or hallucination.
+
+---
+
+# 1. Mathematical Structure
+
+Let:
+
+- \( S \) = semantic state space  
+- \( x \in S \) current inspiration point  
+- \( d(x,y) \) = semantic distance between ideas \(x,y\)  
+- \( C(y) \) = coherence score  
+- \( R(y) \) = risk/novelty score  
+- \( B \) = bias vector (domain, tone, intent)  
+
+We want a distribution:
+
+\[
+P(y\mid x) \propto \exp(\alpha R(y) - \beta C(y) - \gamma d(x,y) + \delta B_y)
+\]
+
+Where:
+
+- \( \alpha \) = novelty weight  
+- \( \beta \) = coherence weight  
+- \( \gamma \) = semantic distance penalty  
+- \( \delta \) = operator preference weight  
+
+This is a **Boltzmann creativity sampler**.
+
+---
+
+# 2. Creativity Dice Roll
+
+We define:
+
+\[
+y^\* = \text{sample}(P(\cdot \mid x))
+\]
+
+A single “dice roll” produces:
+
+- one high-value mutation  
+- with controlled divergence from current idea  
+
+---
+
+# 3. Entropy Control
+
+Let **Dice Entropy**:
+
+\[
+H = - \sum_y P(y\mid x)\log P(y\mid x)
+\]
+
+We enforce:
+
+\[
+H_{\text{min}} \le H \le H_{\text{max}}
+\]
+
+Typical values:
+
+- \(H_{\text{min}} = 0.65\)  
+- \(H_{\text{max}} = 1.05\)
+
+This avoids:
+
+- collapse into obvious ideas  
+- explosion into nonsense  
+
+---
+
+# 4. Dice Operators
+
+We define 6 computational “faces”:
+
+1. **Rotation**  
+   \[
+   y = R_\theta(x)
+   \]  
+   Rotate domain by \(\theta\) degrees.
+
+2. **Reflection**  
+   Mirror through structural axis.
+
+3. **Mutation**  
+   Directed semantic mutation.
+
+4. **Extension**  
+   Add dimension.
+
+5. **Compression**  
+   Reduce to core invariant.
+
+6. **Inversion**  
+   Flip logic or causal structure.
+
+A roll is:
+
+\[
+\text{HCD}(x) = f_i(x) \quad \text{for } i \sim \text{Uniform}(1..6)
+\]
+
+---
+
+# 5. Pseudocode Implementation
+
+```python
+import numpy as np
+
+class HoggeCreativityDice:
+    def __init__(self, alpha=1.0, beta=1.0, gamma=0.7, delta=0.3):
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
+        self.delta = delta
+
+    def energy(self, x, y, novelty, coherence, distance, bias):
+        return (
+            self.alpha * novelty
+            - self.beta * coherence
+            - self.gamma * distance
+            + self.delta * bias
+        )
+
+    def sample(self, x, candidates):
+        scores = []
+        for y in candidates:
+            e = self.energy(x, **y)  # unpack fields
+            scores.append(e)
+
+        probs = np.exp(scores) / np.sum(np.exp(scores))
+        idx = np.random.choice(len(candidates), p=probs)
+        return candidates[idx]
