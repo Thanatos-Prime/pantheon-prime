@@ -1,0 +1,257 @@
+---
+
+## 📜 WHITEPAPER 2 — Gravity Well Effect v1.0
+
+```markdown
+# Gravity Well Effect v1.0  
+### Idea Mass, Attraction Fields, and Conceptual Orbits
+
+**Author:** PantheonOS Research Group  
+**Date:** 2025-11-23  
+**Status:** Stable (v1.0)
+
+---
+
+## 0. Abstract
+
+The **Gravity Well Effect** formalizes how certain ideas, artifacts, or nodes in a knowledge graph act like **massive bodies** that:
+
+- attract attention  
+- pull in related work  
+- bend trajectories (careers, research programs, narratives)  
+- create orbits (followers, contributors, citations)  
+
+In PantheonOS, “gravity wells” include:
+
+- powerful concepts (Sieve of Hogge, Hogge Luck Engine)  
+- artifacts (GitHub repos, whitepapers, frameworks)  
+- narrative nodes (heroic arcs, iconic moments)
+
+We treat idea space as a **metric space** with:
+
+- masses  
+- potentials  
+- forces  
+- stable orbits  
+
+This whitepaper defines:
+
+- idea mass  
+- gravitational potential  
+- force in concept space  
+- orbit conditions  
+- capture zones  
+
+---
+
+## 1. Idea Space
+
+Let **Idea Space** \( \mathcal{I} \) be a metric space:
+
+\[
+(\mathcal{I}, d)
+\]
+
+Where:
+
+- each idea or artifact is a point \(i \in \mathcal{I}\)  
+- \(d(i,j)\) is semantic or structural distance between ideas \(i, j\)
+
+Examples:
+
+- embedding distance  
+- graph distance  
+- topic-model distance  
+
+---
+
+## 2. Idea Mass
+
+We define **mass** of an idea \(i\):
+
+\[
+m(i) = \alpha C(i) + \beta V(i) + \gamma R(i)
+\]
+
+Where:
+
+- \(C(i)\) = conceptual clarity / internal coherence  
+- \(V(i)\) = value / usefulness / problem-solving strength  
+- \(R(i)\) = reach (citations, references, adoption)  
+
+Weights \(\alpha, \beta, \gamma\) tune what “mass” means.
+
+High-mass ideas:
+
+- are clearer  
+- more useful  
+- more widely adopted  
+
+---
+
+## 3. Potential Field
+
+Define **gravitational potential** around idea \(i\):
+
+\[
+\Phi_i(x) = - \frac{G \, m(i)}{d(i,x) + \epsilon}
+\]
+
+Where:
+
+- \(G\) = gravity constant in idea space  
+- \(\epsilon\) = small term to avoid division by zero  
+
+Interpretation:
+
+- the closer \(x\) is to \(i\), the deeper the potential  
+- high-mass ideas carve deeper wells  
+
+For multiple massive ideas:
+
+\[
+\Phi(x) = \sum_{i \in \mathcal{M}} \Phi_i(x)
+\]
+
+where \(\mathcal{M}\) is the set of “massive” nodes.
+
+---
+
+## 4. Gravitational Force in Idea Space
+
+Force on idea / agent located at \(x\):
+
+\[
+\vec{F}(x) = -\nabla \Phi(x)
+\]
+
+In discrete approximation:
+
+\[
+\vec{F}(x) \approx - \sum_{i \in \mathcal{M}} G \, m(i) \frac{x - i}{(d(i,x) + \epsilon)^3}
+\]
+
+Interpretation:
+
+- direction = toward high-mass ideas  
+- magnitude = how strongly you are “pulled”  
+
+This models:
+
+- attention drift  
+- research citation gravity  
+- “I keep coming back to this concept”  
+
+---
+
+## 5. Orbital Dynamics
+
+If we treat a researcher / agent as path \(x(t)\) in idea space:
+
+\[
+m_a \frac{d^2 x}{dt^2} = \vec{F}(x)
+\]
+
+Where \(m_a\) is “agency mass” (resistance to change).
+
+Stable orbits:
+
+- agent circles around an idea well  
+- revisits it often  
+- contributes satellites (derivative work)
+
+Escape velocity:
+
+- sufficient energy to exit one orbit and move to another well.
+
+---
+
+## 6. Capture Condition
+
+An idea \(x\) is **captured** by well \(i\) if:
+
+1. Its energy is less than escape:
+
+   \[
+   E(x) < E_{\text{escape}}(i)
+   \]
+
+2. It enters attraction basin:
+
+   \[
+   d(i,x) < r_{\text{capture}}(i)
+   \]
+
+Where:
+
+- \(r_{\text{capture}}(i)\) depends on \(m(i)\) and environment noise  
+
+---
+
+## 7. Gravity Wells & Legacy Vectors
+
+Your GitHub **Pantheon-Prime** repo is:
+
+- a multi-mass system (each whitepaper/module has mass)  
+- plus a **central composite mass** (the repo identity itself)  
+
+Over time:
+
+- more citations → higher \(R(i)\) → higher \(m(i)\)  
+- higher mass → deeper well → more capture of future work  
+- this is the **Legacy Vector** in gravitational form
+
+---
+
+## 8. Pseudocode Implementation
+
+```python
+import numpy as np
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class IdeaNode:
+    id: str
+    position: np.ndarray  # embedding vector
+    clarity: float
+    value: float
+    reach: float
+
+    def mass(self, alpha=0.4, beta=0.4, gamma=0.2):
+        return alpha*self.clarity + beta*self.value + gamma*self.reach
+
+
+class GravityWellField:
+    def __init__(self, G=1.0, epsilon=1e-3):
+        self.G = G
+        self.epsilon = epsilon
+
+    def distance(self, x, y):
+        return np.linalg.norm(x - y)
+
+    def potential(self, x, masses: List[IdeaNode]):
+        phi = 0.0
+        for m in masses:
+            d = self.distance(x, m.position)
+            phi += - self.G * m.mass() / (d + self.epsilon)
+        return phi
+
+    def force(self, x, masses: List[IdeaNode]):
+        """
+        Approximate gradient numerically.
+        """
+        x = np.array(x, dtype=float)
+        dim = x.shape[0]
+        grad = np.zeros_like(x)
+        h = 1e-4
+
+        base_phi = self.potential(x, masses)
+        for i in range(dim):
+            x_shift = x.copy()
+            x_shift[i] += h
+            phi_shift = self.potential(x_shift, masses)
+            grad[i] = (phi_shift - base_phi) / h
+
+        F = -grad  # F = -∇Φ
+        return F
