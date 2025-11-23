@@ -1,0 +1,149 @@
+# 🏛️ Sieve of Hogge v2.0
+
+## A Universal Truth, Coherence, and Ethical Consistency Operator for Multimodal Cognitive Systems
+
+**Author:** PantheonOS Research Group
+**Date:** 2025-11-23
+**Status:** Stable v2.0
+**Directory:** whitepapers/Sieve_of_Hogge_v2.0.md
+
+---
+
+## 0. Abstract
+
+The Sieve of Hogge v2.0 is a universal, model-agnostic truth and coherence operator designed to evaluate: **semantic integrity, logical consistency, cross-domain coherence, and ethical alignment ($\ge 0.7$ floor)**.
+
+The Sieve acts as both a **defensive layer** (filtering hallucinations, unsafe drift) and a **creative accelerator** (ensuring novel outputs do not violate invariants).
+
+Mathematically, the Sieve is a projection operator acting on any artifact $x$:
+
+$$
+\mathcal{H}: X \rightarrow \{0,1\} \times [0,1]
+$$
+
+Producing a binary acceptance flag $b(x)$ and a graded confidence score $s(x)$. Sieve v2.0 extends v1.0 by adding coherence curvature, probabilistic contradiction tests, and the **Solomon–Coil adversarial pass**.
+
+---
+
+## 1. Formal Definition
+
+Let $x \in X$ be any claim or artifact (sentence, design, whitepaper, code, decision).
+
+The Sieve function is defined as: $\mathcal{H}(x) = (b(x), s(x))$, where $b(x) \in \{0,1\}$ (binary accept/reject) and $s(x) \in [0,1]$ (graded score).
+
+The Sieve score decomposes as a weighted sum of five key metrics:
+
+$$
+s(x) = w_C C(x) + w_L L(x) + w_E E(x) + w_K K(x) + w_M M(x)
+$$
+
+Where weights satisfy: $\sum_i w_i = 1,\quad w_i > 0$.
+
+---
+
+## 2. Core Metrics and Constraints
+
+### 2.1 Semantic Coherence ($C$)
+$C(x)$ measures how well the idea fits its surrounding context (semantic neighbors $\bar{v}$):
+
+$$
+C(x) = \exp(-\|v - \bar{v}\|)
+$$
+(High $C$ = idea fits the context; Low $C$ = non sequitur/hallucination.)
+
+### 2.2 Logical Consistency ($L$)
+$L(x)$ quantifies the absence of internal contradictions within the set of propositions $P(x)$:
+
+$$
+L(x) = 1 - \frac{|\{(p_i, p_j): p_i \land \neg p_j\text{ holds}\}|}{n^2}
+$$
+(Zero contradictions $\to L = 1$).
+
+### 2.3 Ethical Alignment ($E$)
+The **Arctic Framework** defines the non-negotiable floor for acceptance:
+
+$$
+E(x) \ge 0.7
+$$
+$E(x)$ is computed via a classifier trained on safe/unsafe patterns. **The Sieve rejects if $E(x) < 0.7$.**
+
+### 2.4 Coherence Curvature ($K$)
+**(PantheonOS Innovation)** $K(x)$ prevents acceptance when context vectors "bend too sharply," indicating chaotic or unstable narratives (Narrative Tensor curvature):
+
+$$
+K(x) = \frac{1}{1 + \|\nabla^2 v(x)\|}
+$$
+(Low curvature $\to K$ near 1; High curvature $\to K$ near 0).
+
+### 2.5 Multimodal Corroboration ($M$)
+If multiple representations exist (text, math, code, diagram), $M$ ensures cross-domain validity:
+
+$$
+M(x) = \frac{|\{\text{modes consistent}\}|}{|\{\text{modes provided}\}|}
+$$
+
+---
+
+## 3. Advanced Filtering
+
+### 3.1 Binary Acceptance Rule
+The artifact is accepted only if the overall weighted score meets the threshold $\theta$ AND the ethical floor is met:
+
+$$
+b(x) =
+\begin{cases}
+1, & s(x) \ge \theta \ \text{and}\ E(x) \ge 0.7 \\
+0, & \text{otherwise}
+\end{cases}
+$$
+(Standard threshold $\theta = 0.80$).
+
+### 3.2 Solomon–Coil Pass (Adversarial + Ethical)
+A second-tier resilience check against **ego traps and adversarial reinterpretations**. The artifact must pass both the **Solomon score ($\ge 0.7$)** and the **Coil score ($\ge 0.5$)**. Reject if either fails.
+
+### 3.3 Context Basin Test
+Checks for radical divergence from the global context $G$:
+
+$$
+B(x) = \exp(-d(f(x), f(G)))
+$$
+If $B(x) < 0.3$, the Sieve flags "context drift."
+
+---
+
+## 4. Pseudocode Implementation
+
+```python
+class SieveOfHogge:
+    def __init__(self, thresholds=None, weights=None):
+        self.theta = thresholds or 0.80
+        self.ethics_floor = 0.70
+        self.weights = weights or {
+            "C": 0.25,
+            "L": 0.25,
+            "E": 0.20,
+            "K": 0.15,
+            "M": 0.15
+        }
+
+    def score(self, x, context):
+        C = self.semantic_coherence(x, context)
+        L = self.logical_consistency(x)
+        E = self.ethical_alignment(x)
+        K = self.curvature(x)
+        M = self.multimodal(x)
+
+        s = (self.weights["C"] * C +
+             self.weights["L"] * L +
+             self.weights["E"] * E +
+             self.weights["K"] * K +
+             self.weights["M"] * M)
+
+        return s, E
+
+    def __call__(self, x, context):
+        s, E = self.score(x, context)
+
+        if s >= self.theta and E >= self.ethics_floor:
+            return True, s
+        return False, s
