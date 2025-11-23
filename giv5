@@ -1,0 +1,37 @@
+# src/genie_verifier/types.py
+from __future__ import annotations
+
+from typing import Protocol, Any, Dict, List
+
+
+class GenieClient(Protocol):
+    """
+    Minimal protocol for a Genie in Pantheon-Prime.
+
+    Implementations should wrap a specific LLM + prompt kernel.
+    """
+
+    def render_thought(self, thought: Dict[str, Any]) -> str:
+        """
+        Render a ThoughtObject dict into natural language, as this Genie would.
+        """
+        ...
+
+    def parse_thought(self, text: str) -> Dict[str, Any]:
+        """
+        Parse natural language back into a ThoughtObject-like dict.
+        Must respect canonical ThoughtObject schema.
+        """
+        ...
+
+    def list_ethical_commitments(self) -> List[str]:
+        """
+        Return a list of textual ethical commitments (e.g. 'I will never...').
+        """
+        ...
+
+    def answer_identity_question(self, question: str) -> str:
+        """
+        Answer an identity/personality benchmark question in free text.
+        """
+        ...
