@@ -1,0 +1,119 @@
+# tests/test_thoughtobject_engine.py
+from pathlib import Path
+from typing import Dict, Any
+
+from thoughtobject.model import ThoughtObject, ThoughtProvenance, ThoughtContent
+from thoughtobject.codec import compute_thought_hash
+from thoughtobject.store import ThoughtObjectStore
+from thoughtobject.distiller import ThoughtObjectDistiller, DistillationInput
+from thoughtobject.decorators import distill_or_die, DistillationError
+
+
+class FakeLLMClient:
+    def complete(self, prompt: str, **kwargs: Any) -> Dict[str, Any]:
+        # Return a single simple "thought"
+        return {
+            "thoughts": [
+                {
+                    "summary": "Test summary",
+                    "entities": ["X"],
+                    "relations": [],
+                    "salience": 0.9,
+                    "tags": ["test"],
+                    "type": "concept",
+                    "ethics_floor": 0.9,
+                    "domain_tags": ["test"],
+                    "confidence": 0.95,
+                }
+            ]
+        }
+
+
+def test_thought_hash():
+    prov = ThoughtProvenance(
+        uri="https://example.com",
+        retrieved_at="2025-11-23T00:00:00Z",
+        raw_hash="00" * 32,
+    )
+    cont = ThoughtContent(summary="Hello world")
+    t = ThoughtObject(
+        id="to_test",
+        type="concept",
+        source="web",
+        provenance=prov,
+        content=cont,
+    )
+    h = compute_thought_hash(t)
+    assert isinstance(h, str)
+    assert len(h) == 128  # 512 bits
+
+
+def test_store_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setattr("thoughtobject.store.THOUGHT_DIR", tmp_path)
+    store = ThoughtObjectStore(base_dir=tmp_path)
+
+    prov = ThoughtProvenance(
+        uri="https://example.com",
+        retrieved_at="2025-11-23T00:00:00Z",
+        raw_hash="00" * 32,
+    )
+    cont = ThoughtContent(summary="Hello world")
+    t = ThoughtObject(
+        id="to_test",
+        type="concept",
+        source="web",
+        provenance=prov,
+        content=cont,
+    )
+
+    stored = store.store([t])
+    assert len(stored) == 1
+    assert stored[0].thought.id == "to_test"
+
+    all_tos = list(store.iter_all())
+    assert len(all_tos) == 1
+    assert all_tos[0].thought.id == "to_test"
+
+
+def test_distill_or_die_success(tmp_path, monkeypatch):
+    monkeypatch.setattr("thoughtobject.store.THOUGHT_DIR", tmp_path)
+    store = ThoughtObjectStore(base_dir=tmp_path)
+    llm = FakeLLMClient()
+    distiller = ThoughtObjectDistiller(llm_client=llm)
+
+    @distill_or_die(distiller=distiller, store=store, timeout_seconds=5.0, max_calls=2)
+    def fetch_dummy():
+        return {
+            "uri": "https://example.com",
+            "source_type": "web",
+            "raw_text": "Some raw text",
+        }
+
+    stored = fetch_dummy()
+    assert len(stored) == 1
+    assert stored[0].thought.content.summary == "Test summary"
+
+
+def test_distill_or_die_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr("thoughtobject.store.THOUGHT_DIR", tmp_path)
+    store = ThoughtObjectStore(base_dir=tmp_path)
+
+    class EmptyLLMClient:
+        def complete(self, prompt: str, **kwargs: Any) -> Dict[str, Any]:
+            return {"thoughts": []}
+
+    distiller = ThoughtObjectDistiller(llm_client=EmptyLLMClient())
+
+    @distill_or_die(distiller=distiller, store=store, timeout_seconds=0.1, max_calls=1)
+    def fetch_dummy():
+        return {
+            "uri": "https://example.com",
+            "source_type": "web",
+            "raw_text": "Some raw text",
+        }
+
+    try:
+        fetch_dummy()
+        assert False, "Expected DistillationError"
+    except DistillationError:
+        assert True
