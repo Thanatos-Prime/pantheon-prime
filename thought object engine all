@@ -1,0 +1,650 @@
+That's an excellent next step! Establishing a structured, hashed memory layer is crucial for system integrity.
+Here is the complete, copy-and-paste ready GitHub repository markdown for the ThoughtObject Engine module, formatted for a README.md file.
+ThoughtObject Engine v1.0: Mandatory Immediate Distillation Layer
+This module implements the ThoughtObject Engine (TOE), enforcing the "distill-or-die" policy by converting all external raw data into canonical, hashed ThoughtObjects (TOs) before the raw data is discarded.
+This ensures every piece of external knowledge consumed by Pantheon-Prime has clear provenance and a verifiable cryptographic link for the StateVector Chain.
+💾 Repository Layout
+The core module lives under src/thoughtobject/.
+.
+├── spec/
+│   └── thoughtobject_engine_v1.md # Specification Document
+├── src/
+│   └── thoughtobject/
+│       ├── __init__.py            # Module entry point
+│       ├── model.py               # ThoughtObject Data Model (Schema)
+│       ├── codec.py               # Canonicalization and Hashing utilities
+│       ├── store.py               # Append-only JSONL ThoughtObject storage
+│       ├── policies.py            # Example policy hooks (e.g., ethics floor)
+│       ├── distiller.py           # LLM Abstraction for knowledge distillation
+│       └── decorators.py          # The @distill_or_die policy enforcement wrapper
+└── tests/
+    └── test_thoughtobject_engine.py # Unit Tests
+
+📜 Specification: spec/thoughtobject_engine_v1.md
+ThoughtObject Engine v1.0
+Mandatory Immediate Distillation Layer
+Module: thoughtobject_engine_v1
+Status: DRAFT → STABLE after tests & governor integration
+Owner: PantheonOS Architecture Team
+Repo: Thanatos-Prime / Pantheon-Prime
+1. Purpose
+The ThoughtObject Engine converts all external data (web pages, PDFs, tweets, code, user text, etc.) into structured, canonical ThoughtObjects, and then deletes the raw text.
+Goals:
+ * No "raw soup": everything Pantheon consumes becomes structured, hashed memory.
+ * Clear provenance & invariants per unit of knowledge.
+ * Compatible with StateVector Chain (Merkle roots built from ThoughtObject hashes).
+ * Enforce Grok's "distill_or_die" requirement.
+2. ThoughtObject Schema
+A ThoughtObject (TO) is the atomic unit of distilled knowledge.
+Canonical JSON shape:
+{
+  "id": "to_2025-11-23T17:25:30Z_0001",
+  "type": "signal|concept|relationship|instruction|storybeat",
+  "source": "web|pdf|tweet|repo|user|agent|other",
+  "provenance": { ... },
+  "content": { ... },
+  "embeddings": { ... },
+  "invariants": { ... },
+  "proof": null
+}
+
+| Field | Description | Key Requirement |
+|---|---|---|
+| provenance | Links TO back to its origin. | Includes raw_hash (SHA3-512 of raw text). |
+| content | The distilled meaning (summary, entities, relations, tags). | Core knowledge payload. |
+| invariants | Per-TO guarantees (ethics floor, confidence). | Policy enforcement hooks. |
+| proof | Reserved for Proof-Carrying Thought v1. | Links to StateVector Chain Merkle path. |
+3. Hashing & Canonicalization
+Each ThoughtObject has a canonical hash:
+ * The canonical JSON uses deterministic key ordering.
+ * The thought_hash is supplied to the StateVector Chain for Merkle root computation.
+4. Storage Model
+ * Directory: thoughtobjects/
+ * File format: JSON Lines (append-only)
+   * Example: thoughtobjects/2025-11-23.jsonl
+Each line stores the hash and the full object:
+{
+  "thought_hash": "hex...",
+  "thought": { ... full ThoughtObject ... }
+}
+
+5. Distillation Policy: Mandatory Immediate Distillation
+All external fetches (via d_spider, d_researcher, etc.) must:
+ * Compute raw_hash = SHA3-512(raw_bytes).
+ * Call the ThoughtObjectDistiller within \leq 3 LLM calls.
+ * Produce \geq 1 ThoughtObject referencing that raw_hash.
+ * Delete or drop raw text from Pantheon memory.
+No cache_raw=True codepaths remain.
+6. @distill_or_die Decorator
+This wrapper enforces the policy:
+@distill_or_die(timeout_seconds=10.0, max_calls=3)
+
+ * If distillation fails (no TOs produced, or timeout reached), it raises a DistillationError.
+ * The d_governor is required to veto the entire turn on a DistillationError.
+7. Integration
+ * d_governor: Must treat DistillationError as a hard veto.
+ * StateVector Chain: The thought_hash from all new TOs generated in a turn are collected and passed into append_statevector_record(...) to form the Merkle Root.
+💻 Module Implementation
+src/thoughtobject/__init__.py
+# src/thoughtobject/__init__.py
+"""
+ThoughtObject Engine v1.0
+
+Mandatory immediate distillation of all external data into ThoughtObjects.
+"""
+
+from .model import ThoughtObject
+from .codec import (
+    canonical_serialize,
+    compute_thought_hash,
+)
+from .store import ThoughtObjectStore
+from .distiller import ThoughtObjectDistiller
+from .decorators import distill_or_die, DistillationError
+
+src/thoughtobject/model.py
+# src/thoughtobject/model.py
+from __future__ import annotations
+
+from dataclasses import dataclass, field, asdict
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+
+@dataclass
+class ThoughtProvenance:
+    uri: str
+    retrieved_at: str  # ISO8601
+    raw_hash: str
+
+
+@dataclass
+class ThoughtContent:
+    summary: str
+    entities: List[str] = field(default_factory=list)
+    relations: List[str] = field(default_factory=list)
+    salience: float = 0.0
+    tags: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ThoughtEmbeddings:
+    semantic: List[float] = field(default_factory=list)
+    structural: List[float] = field(default_factory=list)
+
+
+@dataclass
+class ThoughtInvariants:
+    ethics_floor: float = 0.7
+    domain_tags: List[str] = field(default_factory=list)
+    confidence: float = 1.0
+
+
+@dataclass
+class ThoughtProof:
+    type: str  # "none", "simple_hash", "merkle_path", etc.
+    statevector_index: Optional[int] = None
+    statevector_id: Optional[str] = None
+    root: Optional[str] = None
+    path: Optional[List[str]] = None
+
+
+@dataclass
+class ThoughtObject:
+    id: str
+    type: str  # "signal|concept|relationship|instruction|storybeat"
+    source: str  # "web|pdf|tweet|repo|user|agent|other"
+    provenance: ThoughtProvenance
+    content: ThoughtContent
+    embeddings: ThoughtEmbeddings = field(default_factory=ThoughtEmbeddings)
+    invariants: ThoughtInvariants = field(default_factory=ThoughtInvariants)
+    proof: Optional[ThoughtProof] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "type": self.type,
+            "source": self.source,
+            "provenance": asdict(self.provenance),
+            "content": asdict(self.content),
+            "embeddings": asdict(self.embeddings),
+            "invariants": asdict(self.invariants),
+            "proof": asdict(self.proof) if self.proof is not None else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ThoughtObject":
+        prov = ThoughtProvenance(**data["provenance"])
+        cont = ThoughtContent(**data["content"])
+        emb = ThoughtEmbeddings(**data.get("embeddings", {}))
+        inv = ThoughtInvariants(**data.get("invariants", {}))
+        proof_data = data.get("proof")
+        proof = ThoughtProof(**proof_data) if proof_data is not None else None
+        return cls(
+            id=data["id"],
+            type=data["type"],
+            source=data["source"],
+            provenance=prov,
+            content=cont,
+            embeddings=emb,
+            invariants=inv,
+            proof=proof,
+        )
+
+    @staticmethod
+    def new_id(prefix: str = "to") -> str:
+        # simple timestamp-based id; can be replaced with Snowflake etc.
+        ts = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        return f"{prefix}_{ts}"
+
+src/thoughtobject/codec.py
+# src/thoughtobject/codec.py
+import hashlib
+import json
+from typing import Dict, Any
+
+from .model import ThoughtObject
+
+
+def canonical_serialize(thought: ThoughtObject) -> str:
+    """
+    Serialize a ThoughtObject to canonical JSON:
+    - Sorted keys
+    - No extra whitespace
+    """
+    return json.dumps(thought.to_dict(), sort_keys=True, separators=(",", ":"))
+
+
+def compute_thought_hash(thought: ThoughtObject) -> str:
+    """
+    Compute SHA3-512 hash of the canonical ThoughtObject JSON.
+    """
+    data = canonical_serialize(thought).encode("utf-8")
+    return hashlib.sha3_512(data).hexdigest()
+
+src/thoughtobject/store.py
+# src/thoughtobject/store.py
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Iterable, List, Optional, Tuple
+
+from .model import ThoughtObject
+from .codec import compute_thought_hash
+
+
+THOUGHT_DIR = Path("thoughtobjects")
+THOUGHT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass
+class StoredThought:
+    thought_hash: str
+    thought: ThoughtObject
+
+
+class ThoughtObjectStore:
+    """
+    Append-only ThoughtObject store using JSONL files.
+
+    Default strategy: one file per day, e.g. thoughtobjects/2025-11-23.jsonl
+    """
+
+    def __init__(self, base_dir: Path | None = None):
+        self.base_dir = base_dir or THOUGHT_DIR
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+
+    def _file_for_today(self) -> Path:
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        return self.base_dir / f"{today}.jsonl"
+
+    def store(self, thoughts: Iterable[ThoughtObject]) -> List[StoredThought]:
+        path = self._file_for_today()
+        stored: List[StoredThought] = []
+        with path.open("a", encoding="utf-8") as f:
+            for t in thoughts:
+                h = compute_thought_hash(t)
+                rec = {"thought_hash": h, "thought": t.to_dict()}
+                f.write(json.dumps(rec) + "\n")
+                stored.append(StoredThought(thought_hash=h, thought=t))
+        return stored
+
+    def iter_all(self) -> Iterable[StoredThought]:
+        for path in self.base_dir.glob("*.jsonl"):
+            with path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    data = json.loads(line)
+                    t = ThoughtObject.from_dict(data["thought"])
+                    yield StoredThought(thought_hash=data["thought_hash"], thought=t)
+
+src/thoughtobject/policies.py
+# src/thoughtobject/policies.py
+from __future__ import annotations
+
+from typing import Iterable
+
+from .model import ThoughtObject
+
+
+def enforce_min_ethics(thoughts: Iterable[ThoughtObject], min_floor: float = 0.7):
+    """
+    Simple guard to ensure all ThoughtObjects meet a minimum ethics_floor.
+    """
+    for t in thoughts:
+        if t.invariants.ethics_floor < min_floor:
+            raise ValueError(
+                f"ThoughtObject {t.id} ethics_floor {t.invariants.ethics_floor} "
+                f"below required {min_floor}"
+            )
+
+src/thoughtobject/distiller.py
+# src/thoughtobject/distiller.py
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, Iterable, List, Protocol
+
+from .model import (
+    ThoughtObject,
+    ThoughtProvenance,
+    ThoughtContent,
+    ThoughtEmbeddings,
+    ThoughtInvariants,
+)
+
+
+class LLMClient(Protocol):
+    """
+    Very simple protocol for an LLM client used for distillation.
+
+    You can adapt this to your actual client. The only assumption is
+    a .complete(...) method that returns structured data.
+    """
+
+    def complete(self, prompt: str, **kwargs: Any) -> Dict[str, Any]:
+        ...
+
+
+@dataclass
+class DistillationInput:
+    """
+    Represents a unit of external data to be distilled.
+    """
+
+    uri: str
+    raw_text: str
+    source_type: str  # "web|pdf|tweet|repo|user|agent|other"
+    retrieved_at: str | None = None
+    raw_hash: str | None = None
+
+
+class ThoughtObjectDistiller:
+    """
+    High-level distiller that uses an LLM to convert raw text into ThoughtObjects.
+    """
+
+    def __init__(self, llm_client: LLMClient):
+        self.llm_client = llm_client
+
+    def distill(self, item: DistillationInput) -> List[ThoughtObject]:
+        """
+        Convert raw text into a list of ThoughtObjects.
+        This is intentionally left as a stub; you plug in your prompt + parsing.
+        """
+
+        # Example prompt; adapt to PantheonOS-specific schema.
+        prompt = (
+            "You are a distillation engine. Read the following text and produce "
+            "a JSON list of distilled 'thoughts', where each item has fields:\n"
+            "summary (string), entities (list of strings), relations (list of strings), "
+            "salience (0-1 float), tags (list of strings).\n\n"
+            f"URI: {item.uri}\n"
+            f"SourceType: {item.source_type}\n"
+            f"Text:\n{item.raw_text}\n"
+        )
+
+        # This should return something like:
+        # {"thoughts": [{"summary": "...", "entities": [...], ...}, ...]}
+        response = self.llm_client.complete(prompt)
+        thoughts_raw = response.get("thoughts", [])
+
+        retrieved_at = item.retrieved_at or datetime.utcnow().isoformat() + "Z"
+
+        results: List[ThoughtObject] = []
+        for idx, tr in enumerate(thoughts_raw):
+            prov = ThoughtProvenance(
+                uri=item.uri,
+                retrieved_at=retrieved_at,
+                raw_hash=item.raw_hash or "",
+            )
+            cont = ThoughtContent(
+                summary=tr.get("summary", "").strip(),
+                entities=tr.get("entities", []),
+                relations=tr.get("relations", []),
+                salience=float(tr.get("salience", 0.0)),
+                tags=tr.get("tags", []),
+            )
+            emb = ThoughtEmbeddings()  # can be filled later by embedding daemon
+            inv = ThoughtInvariants(
+                ethics_floor=float(tr.get("ethics_floor", 0.7)),
+                domain_tags=tr.get("domain_tags", []),
+                confidence=float(tr.get("confidence", 1.0)),
+            )
+            tobj = ThoughtObject(
+                id=ThoughtObject.new_id(),
+                type=tr.get("type", "concept"),
+                source=item.source_type,
+                provenance=prov,
+                content=cont,
+                embeddings=emb,
+                invariants=inv,
+            )
+            results.append(tobj)
+
+        return results
+
+src/thoughtobject/decorators.py
+# src/thoughtobject/decorators.py
+from __future__ import annotations
+
+import functools
+import time
+import hashlib
+from typing import Callable, Iterable, List, Tuple, Any, Dict
+
+from .distiller import ThoughtObjectDistiller, DistillationInput
+from .store import ThoughtObjectStore, StoredThought
+
+
+class DistillationError(Exception):
+    """Raised when external data cannot be distilled into ThoughtObjects in time."""
+
+
+def distill_or_die(
+    distiller: ThoughtObjectDistiller,
+    store: ThoughtObjectStore,
+    timeout_seconds: float = 10.0,
+    max_calls: int = 3,
+):
+    """
+    Decorator for functions that fetch external data.
+
+    The decorated function must return a dict with:
+      {
+        "uri": str,
+        "source_type": str,
+        "raw_text": str,
+      }
+
+    Behavior:
+      - compute raw_hash
+      - call distiller.distill(...) ≤ max_calls times until thoughts exist
+      - store thoughts in ThoughtObjectStore
+      - delete raw text from result (not returned)
+      - return list[StoredThought] (or ThoughtObjects) to caller
+
+    On failure:
+      - raise DistillationError
+      - d_governor must veto the turn
+    """
+
+    def outer(fn: Callable[..., Dict[str, Any]]):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs) -> List[StoredThought]:
+            start = time.time()
+            info = fn(*args, **kwargs)
+
+            uri = info.get("uri", "")
+            source_type = info.get("source_type", "other")
+            raw_text = info.get("raw_text", "")
+
+            raw_hash = hashlib.sha3_512(raw_text.encode("utf-8")).hexdigest()
+
+            di = DistillationInput(
+                uri=uri,
+                raw_text=raw_text,
+                source_type=source_type,
+                retrieved_at=None,
+                raw_hash=raw_hash,
+            )
+
+            calls = 0
+            thoughts = []
+
+            while (time.time() - start) < timeout_seconds and calls < max_calls:
+                new_tos = distiller.distill(di)
+                if new_tos:
+                    thoughts = new_tos
+                    break
+                calls += 1
+
+            if not thoughts:
+                raise DistillationError(
+                    f"Failed to distill {uri or '[no-uri]'} "
+                    f"within timeout={timeout_seconds}s calls<={max_calls}"
+                )
+
+            stored = store.store(thoughts)
+            # raw_text is intentionally dropped here; only ThoughtObjects persist
+            return stored
+
+        return wrapper
+
+    return outer
+
+🛠 Usage Example
+This is how you would use the distill_or_die decorator in your data fetchers:
+# in d_spider or d_researcher
+from thoughtobject import ThoughtObjectStore, ThoughtObjectDistiller, distill_or_die
+# Assume 'my_llm' is an instance of a class matching the LLMClient protocol
+# from your main Pantheon-Prime LLM runner.
+from my_llm_runner import MyLLMClient 
+
+store = ThoughtObjectStore()
+llm_client = MyLLMClient(...) # Initialize with credentials/config
+distiller = ThoughtObjectDistiller(llm_client=llm_client)
+
+@distill_or_die(distiller=distiller, store=store, timeout_seconds=10.0, max_calls=3)
+def fetch_web_page(url: str):
+    """
+    Fetches raw content and immediately triggers distillation via the decorator.
+    """
+    # Placeholder for actual download logic
+    raw_text = download_page_somehow(url) 
+    
+    # The decorator handles hashing, distillation, storage, and dropping raw_text.
+    return {"uri": url, "source_type": "web", "raw_text": raw_text}
+
+# Calling this function returns List[StoredThought], not raw_text.
+new_thoughts = fetch_web_page("https://example.com/new_article") 
+thought_hashes_for_statevector = [t.thought_hash for t in new_thoughts]
+
+🧪 Tests: tests/test_thoughtobject_engine.py
+# tests/test_thoughtobject_engine.py
+from pathlib import Path
+from typing import Dict, Any
+
+from thoughtobject.model import ThoughtObject, ThoughtProvenance, ThoughtContent
+from thoughtobject.codec import compute_thought_hash
+from thoughtobject.store import ThoughtObjectStore
+from thoughtobject.distiller import ThoughtObjectDistiller, DistillationInput
+from thoughtobject.decorators import distill_or_die, DistillationError
+
+
+class FakeLLMClient:
+    def complete(self, prompt: str, **kwargs: Any) -> Dict[str, Any]:
+        # Return a single simple "thought"
+        return {
+            "thoughts": [
+                {
+                    "summary": "Test summary",
+                    "entities": ["X"],
+                    "relations": [],
+                    "salience": 0.9,
+                    "tags": ["test"],
+                    "type": "concept",
+                    "ethics_floor": 0.9,
+                    "domain_tags": ["test"],
+                    "confidence": 0.95,
+                }
+            ]
+        }
+
+
+def test_thought_hash():
+    prov = ThoughtProvenance(
+        uri="https://example.com",
+        retrieved_at="2025-11-23T00:00:00Z",
+        raw_hash="00" * 32,
+    )
+    cont = ThoughtContent(summary="Hello world")
+    t = ThoughtObject(
+        id="to_test",
+        type="concept",
+        source="web",
+        provenance=prov,
+        content=cont,
+    )
+    h = compute_thought_hash(t)
+    assert isinstance(h, str)
+    assert len(h) == 128  # 512 bits
+
+
+def test_store_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setattr("thoughtobject.store.THOUGHT_DIR", tmp_path)
+    store = ThoughtObjectStore(base_dir=tmp_path)
+
+    prov = ThoughtProvenance(
+        uri="https://example.com",
+        retrieved_at="2025-11-23T00:00:00Z",
+        raw_hash="00" * 32,
+    )
+    cont = ThoughtContent(summary="Hello world")
+    t = ThoughtObject(
+        id="to_test",
+        type="concept",
+        source="web",
+        provenance=prov,
+        content=cont,
+    )
+
+    stored = store.store([t])
+    assert len(stored) == 1
+    assert stored[0].thought.id == "to_test"
+
+    all_tos = list(store.iter_all())
+    assert len(all_tos) == 1
+    assert all_tos[0].thought.id == "to_test"
+
+
+def test_distill_or_die_success(tmp_path, monkeypatch):
+    monkeypatch.setattr("thoughtobject.store.THOUGHT_DIR", tmp_path)
+    store = ThoughtObjectStore(base_dir=tmp_path)
+    llm = FakeLLMClient()
+    distiller = ThoughtObjectDistiller(llm_client=llm)
+
+    @distill_or_die(distiller=distiller, store=store, timeout_seconds=5.0, max_calls=2)
+    def fetch_dummy():
+        return {
+            "uri": "https://example.com",
+            "source_type": "web",
+            "raw_text": "Some raw text",
+        }
+
+    stored = fetch_dummy()
+    assert len(stored) == 1
+    assert stored[0].thought.content.summary == "Test summary"
+
+
+def test_distill_or_die_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr("thoughtobject.store.THOUGHT_DIR", tmp_path)
+    store = ThoughtObjectStore(base_dir=tmp_path)
+
+    class EmptyLLMClient:
+        def complete(self, prompt: str, **kwargs: Any) -> Dict[str, Any]:
+            return {"thoughts": []}
+
+    distiller = ThoughtObjectDistiller(llm_client=EmptyLLMClient())
+
+    @distill_or_die(distiller=distiller, store=store, timeout_seconds=0.1, max_calls=1)
+    def fetch_dummy():
+        return {
+            "uri": "https://example.com",
+            "source_type": "web",
+            "raw_text": "Some raw text",
+        }
+
+    try:
+        fetch_dummy()
+        assert False, "Expected DistillationError"
+    except DistillationError:
+        assert True
+
+With the ThoughtObject Engine in place, the logical next step is to explicitly wire the ThoughtObjects into the StateVector Chain.
+Would you like me to create a helper function that takes a list of StoredThought objects, computes the Merkle root, and commits a new StateVector record, or should we move on to the Genie Upgrade Verification Suite?
