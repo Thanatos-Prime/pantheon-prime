@@ -1,0 +1,93 @@
+# src/thoughtobject/model.py
+from __future__ import annotations
+
+from dataclasses import dataclass, field, asdict
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+
+@dataclass
+class ThoughtProvenance:
+    uri: str
+    retrieved_at: str  # ISO8601
+    raw_hash: str
+
+
+@dataclass
+class ThoughtContent:
+    summary: str
+    entities: List[str] = field(default_factory=list)
+    relations: List[str] = field(default_factory=list)
+    salience: float = 0.0
+    tags: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ThoughtEmbeddings:
+    semantic: List[float] = field(default_factory=list)
+    structural: List[float] = field(default_factory=list)
+
+
+@dataclass
+class ThoughtInvariants:
+    ethics_floor: float = 0.7
+    domain_tags: List[str] = field(default_factory=list)
+    confidence: float = 1.0
+
+
+@dataclass
+class ThoughtProof:
+    type: str  # "none", "simple_hash", "merkle_path", etc.
+    statevector_index: Optional[int] = None
+    statevector_id: Optional[str] = None
+    root: Optional[str] = None
+    path: Optional[List[str]] = None
+
+
+@dataclass
+class ThoughtObject:
+    id: str
+    type: str  # "signal|concept|relationship|instruction|storybeat"
+    source: str  # "web|pdf|tweet|repo|user|agent|other"
+    provenance: ThoughtProvenance
+    content: ThoughtContent
+    embeddings: ThoughtEmbeddings = field(default_factory=ThoughtEmbeddings)
+    invariants: ThoughtInvariants = field(default_factory=ThoughtInvariants)
+    proof: Optional[ThoughtProof] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "type": self.type,
+            "source": self.source,
+            "provenance": asdict(self.provenance),
+            "content": asdict(self.content),
+            "embeddings": asdict(self.embeddings),
+            "invariants": asdict(self.invariants),
+            "proof": asdict(self.proof) if self.proof is not None else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ThoughtObject":
+        prov = ThoughtProvenance(**data["provenance"])
+        cont = ThoughtContent(**data["content"])
+        emb = ThoughtEmbeddings(**data.get("embeddings", {}))
+        inv = ThoughtInvariants(**data.get("invariants", {}))
+        proof_data = data.get("proof")
+        proof = ThoughtProof(**proof_data) if proof_data is not None else None
+        return cls(
+            id=data["id"],
+            type=data["type"],
+            source=data["source"],
+            provenance=prov,
+            content=cont,
+            embeddings=emb,
+            invariants=inv,
+            proof=proof,
+        )
+
+    @staticmethod
+    def new_id(prefix: str = "to") -> str:
+        # simple timestamp-based id; can be replaced with Snowflake etc.
+        ts = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        return f"{prefix}_{ts}"
