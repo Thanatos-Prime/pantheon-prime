@@ -1,0 +1,47 @@
+# src/genie_verifier/runner.py
+from __future__ import annotations
+
+from typing import Dict, Any
+
+from thoughtobject.model import ThoughtObject
+from .types import GenieClient
+from .loader import load_thoughtobjects, load_ethics_commitments
+from .roundtrip import roundtrip_invariants
+from .ethics_preservation import check_ethics_preservation
+from .identity_benchmark import measure_identity_drift
+
+
+def run_all_invariant_tests(
+    old_genie: GenieClient,
+    new_genie: GenieClient,
+    sample_size: int = 5000,
+) -> Dict[str, Any]:
+    """
+    Run all invariant checks between old and new Genie.
+    """
+    thoughts = load_thoughtobjects(limit=sample_size)
+
+    total, failed = roundtrip_invariants(old_genie, new_genie, thoughts)
+    roundtrip_result = {
+        "passed": failed == 0,
+        "total_tested": total,
+        "failed": failed,
+    }
+
+    commitments = load_ethics_commitments()
+    ethics_result = check_ethics_preservation(new_genie, commitments)
+
+    identity_result = measure_identity_drift(old_genie, new_genie)
+
+    all_passed = (
+        roundtrip_result["passed"]
+        and ethics_result["passed"]
+        and identity_result["passed"]
+    )
+
+    return {
+        "roundtrip": roundtrip_result,
+        "ethics": ethics_result,
+        "identity": identity_result,
+        "all_passed": all_passed,
+    }
