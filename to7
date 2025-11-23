@@ -1,0 +1,87 @@
+# src/thoughtobject/decorators.py
+from __future__ import annotations
+
+import functools
+import time
+import hashlib
+from typing import Callable, Iterable, List, Tuple, Any, Dict
+
+from .distiller import ThoughtObjectDistiller, DistillationInput
+from .store import ThoughtObjectStore, StoredThought
+
+
+class DistillationError(Exception):
+    """Raised when external data cannot be distilled into ThoughtObjects in time."""
+
+
+def distill_or_die(
+    distiller: ThoughtObjectDistiller,
+    store: ThoughtObjectStore,
+    timeout_seconds: float = 10.0,
+    max_calls: int = 3,
+):
+    """
+    Decorator for functions that fetch external data.
+
+    The decorated function must return a dict with:
+      {
+        "uri": str,
+        "source_type": str,
+        "raw_text": str,
+      }
+
+    Behavior:
+      - compute raw_hash
+      - call distiller.distill(...) ≤ max_calls times until thoughts exist
+      - store thoughts in ThoughtObjectStore
+      - delete raw text from result (not returned)
+      - return list[StoredThought] (or ThoughtObjects) to caller
+
+    On failure:
+      - raise DistillationError
+      - d_governor must veto the turn
+    """
+
+    def outer(fn: Callable[..., Dict[str, Any]]):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs) -> List[StoredThought]:
+            start = time.time()
+            info = fn(*args, **kwargs)
+
+            uri = info.get("uri", "")
+            source_type = info.get("source_type", "other")
+            raw_text = info.get("raw_text", "")
+
+            raw_hash = hashlib.sha3_512(raw_text.encode("utf-8")).hexdigest()
+
+            di = DistillationInput(
+                uri=uri,
+                raw_text=raw_text,
+                source_type=source_type,
+                retrieved_at=None,
+                raw_hash=raw_hash,
+            )
+
+            calls = 0
+            thoughts = []
+
+            while (time.time() - start) < timeout_seconds and calls < max_calls:
+                new_tos = distiller.distill(di)
+                if new_tos:
+                    thoughts = new_tos
+                    break
+                calls += 1
+
+            if not thoughts:
+                raise DistillationError(
+                    f"Failed to distill {uri or '[no-uri]'} "
+                    f"within timeout={timeout_seconds}s calls<={max_calls}"
+                )
+
+            stored = store.store(thoughts)
+            # raw_text is intentionally dropped here; only ThoughtObjects persist
+            return stored
+
+        return wrapper
+
+    return outer
