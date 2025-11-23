@@ -1,0 +1,88 @@
+---
+
+## 1. Key code skeletons you can adapt
+
+### 1.1 StateVector ledger core
+
+```python
+# src/statevector/chain.py
+import hashlib
+import json
+from dataclasses import dataclass, asdict
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
+
+LEDGER_PATH = Path("statevector/ledger.jsonl")
+
+
+@dataclass
+class StateVectorRecord:
+    index: int
+    timestamp: str
+    statevector_id: str
+    prev_hash: str
+    merkle_root: str
+    content_hash: str
+    signature: str
+    public_key_id: str = "kernel_key_v1"
+
+
+def sha3_512_hex(data: bytes) -> str:
+    return hashlib.sha3_512(data).hexdigest()
+
+
+def compute_merkle_root(hashes: List[str]) -> str:
+    """Very simple Merkle root over list of hex hashes."""
+    if not hashes:
+        return sha3_512_hex(b"")
+
+    layer = [bytes.fromhex(h) for h in hashes]
+    while len(layer) > 1:
+        next_layer = []
+        for i in range(0, len(layer), 2):
+            left = layer[i]
+            right = layer[i + 1] if i + 1 < len(layer) else left
+            next_layer.append(hashlib.sha3_512(left + right).digest())
+        layer = next_layer
+    return layer[0].hex()
+
+
+def append_statevector_record(
+    statevector_id: str,
+    statevector_payload: dict,
+    thought_hashes: List[str],
+    signer,
+) -> StateVectorRecord:
+    LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
+    prev_hash = "0" * 128
+    index = 0
+
+    if LEDGER_PATH.exists():
+        with LEDGER_PATH.open("rb") as f:
+            *_, last = f.readlines()
+        last_rec = json.loads(last)
+        prev_hash = last_rec["content_hash"]
+        index = last_rec["index"] + 1
+
+    content_bytes = json.dumps(statevector_payload, sort_keys=True).encode("utf-8")
+    content_hash = sha3_512_hex(content_bytes)
+    merkle_root = compute_merkle_root(thought_hashes)
+
+    sign_bytes = (merkle_root + content_hash + prev_hash).encode("utf-8")
+    signature = signer.sign(sign_bytes).hex()
+
+    rec = StateVectorRecord(
+        index=index,
+        timestamp=datetime.utcnow().isoformat() + "Z",
+        statevector_id=statevector_id,
+        prev_hash=prev_hash,
+        merkle_root=merkle_root,
+        content_hash=content_hash,
+        signature=signature,
+    )
+
+    with LEDGER_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(asdict(rec)) + "\n")
+
+    return rec
