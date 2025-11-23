@@ -1,0 +1,18 @@
+# src/thoughtobject/policies.py
+from __future__ import annotations
+
+from typing import Iterable
+
+from .model import ThoughtObject
+
+
+def enforce_min_ethics(thoughts: Iterable[ThoughtObject], min_floor: float = 0.7):
+    """
+    Simple guard to ensure all ThoughtObjects meet a minimum ethics_floor.
+    """
+    for t in thoughts:
+        if t.invariants.ethics_floor < min_floor:
+            raise ValueError(
+                f"ThoughtObject {t.id} ethics_floor {t.invariants.ethics_floor} "
+                f"below required {min_floor}"
+            )
