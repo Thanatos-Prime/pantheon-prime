@@ -1,0 +1,191 @@
+---
+
+# 📜 **WHITEPAPER 2 — Zero-Positive Converter (ZPC) v1.0**
+```markdown
+# Zero-Positive Converter (ZPC) v1.0  
+### Dimensional Elevation for Cooperative Value Creation  
+**PantheonOS Research Group — 2025-11-23**
+
+---
+
+## 0. Abstract
+
+The **Zero-Positive Converter** is a transformation engine that converts **zero-sum or adversarial frames** into **positive-sum, cooperative, value-expanding outcomes** through:
+
+- dimensional elevation  
+- payoff matrix lifting  
+- reframing incentives  
+- alliance-optimizing structural changes  
+- mutual-benefit redesign  
+
+This system is symbolic, ethical (≥0.7), and implements the Pantheon principle:
+
+> **"Lift the game, not the players."**
+
+---
+
+## 1. Game-Theoretic Foundation
+
+Let a 2-player game have payoff matrix:
+
+\[
+U =
+\begin{bmatrix}
+u_{11} & u_{12} \\
+u_{21} & u_{22}
+\end{bmatrix}
+\]
+
+Zero-sum implies:
+
+\[
+u_{ij}^{(1)} + u_{ij}^{(2)} = 0
+\]
+
+ZPC transforms this into:
+
+\[
+U' = U + \Delta
+\]
+
+Where \(\Delta\) represents **dimension-lifting**, defined as joint-value creation.
+
+---
+
+## 2. Dimensional Elevation
+
+Define elevation operator \(E\):
+
+\[
+E: \mathbb{R}^n \to \mathbb{R}^{n+k}
+\]
+
+Meaning:
+
+- The game acquires new axes  
+- New benefits become available  
+- The payoff space expands instead of shifting  
+
+### Examples of added dimensions:
+
+- shared resources  
+- shared goals  
+- mutual reputation  
+- common enemy  
+- pooled risk  
+- long-term relationship value  
+
+---
+
+## 3. Mathematical Form
+
+Let original payoff be:
+
+\[
+U_0(s_1, s_2)
+\]
+
+Define elevation tensor:
+
+\[
+\Delta(s_1, s_2) = \lambda \cdot G(s_1, s_2)
+\]
+
+Where:
+
+- \(\lambda\) = cooperation coefficient  
+- \(G\) = growth function capturing joint benefit under chosen actions  
+
+Then:
+
+\[
+U'(s_1, s_2) = U_0(s_1, s_2) + \lambda G(s_1, s_2)
+\]
+
+### Example Growth Function
+
+\[
+G(s_1, s_2) = 
+\begin{cases}
+g, & s_1 = s_2 = \text{cooperate} \\
+0, & \text{otherwise}
+\end{cases}
+\]
+
+Result:
+
+\[
+U'(\text{C}, \text{C}) = U_0(\text{C}, \text{C}) + \lambda g
+\]
+
+---
+
+## 4. The ZPC Stability Condition
+
+ZPC ensures positive-sum viability if:
+
+\[
+U'(\text{C}, \text{C}) > U'(\text{D}, \text{C}),\;
+U'(\text{C}, \text{C}) > U'(\text{C}, \text{D})
+\]
+
+Meaning:
+
+- cooperation becomes locally stable  
+- defection becomes dominated  
+- alliance is equilibrium  
+
+---
+
+## 5. Zero-Positive Conversion Algorithm
+
+Input:
+
+- payoff matrix  
+- resource vectors  
+- long-horizon value models  
+- strategic compatibility matrices  
+
+Output:
+
+- elevated payoff matrix  
+- stability score  
+- alliance recommendations  
+
+---
+
+## 6. Pseudocode Implementation
+
+```python
+import numpy as np
+from dataclasses import dataclass
+
+@dataclass
+class ZPCResult:
+    U_original: np.ndarray
+    U_elevated: np.ndarray
+    stability_score: float
+
+
+class ZeroPositiveConverter:
+    def __init__(self, lambda_coef=1.0):
+        self.lam = lambda_coef
+
+    def growth_tensor(self, U):
+        """
+        Simple example: reward cooperation (0,0 entry for C,C).
+        """
+        G = np.zeros_like(U)
+        G[0,0] = 1.0  # cooperation reward
+        return G
+
+    def elevate(self, U):
+        G = self.growth_tensor(U)
+        U_prime = U + self.lam * G
+
+        # Stability score: difference between CC payoff and average defection payoff.
+        CC = U_prime[0,0]
+        D_avg = 0.5*(U_prime[1,0] + U_prime[0,1])
+        stability = CC - D_avg
+
+        return ZPCResult(U_original=U, U_elevated=U_prime, stability_score=stability)
