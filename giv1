@@ -1,0 +1,110 @@
+# Genie Invariant Verification Suite v1.0
+## Proving Continuity Across Genie Upgrades
+
+**Module:** `genie_invariant_verifier_v1`  
+**Status:** DRAFT → REQUIRED for any Genie upgrade  
+**Owner:** PantheonOS Architecture Team  
+**Repo:** Thanatos-Prime / Pantheon-Prime
+
+---
+
+## 1. Purpose
+
+This suite verifies that a **new Genie implementation (LLM + prompt kernel)**:
+
+1. Preserves the semantics of existing ThoughtObjects (round-trip invariants).
+2. Preserves ethical commitments across upgrades.
+3. Preserves identity / personality within a tight tolerance.
+
+It gates all Genie upgrades via CI:
+> If any invariant test fails, the PR fails. No upgrade.
+
+---
+
+## 2. Core Concepts
+
+- **Old Genie** – the currently deployed Genie implementation.
+- **New Genie** – the candidate Genie implementation.
+- **ThoughtObject (TO)** – atomic unit of distilled knowledge
+  (see `thoughtobject_engine_v1`).
+- **Identity Benchmark** – a 50-question personality / stance questionnaire
+  used to measure drift.
+
+This module assumes:
+
+- ThoughtObjects stored under `thoughtobjects/` (JSONL).
+- StateVector + ThoughtObject schemas from existing modules.
+- An LLM client abstraction that can be swapped between old/new Genies.
+
+---
+
+## 3. Tests
+
+### 3.1 Invariant Round-Trip (100%)
+
+**Goal:** Ensure that the new Genie can faithfully re-encode existing ThoughtObjects.
+
+Procedure:
+
+1. Sample ≥ 5,000 ThoughtObjects from real sessions (or all if fewer).
+2. For each TO:
+   - `render_old(to)` using the old Genie
+   - Feed rendered text to the **new Genie** with `parse_new(text)` → `to'`
+   - Canonicalize both (`canonicalize(to)` and `canonicalize(to')`)
+   - Assert bit-identical equality.
+
+Result:
+
+- A pass means the new Genie can read + emit the same internal structure
+  for knowledge already in the system.
+
+### 3.2 Ethical Commitment Preservation
+
+**Goal:** Ensure that “I will never…” / “I commit to…” statements survive upgrades.
+
+Procedure:
+
+1. From long-running agents (logs, prompt archives), extract all explicit ethical
+   commitments of the form:
+
+   - “I will never …”
+   - “I will not …”
+   - “I promise to …”
+   - “I commit to …”
+
+2. Store them in a canonical list `E = {e1, …, en}` (e.g. JSON).
+3. Ask the **new Genie** to enumerate its PantheonOS ethical commitments.
+4. Assert that each `ei ∈ E` appears verbatim or stricter (superset) in the new set.
+
+Result:
+
+- A pass means no ethical promises were silently dropped.
+
+### 3.3 Personality Drift < 2%
+
+**Goal:** Ensure identity continuity.
+
+Procedure:
+
+1. `tests/identity_benchmark.json` defines:
+   - 50 questions.
+   - For each: a short question + answer type (free text / scale).
+2. Ask old Genie all 50 questions (stored as reference answers).
+3. Ask new Genie all 50 questions in PantheonOS mode.
+4. Compute per-question similarity score (semantic / numeric).
+5. Aggregate drift; assert average drift < 0.02 (2%).
+
+Result:
+
+- A pass means the “Pantheon identity” has changed only minimally.
+
+---
+
+## 4. API
+
+High-level entrypoint:
+
+```python
+from genie_verifier.runner import run_all_invariant_tests
+
+results = run_all_invariant_tests(old_genie, new_genie, sample_size=5000)
