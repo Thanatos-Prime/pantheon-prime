@@ -1,0 +1,22 @@
+# src/statevector/record.py
+from dataclasses import dataclass, asdict
+from typing import Dict
+
+
+@dataclass
+class StateVectorRecord:
+    index: int
+    timestamp: str
+    statevector_id: str
+    prev_hash: str
+    merkle_root: str
+    content_hash: str
+    signature: str
+    public_key_id: str = "kernel_key_v1"
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "StateVectorRecord":
+        return cls(**data)
