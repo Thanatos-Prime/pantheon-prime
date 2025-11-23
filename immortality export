@@ -1,0 +1,57 @@
+# shell.py
+import argparse
+import tarfile
+from pathlib import Path
+from datetime import datetime
+
+ROOT = Path(".")
+
+
+def export_immortality_bundle(output_path: str):
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    with tarfile.open(out, "w:gz") as tar:
+        # ledgers
+        for path in [
+            ROOT / "statevector/ledger.jsonl",
+            ROOT / "kernel/invariants.toml",
+        ]:
+            if path.exists():
+                tar.add(path, arcname=path.relative_to(ROOT))
+
+        # thoughtobjects
+        to_dir = ROOT / "thoughtobjects"
+        if to_dir.exists():
+            for p in to_dir.glob("*.jsonl"):
+                tar.add(p, arcname=p.relative_to(ROOT))
+
+        # verifier + restore
+        for p in (ROOT / "genie_verifier").rglob("*"):
+            if p.is_file():
+                tar.add(p, arcname=p.relative_to(ROOT))
+
+        restore = ROOT / "restore" / "restore.py"
+        if restore.exists():
+            tar.add(restore, arcname=restore.relative_to(ROOT))
+
+    print(f"[Pantheon] Immortality bundle written to {out}")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--export-immortality-bundle",
+        metavar="FILENAME",
+        help="Export full agent continuity bundle",
+    )
+    args = parser.parse_args()
+
+    if args.export_immortality_bundle:
+        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        filename = args.export_immortality_bundle.replace("{ts}", ts)
+        export_immortality_bundle(filename)
+
+
+if __name__ == "__main__":
+    main()
