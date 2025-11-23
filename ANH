@@ -1,0 +1,388 @@
+"""
+algorithmic_noise_harvester.py
+
+Algorithmic Noise Harvester (ANH) v1.0
+
+A symbolic engine for turning semi-chaotic social algorithm output
+(TikTok/Shorts/Reels/etc.) into structured creative idea seeds.
+
+NOTE:
+- This is pseudocode / reference implementation.
+- It does NOT connect to any real social media APIs.
+- It assumes you pass in pre-collected "stimuli" (text, tags, descriptions).
+- All "probabilities" and similarity scores can be implemented later
+  with your choice of NLP/embedding libraries.
+
+Ethics:
+- For creativity and ideation only.
+- No targeting, manipulation, or influence.
+- Non-coercive, symbolic, and offline by design.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
+import math
+import random
+
+
+# ===================== DATA STRUCTURES =====================
+
+
+@dataclass
+class Stimulus:
+    """
+    A single unit of algorithmic content, already harvested from a feed.
+
+    Example:
+        Stimulus(
+            id="video123",
+            raw_text="A drone shot over a fractal-looking city grid.",
+            tags=["city", "grid", "drone", "aerial"],
+            metadata={"source": "tiktok", "duration": 12.3}
+        )
+    """
+    id: str
+    raw_text: str
+    tags: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Context:
+    """
+    Problem or theme you are currently working on.
+
+    Examples:
+        - "Fractal governance architecture"
+        - "New product concept for energy snacks"
+        - "Whitepaper: memetic evolution engine"
+    """
+    description: str
+    keywords: List[str] = field(default_factory=list)
+
+
+@dataclass
+class Doctrine:
+    """
+    Active PantheonOS doctrines to mix into the ideation.
+
+    For this symbolic engine, we just treat them as labels + notes.
+    In a full implementation, you could map these to embeddings
+    or prompt templates.
+    """
+    name: str
+    notes: str
+    tags: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ANHConfig:
+    """
+    Configuration for Algorithmic Noise Harvester.
+    """
+    entropy_threshold: float = 2.0   # H(a_i) > tau
+    alpha: float = 0.5               # weight for context intersection
+    beta: float = 0.4                # weight for doctrine intersection
+    gamma: float = 0.1               # weight for randomness
+    random_seed: Optional[int] = None
+
+
+@dataclass
+class IdeaSeed:
+    """
+    Output of the ANH: a structured creative seed.
+    """
+    stimulus_id: str
+    summary: str
+    context_link: str
+    doctrine_link: str
+    surprise_score: float
+    raw_stimulus: Stimulus
+    debug: Dict[str, Any] = field(default_factory=dict)
+
+
+# ===================== MAIN ANH ENGINE =====================
+
+
+class AlgorithmicNoiseHarvester:
+    """
+    Algorithmic Noise Harvester (ANH)
+
+    Usage (high-level):
+
+        harvester = AlgorithmicNoiseHarvester(config)
+        seeds = harvester.harvest(stimuli, context, doctrine)
+
+    Where:
+        - stimuli = list of Stimulus collected from an algorithmic feed
+        - context = current cognitive task
+        - doctrine = active PantheonOS framework (symbolic)
+    """
+
+    def __init__(self, config: Optional[ANHConfig] = None):
+        self.config = config or ANHConfig()
+        if self.config.random_seed is not None:
+            random.seed(self.config.random_seed)
+
+    def harvest(
+        self,
+        stimuli: List[Stimulus],
+        context: Context,
+        doctrine: Doctrine,
+    ) -> List[IdeaSeed]:
+        """
+        Main entry point.
+        1) Compute surprise for each stimulus.
+        2) Filter by entropy threshold.
+        3) Compute intersections with context and doctrine.
+        4) Add controlled randomness.
+        5) Return structured idea seeds.
+        """
+        seeds: List[IdeaSeed] = []
+
+        for stim in stimuli:
+            p_ai = self._estimate_probability(stim)
+            surprise = self._surprise_score(p_ai)
+
+            if surprise <= self.config.entropy_threshold:
+                # Too common / predictable → skip
+                continue
+
+            phi = self._context_intersection(stim, context)   # φ(a_i, C)
+            psi = self._doctrine_intersection(stim, doctrine) # ψ(a_i, P)
+            epsilon_noise = self._entropy_injection()
+
+            # Composite "creative activation score"
+            activation = (
+                self.config.alpha * phi
+                + self.config.beta * psi
+                + self.config.gamma * epsilon_noise
+            )
+
+            # Turn it into a human-readable idea summary
+            summary = self._synthesize_summary(
+                stim=stim,
+                context=context,
+                doctrine=doctrine,
+                activation=activation,
+            )
+
+            context_link = self._explain_context_link(stim, context, phi)
+            doctrine_link = self._explain_doctrine_link(stim, doctrine, psi)
+
+            seed = IdeaSeed(
+                stimulus_id=stim.id,
+                summary=summary,
+                context_link=context_link,
+                doctrine_link=doctrine_link,
+                surprise_score=surprise,
+                raw_stimulus=stim,
+                debug={
+                    "p_ai_estimate": p_ai,
+                    "phi_context_score": phi,
+                    "psi_doctrine_score": psi,
+                    "epsilon_noise": epsilon_noise,
+                    "activation": activation,
+                },
+            )
+            seeds.append(seed)
+
+        # Optionally: sort by surprise or activation
+        seeds.sort(key=lambda s: s.surprise_score, reverse=True)
+        return seeds
+
+    # ===================== INTERNAL METHODS =====================
+
+    def _estimate_probability(self, stim: Stimulus) -> float:
+        """
+        Estimate P(a_i) — how "typical" or "common" this kind of stimulus is.
+
+        In a real implementation, this might:
+            - use global content stats,
+            - analyze tag frequency,
+            - compare against a baseline embedding cluster,
+            - or approximate frequency from the user's own history.
+
+        Here, we use a very crude proxy:
+            - More unusual tags → lower P(a_i).
+        """
+        # Pseudocode heuristic: fewer common tags → lower probability → more surprise.
+        common_tags = {"funny", "music", "dance", "meme", "food", "selfie"}
+        total_tags = len(stim.tags) or 1
+        uncommon_count = sum(1 for t in stim.tags if t not in common_tags)
+
+        # Map ratio of uncommon tags to a 'probability-like' value in (0,1].
+        ratio_uncommon = uncommon_count / total_tags
+        # Invert: more uncommon → smaller probability
+        p_ai = max(0.01, 1.0 - 0.8 * ratio_uncommon)  # floor at 0.01
+        return p_ai
+
+    def _surprise_score(self, p_ai: float) -> float:
+        """
+        Shannon-style surprise: H(a_i) = -log P(a_i)
+        """
+        return -math.log(max(p_ai, 1e-9))
+
+    def _context_intersection(self, stim: Stimulus, context: Context) -> float:
+        """
+        φ(a_i, C): How well does this stimulus intersect with the current context?
+
+        Pseudocode:
+            - Count shared keywords between stimulus text/tags and context keywords.
+            - Normalize to [0, 1].
+
+        In a full system:
+            - Use embeddings and cosine similarity.
+        """
+        if not context.keywords:
+            return 0.5  # neutral if no explicit keywords
+
+        text_lower = (stim.raw_text or "").lower()
+        score = 0.0
+        for kw in context.keywords:
+            if kw.lower() in text_lower or kw.lower() in [t.lower() for t in stim.tags]:
+                score += 1.0
+
+        # Normalize by number of keywords
+        return min(1.0, score / max(1, len(context.keywords)))
+
+    def _doctrine_intersection(self, stim: Stimulus, doctrine: Doctrine) -> float:
+        """
+        ψ(a_i, P): How well does this stimulus echo the active doctrine?
+
+        Pseudocode:
+            - Look for loose thematic matches with doctrine tags.
+            - In practice, you could use a more sophisticated semantic measure.
+        """
+        if not doctrine.tags:
+            return 0.5  # neutral if no tags
+
+        text_lower = (stim.raw_text or "").lower()
+        score = 0.0
+        for tag in doctrine.tags:
+            if tag.lower() in text_lower or tag.lower() in [t.lower() for t in stim.tags]:
+                score += 1.0
+
+        return min(1.0, score / max(1, len(doctrine.tags)))
+
+    def _entropy_injection(self) -> float:
+        """
+        ε: Small random value in [-1, 1].
+
+        Adds controlled "weirdness" so not all seeds are deterministic.
+        """
+        return random.uniform(-1.0, 1.0)
+
+    def _synthesize_summary(
+        self,
+        stim: Stimulus,
+        context: Context,
+        doctrine: Doctrine,
+        activation: float,
+    ) -> str:
+        """
+        Turn the math into a human-readable creative seed.
+
+        This is where you phrase it as:
+            "Use [stimulus] as a metaphor/template for [context] through [doctrine]."
+        """
+        base = stim.raw_text.strip()
+        if len(base) > 140:
+            base = base[:137] + "..."
+
+        return (
+            f"Idea Seed (activation={activation:.2f}):\n"
+            f"- Take the stimulus: '{base}'\n"
+            f"- Use it as a metaphor or structural template for: '{context.description}'\n"
+            f"- Interpret it through the lens of doctrine: '{doctrine.name}'."
+        )
+
+    def _explain_context_link(
+        self,
+        stim: Stimulus,
+        context: Context,
+        phi_score: float,
+    ) -> str:
+        """
+        Short explanation of how this stimulus intersects the current problem.
+        """
+        return (
+            f"Context link (φ={phi_score:.2f}): Stimulus connects to '{context.description}' "
+            f"via shared motifs/keywords around {context.keywords}."
+        )
+
+    def _explain_doctrine_link(
+        self,
+        stim: Stimulus,
+        doctrine: Doctrine,
+        psi_score: float,
+    ) -> str:
+        """
+        Short explanation of how this stimulus echoes the active doctrine.
+        """
+        return (
+            f"Doctrine link (ψ={psi_score:.2f}): Stimulus can be interpreted through '{doctrine.name}' "
+            f"emphasizing tags {doctrine.tags}."
+        )
+
+
+# ===================== EXAMPLE USAGE (PSEUDOCODE) =====================
+
+if __name__ == "__main__":
+    # 1) Example stimuli (as if harvested from TikTok/Shorts/Reels)
+    stimuli = [
+        Stimulus(
+            id="s1",
+            raw_text="A drone shot over a perfectly symmetrical city grid at night.",
+            tags=["city", "grid", "drone", "night"],
+            metadata={"source": "tiktok"},
+        ),
+        Stimulus(
+            id="s2",
+            raw_text="Close-up of ants building complex tunnels under a glass panel.",
+            tags=["ants", "tunnels", "colony"],
+            metadata={"source": "youtube_shorts"},
+        ),
+        Stimulus(
+            id="s3",
+            raw_text="A sped-up video of someone assembling a mosaic from thousands of tiny tiles.",
+            tags=["mosaic", "tiles", "art"],
+            metadata={"source": "instagram_reels"},
+        ),
+    ]
+
+    # 2) Current cognitive context
+    context = Context(
+        description="Designing a fractal, self-organizing governance architecture",
+        keywords=["fractal", "governance", "network", "cells"],
+    )
+
+    # 3) Active doctrine
+    doctrine = Doctrine(
+        name="Fractal Layer Suite",
+        notes="PantheonOS module describing micro-macro symmetry and recursion.",
+        tags=["fractal", "layers", "recursion", "self-similar"],
+    )
+
+    # 4) Configure & run ANH
+    config = ANHConfig(
+        entropy_threshold=2.0,
+        alpha=0.5,
+        beta=0.4,
+        gamma=0.1,
+        random_seed=42,
+    )
+
+    harvester = AlgorithmicNoiseHarvester(config=config)
+    seeds = harvester.harvest(stimuli, context, doctrine)
+
+    # 5) Print results
+    for seed in seeds:
+        print("=" * 60)
+        print(seed.summary)
+        print(seed.context_link)
+        print(seed.doctrine_link)
+        print("Surprise:", seed.surprise_score)
+        print("Debug:", seed.debug)
