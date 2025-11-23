@@ -1,0 +1,31 @@
+import numpy as np
+from .config import MeshConfig
+
+def compute_dphi_dt(field, config: MeshConfig):
+    phi = field.phi
+    W = field.graph.W
+    N, dim = phi.shape
+    dphi = np.zeros_like(phi)
+
+    # Graph Laplacian smoothing
+    for i in range(N):
+        for j in range(N):
+            if W[i, j] != 0.0:
+                dphi[i] += -2 * config.alpha * W[i, j] * (phi[i] - phi[j])
+
+    # Resonance gradient
+    for i in range(N):
+        dphi[i] += 2 * config.beta * phi[i]
+
+    # Recurrence gradient
+    for psi in field.attractors:
+        dphi += -2 * config.gamma * (phi - psi)
+
+    # Noise term
+    dphi += np.random.normal(scale=config.noise_scale, size=phi.shape)
+
+    return dphi
+
+def step(field, config: MeshConfig):
+    dphi = compute_dphi_dt(field, config)
+    field.phi = field.phi + config.dt * dphi
