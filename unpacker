@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+import os
+import zipfile
+import shutil
+import markdown
+from pathlib import Path
+
+PANTHEON_FOLDERS = [
+    "doctrine",
+    "engine",
+    "memory",
+    "daemons",
+    "specs",
+    "whitepapers",
+    "artifacts"
+]
+
+TEXT_EXT = {".txt", ".md", ".rst"}
+CODE_EXT = {".py", ".js", ".json", ".yaml", ".yml"}
+DOC_EXT  = {".pdf"}
+
+ROOT = Path(os.getcwd())
+
+def ensure_structure():
+    """Create Pantheon folder structure if missing."""
+    for folder in PANTHEON_FOLDERS:
+        (ROOT / folder).mkdir(exist_ok=True)
+
+def convert_to_md(src_path: Path, dest_path: Path):
+    """Convert basic text files into markdown format automatically."""
+    try:
+        text = src_path.read_text(errors="ignore")
+        md_text = f"```\n{text}\n```"
+        dest_path.write_text(md_text)
+    except Exception as e:
+        print(f"[WARN] Could not convert {src_path}: {e}")
+
+def place_file(file_path: Path):
+    """Place the file into the correct PantheonOS directory."""
+    suffix = file_path.suffix.lower()
+
+    # Decide folder by file type
+    if suffix in TEXT_EXT:
+        dest = ROOT / "doctrine" / file_path.name
+    elif suffix in CODE_EXT:
+        dest = ROOT / "engine" / file_path.name
+    elif suffix in DOC_EXT:
+        dest = ROOT / "whitepapers" / file_path.name
+    else:
+        dest = ROOT / "artifacts" / file_path.name
+
+    # Never overwrite existing Pantheon canonical files
+    if dest.exists():
+        dest = dest.with_name(dest.stem + "_imported" + dest.suffix)
+
+    # Convert text → markdown when needed
+    if suffix == ".txt":
+        dest_md = dest.with_suffix(".md")
+        convert_to_md(file_path, dest_md)
+    else:
+        shutil.move(str(file_path), str(dest))
+
+def unpack_zip(zip_path: str):
+    """Extract ZIP and organize content."""
+    zip_path = Path(zip_path)
+    extract_dir = ROOT / "artifacts" / zip_path.stem
+
+    print(f"[+] Extracting {zip_path} → {extract_dir}")
+    with zipfile.ZipFile(zip_path, 'r') as z:
+        z.extractall(extract_dir)
+
+    # Walk extracted files
+    for root, dirs, files in os.walk(extract_dir):
+        for file in files:
+            file_path = Path(root) / file
+            place_file(file_path)
+
+    print("[+] Extraction and organization complete.\n"
+          "Your files are now Pantheon-structured and AI-readable.")
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Pantheon Forge Unpacker — converts ZIP archives into the PantheonOS directory structure."
+    )
+    parser.add_argument("zipfile", help="Path to the .zip file you want to unpack.")
+
+    args = parser.parse_args()
+
+    ensure_structure()
+    unpack_zip(args.zipfile)
