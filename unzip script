@@ -1,0 +1,46 @@
+import os
+import zipfile
+from pathlib import Path
+import shutil
+
+# ---- CONFIGURATION ----
+ZIP_PATH = "pantheon.zip"        # ← your zip file name
+OUTPUT_DIR = "txt_output"        # ← where .txt files will go
+TEMP_DIR = "unzipped_temp"       # ← temporary folder
+
+# -----------------------
+
+def extract_zip(zip_path, extract_to):
+    print("Extracting zip...")
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(extract_to)
+
+def convert_all_to_txt(src_folder, dst_folder):
+    print("Converting files to .txt...")
+    os.makedirs(dst_folder, exist_ok=True)
+
+    for root, dirs, files in os.walk(src_folder):
+        for file in files:
+            full_path = os.path.join(root, file)
+            txt_filename = Path(file).stem + ".txt"
+            dst_path = os.path.join(dst_folder, txt_filename)
+
+            try:
+                with open(full_path, 'r', errors='ignore') as f_in:
+                    text = f_in.read()
+                with open(dst_path, 'w', errors='ignore') as f_out:
+                    f_out.write(text)
+                print(f"[OK] {file} → {txt_filename}")
+            except:
+                print(f"[SKIPPED] {file}")
+
+def clean_temp(path):
+    if os.path.exists(path):
+        shutil.rmtree(path)
+
+if __name__ == "__main__":
+    clean_temp(TEMP_DIR)
+    extract_zip(ZIP_PATH, TEMP_DIR)
+    convert_all_to_txt(TEMP_DIR, OUTPUT_DIR)
+    clean_temp(TEMP_DIR)
+    print("\nAll done! Your .txt files are in:", OUTPUT_DIR)
