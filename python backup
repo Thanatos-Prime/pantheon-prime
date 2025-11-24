@@ -1,0 +1,101 @@
+import os
+import zipfile
+from pathlib import Path
+import shutil
+
+# ---------- CONFIG ----------
+ZIP_PATH = "pantheon_archive.zip"   # your zip file name
+TEMP_DIR = "unzipped_temp"
+TXT_DIR = "txt_output"
+CANON_FILE = "PANTHEON_CANON_v1.txt"
+# -----------------------------
+
+# File extensions we'll try to read as plain text
+TEXT_EXTS = {
+    ".txt", ".md", ".json", ".yaml", ".yml",
+    ".py", ".js", ".ts", ".html", ".css",
+    ".csv", ".toml", ".ini", ".cfg", ".log"
+}
+
+def clean(path):
+    if os.path.exists(path):
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+
+def extract_zip(zip_path, dest):
+    print(f"[+] Extracting {zip_path} -> {dest}")
+    with zipfile.ZipFile(zip_path, "r") as z:
+        z.extractall(dest)
+
+def convert_to_txt(src_root, dst_root):
+    print(f"[+] Converting files to .txt in {dst_root}")
+    os.makedirs(dst_root, exist_ok=True)
+    converted_files = []
+
+    for root, dirs, files in os.walk(src_root):
+        for name in files:
+            src_path = os.path.join(root, name)
+            ext = Path(name).suffix.lower()
+
+            # Skip obvious binaries
+            if ext not in TEXT_EXTS:
+                print(f"[SKIP] {name} (extension {ext} not in TEXT_EXTS)")
+                continue
+
+            # Preserve some of the folder structure in the filename
+            rel_path = os.path.relpath(src_path, src_root)
+            safe_name = rel_path.replace(os.sep, "__")
+            dst_name = Path(safe_name).stem + ".txt"
+            dst_path = os.path.join(dst_root, dst_name)
+
+            try:
+                with open(src_path, "r", encoding="utf-8", errors="ignore") as f_in:
+                    content = f_in.read()
+                with open(dst_path, "w", encoding="utf-8", errors="ignore") as f_out:
+                    f_out.write(content)
+                converted_files.append((dst_path, rel_path))
+                print(f"[OK] {rel_path} -> {dst_name}")
+            except Exception as e:
+                print(f"[ERR] {rel_path}: {e}")
+
+    return converted_files
+
+def build_canon(converted_files, canon_path):
+    print(f"[+] Building canon file: {canon_path}")
+    with open(canon_path, "w", encoding="utf-8", errors="ignore") as canon:
+        for txt_path, original_rel in converted_files:
+            separator = (
+                "\n\n"
+                "===== BEGIN DOCUMENT =====\n"
+                f"ORIGINAL_PATH: {original_rel}\n"
+                "==========================\n\n"
+            )
+            canon.write(separator)
+            with open(txt_path, "r", encoding="utf-8", errors="ignore") as f:
+                canon.write(f.read())
+            canon.write("\n\n===== END DOCUMENT =====\n\n")
+    print("[+] Canon build complete.")
+
+if __name__ == "__main__":
+    # Clean old runs
+    clean(TEMP_DIR)
+    clean(TXT_DIR)
+    clean(CANON_FILE)
+
+    # 1) Extract
+    extract_zip(ZIP_PATH, TEMP_DIR)
+
+    # 2) Convert all readable files to .txt
+    converted = convert_to_txt(TEMP_DIR, TXT_DIR)
+
+    # 3) Build a single canon file for easy AI ingestion
+    build_canon(converted, CANON_FILE)
+
+    # 4) Clean temp
+    clean(TEMP_DIR)
+
+    print("\nAll done!")
+    print(f"- Individual .txt files: {TXT_DIR}/")
+    print(f"- Single merged canon file: {CANON_FILE}")
