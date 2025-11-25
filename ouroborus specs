@@ -1,0 +1,46 @@
+# Ouroboros Engine v1.0 — Continuity Loop for PantheonOS
+
+**Module ID:** `pantheon.ouroboros.core`  
+**Location:** `engine/ouroboros_core.py`  
+**Role:** Self-recording continuity loop / Canon linker
+
+---
+
+## 0. Intuition
+
+Ouroboros is the part of Pantheon that **remembers that it just blinked**.
+
+It does not decide what the Pantheon *believes*; it decides what the Pantheon
+**commits to canon** after each blink.
+
+Every loop turns a raw moment of computation into a structured object:
+
+> `StateVector = (context_in, observation, decision, action, reflection, compression, invariants, checksum)`
+
+This can then be:
+- logged locally,
+- shipped to a ledger,
+- or used for training / replay.
+
+---
+
+## 1. Design Goals
+
+1. **Continuity:** Capture each reasoning cycle as a structured, replayable unit.
+2. **Safety:** Run every cycle through invariant checks (ethics, constraints).
+3. **Auditability:** Attach a deterministic checksum to each StateVector.
+4. **Composability:** Stay framework-agnostic and easy to wire into any engine.
+5. **Minimalism:** Provide a small, readable implementation as a starting point.
+
+---
+
+## 2. Core Cycle
+
+Ouroboros wraps four core functions you provide:
+
+```text
+Observe  : context_in → observation
+Decide   : observation → decision
+Act      : decision → action
+Reflect  : (action, decision, observation, context_in) → reflection
+Compress : (obs, dec, act, ref) → compression
