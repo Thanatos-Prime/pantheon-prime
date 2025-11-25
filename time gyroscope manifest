@@ -1,0 +1,53 @@
+# time_gyroscope_manifest.yaml
+# Pantheon-Prime :: Time Gyroscope (TG-1) v1.0
+
+id: pantheon.time.gyroscope
+name: Time Gyroscope (TG-1)
+version: "1.0.0"
+
+description: >
+  Temporal stability engine for PantheonOS. Maintains a three-axis
+  notion of time (Chronos, Phase, Kairos) to smooth and align temporal
+  reasoning across modules.
+
+owner:
+  role: "Temporal Navigation / Core Runtime"
+  contact: "Thanatos-Prime (GitHub)"
+
+paths:
+  module: "engine.time_gyroscope.TimeGyroscope"
+  state_type: "engine.time_gyroscope.TimeState"
+
+dependencies:
+  python:
+    - "python>=3.10"
+
+inputs:
+  - observed_tension    # [0, 1] narrative or system tension
+  - event_rate          # >=0, recent events per time unit
+  - now                 # optional wall-clock time in seconds since epoch
+
+outputs:
+  - tick
+  - t_chronos
+  - phase
+  - kairos
+  - stability
+
+modes:
+  - id: "diagnostic"
+    description: "Local test mode; prints or logs TimeState snapshots."
+  - id: "runtime"
+    description: "Used by higher-level modules like Time Trident, Oracle Weave, Obsidian Compass."
+  - id: "ledgered"
+    description: "TimeState snapshots periodically shipped to Pantheon ledger."
+
+safety:
+  notes: >
+    Time Gyroscope is non-destructive and informational-only. It should
+    be combined with Arctic / Checksum for any downstream decisions that
+    depend critically on temporal alignment.
+
+status:
+  lifecycle: "experimental"
+  last_review: "2025-11-25"
