@@ -1,0 +1,266 @@
+"""
+time_gyroscope.py
+Pantheon-Prime :: Time Gyroscope (TG-1) v1.0
+
+Purpose
+-------
+The Time Gyroscope (TG-1) is a temporal stability engine for PantheonOS.
+
+It maintains a three-axis notion of "time":
+
+    - Chronos (hard, linear time / Sisyphus axis)
+    - Phase (narrative/complex time, modeled as an angle)
+    - Kairos (sensitivity / critical-moment weighting, Praus axis)
+
+The gyroscope is NOT a scheduler.
+It is a stabilizer: it smooths, aligns, and measures drift so that
+other modules (Time Trident, Obsidian Compass, Oracle Weave, etc.)
+operate on a consistent temporal frame.
+
+This module is intentionally lightweight and framework-agnostic.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, asdict
+from typing import Optional, Dict, Any
+import time
+import math
+import json
+
+
+# ------------------------------------------------------------
+# Data structures
+# ------------------------------------------------------------
+
+@dataclass
+class TimeState:
+    """
+    Snapshot of the gyroscope's temporal orientation.
+
+    Attributes
+    ----------
+    tick: int
+        Monotonic step counter (Sisyphus / Chronos axis).
+    t_chronos: float
+        Wall-clock reference in seconds since epoch.
+    phase: float
+        Narrative phase angle in radians, wrapped to [0, 2π).
+        Think of this as "where we are in the story beat cycle."
+    kairos: float
+        Sensitivity coefficient in [0, 1].
+        Higher = "the moment is thick", more reactive but less smooth.
+    stability: float
+        Heuristic in [0, 1] for how stable temporal orientation is.
+        1.0 = very stable, 0.0 = extremely turbulent/chaotic.
+    """
+
+    tick: int
+    t_chronos: float
+    phase: float
+    kairos: float
+    stability: float
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), sort_keys=True, default=float)
+
+
+# ------------------------------------------------------------
+# Time Gyroscope
+# ------------------------------------------------------------
+
+class TimeGyroscope:
+    """
+    Time Gyroscope (TG-1)
+
+    This class maintains a smoothed, three-axis notion of time:
+
+        - Chronos: tick, t_chronos
+        - Phase:   phase angle
+        - Kairos:  sensitivity
+
+    It uses simple exponential smoothing and phase wrapping to
+    act as a "temporal low-pass filter" for the rest of PantheonOS.
+
+    Typical usage:
+        tg = TimeGyroscope()
+        state = tg.update(observed_tension=0.6, event_rate=3.0)
+    """
+
+    def __init__(
+        self,
+        *,
+        base_kairos: float = 0.3,
+        phase_smoothing: float = 0.85,
+        stability_smoothing: float = 0.9,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        base_kairos : float
+            Default Kairos baseline in [0, 1]. Represents the system's
+            default sensitivity when nothing special is happening.
+        phase_smoothing : float
+            Exponential smoothing factor for phase updates. Higher means
+            slower change (more inertia).
+        stability_smoothing : float
+            Exponential smoothing factor for stability. Higher means
+            stability reacts slowly to shocks.
+        """
+        if not (0.0 <= base_kairos <= 1.0):
+            raise ValueError("base_kairos must be in [0, 1].")
+
+        self._tick = 0
+        self._phase = 0.0
+        self._kairos = base_kairos
+        self._stability = 1.0
+
+        self._base_kairos = base_kairos
+        self._alpha_phase = phase_smoothing
+        self._alpha_stability = stability_smoothing
+
+        self._last_update_time = time.time()
+
+    # --------------------------------------------------------
+    # Core update
+    # --------------------------------------------------------
+
+    def update(
+        self,
+        *,
+        observed_tension: float,
+        event_rate: float,
+        now: Optional[float] = None,
+    ) -> TimeState:
+        """
+        Advance the gyroscope by one step, using observed inputs
+        from the environment.
+
+        Parameters
+        ----------
+        observed_tension : float
+            Narrative / system tension in [0, 1]. Higher tension
+            indicates an approaching or active "act break" moment.
+        event_rate : float
+            Approximate recent events per unit time (e.g., messages/sec,
+            transactions/minute). Used to modulate phase velocity.
+        now : float, optional
+            Wall-clock time (seconds since epoch). If None, time.time()
+            is used.
+
+        Returns
+        -------
+        TimeState
+            The updated temporal orientation.
+        """
+        if not (0.0 <= observed_tension <= 1.0):
+            raise ValueError("observed_tension must be in [0, 1].")
+
+        if event_rate < 0:
+            raise ValueError("event_rate must be non-negative.")
+
+        t_now = now if now is not None else time.time()
+        dt = max(t_now - self._last_update_time, 1e-6)
+        self._last_update_time = t_now
+
+        self._tick += 1  # Sisyphus / Chronos step
+
+        # ----- Kairos update (Praus axis) -----
+        # Move kairos toward observed tension with some inertia.
+        # This is the "how thick is this moment" value.
+        kairos_target = (self._base_kairos + observed_tension) / 2.0
+        self._kairos = self._exp_smooth(self._kairos, kairos_target, 0.5)
+
+        # ----- Phase update (Narrative angle) -----
+        # Phase velocity scales with event_rate and kairos.
+        # High event_rate + high kairos -> faster phase advance.
+        phase_velocity = (1.0 + event_rate) * (0.5 + self._kairos)
+        phase_increment = phase_velocity * dt
+
+        raw_phase = self._phase + phase_increment
+        raw_phase_wrapped = self._wrap_angle(raw_phase)
+
+        # Smooth toward new phase to avoid jitter
+        self._phase = self._smooth_angle(self._phase, raw_phase_wrapped, self._alpha_phase)
+
+        # ----- Stability update -----
+        # Stability decreases when tension or event_rate are high.
+        instability = max(observed_tension, min(event_rate / 10.0, 1.0))
+        stability_target = 1.0 - instability
+        self._stability = self._exp_smooth(self._stability, stability_target, 1 - self._alpha_stability)
+
+        return TimeState(
+            tick=self._tick,
+            t_chronos=t_now,
+            phase=self._wrap_angle(self._phase),
+            kairos=self._clip01(self._kairos),
+            stability=self._clip01(self._stability),
+        )
+
+    # --------------------------------------------------------
+    # Accessors
+    # --------------------------------------------------------
+
+    @property
+    def tick(self) -> int:
+        return self._tick
+
+    @property
+    def phase(self) -> float:
+        return self._wrap_angle(self._phase)
+
+    @property
+    def kairos(self) -> float:
+        return self._clip01(self._kairos)
+
+    @property
+    def stability(self) -> float:
+        return self._clip01(self._stability)
+
+    # --------------------------------------------------------
+    # Internal helpers
+    # --------------------------------------------------------
+
+    @staticmethod
+    def _exp_smooth(current: float, target: float, alpha: float) -> float:
+        alpha = max(0.0, min(alpha, 1.0))
+        return alpha * current + (1.0 - alpha) * target
+
+    @staticmethod
+    def _wrap_angle(theta: float) -> float:
+        """Wrap an angle into [0, 2π)."""
+        two_pi = 2.0 * math.pi
+        return theta % two_pi
+
+    @staticmethod
+    def _smooth_angle(current: float, target: float, alpha: float) -> float:
+        """
+        Smooth angles taking wrap-around into account.
+        """
+        two_pi = 2.0 * math.pi
+        # Map target relative to current into minimal angular difference
+        delta = (target - current + math.pi) % (2.0 * math.pi) - math.pi
+        return current + (1.0 - alpha) * delta
+
+    @staticmethod
+    def _clip01(x: float) -> float:
+        return max(0.0, min(1.0, x))
+
+
+# ------------------------------------------------------------
+# Example usage for docs / manual testing
+# ------------------------------------------------------------
+
+def _demo() -> None:
+    tg = TimeGyroscope(base_kairos=0.3)
+
+    for step in range(5):
+        # Fake some changing tension and event rates
+        tension = 0.2 + 0.15 * step
+        rate = 1.0 + step
+        state = tg.update(observed_tension=tension, event_rate=rate)
+        print(state.to_json())
+        time.sleep(0.1)
+
+
+if __name__ == "__main__":
+    _demo()
