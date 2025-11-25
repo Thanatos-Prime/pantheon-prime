@@ -1,0 +1,184 @@
+# Time Gyroscope (TG-1) v1.0 — Temporal Stability for PantheonOS
+
+**Author:** Pantheon-Prime (Thanatos-Prime + PantheonOS)  
+**Category:** cs.AI, cs.MA, cs.HC  
+**Status:** Public Preprint (arXiv-style)  
+
+---
+
+## 1. Introduction
+
+Modern AI systems suffer from *temporal drift*:
+
+- context shifts,
+- narrative threads warp,
+- multiple agents disagree about "where" they are in the story,
+- and decision modules operate on subtly different notions of "now".
+
+We propose the **Time Gyroscope (TG-1)**: a temporal stability engine
+for PantheonOS that maintains a three-axis notion of "time":
+
+1. **Chronos** — linear, monotonically increasing physical time.
+2. **Phase** — narrative/complex time, modeled as an angle.
+3. **Kairos** — moment-sensitivity (how "thick" the current moment is).
+
+TG-1 does not predict the future and does not schedule actions.
+Instead, it ensures that *all other modules* in PantheonOS operate
+against a coherent, smoothed, and drift-resistant temporal frame.
+
+---
+
+## 2. Conceptual Model
+
+### 2.1 Chronos Axis (Sisyphus)
+
+Chronos is represented by:
+
+- a monotonic **tick counter** `tick ∈ ℕ`,
+- a wall-clock timestamp `t_chronos ∈ ℝ`.
+
+This axis corresponds to Sisyphus in the Pantheon:
+
+> step after step, never backward, never skipped.
+
+It guarantees ordering and prevents temporal paradox
+at the implementation layer.
+
+---
+
+### 2.2 Phase Axis (Narrative Complex Time)
+
+We define a **narrative phase angle**:
+
+\[
+\phi_t \in [0, 2\pi)
+\]
+
+which tracks "where we are" in a narrative or systemic beat cycle.
+
+Higher **event_rate** and **kairos** accelerate phase rotation:
+
+\[
+\dot{\phi}_t = v(\text{event\_rate}_t, \text{kairos}_t)
+\]
+
+so that high-intensity periods advance the "story clock" faster
+than calm periods.
+
+Mathematically, this is a complex-plane representation of time:
+
+\[
+z_t = t_{\text{chronos}} + i \phi_t
+\]
+
+where the imaginary component encodes narrative progression.
+
+---
+
+### 2.3 Kairos Axis (Praus)
+
+Kairos is modeled as a scalar:
+
+\[
+k_t \in [0, 1]
+\]
+
+representing temporal *sensitivity*:
+
+- low \( k_t \): time feels loose, low consequence, low volatility.
+- high \( k_t \): time feels dense, high consequence, high volatility.
+
+Praus corresponds to the damping and steering of Kairos:
+
+> "Move slowly through heavy time; keep the vessel steady."
+
+TG-1 updates `k_t` with simple exponential smoothing toward an
+observed tension signal.
+
+---
+
+## 3. Mathematical Definition
+
+Let:
+
+- \( \tau_t \) = observed tension at time \( t \), \( \tau_t \in [0, 1] \)
+- \( r_t \) = event rate (≥ 0)
+- \( \Delta t = t_{\text{now}} - t_{\text{last}} \)
+
+### 3.1 Kairos Update
+
+We define a target Kairos:
+
+\[
+k^*_t = \frac{k_{\text{base}} + \tau_t}{2}
+\]
+
+and update via exponential smoothing:
+
+\[
+k_t = \alpha_k k_{t-1} + (1 - \alpha_k) k^*_t
+\]
+
+### 3.2 Phase Update
+
+Define a phase velocity:
+
+\[
+\omega_t = (1 + r_t) (0.5 + k_t)
+\]
+
+Phase increment:
+
+\[
+\Delta \phi = \omega_t \Delta t
+\]
+
+Raw phase:
+
+\[
+\phi'_t = \phi_{t-1} + \Delta \phi
+\]
+
+wrapped into \([0, 2\pi)\) and smoothed to avoid jitter:
+
+\[
+\phi_t = \text{SmoothAngle}(\phi_{t-1}, \text{Wrap}(\phi'_t))
+\]
+
+### 3.3 Stability
+
+Define instability:
+
+\[
+u_t = \max\left(\tau_t, \min\left(\frac{r_t}{10}, 1\right)\right)
+\]
+
+and stability:
+
+\[
+s^*_t = 1 - u_t
+\]
+\[
+s_t = \alpha_s s_{t-1} + (1 - \alpha_s) s^*_t
+\]
+
+where \( s_t \in [0, 1] \) is the **Temporal Stability Index**.
+
+---
+
+## 4. Implementation Summary
+
+The reference implementation lives in:
+
+- `engine/time_gyroscope.py`
+- `TimeGyroscope` class
+- `TimeState` dataclass
+
+Core method:
+
+```python
+state = tg.update(
+    observed_tension=τ_t,
+    event_rate=r_t,
+    now=t_now,
+)
