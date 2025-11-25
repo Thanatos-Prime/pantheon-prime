@@ -1,0 +1,33 @@
+---
+
+## 5. README Snippet (add to `README.md`)
+
+```markdown
+## Time Gyroscope (TG-1)
+
+The **Time Gyroscope** is Pantheon-Prime's temporal stability engine.
+
+It does not predict the future. Instead, it keeps all modules aligned on a
+shared, smoothed notion of:
+
+- **Chronos** — linear time (tick + wall-clock)
+- **Phase** — narrative/complex time (angle on [0, 2π))
+- **Kairos** — sensitivity of the current moment
+
+Core file: `engine/time_gyroscope.py`  
+Spec: `doctrine/TIME_GYROSCOPE_SPEC.md`  
+Manifest: `manifests/time_gyroscope_manifest.yaml`
+
+### Example
+
+```python
+from engine.time_gyroscope import TimeGyroscope
+
+tg = TimeGyroscope(base_kairos=0.3)
+
+state = tg.update(
+    observed_tension=0.6,  # narrative/system tension in [0, 1]
+    event_rate=4.0,        # events per time unit
+)
+
+print(state.tick, state.phase, state.kairos, state.stability)
