@@ -1,0 +1,64 @@
+# ouroboros_manifest.yaml
+# Pantheon-Prime :: Ouroboros Engine v1.0
+
+id: pantheon.ouroboros.core
+name: Ouroboros Engine
+version: "1.0.0"
+
+description: >
+  Ouroboros is the self-recording continuity loop for PantheonOS.
+  It wraps an engine in Observe → Decide → Act → Reflect → Compress → Update,
+  emitting StateVectors with checksums and invariant checks.
+
+owner:
+  role: "Metacode / Continuity"
+  contact: "Thanatos-Prime (GitHub)"
+
+paths:
+  module: "engine.ouroboros_core.OuroborosEngine"
+  statevector: "engine.ouroboros_core.StateVector"
+
+dependencies:
+  python:
+    - "python>=3.10"
+  pantheon_modules:
+    - "pantheon.arctic"        # ethics / safety (future integration)
+    - "pantheon.sieve_hogge"   # invariant logic
+    - "pantheon.oracle_weave"  # pulse-level pattern tracking (optional)
+    - "pantheon.meta_ontology" # compression / layer mapping (optional)
+
+invariants:
+  ethics_minimum: 0.70
+  description: >
+    No Ouroboros cycle may be shipped to production unless its invariant_check_fn
+    enforces an effective ethics floor of 0.70 or higher (Arctic Framework).
+
+logging:
+  statevector:
+    format: "jsonl"
+    rotation: "size"
+    max_bytes: 10_485_760      # 10 MB
+    backups: 5
+  checksum:
+    algorithm: "sha256"
+    chain_mode: "optional"     # can be upgraded to "hash-chained" later
+
+modes:
+  - id: "diagnostic"
+    description: "local, non-production test mode; default sink prints to stdout"
+  - id: "ledgered"
+    description: "state_sink pushes StateVectors to Pantheon ledger service"
+  - id: "silent"
+    description: "no stdout; state_sink is external-only (file/db/ledger)"
+
+safety:
+  sandbox_recommended: true
+  notes: >
+    In 'diagnostic' mode, Ouroboros is safe for local experimentation with
+    synthetic or non-sensitive data. For any real-world deployment, route
+    state_sink through the Arctic / Checksum pipeline with human-in-the-loop
+    review.
+
+status:
+  lifecycle: "experimental"
+  last_review: "2025-11-25"
