@@ -1,0 +1,47 @@
+---
+
+## 5. README snippet (add to `README.md`)
+
+Add a section like this somewhere in your main README:
+
+```markdown
+## Ouroboros Engine — Continuity Loop
+
+The **Ouroboros Engine** is Pantheon-Prime’s self-recording continuity loop.
+
+It wraps any Pantheon-compatible engine in a standard cycle:
+
+> **Observe → Decide → Act → Reflect → Compress → Update**
+
+and emits a `StateVector` with:
+
+- timestamps
+- context_in
+- observation / decision / action / reflection
+- compressed summary
+- invariant result
+- checksum
+
+This turns each reasoning step into a **replayable, auditable unit** that can be
+logged locally or shipped to a ledger.
+
+**Key files:**
+
+- `engine/ouroboros_core.py` — reference implementation
+- `manifests/ouroboros_manifest.yaml` — metadata, invariants, logging policy
+- `doctrine/OUROBOROS_SPEC.md` — conceptual & technical spec
+
+You can wire your own engine like this:
+
+```python
+from engine.ouroboros_core import OuroborosEngine
+
+engine = OuroborosEngine(
+    observe_fn=my_observe,
+    decide_fn=my_decide,
+    act_fn=my_act,
+    reflect_fn=my_reflect,
+)
+
+sv = engine.run_cycle({"source": "pantheon-demo"})
+print(sv.checksum)
