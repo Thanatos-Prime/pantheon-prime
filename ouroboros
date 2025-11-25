@@ -1,0 +1,261 @@
+"""
+ouroboros_core.py
+Pantheon-Prime :: Ouroboros Engine v1.0
+
+Purpose
+-------
+Ouroboros is the continuity loop for PantheonOS.
+
+It wraps any Pantheon-compatible "engine" (agent, daemon, pipeline)
+in a self-recording cycle:
+
+    Observe → Decide → Act → Reflect → Compress → Update
+
+Each completed loop produces a StateVector snapshot that can be
+hashed, logged, or exported to external ledgers.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, asdict
+from typing import Any, Dict, Optional, Callable, List
+import time
+import json
+import hashlib
+
+
+# -----------------------------
+# Data structures
+# -----------------------------
+
+@dataclass
+class StateVector:
+    """
+    Minimal Pantheon StateVector for Ouroboros cycles.
+    Extend this in your own code with richer fields.
+    """
+    cycle_id: int
+    timestamp_open: float
+    timestamp_close: Optional[float]
+    context_in: Dict[str, Any]
+    observation: Dict[str, Any]
+    decision: Dict[str, Any]
+    action: Dict[str, Any]
+    reflection: Dict[str, Any]
+    compression: Dict[str, Any]
+    invariants_passed: bool
+    checksum: Optional[str] = None
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), sort_keys=True, default=str)
+
+
+# -----------------------------
+# Invariant / Sieve helpers
+# -----------------------------
+
+def default_invariant_check(sv: StateVector) -> bool:
+    """
+    Default safety / ethics gate.
+    Placeholder: always returns True.
+
+    Replace this with your Arctic / Sieve of Hogge checks, e.g.:
+
+        - ethics_score >= 0.7
+        - no disallowed capability flags
+        - bounded resource usage
+    """
+    # TODO: integrate actual invariant logic here
+    return True
+
+
+def compute_checksum(payload: str) -> str:
+    """Deterministic digest of a StateVector JSON payload."""
+    h = hashlib.sha256()
+    h.update(payload.encode("utf-8"))
+    return h.hexdigest()
+
+
+# -----------------------------
+# Ouroboros Engine
+# -----------------------------
+
+class OuroborosEngine:
+    """
+    Wraps a Pantheon "brain" or pipeline in a self-recording loop.
+
+    You plug in 4 functions:
+
+        observe_fn(context)   -> observation
+        decide_fn(observation) -> decision
+        act_fn(decision)       -> action / effect
+        reflect_fn(action, decision, observation, context) -> reflection
+
+    Ouroboros will:
+        1) Run the cycle
+        2) Compress results into a summary
+        3) Validate invariants
+        4) Emit a StateVector with checksum
+
+    This class is intentionally minimal and framework-agnostic.
+    """
+
+    def __init__(
+        self,
+        observe_fn: Callable[[Dict[str, Any]], Dict[str, Any]],
+        decide_fn: Callable[[Dict[str, Any]], Dict[str, Any]],
+        act_fn: Callable[[Dict[str, Any]], Dict[str, Any]],
+        reflect_fn: Callable[[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]], Dict[str, Any]],
+        invariant_check_fn: Callable[[StateVector], bool] = default_invariant_check,
+        state_sink: Optional[Callable[[StateVector], None]] = None,
+    ) -> None:
+        """
+        state_sink: optional callback that receives every completed StateVector.
+                    For example, you can:
+                        - append to a local JSONL file
+                        - push to a database
+                        - forward to a ledger process
+        """
+        self.observe_fn = observe_fn
+        self.decide_fn = decide_fn
+        self.act_fn = act_fn
+        self.reflect_fn = reflect_fn
+        self.invariant_check_fn = invariant_check_fn
+        self.state_sink = state_sink or self._default_sink
+
+        self._cycle_counter: int = 0
+        self._history: List[StateVector] = []
+
+    # ------------- public API -------------
+
+    def run_cycle(self, context_in: Optional[Dict[str, Any]] = None) -> StateVector:
+        """
+        Executes a single Ouroboros loop and returns the StateVector.
+
+        context_in is any structured input you want to seed the cycle with
+        (e.g., conversation snippet, market snapshot, sensor reading).
+        """
+        self._cycle_counter += 1
+        cycle_id = self._cycle_counter
+
+        ctx = context_in or {}
+        t_open = time.time()
+
+        # 1) Observe
+        observation = self.observe_fn(ctx)
+
+        # 2) Decide
+        decision = self.decide_fn(observation)
+
+        # 3) Act
+        action = self.act_fn(decision)
+
+        # 4) Reflect
+        reflection = self.reflect_fn(action, decision, observation, ctx)
+
+        # 5) Compress
+        compression = self._compress(observation, decision, action, reflection)
+
+        sv = StateVector(
+            cycle_id=cycle_id,
+            timestamp_open=t_open,
+            timestamp_close=time.time(),
+            context_in=ctx,
+            observation=observation,
+            decision=decision,
+            action=action,
+            reflection=reflection,
+            compression=compression,
+            invariants_passed=False,  # set after check
+        )
+
+        # 6) Invariants / checksum
+        sv.invariants_passed = self.invariant_check_fn(sv)
+        payload = sv.to_json()
+        sv.checksum = compute_checksum(payload)
+
+        # 7) Persist / emit
+        self._history.append(sv)
+        self.state_sink(sv)
+
+        return sv
+
+    def history(self) -> List[StateVector]:
+        """Returns the in-memory history of all completed cycles."""
+        return list(self._history)
+
+    # ------------- internals -------------
+
+    def _compress(
+        self,
+        observation: Dict[str, Any],
+        decision: Dict[str, Any],
+        action: Dict[str, Any],
+        reflection: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Simple lossy compression into a small summary dict.
+
+        Replace this with your Narrative Tensor Engine / Meta-Ontology
+        compression logic if desired.
+        """
+        return {
+            "obs_keys": list(observation.keys()),
+            "decision_keys": list(decision.keys()),
+            "action_keys": list(action.keys()),
+            "reflection_keys": list(reflection.keys()),
+        }
+
+    @staticmethod
+    def _default_sink(sv: StateVector) -> None:
+        """
+        Default sink: print a one-line summary.
+
+        For serious use, provide your own state_sink callback.
+        """
+        print(
+            f"[Ouroboros] cycle={sv.cycle_id} "
+            f"passed_invariants={sv.invariants_passed} "
+            f"checksum={sv.checksum[:10]}..."
+        )
+
+
+# -----------------------------
+# Example wiring (for docs / tests)
+# -----------------------------
+
+def _example_observe(context: Dict[str, Any]) -> Dict[str, Any]:
+    return {"input": context, "note": "example observation"}
+
+
+def _example_decide(observation: Dict[str, Any]) -> Dict[str, Any]:
+    return {"decision": "noop", "reason": "example decide stub"}
+
+
+def _example_act(decision: Dict[str, Any]) -> Dict[str, Any]:
+    return {"effect": "none", "decision_used": decision}
+
+
+def _example_reflect(
+    action: Dict[str, Any],
+    decision: Dict[str, Any],
+    observation: Dict[str, Any],
+    context: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "quality": "unknown",
+        "comment": "example reflection stub",
+        "context_seen": bool(context),
+    }
+
+
+if __name__ == "__main__":
+    engine = OuroborosEngine(
+        observe_fn=_example_observe,
+        decide_fn=_example_decide,
+        act_fn=_example_act,
+        reflect_fn=_example_reflect,
+    )
+
+    # Quick manual test
+    sv = engine.run_cycle({"demo": True})
+    print(sv.to_json())
