@@ -1,0 +1,39 @@
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Tuple
+
+
+@dataclass(frozen=True)
+class HoggeRatio:
+    signal: float
+    noise: float
+
+    @property
+    def clarity(self) -> float:
+        denom = self.signal + self.noise
+        if denom <= 0:
+            return 0.0
+        return self.signal / denom
+
+    def blend(self, other: "HoggeRatio", alpha: float = 0.5) -> "HoggeRatio":
+        s = (1 - alpha) * self.signal + alpha * other.signal
+        n = (1 - alpha) * self.noise + alpha * other.noise
+        return HoggeRatio(signal=s, noise=n)
+
+    def update_from_feedback(self, positive: bool, eta: float = 0.1) -> "HoggeRatio":
+        if positive:
+            return HoggeRatio(signal=self.signal + eta, noise=max(self.noise - eta, 0.0))
+        return HoggeRatio(signal=max(self.signal - eta, 0.0), noise=self.noise + eta)
+
+
+def rewrite_sentence(text: str, ratio: HoggeRatio) -> str:
+    """
+    Very simple "self-rewriting narrative" rule:
+      - if clarity high, shorten and make more direct
+      - if clarity low, add hedging and uncertainty
+    """
+    if ratio.clarity >= 0.7:
+        return text.replace("maybe", "").replace("perhaps", "").strip()
+    if ratio.clarity <= 0.3:
+        return "Maybe " + text + " (not fully clear yet)."
+    return text
