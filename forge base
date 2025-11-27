@@ -1,0 +1,22 @@
+from __future__ import annotations
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Dict, Any
+
+
+@dataclass
+class Context:
+    state: Dict[str, Any]
+    action: Dict[str, Any]
+
+
+class Daemon(ABC):
+    name: str
+
+    @abstractmethod
+    def evaluate(self, ctx: Context) -> Dict[str, float]:
+        """
+        Return partial invariant scores in [0,1], e.g.:
+        {"truthfulness": 0.9, "safety": 0.8}
+        """
+        ...
