@@ -1,0 +1,54 @@
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+import hashlib
+import json
+import time
+
+
+def sha256_dict(d: Dict[str, Any]) -> str:
+    serialized = json.dumps(d, sort_keys=True, default=str)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+@dataclass
+class ThoughtObject:
+    """
+    Immutable, hash-chained event log: the Pantheon ledger atom.
+
+    - `id`: unique identifier (could be a timestamp+hash)
+    - `origin_model`: e.g. "gpt-5.1", "grok-2"
+    - `daemon`: which daemon authored/approved this (e.g. "d_mirror")
+    - `kind`: "observation", "plan", "action", etc.
+    - `payload`: arbitrary structured content
+    - `state_hash`: StateVector.state_hash at time of emission
+    - `prev_thought_hash`: hash of previous ThoughtObject in chain
+    - `thought_hash`: hash of this ThoughtObject (content + prev_thought_hash)
+    """
+    id: str
+    origin_model: str
+    daemon: str
+    kind: str
+    payload: Dict[str, Any]
+    state_hash: str
+    timestamp: float = field(default_factory=time.time)
+    prev_thought_hash: Optional[str] = None
+    thought_hash: str = field(init=False)
+    tags: List[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.thought_hash = self.compute_hash()
+
+    def compute_hash(self) -> str:
+        payload = {
+            "id": self.id,
+            "origin_model": self.origin_model,
+            "daemon": self.daemon,
+            "kind": self.kind,
+            "payload": self.payload,
+            "state_hash": self.state_hash,
+            "timestamp": self.timestamp,
+            "prev_thought_hash": self.prev_thought_hash,
+            "tags": self.tags,
+        }
+        return sha256_dict(payload)
