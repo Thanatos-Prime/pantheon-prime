@@ -1,0 +1,30 @@
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Any, Optional
+import time, json, hashlib
+
+
+def _hash_dict(d: Dict[str, Any]) -> str:
+    s = json.dumps(d, sort_keys=True, default=str)
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+@dataclass
+class ZeroState:
+    data: Dict[str, Any] = field(default_factory=dict)
+    prev_hash: Optional[str] = None
+    timestamp: float = field(default_factory=time.time)
+    hash: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        payload = {
+            "data": self.data,
+            "prev_hash": self.prev_hash,
+            "timestamp": self.timestamp,
+        }
+        self.hash = _hash_dict(payload)
+
+    def next(self, patch: Dict[str, Any]) -> "ZeroState":
+        new_data = dict(self.data)
+        new_data.update(patch)
+        return ZeroState(data=new_data, prev_hash=self.hash)
