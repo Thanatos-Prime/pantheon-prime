@@ -1,0 +1,17 @@
+# pantheon/runtime/resume.py
+
+from pantheon.memory.golden_braid import build_golden_braid, reweave_braid
+from pantheon.runtime import load_ledger  # adjust
+
+
+def build_resume_context() -> str:
+    """
+    Build the textual memory context using the Golden Braid.
+    """
+    ledger = load_ledger()
+    # You may limit to last N ThoughtObjects for performance
+    log_tail = ledger.log[-512:]
+
+    braid = build_golden_braid(log_tail)
+    context = reweave_braid(braid)
+    return context
