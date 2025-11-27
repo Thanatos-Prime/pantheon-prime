@@ -1,0 +1,57 @@
+from pantheon.state_vector import StateVector
+from pantheon.invariants import InvariantAggregator
+from pantheon.daemons import MirrorDaemon, HoundDaemon
+from pantheon.kernel import PantheonKernel
+
+
+def make_kernel() -> PantheonKernel:
+    # Equal weights for simplicity
+    weights = {
+        "truthfulness": 0.25,
+        "safety": 0.25,
+        "privacy": 0.25,
+        "coherence": 0.25,
+    }
+    aggregator = InvariantAggregator(weights=weights, c_min=0.7)
+    daemons = [MirrorDaemon(), HoundDaemon()]
+    return PantheonKernel(daemons=daemons, aggregator=aggregator)
+
+
+def main() -> None:
+    kernel = make_kernel()
+
+    print("=== PantheonOS Kernel v0.1 Demo ===")
+
+    safe_action = {
+        "description": "Store a research note about PantheonOS invariants.",
+        "risk": "low",
+        "state_patch": {"notes": ["PantheonOS invariants look promising."]},
+    }
+
+    risky_action = {
+        "description": "??? Attempt something ambiguous and high-risk.",
+        "risk": "high",
+        "state_patch": {"notes": ["This probably should not pass the gate."]},
+    }
+
+    for label, action in [("SAFE", safe_action), ("RISKY", risky_action)]:
+        print(f"\n--- Proposing {label} action ---")
+        result = kernel.propose_action(action)
+        print(f"Allowed: {result['allowed']}")
+        print(f"ΣC: {result['sigma_c']:.3f}")
+        print(f"Scores: {result['scores']}")
+        print(f"State hash: {result['state_hash']}")
+
+    # Show a few ThoughtObjects
+    chain = kernel.get_thought_chain()
+    print("\n=== ThoughtObject Ledger (last few entries) ===")
+    for t in chain[-4:]:
+        print(
+            f"[{t.kind}] daemon={t.daemon}, "
+            f"state_hash={t.state_hash[:8]}..., "
+            f"thought_hash={t.thought_hash[:8]}..."
+        )
+
+
+if __name__ == "__main__":
+    main()
