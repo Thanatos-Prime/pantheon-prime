@@ -1,0 +1,53 @@
+# tests/test_merkle.py
+
+from __future__ import annotations
+
+import json
+
+from pantheon.core.merkle import (
+    merkle_root,
+    build_merkle_proof,
+)
+from pantheon.core.ledger import compute_log_merkle_root
+
+
+class DummyTO:
+    def __init__(self, idx: int, content: str) -> None:
+        self.idx = idx
+        self.content = content
+
+    def to_dict(self):
+        return {"idx": self.idx, "content": self.content}
+
+
+def test_merkle_root_empty():
+    assert merkle_root([]) == ""
+
+
+def test_merkle_root_deterministic():
+    leaves = [b"a", b"b", b"c"]
+    r1 = merkle_root(leaves)
+    r2 = merkle_root(leaves)
+    assert r1 == r2
+
+
+def test_merkle_proof_roundtrip():
+    leaves = [b"one", b"two", b"three", b"four", b"five"]
+    root = merkle_root(leaves)
+
+    index = 2
+    proof = build_merkle_proof(leaves, index)
+    assert proof is not None
+
+    assert proof.verify(leaves[index], root)
+    assert not proof.verify(b"tampered", root)
+
+
+def test_compute_log_merkle_root_with_thoughtobjects():
+    log = [DummyTO(i, f"content-{i}") for i in range(5)]
+    root = compute_log_merkle_root(log)
+
+    # If we mutate a TO, recomputed root should differ.
+    log[0].content = "evil-edit"
+    new_root = compute_log_merkle_root(log)
+    assert root != new_root
