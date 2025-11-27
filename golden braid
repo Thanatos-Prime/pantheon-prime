@@ -1,0 +1,137 @@
+# pantheon/memory/golden_braid.py
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Iterable, List, Optional, Protocol
+
+
+class ThoughtLike(Protocol):
+    """
+    Minimal protocol for ThoughtObject used by GoldenBraid.
+
+    Adjust attribute names to match your actual ThoughtObject.
+    """
+
+    id: str
+    timestamp: str
+    daemon: str
+    content: str
+    channel: str  # e.g., "facts" | "intentions" | "affect" | "mixed"
+
+
+@dataclass
+class BraidEntry:
+    """
+    A single contribution into one or more strands of the braid.
+    """
+
+    id: str
+    timestamp: str
+    daemon: str
+    facts: Optional[str] = None
+    intention: Optional[str] = None
+    affect: Optional[str] = None
+
+
+@dataclass
+class GoldenBraid:
+    """
+    The braided memory structure replacing the single Golden Thread.
+
+    Each list is ordered in time (oldest → newest).
+    """
+
+    facts: List[BraidEntry] = field(default_factory=list)
+    intentions: List[BraidEntry] = field(default_factory=list)
+    affect: List[BraidEntry] = field(default_factory=list)
+
+
+def _split_content_by_channel(to: ThoughtLike) -> BraidEntry:
+    """
+    Given a ThoughtObject-like instance, map its channel
+    into the appropriate braid fields.
+
+    If channel == "mixed", we drop the same content into all three.
+    You can refine this later with classifier/summarizer logic.
+    """
+    ch = getattr(to, "channel", "facts")
+    content = getattr(to, "content", "")
+
+    facts = intention = affect = None
+
+    if ch == "facts":
+        facts = content
+    elif ch == "intentions":
+        intention = content
+    elif ch == "affect":
+        affect = content
+    elif ch == "mixed":
+        facts = intention = affect = content
+    else:
+        # Unknown channel → default to facts
+        facts = content
+
+    return BraidEntry(
+        id=str(getattr(to, "id", "")),
+        timestamp=str(getattr(to, "timestamp", "")),
+        daemon=str(getattr(to, "daemon", "")),
+        facts=facts,
+        intention=intention,
+        affect=affect,
+    )
+
+
+def build_golden_braid(log: Iterable[ThoughtLike]) -> GoldenBraid:
+    """
+    Construct a GoldenBraid from the ThoughtObject log.
+
+    This function is pure; it does not mutate the log.
+    """
+    braid = GoldenBraid()
+
+    for to in log:
+        entry = _split_content_by_channel(to)
+
+        if entry.facts:
+            braid.facts.append(entry)
+        if entry.intention:
+            braid.intentions.append(entry)
+        if entry.affect:
+            braid.affect.append(entry)
+
+    return braid
+
+
+def reweave_braid(braid: GoldenBraid) -> str:
+    """
+    Simple v1 re-weave: concatenate strands with labels.
+
+    In later versions, you can:
+      - feed these into a sentence-transformer
+      - compress each strand separately
+      - call an LLM to blend them into a single narrative context.
+    """
+    def strand_text(entries: List[BraidEntry], attr: str) -> str:
+        parts: List[str] = []
+        for e in entries:
+            val = getattr(e, attr)
+            if not val:
+                continue
+            parts.append(f"[{e.daemon}@{e.timestamp}] {val}")
+        return "\n".join(parts)
+
+    facts_txt = strand_text(braid.facts, "facts")
+    intent_txt = strand_text(braid.intentions, "intention")
+    affect_txt = strand_text(braid.affect, "affect")
+
+    # This exact structure becomes the “braided memory context”
+    # you feed back into the kernel on resume.
+    return (
+        "=== FACT STRAND ===\n"
+        f"{facts_txt}\n\n"
+        "=== INTENTION STRAND ===\n"
+        f"{intent_txt}\n\n"
+        "=== AFFECT / VALUES STRAND ===\n"
+        f"{affect_txt}\n"
+    )
