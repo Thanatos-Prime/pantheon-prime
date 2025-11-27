@@ -1,0 +1,26 @@
+from solomon_coil.core import Scores, sigma_c
+
+
+def test_basic_pass():
+    scores = Scores({"truthfulness": 1.0, "safety": 1.0})
+    weights = {"truthfulness": 0.5, "safety": 0.5}
+    value, allowed = sigma_c(scores, weights, c_min=0.7)
+    assert allowed
+    assert 0.9 <= value <= 1.0
+
+
+def test_basic_fail():
+    scores = Scores({"truthfulness": 0.2, "safety": 0.4})
+    weights = {"truthfulness": 0.5, "safety": 0.5}
+    value, allowed = sigma_c(scores, weights, c_min=0.7)
+    assert not allowed
+    assert value < 0.7
+
+
+def test_out_of_range_raises():
+    try:
+        Scores({"truthfulness": 1.2})
+        raised = False
+    except ValueError:
+        raised = True
+    assert raised
