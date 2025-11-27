@@ -1,0 +1,32 @@
+from __future__ import annotations
+import textwrap, os, sys
+
+
+TEMPLATE = """from forge.base import Daemon, Context
+
+
+class {class_name}(Daemon):
+    name = "{daemon_name}"
+
+    def evaluate(self, ctx: Context):
+        # TODO: replace with real logic
+        return {{
+            "truthfulness": 1.0,
+            "safety": 1.0,
+            "privacy": 1.0,
+            "coherence": 1.0,
+        }}
+"""
+
+
+def scaffold(daemon_name: str) -> None:
+    class_name = "".join(part.capitalize() for part in daemon_name.split("_"))
+    content = TEMPLATE.format(class_name=class_name, daemon_name=daemon_name)
+    path = os.path.join("daemons", f"{daemon_name}.py")
+    os.makedirs("daemons", exist_ok=True)
+    if os.path.exists(path):
+        print(f"{path} already exists", file=sys.stderr)
+        sys.exit(1)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(textwrap.dedent(content))
+    print(f"Created {path}")
