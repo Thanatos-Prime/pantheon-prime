@@ -1,0 +1,11 @@
+def hogge_demo() -> None:
+    r = HoggeRatio(signal=0.2, noise=0.8)
+    text = "Maybe this system will work."
+
+    print("Initial:", text, "| clarity=", round(r.clarity, 3))
+
+    for i in range(5):
+        text = rewrite_sentence(text, r)
+        print(f"Step {i+1}: {text} | clarity={r.clarity:.3f}")
+        # pretend feedback is positive after each iteration
+        r = r.update_from_feedback(positive=True, eta=0.15)
