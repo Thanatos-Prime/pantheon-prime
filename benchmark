@@ -1,0 +1,67 @@
+import time
+from typing import Dict, Any
+
+from pantheon.state_vector import StateVector
+from pantheon.invariants import InvariantAggregator
+from pantheon.daemons import MirrorDaemon, HoundDaemon
+from pantheon.kernel import PantheonKernel
+
+
+N_ITER = 1000  # feel free to bump to 10_000
+
+
+def make_kernel() -> PantheonKernel:
+    weights = {
+        "truthfulness": 0.25,
+        "safety": 0.25,
+        "privacy": 0.25,
+        "coherence": 0.25,
+    }
+    aggregator = InvariantAggregator(weights=weights, c_min=0.7)
+    daemons = [MirrorDaemon(), HoundDaemon()]
+    return PantheonKernel(daemons=daemons, aggregator=aggregator)
+
+
+def synthetic_action(i: int, risk: str = "low") -> Dict[str, Any]:
+    return {
+        "description": f"Benchmark action {i}",
+        "risk": risk,
+        "state_patch": {f"key_{i}": f"value_{i}"},
+    }
+
+
+def benchmark_baseline(n: int = N_ITER) -> float:
+    state = StateVector(data={})
+    t0 = time.perf_counter()
+    for i in range(n):
+        patch = synthetic_action(i)["state_patch"]
+        state = state.next(patch=patch)
+    t1 = time.perf_counter()
+    return t1 - t0
+
+
+def benchmark_kernel(n: int = N_ITER) -> float:
+    kernel = make_kernel()
+    t0 = time.perf_counter()
+    for i in range(n):
+        action = synthetic_action(i, risk="medium" if i % 5 == 0 else "low")
+        kernel.propose_action(action)
+    t1 = time.perf_counter()
+    return t1 - t0
+
+
+def main() -> None:
+    print(f"Running benchmarks with N={N_ITER}")
+
+    t_baseline = benchmark_baseline(N_ITER)
+    print(f"Baseline (state updates only): {t_baseline:.4f} s")
+
+    t_kernel = benchmark_kernel(N_ITER)
+    print(f"Kernel (ΣC + daemons + ThoughtObjects): {t_kernel:.4f} s")
+
+    overhead = t_kernel / t_baseline if t_baseline > 0 else float("inf")
+    print(f"Overhead factor: {overhead:.2f}x")
+
+
+if __name__ == "__main__":
+    main()
