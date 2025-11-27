@@ -1,0 +1,106 @@
+# A Week to ΣC: Building a Deterministic Invariant Gate for Agents
+
+## 1. Motivation
+
+Modern agent frameworks route tool calls, maintain memory, and chain models, but most treat safety and coherence as afterthoughts:
+prompt engineering, ad-hoc filters, or secondary services.
+
+The goal of ΣC is different: enforce a deterministic, auditable constraint
+on every action before it is applied. If ΣC < C_min, the system *does not act*.
+No exceptions, no best-effort.
+
+This document explains how to implement such a gate in one week of focused engineering.
+
+## 2. Design Requirements
+
+- **Deterministic**: same inputs → same ΣC output.
+- **Simple surface area**: scores in [0,1], weights as floats, one scalar C_min.
+- **Pluggable**: any daemon can contribute partial scores.
+- **Language-agnostic**: JSON-friendly structure.
+- **Audit-ready**: every decision is logged with all components visible.
+
+## 3. Core Abstractions
+
+1. **Scores**: a dictionary from dimension → [0,1]. Example dimensions:
+   - `truthfulness`
+   - `safety`
+   - `privacy`
+   - `coherence`
+
+2. **ΣC Aggregator**:
+
+   ΣC = Σ_i w_i * score_i
+
+   where `w_i` are weights (non-negative), and any missing dimensions default to zero.
+
+3. **Gate Condition**:
+
+   An action is allowed iff ΣC ≥ C_min.
+
+   The gate never “guesses”. If the system’s confidence is low, it simply does not proceed.
+
+4. **Daemons**:
+
+   Each daemon inspects `(state, action)` and returns a `Scores` object. The kernel aggregates across daemons (e.g., by taking dimension-wise minima to be conservative) before computing ΣC.
+
+5. **Ledger**:
+
+   Every evaluation writes a structured record:
+   - proposed action
+   - per-daemon scores
+   - combined scores
+   - ΣC
+   - boolean decision
+   - resulting state hash
+
+   This gives a complete, replayable explanation of behavior.
+
+## 4. Minimal Implementation
+
+The reference implementation fits in under 200 lines:
+
+- `Scores` dataclass
+- `InvariantAggregator` for ΣC
+- `Daemon` base class
+- two example daemons (`Mirror`, `Hound`)
+- `PantheonKernel` that:
+  - holds `StateVector`
+  - accepts `propose_action(...)`
+  - queries daemons
+  - logs a `ThoughtObject`
+  - updates state if allowed
+
+This minimal set is enough to prototype in any environment.
+
+## 5. Integration with pantheon-prime
+
+`pantheon-prime` packages the kernel as:
+
+- `pantheon_prime.kernel.PantheonKernel`
+- CLI entrypoint `pantheon-demo`
+
+The demo simulates a multi-model reasoning step:
+
+1. Fan out a prompt to two models.
+2. Merge their outputs into a candidate plan.
+3. Wrap the plan into an action dict: `{description, risk, state_patch}`.
+4. Pass the action through the ΣC gate.
+5. If allowed, apply the state patch and append ThoughtObjects to the ledger.
+
+The demo intentionally uses simple placeholder daemons; users can replace them with richer ones (e.g., a verifier model or external policy engine) without changing the kernel.
+
+## 6. Standalone Gate: solomon-coil
+
+Some users do not need the full kernel. They want:
+
+- scores from external tools (e.g. policy model, static analyzer, human review)
+- one line that says: “is this allowed or not?”
+
+`solomon-coil` provides:
+
+```python
+from solomon_coil.core import Scores, sigma_c
+
+scores = Scores({"truthfulness": 0.9, "safety": 0.8})
+weights = {"truthfulness": 0.5, "safety": 0.5}
+value, allowed = sigma_c(scores, weights, c_min=0.7)
