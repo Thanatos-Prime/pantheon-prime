@@ -1,0 +1,29 @@
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Dict, Tuple
+
+
+@dataclass(frozen=True)
+class Scores:
+    values: Dict[str, float]
+
+    def __post_init__(self) -> None:
+        for k, v in self.values.items():
+            if not (0.0 <= v <= 1.0):
+                raise ValueError(f"Score {k}={v} must be in [0,1]")
+
+
+def sigma_c(
+    scores: Scores,
+    weights: Dict[str, float],
+    c_min: float,
+) -> Tuple[float, bool]:
+    """
+    Compute ΣC and return (sigma_c, allowed).
+    ΣC = Σ_i w_i * score_i, missing dims treated as 0.
+    """
+    total = 0.0
+    for dim, s in scores.values.items():
+        w = weights.get(dim, 0.0)
+        total += w * s
+    return total, total >= c_min
