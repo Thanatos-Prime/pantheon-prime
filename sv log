@@ -1,0 +1,29 @@
+class Ledger:
+    def __init__(self):
+        self._log: List[ThoughtObject] = []
+        self._state: StateVector | None = None
+
+    @property
+    def state(self) -> StateVector:
+        assert self._state is not None
+        return self._state
+
+    @property
+    def log(self) -> List["ThoughtObject"]:
+        return self._log
+
+    def append(self, to: "ThoughtObject") -> StateVector:
+        """
+        Append a ThoughtObject, recompute merkle_root, and
+        return the new StateVector.
+        """
+        self._log.append(to)
+
+        new_merkle_root = compute_log_merkle_root(self._log)
+
+        self._state = StateVector(
+            step=len(self._log),
+            # ... copy/derive whatever you already store ...
+            merkle_root=new_merkle_root,
+        )
+        return self._state
