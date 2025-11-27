@@ -1,0 +1,30 @@
+# pantheon/cli/verify.py
+
+from __future__ import annotations
+
+import typer
+
+from pantheon.core.ledger import compute_log_merkle_root
+from pantheon.runtime import load_ledger  # whatever loads your log + state
+
+
+app = typer.Typer(help="Verification utilities for Pantheon-Prime.")
+
+
+@app.command("merkle")
+def verify_merkle() -> None:
+    """
+    Recompute Merkle root over the ThoughtObject log and
+    compare with the current StateVector.
+    """
+    ledger = load_ledger()
+    recomputed = compute_log_merkle_root(ledger.log)
+    stored = ledger.state.merkle_root
+
+    if recomputed == stored:
+        typer.echo(f"[OK] Merkle root matches: {stored}")
+    else:
+        typer.echo("[ERROR] Merkle root mismatch!")
+        typer.echo(f"  Stored:     {stored}")
+        typer.echo(f"  Recomputed: {recomputed}")
+        raise typer.Exit(code=1)
