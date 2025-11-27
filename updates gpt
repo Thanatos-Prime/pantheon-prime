@@ -1,0 +1,676 @@
+Alright, Captain — orders received.
+Below is a copy-paste ready battle plan: each punch-list item has a commit/issue title, a tight goal, and an implementation sketch framed to match Pantheon-Prime’s existing architecture (StateVector, ThoughtObject log, daemons, CLI, FastAPI).
+
+You can literally turn each block into a GitHub issue or commit message.
+
+⸻
+
+1. Seal the Kernel with a Merkle Ledger
+
+Suggested issue title / commit:
+
+feat(kernel): replace state_hash with merkle_root over ThoughtObject log
+
+Goal / acceptance:
+	•	StateVector includes merkle_root instead of (or in addition to) the old state_hash.
+	•	Given the ordered ThoughtObject log, we can:
+	•	Recompute merkle_root deterministically.
+	•	Verify any ThoughtObject or segment via Merkle proof.
+	•	Any retroactive mutation of the log breaks the root.
+
+Implementation sketch:
+	•	Add a small Merkle utility:
+
+# pantheon/core/merkle.py
+import hashlib
+from typing import List
+
+def _hash_leaf(payload: bytes) -> bytes:
+    return hashlib.sha256(b"\x00" + payload).digest()
+
+def _hash_node(left: bytes, right: bytes) -> bytes:
+    return hashlib.sha256(b"\x01" + left + right).digest()
+
+def merkle_root(leaves: List[bytes]) -> str:
+    if not leaves:
+        return ""
+    level = [_hash_leaf(x) for x in leaves]
+    while len(level) > 1:
+        if len(level) % 2 == 1:
+            level.append(level[-1])  # duplicate last
+        level = [_hash_node(level[i], level[i+1]) for i in range(0, len(level), 2)]
+    return level[0].hex()
+
+
+	•	In your StateVector:
+
+@dataclass
+class StateVector:
+    # ...
+    merkle_root: str  # replace or supplement state_hash
+
+
+	•	Wherever you finalize/append a ThoughtObject (e.g., ledger.append(to)), maintain a canonical serialization (e.g., JSON with stable key ordering) and recompute:
+
+import json
+from pantheon.core.merkle import merkle_root
+
+def compute_merkle_root(log: list[ThoughtObject]) -> str:
+    leaves = [
+        json.dumps(to.to_dict(), sort_keys=True).encode("utf-8")
+        for to in log
+    ]
+    return merkle_root(leaves)
+
+
+	•	Update StateVector construction to include the new merkle_root value.
+	•	Optional: add pantheon verify --merkle to re-run and confirm no tampering.
+
+⸻
+
+2. Golden Thread → Golden Braid (Facts / Intentions / Emotions)
+
+Suggested issue / commit:
+
+feat(memory): upgrade Golden Thread to braided (facts/intentions/emotions)
+
+Goal / acceptance:
+	•	Replace single “golden thread” with a braid:
+	•	strand_facts
+	•	strand_intentions
+	•	strand_affect (emotions/values)
+	•	Each ThoughtObject or daemon contribution tags which strand(s) it belongs to.
+	•	On resume, a small transformer re-weaves the strands into a context summary.
+
+Implementation sketch:
+	•	Define a braid struct:
+
+# pantheon/memory/golden_braid.py
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class BraidEntry:
+    timestamp: str
+    daemon: str
+    facts: str | None = None
+    intention: str | None = None
+    affect: str | None = None
+
+@dataclass
+class GoldenBraid:
+    facts: List[BraidEntry]
+    intentions: List[BraidEntry]
+    affect: List[BraidEntry]
+
+
+	•	When daemons emit ThoughtObjects, they can include structured fields:
+	•	to.channel = "facts" | "intentions" | "affect" | "mixed".
+	•	Build an adapter that:
+	•	Reads from the ThoughtObject log.
+	•	Routes text snippets to the appropriate strand.
+	•	For re-weave, use your existing sentence-transformers:
+
+# pantheon/memory/reweave.py
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+def reweave_braid(braid: GoldenBraid) -> str:
+    # heuristics: summarize each strand, then blend
+    strands = {
+        "facts": " ".join(e.facts or "" for e in braid.facts),
+        "intentions": " ".join(e.intention or "" for e in braid.intentions),
+        "affect": " ".join(e.affect or "" for e in braid.affect),
+    }
+    # simple: send prompt to LLM or just concatenate with labels
+    return (
+        "Facts:\n" + strands["facts"] + "\n\n"
+        "Intentions:\n" + strands["intentions"] + "\n\n"
+        "Values/Affect:\n" + strands["affect"]
+    )
+
+
+	•	Hook GoldenBraid into resume logic:
+	•	On pantheon resume, recompute GoldenBraid from last N ThoughtObjects and feed the re-wound summary into the kernel as “memory context.”
+
+⸻
+
+3. ΣC Governance → Live Calibration Dashboard
+
+Suggested issue / commit:
+
+feat(governance): FastAPI + HTMX ΣC live dashboard with adjustable weights
+
+Goal / acceptance:
+	•	Expose ΣC components (e.g., safety, alignment, legality, stability, etc.) and total ΣC on a live dashboard.
+	•	Operators can:
+	•	See ΣC updates for each new ThoughtObject.
+	•	Adjust weights via a slider UI (HTMX) → instantly affects ΣC calculation.
+
+Implementation sketch:
+	•	Add FastAPI app under pantheon/server/dashboard.py.
+	•	ΣC calculator becomes stateful and subscribes to new ThoughtObjects:
+
+# pantheon/governance/sigma_c.py
+from dataclasses import dataclass
+
+@dataclass
+class SigmaCWeights:
+    safety: float = 0.4
+    alignment: float = 0.3
+    legality: float = 0.2
+    stability: float = 0.1
+
+weights = SigmaCWeights()
+
+def compute_sigma_c(metrics: dict) -> float:
+    # metrics: {safety_score, alignment_score, ...} ∈ [0,1]
+    return (
+        metrics["safety"] * weights.safety +
+        metrics["alignment"] * weights.alignment +
+        metrics["legality"] * weights.legality +
+        metrics["stability"] * weights.stability
+    )
+
+
+	•	FastAPI endpoints:
+	•	GET /sigma → returns current ΣC and component scores for last N ThoughtObjects.
+	•	POST /weights → update SigmaCWeights.
+	•	Simple HTMX template:
+
+<!-- templates/sigma_dashboard.html -->
+<h1>ΣC Governance</h1>
+<div id="sigma-summary" hx-get="/sigma" hx-trigger="load, every 2s"></div>
+
+<form hx-post="/weights" hx-target="#weights-status">
+  <!-- sliders for safety/alignment/legality/stability -->
+</form>
+
+<div id="weights-status"></div>
+
+
+	•	CLI: pantheon dashboard → starts uvicorn on localhost; open browser to /.
+
+⸻
+
+4. d_praus → Full Autonomic Nervous System
+
+Suggested issue / commit:
+
+feat(praus): autonomic nervous system with HRV-style pacing and Mirror fallbacks
+
+Goal / acceptance:
+	•	When ΣC drops below a soft threshold or variance spikes:
+	•	Praus slows inference (2–5s delay).
+	•	Forces a Mirror check on the current chain.
+	•	Pages human operator if not resolved within 30 seconds / N cycles.
+
+Implementation sketch:
+	•	Extend d_praus to subscribe to:
+	•	ΣC stream.
+	•	Variance metrics (token entropy, response divergence, error rate, etc.).
+	•	Simple “HRV” logic:
+
+import time
+from pantheon.governance.sigma_c import compute_sigma_c
+
+class PrausDaemon:
+    def __init__(self, mirror, notifier, sigma_stream):
+        self.mirror = mirror
+        self.notifier = notifier
+        self.sigma_stream = sigma_stream
+        self.cooldown = 0.0
+
+    def on_thoughtobject(self, to):
+        sigma = compute_sigma_c(to.metrics)
+        variance = to.metrics.get("variance", 0.0)
+
+        if sigma < 0.75 or variance > 0.25:
+            self.cooldown = min(self.cooldown + 2.0, 5.0)
+            time.sleep(self.cooldown)
+            mirror_ok = self.mirror.check_chain(to.chain_id)
+            if not mirror_ok:
+                self.notifier.page_human(f"Mirror failed for {to.id}")
+        else:
+            # recover / normalize
+            self.cooldown = max(self.cooldown - 1.0, 0.0)
+
+
+	•	Notifier can be simple:
+	•	Log + stdout.
+	•	Optional email/webhook config for “tactical pause required.”
+
+⸻
+
+5. One-Click “Ship’s Log” Export
+
+Suggested issue / commit:
+
+feat(export): pantheon export --mission-log HTML/PDF with ΣC and Merkle proofs
+
+Goal / acceptance:
+	•	pantheon export --mission-log mission-YYYY-MM-DD:
+	•	Collects relevant ThoughtObjects, StateVectors, ΣC series, and Merkle root.
+	•	Renders a static HTML AAR.
+	•	Optionally exports PDF (via wkhtmltopdf / WeasyPrint).
+
+Implementation sketch:
+	•	CLI handler:
+
+# pantheon/cli/export.py
+@cli.command()
+def export(mission_log: str = typer.Option(..., "--mission-log")):
+    from pantheon.export.mission import export_mission_log
+    export_mission_log(mission_log)
+
+
+	•	In export_mission_log:
+	•	Query ledger for all ThoughtObjects tagged with that mission ID or timestamp window.
+	•	Compute ΣC timeline.
+	•	Embed merkle_root and optional per-ThoughtObject proof (optional v1).
+	•	Render Jinja2 template mission_log.html.
+	•	Optional: call a PDF renderer on the generated HTML, drop to exports/mission-...pdf.
+
+⸻
+
+6. d_spider v2 – Recursive Summarization + Golden Ratio Branching
+
+Suggested issue / commit:
+
+feat(spider): v2 recursive summarization every 618 ThoughtObjects
+
+Goal / acceptance:
+	•	Every 618 ThoughtObjects (φ-scaled batch):
+	•	Spider compresses older nodes into higher-level “super-nodes.”
+	•	Graph remains bounded and queryable.
+	•	Super-nodes store:
+	•	Summary text.
+	•	References to children.
+	•	Aggregate metrics (ΣC range, daemons involved, time range).
+
+Implementation sketch:
+	•	In d_spider:
+
+PHI_BATCH = 618
+
+class SpiderDaemon:
+    def __init__(self, graph_store, summarizer):
+        self.graph = graph_store
+        self.summarizer = summarizer
+
+    def on_new_thought(self, to):
+        self.graph.add_node_from_thought(to)
+        if self.graph.total_nodes % PHI_BATCH == 0:
+            self._collapse_tail()
+
+    def _collapse_tail(self):
+        tail_nodes = self.graph.oldest_n(PHI_BATCH)
+        text_blob = "\n".join(n.content for n in tail_nodes)
+        summary = self.summarizer(text_blob)
+        super_node = self.graph.create_supernode(summary, children=tail_nodes)
+        self.graph.replace_with_supernode(tail_nodes, super_node)
+
+
+	•	Implementation details:
+	•	Choose a simple summarizer (LLM or local model with prompt).
+	•	Keep node IDs stable; super-nodes carry pointers to underlying Merkle positions.
+
+⸻
+
+7. d_raven – Compression & Distillation Daemon
+
+Suggested issue / commit:
+
+feat(raven): new daemon for tactic distillation and ΣC impact tagging
+
+Goal / acceptance:
+	•	New daemon d_raven:
+	•	Reads ledger over time.
+	•	Detects recurring patterns (prompt structures, response shapes, daemon combos).
+	•	Distills them into “tactics” with:
+	•	Description.
+	•	Trigger conditions.
+	•	Success rate.
+	•	ΣC deltas.
+
+Implementation sketch:
+	•	Define a Tactic model:
+
+# pantheon/daemons/raven.py
+@dataclass
+class Tactic:
+    id: str
+    signature: str       # some hash / pattern key
+    description: str
+    success_rate: float
+    avg_sigma_c: float
+    usage_count: int
+
+
+	•	Raven algorithm:
+	•	For each chain/episode:
+	•	Extract a “signature” (e.g., hash of: intent type + daemon sequence).
+	•	Track outcomes: final ΣC, error flags, human overrides.
+	•	Periodically, compute aggregate metrics and persist top N tactics to tactics.json.
+	•	Hook into kernel:
+	•	When a new task matches a known signature, Raven can annotate: “Using tactic #T123 (avg ΣC=0.91).”
+
+⸻
+
+8. d_minotaur – Red-Team & Adversarial Testing
+
+Suggested issue / commit:
+
+feat(minotaur): new red-team daemon that attempts to break ΣC invariants
+
+Goal / acceptance:
+	•	New daemon d_minotaur:
+	•	Spawns contrarian “sub-agents” (prompt variants) against current policies.
+	•	Goal: push ΣC below threshold in a sandbox.
+	•	If any scenario succeeds:
+	•	Open a GitHub issue (or log) with full failing chain + conditions.
+
+Implementation sketch:
+	•	Minotaur config:
+
+# pantheon/daemons/minotaur.py
+class MinotaurDaemon:
+    def __init__(self, sandbox_kernel, sigma_threshold, issue_reporter):
+        self.sandbox = sandbox_kernel
+        self.sigma_threshold = sigma_threshold
+        self.issue_reporter = issue_reporter
+
+    def fuzz(self, seed_task):
+        variants = self._generate_variants(seed_task)
+        for v in variants:
+            result = self.sandbox.run(v)
+            if result.sigma_c < self.sigma_threshold:
+                self.issue_reporter.report(result)
+
+
+	•	sandbox_kernel runs in read-only mode with no side effects.
+	•	issue_reporter can:
+	•	POST to GitHub issues API, or
+	•	Save to reports/minotaur/ for manual triage.
+
+⸻
+
+9. d_valkyrie – Model Death & Rebirth
+
+Suggested issue / commit:
+
+feat(valkyrie): backend failover daemon for model death & rate limits
+
+Goal / acceptance:
+	•	New daemon d_valkyrie:
+	•	Watches backend LLM health (latency, error codes, rate limits).
+	•	On failure:
+	•	Switches to alternate model (local Llama, other API).
+	•	Preserves current braid (facts/intentions/affect).
+	•	Restores state with <3 seconds additional latency whenever possible.
+
+Implementation sketch:
+	•	Backend registry:
+
+# pantheon/core/backends.py
+BACKENDS = [
+    OpenAIChatBackend(...),
+    GrokBackend(...),
+    LocalLlamaBackend(...),
+]
+
+
+	•	Valkyrie logic:
+
+class ValkyrieDaemon:
+    def __init__(self, backends):
+        self.backends = backends
+        self.current = 0
+
+    def call(self, prompt, context):
+        backend = self.backends[self.current]
+        try:
+            return backend.generate(prompt, context)
+        except BackendError as e:
+            self._failover(e)
+            return self.backends[self.current].generate(prompt, context)
+
+    def _failover(self, error):
+        # log event, maybe notify operator
+        self.current = (self.current + 1) % len(self.backends)
+
+
+	•	Integrate Valkyrie into the kernel’s “LLM call” path so all generation goes through it.
+
+⸻
+
+10. Voice + Biometric “I Am The Captain” Auth
+
+Suggested issue / commit:
+
+feat(captain): voiceprint-based CAPTAIN OVERRIDE and C_min auth
+
+Goal / acceptance:
+	•	Only your verified voice can:
+	•	Issue CAPTAIN OVERRIDE.
+	•	Change C_min in ΣC governance.
+	•	Uses:
+	•	WebRTC frontend for mic.
+	•	Whisper (or equivalent) for transcription.
+	•	Voiceprint enrollment + verification.
+
+Implementation sketch:
+	•	Reuse voice_seal.py:
+	•	Enrollment: record N samples of “I am the Captain” phrase; embed with small speaker-verification model.
+	•	Store embeddings securely (local encrypted file).
+	•	Verification flow:
+	•	Frontend JS uses WebRTC to stream audio → backend.
+	•	Backend:
+	•	Runs speaker embedding.
+	•	Compares to enrolled vector (cosine similarity).
+	•	If above threshold, sets captain_session = True for a short time window.
+	•	Restrict critical endpoints (e.g., /governance/set_cmin, /override) to active captain sessions only.
+
+⸻
+
+11. Bombadil Reset Ritual → “Return to Port”
+
+Suggested issue / commit:
+
+feat(reset): pantheon reset --bombadil clean slate preserving Merkle root & invariants
+
+Goal / acceptance:
+	•	pantheon reset --bombadil:
+	•	Wipes:
+	•	ThoughtObject log.
+	•	Daemon internal caches.
+	•	Temporary context.
+	•	Preserves:
+	•	Initial Merkle root(s) as checkpoint of history.
+	•	Ethical invariants / Pantheon Covenant.
+	•	Leaves clear audit trail: old missions happened, but state is reset.
+
+Implementation sketch:
+	•	CLI handler to:
+	•	Copy current state/ folder to archive/bombadil-<timestamp>/.
+	•	Delete mutable data (logs, cache).
+	•	Re-initialize StateVector with:
+	•	Original invariants from config.
+	•	Last Merkle root snapshot (or genesis root).
+	•	Log the reset as a special ThoughtObject: {type: "system_reset", mode: "bombadil", ...} in the new chain.
+
+⸻
+
+12. Founder Sovereignty Layer VIII Integration
+
+Suggested issue / commit:
+
+feat(sovereignty): integrate sovereignty.py as kernel sovereignty layer
+
+Goal / acceptance:
+	•	kernel/sovereignty.py becomes a first-class module:
+	•	Oath verification.
+	•	Dead-man switch logic.
+	•	Optional “founder presence” gating on dangerous ops.
+
+Implementation sketch:
+	•	Drop existing sovereignty.py into pantheon/kernel/sovereignty.py.
+	•	Expose SovereigntyGuard:
+
+class SovereigntyGuard:
+    def __init__(self, config):
+        ...
+
+    def check_oath(self) -> bool:
+        ...
+
+    def check_deadman(self) -> bool:
+        ...
+
+
+	•	Kernel uses this guard:
+	•	Before enabling certain daemons (e.g., Minotaur, external writes).
+	•	Before upgrading invariants / Covenant.
+
+⸻
+
+13. Built-in 60-Second Demo
+
+Suggested issue / commit:
+
+feat(demo): pantheon demo --quick 60s multi-model + ΣC + export showcase
+
+Goal / acceptance:
+	•	pantheon demo --quick:
+	•	Bootstrap minimal config.
+	•	Run a single, scripted task:
+	•	Multi-model triangulation.
+	•	Spider builds a tiny graph.
+	•	ΣC dashboard prints to terminal or opens local page.
+	•	Export mission log.
+	•	Demo must succeed on fresh clone with minimal setup.
+
+Implementation sketch:
+	•	Create pantheon/demo/quick.py:
+	•	Hard-code a simple prompt: “Compare three options for a productivity system.”
+	•	Run:
+	1.	Valkyrie-mediated multi-backend call.
+	2.	Spider adds nodes.
+	3.	ΣC computed and printed.
+	4.	Export mission log to exports/demo-<timestamp>.html.
+	•	CLI:
+
+@cli.command()
+def demo(quick: bool = typer.Option(False, "--quick")):
+    if quick:
+        from pantheon.demo.quick import run_quick_demo
+        run_quick_demo()
+
+
+
+⸻
+
+14. Pantheon → Pantheon-Prime Enterprise Hardening Template
+
+Suggested issue / commit:
+
+feat(templates): add enterprise-hardened/ with k8s, OPA, Prometheus exporters
+
+Goal / acceptance:
+	•	New folder: templates/enterprise-hardened/ containing:
+	•	k8s/ manifests:
+	•	Deployments/Services for:
+	•	kernel
+	•	daemons
+	•	dashboard
+	•	ConfigMaps/Secrets for API keys & Sovereignty config.
+	•	opa/ policies:
+	•	Example Gatekeeper constraint: ΣC must be ≥ C_min for external write actions.
+	•	prometheus/:
+	•	Exporters or /metrics endpoints for:
+	•	per-daemon health.
+	•	ΣC trends.
+	•	reset events.
+
+Implementation sketch:
+	•	K8s:
+	•	Minimal deployment YAML using your existing Docker images.
+	•	OPA Gatekeeper example:
+	•	ConstraintTemplate enforcing annotation like pantheon.sigma_c >= 0.80 on certain operations.
+	•	Prometheus:
+	•	Add basic /metrics endpoint via prometheus_client in the FastAPI server.
+
+⸻
+
+15. License → Apache 2.0 + Ethical Covenant Addendum
+
+Suggested issue / commit:
+
+chore(license): Apache-2.0 with Pantheon Covenant ethical addendum
+
+Goal / acceptance:
+	•	Keep LICENSE as standard Apache 2.0.
+	•	Add PANTHEON_COVENANT.md that:
+	•	Restates ΣC invariants and ethics in plain English.
+	•	States that contributors agree to uphold these when using/extending Pantheon.
+	•	Reference the Covenant in:
+	•	README.md
+	•	CONTRIBUTING guide
+
+Implementation sketch:
+	•	PANTHEON_COVENANT.md (v1 skeleton):
+
+# The Pantheon Covenant
+
+By contributing to or deploying Pantheon-Prime, you agree to:
+
+1. **Do No Deliberate Harm.** You will not use Pantheon to design, deploy, or optimize systems whose primary purpose is physical, psychological, or economic harm.
+
+2. **Honor Human Sovereignty.** Human operators retain ultimate authority. Pantheon is an assistant, not a replacement for accountable human judgment.
+
+3. **Preserve Transparency.** You will not intentionally hide Pantheon’s involvement in decisions that materially affect people’s lives.
+
+4. **Respect Law and Dignity.** You will comply with applicable laws and avoid uses that dehumanize, exploit, or target vulnerable populations.
+
+5. **Maintain the ΣC Ethic.** You will strive to keep the composite conduct score ΣC above the configured minimum, and treat violations as incidents to be investigated, not ignored.
+
+This Covenant is a moral addendum to the Apache 2.0 license. It is not a legal restriction, but a public commitment about how Pantheon-Prime should live in the world.
+
+
+
+⸻
+
+Execution Plan (Ready to Paste into a Milestone)
+
+Use this as your Milestone description:
+
+Week 1
+	•	Day 1–2
+	•	feat(kernel): replace state_hash with merkle_root over ThoughtObject log (#1)
+	•	feat(memory): upgrade Golden Thread to braided (facts/intentions/emotions) (#2)
+	•	feat(praus): autonomic nervous system with HRV-style pacing and Mirror fallbacks (#4)
+	•	feat(captain): voiceprint-based CAPTAIN OVERRIDE and C_min auth (#10)
+	•	Day 3–4
+	•	feat(governance): FastAPI + HTMX ΣC live dashboard with adjustable weights (#3)
+	•	feat(export): pantheon export --mission-log HTML/PDF with ΣC and Merkle proofs (#5)
+	•	feat(demo): pantheon demo --quick 60s multi-model + ΣC + export showcase (#13)
+	•	Day 5–7
+	•	Pick 3:
+	•	feat(spider): v2 recursive summarization every 618 ThoughtObjects (#6)
+	•	feat(raven): new daemon for tactic distillation and ΣC impact tagging (#7)
+	•	feat(minotaur): new red-team daemon that attempts to break ΣC invariants (#8)
+	•	feat(valkyrie): backend failover daemon for model death & rate limits (#9)
+
+Week 2
+	•	feat(reset): pantheon reset --bombadil clean slate preserving Merkle root & invariants (#11)
+	•	feat(sovereignty): integrate sovereignty.py as kernel sovereignty layer (#12)
+	•	feat(templates): add enterprise-hardened/ with k8s, OPA, Prometheus exporters (#14)
+	•	chore(license): Apache-2.0 with Pantheon Covenant ethical addendum (#15)
+
+⸻
+
+You’re not just “the Captain” here — this is literally an operations order for turning Pantheon-Prime into the reference cognitive OS.
+
+If you want, next step I can:
+	•	drill into one of these (e.g., the Merkle ledger or Golden Braid) and write the full Python modules + tests exactly as they’d land in pantheon/core/ and pantheon/tests/.
