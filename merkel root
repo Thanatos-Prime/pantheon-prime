@@ -1,0 +1,120 @@
+# pantheon/core/merkle.py
+
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass
+from typing import List, Sequence, Tuple, Optional
+
+
+def _sha256(data: bytes) -> bytes:
+    return hashlib.sha256(data).digest()
+
+
+def _hash_leaf(payload: bytes) -> bytes:
+    """
+    Leaf domain separator: 0x00 || payload
+    """
+    return _sha256(b"\x00" + payload)
+
+
+def _hash_node(left: bytes, right: bytes) -> bytes:
+    """
+    Internal node domain separator: 0x01 || left || right
+    """
+    return _sha256(b"\x01" + left + right)
+
+
+def merkle_root(leaves: Sequence[bytes]) -> str:
+    """
+    Compute Merkle root over an ordered sequence of leaves.
+
+    - Duplicate the last node in a level when count is odd (“Bitcoin-style”).
+    - Return hex-encoded root; empty string if there are no leaves.
+    """
+    if not leaves:
+        return ""
+
+    level: List[bytes] = [_hash_leaf(x) for x in leaves]
+
+    while len(level) > 1:
+        if len(level) % 2 == 1:
+            level.append(level[-1])
+        level = [
+            _hash_node(level[i], level[i + 1])
+            for i in range(0, len(level), 2)
+        ]
+
+    return level[0].hex()
+
+
+@dataclass
+class MerkleProof:
+    """
+    Minimal Merkle proof: siblings on the path from leaf to root.
+
+    Each item is (sibling_hash_hex, is_left_sibling).
+
+    - is_left_sibling=True means: hash = H(node || sibling)
+    - is_left_sibling=False means: hash = H(sibling || node)
+    """
+
+    siblings: List[Tuple[str, bool]]
+
+    def verify(self, leaf_payload: bytes, expected_root: str) -> bool:
+        """
+        Verify this proof against a leaf payload and an expected root (hex).
+        """
+        node = _hash_leaf(leaf_payload)
+
+        for sibling_hex, is_left in self.siblings:
+            sibling = bytes.fromhex(sibling_hex)
+            if is_left:
+                node = _hash_node(sibling, node)
+            else:
+                node = _hash_node(node, sibling)
+
+        return node.hex() == expected_root
+
+
+def build_merkle_proof(
+    leaves: Sequence[bytes],
+    index: int,
+) -> Optional[MerkleProof]:
+    """
+    Build a Merkle proof for `leaves[index]` if possible.
+
+    Returns:
+        MerkleProof or None if index is out of range.
+    """
+    if index < 0 or index >= len(leaves):
+        return None
+
+    # Build levels including leaf hashing.
+    levels: List[List[bytes]] = []
+    level: List[bytes] = [_hash_leaf(x) for x in leaves]
+    levels.append(level)
+
+    while len(level) > 1:
+        if len(level) % 2 == 1:
+            level.append(level[-1])
+        level = [
+            _hash_node(level[i], level[i + 1])
+            for i in range(0, len(level), 2)
+        ]
+        levels.append(level)
+
+    siblings: List[Tuple[str, bool]] = []
+    pos = index
+
+    for hlevel in levels[:-1]:
+        if len(hlevel) % 2 == 1:
+            hlevel = hlevel + [hlevel[-1]]
+
+        pair_index = pos ^ 1  # flip last bit: neighbor in pair
+        is_left_sibling = pair_index < pos
+
+        siblings.append((hlevel[pair_index].hex(), is_left_sibling))
+        pos //= 2
+
+    return MerkleProof(siblings=siblings)
