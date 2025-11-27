@@ -1,0 +1,40 @@
+# pantheon/core/state.py
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+# from .thought import ThoughtObject   # adjust import paths as needed
+
+
+@dataclass
+class StateVector:
+    """
+    Global kernel state snapshot.
+
+    NOTE: merkle_root seals the entire ThoughtObject log.
+    """
+
+    step: int
+    # ... your existing fields ...
+    merkle_root: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        # adjust to respect your existing serialization
+        return {
+            "step": self.step,
+            # ... other fields ...
+            "merkle_root": self.merkle_root,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "StateVector":
+        return cls(
+            step=data["step"],
+            # ... other fields ...
+            merkle_root=data.get("merkle_root", ""),
+            metadata=data.get("metadata", {}),
+        )
