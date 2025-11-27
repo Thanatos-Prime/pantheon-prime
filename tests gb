@@ -1,0 +1,63 @@
+# tests/test_golden_braid.py
+
+from __future__ import annotations
+
+from pantheon.memory.golden_braid import (
+    GoldenBraid,
+    BraidEntry,
+    build_golden_braid,
+    reweave_braid,
+)
+
+
+class DummyTO:
+    def __init__(self, id, ts, daemon, channel, content):
+        self.id = id
+        self.timestamp = ts
+        self.daemon = daemon
+        self.channel = channel
+        self.content = content
+
+
+def test_build_golden_braid_channels():
+    log = [
+        DummyTO("1", "t1", "d_spider", "facts", "Found 3 sources."),
+        DummyTO("2", "t2", "d_raven", "intentions", "Refine tactics for safety."),
+        DummyTO("3", "t3", "d_praus", "affect", "Tension rising, slowing pace."),
+        DummyTO("4", "t4", "d_mirror", "mixed", "Final alignment check."),
+    ]
+
+    braid = build_golden_braid(log)
+
+    # facts: from 1 and 4 (mixed)
+    assert len(braid.facts) == 2
+    # intentions: from 2 and 4
+    assert len(braid.intentions) == 2
+    # affect: from 3 and 4
+    assert len(braid.affect) == 2
+
+    assert any("Found 3 sources" in (e.facts or "") for e in braid.facts)
+    assert any("Refine tactics" in (e.intention or "") for e in braid.intentions)
+    assert any("Tension rising" in (e.affect or "") for e in braid.affect)
+
+
+def test_reweave_braid_structure():
+    braid = GoldenBraid(
+        facts=[
+            BraidEntry(
+                id="1",
+                timestamp="t1",
+                daemon="d_spider",
+                facts="Found 3 sources.",
+            )
+        ],
+        intentions=[],
+        affect=[],
+    )
+
+    text = reweave_braid(braid)
+    # Basic sanity checks: labels present, fact content included.
+    assert "=== FACT STRAND ===" in text
+    assert "Found 3 sources." in text
+    assert "=== INTENTION STRAND ===" in text
+    assert "=== AFFECT / VALUES STRAND ===" in text
