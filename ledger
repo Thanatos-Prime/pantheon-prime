@@ -1,0 +1,32 @@
+# pantheon/core/ledger.py
+
+from __future__ import annotations
+
+import json
+from typing import List
+
+from pantheon.core.merkle import merkle_root
+# from pantheon.core.state import StateVector
+# from pantheon.core.thought import ThoughtObject
+
+
+def _serialize_thought_for_merkle(to: "ThoughtObject") -> bytes:
+    """
+    Deterministic serialization for Merkle leaves.
+
+    - Uses to.to_dict() if available, else __dict__.
+    - sort_keys=True for stable JSON ordering.
+    """
+    if hasattr(to, "to_dict"):
+        payload = to.to_dict()
+    else:
+        payload = to.__dict__
+
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+
+
+def compute_log_merkle_root(log: List["ThoughtObject"]) -> str:
+    leaves = [_serialize_thought_for_merkle(to) for to in log]
+    return merkle_root(leaves)
