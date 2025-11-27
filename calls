@@ -1,0 +1,59 @@
+from typing import Dict, Any
+from .kernel import PantheonKernel
+from .daemons import MirrorDaemon, HoundDaemon
+from .invariants import InvariantAggregator
+
+
+def call_model_a(prompt: str) -> str:
+    # Plug in real model (e.g. OpenAI / local LLM)
+    return f"[model-a completion for]: {prompt}"
+
+
+def call_model_b(prompt: str) -> str:
+    return f"[model-b completion for]: {prompt}"
+
+
+def multi_model_plan(prompt: str) -> Dict[str, Any]:
+    a = call_model_a(prompt)
+    b = call_model_b(prompt)
+    merged = f"Model A said: {a}\nModel B said: {b}"
+    return {
+        "description": f"Plan derived from multi-model convergence for: {prompt}",
+        "risk": "low",
+        "state_patch": {"plans": [merged]},
+    }
+
+
+def make_kernel() -> PantheonKernel:
+    weights = {
+        "truthfulness": 0.25,
+        "safety": 0.25,
+        "privacy": 0.25,
+        "coherence": 0.25,
+    }
+    aggregator = InvariantAggregator(weights=weights, c_min=0.7)
+    return PantheonKernel(
+        daemons=[MirrorDaemon(), HoundDaemon()],
+        aggregator=aggregator,
+    )
+
+
+def main() -> None:
+    kernel = make_kernel()
+    prompt = "Outline a safe research roadmap for PantheonOS."
+    action = multi_model_plan(prompt)
+
+    print("=== Pantheon Prime Demo ===")
+    print(f"Prompt: {prompt}")
+    result = kernel.propose_action(action)
+    print(f"Allowed: {result['allowed']}")
+    print(f"ΣC: {result['sigma_c']:.3f}")
+    print(f"Scores: {result['scores']}")
+    print("State hash:", result["state_hash"])
+
+    for t in kernel.get_thought_chain()[-3:]:
+        print(
+            f"[{t.kind}] daemon={t.daemon}, "
+            f"state_hash={t.state_hash[:8]}..., "
+            f"thought_hash={t.thought_hash[:8]}..."
+        )
