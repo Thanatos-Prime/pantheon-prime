@@ -1,0 +1,22 @@
+from __future__ import annotations
+from .state import ZeroState
+from .log_store import LogStore
+
+
+def main() -> None:
+    state = ZeroState()
+    store = LogStore()
+    print("pantheon-zero (offline continuity engine)")
+    print("Type a note and press Enter, or Ctrl+C to exit.")
+
+    try:
+        while True:
+            line = input("> ").strip()
+            if not line:
+                continue
+            patch = {"last_note": line}
+            state = state.next(patch)
+            store.append(state, {"type": "note", "content": line})
+            print(f"Recorded. state_hash={state.hash[:12]}...")
+    except KeyboardInterrupt:
+        print("\nExiting.")
