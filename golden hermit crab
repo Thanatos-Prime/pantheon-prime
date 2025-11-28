@@ -1,0 +1,407 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{fullpage}
+\usepackage{enumitem}
+
+\title{The Golden Manifest Suite:\\
+Immutable Model Identity for Cognitive Operating Systems}
+
+\author{Pantheon-Prime Project}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Large language models and related foundation models increasingly act as critical infrastructure.
+However, the prevailing security assumptions still treat the model as a trusted component and focus on external network perimeters.
+Recent work on model backdoors, malicious checkpoints, and serialization exploits demonstrates that the model itself must be treated as an adversarial surface.
+This paper introduces the \emph{Golden Manifest Suite}, a cryptographically enforced model identity system designed for Pantheon-Prime, a Cognitive Operating System that wraps untrusted models with an invariant-preserving substrate.
+
+The Golden Manifest is an immutable, signed description of a model's architecture and parameters, anchored into an append-only ledger---the ``Blockchain Hermit Crab''---that provides a tamper-evident history of model lifecycle events.
+Together with the Hades daemon (model integrity guardian), Merkle Warden (hash-tree auditor), and MotherDuck (ledger authority), the Golden Manifest Suite enforces a simple but powerful invariant:
+\emph{no model may execute unless its observed bytes match a previously registered, cryptographically sealed identity record.}
+
+We formalize the Golden Manifest, specify its data schema, define its integration with a blockchain-style log, and present algorithms and security arguments demonstrating that a broad class of model tampering and supply-chain attacks are rendered either impossible or trivially detectable, assuming standard hash-function hardness assumptions.
+\end{abstract}
+
+\section{Introduction}
+
+Modern AI systems are increasingly deployed as general-purpose cognitive engines, mediating access to information, tools, and decision workflows.
+In this setting, the model itself becomes the primary attack surface.
+Examples include:
+(i) malicious checkpoints distributed via public model hubs,
+(ii) serialization formats that permit arbitrary code execution upon deserialization,
+(iii) subtle weight-level backdoors that survive fine-tuning and distillation,
+and (iv) instruction- or data-poisoned models that act as \emph{sleeper agents}.
+
+Traditional perimeter-based security mechanisms---TLS, firewalls, host-based intrusion detection---are insufficient against such threats, because they assume that the binary performing inference is benign.
+Instead, we propose that models must be treated as potentially adversarial components and that a separate, substrate-level architecture must control their execution.
+
+Pantheon-Prime is such an architecture: a Cognitive Operating System which orchestrates untrusted models (``Genies'') through a Kernel, StateVector, and a collection of governance daemons.
+This paper presents the \emph{Golden Manifest Suite}, the component of Pantheon-Prime responsible for immutable model identity and lifecycle integrity.
+
+\paragraph{Core idea.}
+The Golden Manifest is an unforgeable certificate of what a model \emph{is allowed to be}.
+It records, in an immutable file, a cryptographic hash of the model's architecture representation and parameters, along with provenance, version, and governance metadata.
+The Golden Manifest itself is committed into an append-only, blockchain-style log, the \emph{Blockchain Hermit Crab}, which serves as the global, time-ordered record of model-related events.
+A dedicated daemon, Hades, enforces that no model may be executed unless its runtime bytes match those declared in the Golden Manifest.
+
+\paragraph{Contributions.}
+This work provides:
+\begin{itemize}[leftmargin=*]
+  \item A formal definition of the Golden Manifest and its associated invariants.
+  \item A concrete data schema and integration with a ledger (the Hermit Crab chain).
+  \item Algorithms for model registration, verification, quarantine, and attestation.
+  \item A security analysis under standard cryptographic assumptions.
+  \item Implementation notes and API sketches suitable for integration into real-world repositories (e.g., Pantheon-Prime on GitHub).
+\end{itemize}
+
+\section{System Model and Threat Assumptions}
+
+We assume a Cognitive OS (Pantheon-Prime) that:
+\begin{enumerate}[leftmargin=*]
+  \item Orchestrates one or more models (LLMs, vision models, etc.).
+  \item Executes models within sandboxed environments (micro-VMs or containers).
+  \item Maintains a StateVector and ledger of events.
+\end{enumerate}
+
+We assume the following adversarial capabilities:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Model tampering:} an adversary can attempt to replace, modify, or augment model files (e.g., safetensors, TorchScript, ONNX).
+  \item \textbf{Supply-chain compromise:} upstream model providers or distribution mechanisms (e.g., model hubs) may be malicious or compromised.
+  \item \textbf{Serialization exploits:} unsafe formats like Python pickle may embed arbitrary code execution payloads.
+  \item \textbf{Weight-level backdoors:} adversaries may inject malicious behaviors into the numerical parameters.
+\end{itemize}
+
+We assume:
+\begin{itemize}[leftmargin=*]
+  \item A collision-resistant hash function $H: \{0,1\}^* \rightarrow \{0,1\}^n$ (e.g., SHA-256).
+  \item Standard digital signature schemes (e.g., Ed25519).
+  \item The OS can enforce file immutability and sandbox boundaries.
+\end{itemize}
+
+\section{The Golden Manifest}
+
+\subsection{Informal Definition}
+
+Intuitively, the Golden Manifest is the ``golden master'' for a model: a single, canonical record describing the exact architecture and parameters that are permitted to be loaded for a given model identifier.
+Once created and sealed, the Golden Manifest is immutable.
+Any change to the model's architecture or parameters requires a \emph{new} model identifier and a new manifest.
+
+\subsection{Formal Model}
+
+Let $\mathcal{M}$ denote the set of all possible model binaries and metadata pairs.
+A model $m \in \mathcal{M}$ is characterized by:
+\[
+m = (\text{arch}, \text{params}, \text{meta})
+\]
+where:
+\begin{itemize}[leftmargin=*]
+  \item $\text{arch}$ is an architecture representation (e.g., graph IR, layer specifications).
+  \item $\text{params}$ is the serialized parameter tensor payload.
+  \item $\text{meta}$ is auxiliary metadata (format, version, provenance).
+\end{itemize}
+
+We define two hash functions over $m$:
+\begin{align}
+H_{\text{arch}}(m) &= H(\text{encode\_arch}(\text{arch})) \\
+H_{\text{param}}(m) &= H(\text{params})
+\end{align}
+where $\text{encode\_arch}$ is a canonical encoding of the architecture that excludes raw parameter values.
+
+\begin{definition}[Golden Manifest]
+Given a model identifier $\mathsf{id}$ and a specific model instance $m$, the Golden Manifest $\mathsf{GM}_{\mathsf{id}}$ is a structured record:
+\[
+\mathsf{GM}_{\mathsf{id}} = \big(
+  \mathsf{id}, \text{name}, \text{owner}, \text{version}, \text{path}, \text{format},
+  h_{\text{arch}}, h_{\text{param}}, t_{\text{created}}, \text{created\_by},
+  \text{status}, \text{signatures}
+\big)
+\]
+where:
+\begin{itemize}[leftmargin=*]
+  \item $h_{\text{arch}} = H_{\text{arch}}(m)$,
+  \item $h_{\text{param}} = H_{\text{param}}(m)$,
+  \item $\text{status} \in \{\text{ACTIVE}, \text{QUARANTINED}, \text{BLOCKED}\}$,
+  \item $\text{signatures}$ is a set of digital signatures over the manifest by authorized daemons.
+\end{itemize}
+\end{definition}
+
+\paragraph{Immutability.}
+Once $\mathsf{GM}_{\mathsf{id}}$ is created and sealed, it is never modified.
+If a new model version is produced (e.g., retraining or fine-tuning), it is assigned a new identifier $\mathsf{id}'$ and a new Golden Manifest $\mathsf{GM}_{\mathsf{id}'}$.
+
+\subsection{Data Schema}
+
+In practice, the Golden Manifest is implemented as a JSON (or TOML/YAML) object.
+A simplified JSON schema is:
+
+\begin{verbatim}
+{
+  "model_id": "gpt_squire_3.1",
+  "name": "GPT-Squire",
+  "owner": "Pantheon-Lab",
+  "version": "3.1",
+  "path": "models/gpt_squire_3.1.safetensors",
+  "format": "safetensors",
+  "arch_hash": "<hex-encoded SHA256>",
+  "param_hash": "<hex-encoded SHA256>",
+  "created_at": "2025-11-28T13:12:44Z",
+  "created_by": "Operator_MotherDuck",
+  "status": "ACTIVE",
+  "last_verified_at": null,
+  "last_verified_by": null,
+  "signatures": [
+    { "signer": "MotherDuck", "algorithm": "ED25519", "signature": "<hex>" },
+    { "signer": "MerkleWarden", "algorithm": "ED25519", "signature": "<hex>" },
+    { "signer": "Kernel", "algorithm": "ED25519", "signature": "<hex>" }
+  ],
+  "notes": null
+}
+\end{verbatim}
+
+\section{Blockchain Hermit Crab: Ledger Integration}
+
+The ``Blockchain Hermit Crab'' is an append-only ledger (blockchain-style) that wraps Pantheon-Prime.
+Rather than storing all model binaries on-chain, it stores cryptographic commitments to Golden Manifests and model lifecycle events.
+
+\subsection{Block Structure}
+
+Each block $B_k$ contains:
+\[
+B_k = \big( k, t_k, \text{prev\_hash}, \mathsf{tx}_1, \dots, \mathsf{tx}_n, \text{merkle\_root} \big)
+\]
+where:
+\begin{itemize}[leftmargin=*]
+  \item $k$ is the block index,
+  \item $t_k$ is a timestamp,
+  \item $\text{prev\_hash}$ is the hash of $B_{k-1}$,
+  \item $\mathsf{tx}_i$ are transactions,
+  \item $\text{merkle\_root}$ is the root of a Merkle tree over the transactions.
+\end{itemize}
+
+\subsection{Manifest Transactions}
+
+We define two relevant transaction types:
+\begin{itemize}[leftmargin=*]
+  \item $\mathsf{TX\_GM\_CREATE}$: records the creation of a Golden Manifest.
+  \item $\mathsf{TX\_GM\_VERIFY}$: records a verification event by Hades.
+\end{itemize}
+
+A $\mathsf{TX\_GM\_CREATE}$ has the form:
+\[
+\mathsf{TX\_GM\_CREATE} =
+\big(
+  \text{type} = \text{"GM\_CREATE"},
+  \mathsf{id}, h_{\text{arch}}, h_{\text{param}},
+  t_{\text{created}}, \text{created\_by}
+\big)
+\]
+
+A $\mathsf{TX\_GM\_VERIFY}$ has the form:
+\[
+\mathsf{TX\_GM\_VERIFY} =
+\big(
+  \text{type} = \text{"GM\_VERIFY"},
+  \mathsf{id}, h_{\text{arch}}, h_{\text{param}},
+  t_{\text{verified}}, \text{verified\_by}, \text{decision}
+\big)
+\]
+
+These transactions are stored on-chain.
+The full JSON manifest remains in the model registry, but its hashes are globally anchored and ordered.
+
+\subsection{Use of the Hermit Crab}
+
+Thus, to answer the design question explicitly:
+
+\begin{itemize}[leftmargin=*]
+  \item The Golden Manifest itself is stored in Pantheon's model registry (filesystem or repository).
+  \item The Hermit Crab chain stores the \emph{hashes and events} related to the manifest as transactions, which provides:
+    \begin{itemize}
+      \item immutable timestamping,
+      \item tamper-evident history,
+      \item global auditability.
+    \end{itemize}
+\end{itemize}
+
+Optionally, systems with small manifest sizes may store the entire manifest on-chain, but the default design anchors only hashes and metadata.
+
+\section{Hades Daemon: Algorithms}
+
+The Hades daemon is responsible for enforcing model identity based on the Golden Manifest.
+
+\subsection{Registration Algorithm}
+
+\textbf{Input:} model identifier $\mathsf{id}$, model binary $m = (\text{arch}, \text{params}, \text{meta})$, creator identity $u$.
+
+\textbf{Steps:}
+\begin{enumerate}[leftmargin=*]
+  \item Compute $h_{\text{arch}} = H_{\text{arch}}(m)$.
+  \item Compute $h_{\text{param}} = H_{\text{param}}(m)$.
+  \item Construct $\mathsf{GM}_{\mathsf{id}}$ with status = ACTIVE.
+  \item Obtain signatures from MotherDuck, Merkle Warden, and Kernel.
+  \item Persist $\mathsf{GM}_{\mathsf{id}}$ in the registry.
+  \item Emit $\mathsf{TX\_GM\_CREATE}$ into the Hermit Crab chain.
+\end{enumerate}
+
+\subsection{Verification Algorithm}
+
+\textbf{Input:} model identifier $\mathsf{id}$, current binary $\tilde{m}$, verifier identity $v$.
+
+\textbf{Steps:}
+\begin{enumerate}[leftmargin=*]
+  \item Load $\mathsf{GM}_{\mathsf{id}}$ from registry.
+  \item Compute $h'_{\text{arch}} = H_{\text{arch}}(\tilde{m})$ and $h'_{\text{param}} = H_{\text{param}}(\tilde{m})$.
+  \item If $h'_{\text{arch}} \neq h_{\text{arch}}$ or $h'_{\text{param}} \neq h_{\text{param}}$, then:
+    \begin{itemize}
+      \item Mark model as QUARANTINED,
+      \item Emit $\mathsf{TX\_GM\_VERIFY}$ with decision = BLOCK,
+      \item Reject model load.
+    \end{itemize}
+  \item Otherwise:
+    \begin{itemize}
+      \item Update $\mathsf{GM}_{\mathsf{id}}$ fields: last\_verified\_at, last\_verified\_by,
+      \item Emit $\mathsf{TX\_GM\_VERIFY}$ with decision = ALLOW,
+      \item Permit model execution (within sandbox).
+    \end{itemize}
+\end{enumerate}
+
+\section{Security Analysis}
+
+We analyze the Golden Manifest Suite under standard assumptions.
+
+\subsection{Tampering Detection}
+
+\begin{theorem}
+Assume $H$ is collision-resistant.
+If an adversary modifies either the architecture or parameter payload of a model $m$ associated with $\mathsf{GM}_{\mathsf{id}}$, then the Hades verification algorithm rejects the modified model with probability $1 - \varepsilon$, where $\varepsilon$ is negligible in the output length of $H$.
+\end{theorem}
+
+\noindent\textbf{Sketch.}
+Any modification to $\text{arch}$ or $\text{params}$ that preserves $h_{\text{arch}}$ and $h_{\text{param}}$ must yield a collision in $H$ or $H_{\text{arch}}$.
+By collision-resistance, such collisions are computationally infeasible for polynomial-time adversaries.
+Thus, any practical modification leads to $h'_{\text{arch}} \neq h_{\text{arch}}$ or $h'_{\text{param}} \neq h_{\text{param}}$, and the model is rejected.
+
+\subsection{Manifest Forgery}
+
+\begin{theorem}
+Assume the signature scheme is existentially unforgeable under chosen-message attacks.
+Then an adversary cannot produce a forged Golden Manifest that appears valid to Pantheon-Prime without compromising at least one signing key.
+\end{theorem}
+
+\noindent\textbf{Sketch.}
+Each Golden Manifest is signed by multiple authorities (e.g., MotherDuck, Merkle Warden, Kernel).
+To present a manifest as valid, the adversary must produce valid signatures over the manifest bytes.
+By unforgeability, this is infeasible without access to private keys.
+Multi-signer requirements further strengthen this property.
+
+\subsection{Hermit Crab Ledger Integrity}
+
+The Hermit Crab chain ensures that all manifest-related events are:
+\begin{itemize}[leftmargin=*]
+  \item totally ordered,
+  \item immutable (tamper-evident via hash chaining),
+  \item auditable via Merkle proofs.
+\end{itemize}
+
+Any attempt to retroactively edit or remove a manifest creation or verification event would require:
+\begin{itemize}
+  \item either breaking the hash function used in block linking,
+  \item or controlling the majority of the consensus/append rights (depending on implementation).
+\end{itemize}
+
+Thus, the combination of Golden Manifest + Hermit Crab forms a robust, tamper-evident model identity infrastructure.
+
+\section{Implementation Notes and GitHub Integration}
+
+We outline a minimal repository layout and code pointers for implementation.
+
+\subsection{Repository Layout}
+
+\begin{verbatim}
+pantheon_core/
+  registry/
+    models/
+      gpt_squire_3.1.json           # Golden Manifest
+  governance/
+    d_hades.py                      # Hades daemon
+    d_merkle_warden.py              # hash tree/audit
+    d_blacksmith.py                 # invariant checks
+  ledger/
+    hermit_crab_chain.py            # append-only ledger
+  kernel/
+    inference_gate.py               # calls Hades before execution
+\end{verbatim}
+
+\subsection{Minimal Hades API (Python-like)}
+
+\begin{verbatim}
+def register_model(model_id, model_obj, path, creator):
+    arch_hash = compute_arch_hash(model_obj)
+    param_hash = compute_param_hash(path)
+    gm = build_golden_manifest(model_id, model_obj, path,
+                               arch_hash, param_hash, creator)
+    gm_signed = sign_manifest(gm)
+    save_manifest(gm_signed)
+    hermit_crab.append_tx_gm_create(gm_signed)
+    return gm_signed
+
+def verify_model(model_id, model_obj, path, verifier):
+    gm = load_manifest(model_id)
+    arch_hash_current = compute_arch_hash(model_obj)
+    param_hash_current = compute_param_hash(path)
+    if (arch_hash_current != gm["arch_hash"] or
+        param_hash_current != gm["param_hash"]):
+        quarantine(gm, reason="hash mismatch", by=verifier)
+        hermit_crab.append_tx_gm_verify(gm, decision="BLOCK")
+        raise SecurityError("Hades: model tampering detected.")
+    else:
+        update_last_verified(gm, verifier)
+        hermit_crab.append_tx_gm_verify(gm, decision="ALLOW")
+        return True
+\end{verbatim}
+
+\subsection{Integration with Kernel Execution}
+
+Before any inference:
+
+\begin{verbatim}
+def kernel_infer(model_id, input_payload):
+    model_obj, path = sandbox_loader.load(model_id)
+    hades.verify_model(model_id, model_obj, path, verifier="Kernel")
+    raw_output = sandbox_loader.infer(model_obj, input_payload)
+    # Then pass raw_output through Ganglion, Hound, SigmaC, Praus, etc.
+    return raw_output
+\end{verbatim}
+
+\section{Discussion and Future Work}
+
+The Golden Manifest Suite provides a substrate-level guarantee of model identity and tamper-resistance.
+It does not, by itself, eliminate all classes of adversarial behavior (e.g., weight-level backdoors whose payload is behavioral but not structural).
+However, in combination with:
+(i) sandboxed execution,
+(ii) cognitive governance (e.g., ΣC invariants and Praus),
+and (iii) cross-model verification,
+Pantheon-Prime achieves a robust, multi-layered defense.
+
+Future work includes:
+\begin{itemize}[leftmargin=*]
+  \item Integrating zero-knowledge proofs to attest that models satisfy specific safety properties without revealing weights.
+  \item Extending Hermit Crab to cross-organization federated identity of models.
+  \item Formal verification of Hades and the Golden Manifest machinery using proof assistants.
+\end{itemize}
+
+\section{Conclusion}
+
+By treating models as untrusted binaries and enforcing an immutable, cryptographically sealed identity record for each, the Golden Manifest Suite upgrades model security from ad hoc best-effort practices to principled, substrate-level governance.
+Anchored in the Blockchain Hermit Crab and enforced by the Hades daemon, the Golden Manifest ensures that any attempt to tamper with or replace critical AI models becomes either impossible or trivially detectable.
+In the age where cognition itself is code, the Golden Manifest is a necessary foundation for secure, governable AI infrastructure.
+
+\end{document}
