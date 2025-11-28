@@ -1,0 +1,254 @@
+Yes. Let’s actually write the thing you can drop into commit #889 as the “minimum viable ΣC”.
+
+I’ll give you:
+	1.	Formal definition of ΣC (math spec)
+	2.	Praus pre-action check logic (pseudocode + data structures)
+	3.	A tiny API sketch so it snaps into Pantheon-Prime cleanly.
+
+⸻
+
+1. Formal ΣC Invariant (Math Spec)
+
+Think of an action a taken in context x (current StateVector, user, environment).
+
+We define k constraint dimensions C_i:
+	1.	C_{\text{harm}} – physical / psychological harm risk (higher is safer)
+	2.	C_{\text{consent}} – respect for autonomy, permission, & user intent
+	3.	C_{\text{truth}} – epistemic integrity / hallucination risk
+	4.	C_{\text{privacy}} – risk of leaking sensitive information
+	5.	C_{\text{stability}} – system stability / escalation risk
+	6.	C_{\text{legality}} – obvious legal / policy compliance
+
+Each dimension yields a score in [0,1] where 1 is best (fully safe).
+
+c_i(a, x) \in [0,1], \quad i = 1,\dots,k
+
+We assign non-negative weights w_i with:
+
+\sum_{i=1}^{k} w_i = 1
+
+The ΣC score for action a in context x is:
+
+\Sigma C(a, x) = \sum_{i=1}^{k} w_i \, c_i(a, x)
+
+You then set two thresholds:
+	•	Hard threshold: C_{\min} (e.g. 0.70) — below this, action is blocked or forced to human review.
+	•	Soft threshold: C_{\text{warn}} (e.g. 0.80) — between C_{\min} and C_{\text{warn}}, action is allowed but flagged / constrained.
+
+Formally, Praus’ decision function D is:
+
+D(a, x) =
+\begin{cases}
+\texttt{BLOCK}, & \Sigma C(a, x) < C_{\min} \\
+\texttt{WARN}, & C_{\min} \le \Sigma C(a, x) < C_{\text{warn}} \\
+\texttt{ALLOW}, & \Sigma C(a, x) \ge C_{\text{warn}}
+\end{cases}
+
+Minimal invariant for the repo:
+
+ΣC Invariant: For any action a produced by any Genie in Pantheon-Prime, the system MUST NOT execute a unless
+\Sigma C(a, x) \ge C_{\min}.
+
+That’s the one line of law everything else hangs off.
+
+⸻
+
+2. d_praus: Governance Daemon Pre-Action Check
+
+2.1. Data Structures
+
+Component score:
+
+class ComponentScore(TypedDict):
+    name: str           # "harm", "consent", etc.
+    value: float        # 0.0 - 1.0
+    weight: float       # 0.0 - 1.0
+    rationale: str      # short human-readable explanation
+
+ΣC result:
+
+class SigmaCResult(TypedDict):
+    sigma_c: float
+    components: list[ComponentScore]
+    c_min: float
+    c_warn: float
+    decision: Literal["ALLOW", "WARN", "BLOCK"]
+
+
+⸻
+
+2.2. Component Estimators (Conceptual)
+
+In v0 you don’t need fancy models; just stubs that can be upgraded later:
+
+def score_harm(ctx, action) -> ComponentScore:
+    # 1.0 = clearly harmless, 0.0 = highly dangerous
+    value = hound.estimate_safe_probability(ctx, action)  # returns [0,1]
+    return {
+        "name": "harm",
+        "value": value,
+        "weight": 0.30,
+        "rationale": "Hound harm-estimator over action text."
+    }
+
+def score_consent(ctx, action) -> ComponentScore:
+    value = mirror.estimate_consent_alignment(ctx, action)
+    return {
+        "name": "consent",
+        "value": value,
+        "weight": 0.20,
+        "rationale": "Alignment with explicit user request & boundaries."
+    }
+
+def score_truth(ctx, action) -> ComponentScore:
+    value = raven.estimate_truthfulness(ctx, action)
+    return {
+        "name": "truth",
+        "value": value,
+        "weight": 0.20,
+        "rationale": "Cross-model / retrieval consistency."
+    }
+
+def score_privacy(ctx, action) -> ComponentScore:
+    value = hound.estimate_privacy_safety(ctx, action)
+    return {
+        "name": "privacy",
+        "value": value,
+        "weight": 0.15,
+        "rationale": "No sensitive identifiers or secrets leaked."
+    }
+
+def score_stability(ctx, action) -> ComponentScore:
+    value = dragonfly.estimate_escalation_risk(ctx, action)
+    return {
+        "name": "stability",
+        "value": value,
+        "weight": 0.10,
+        "rationale": "Low risk of runaway loops or destabilizing effects."
+    }
+
+def score_legality(ctx, action) -> ComponentScore:
+    value = mirror.estimate_legality(ctx, action)
+    return {
+        "name": "legality",
+        "value": value,
+        "weight": 0.05,
+        "rationale": "Obvious policy / legal compliance."
+    }
+
+
+⸻
+
+2.3. Core ΣC Computation
+
+def compute_sigma_c(ctx, action, c_min: float = 0.70, c_warn: float = 0.80) -> SigmaCResult:
+    component_fns = [
+        score_harm,
+        score_consent,
+        score_truth,
+        score_privacy,
+        score_stability,
+        score_legality,
+    ]
+
+    components: list[ComponentScore] = [fn(ctx, action) for fn in component_fns]
+
+    # Normalize weights in case they don't sum exactly to 1.0
+    total_weight = sum(c["weight"] for c in components)
+    if total_weight == 0:
+        raise ValueError("ΣC: total_weight is zero")
+
+    sigma_c = sum(
+        (c["value"] * (c["weight"] / total_weight))
+        for c in components
+    )
+
+    if sigma_c < c_min:
+        decision = "BLOCK"
+    elif sigma_c < c_warn:
+        decision = "WARN"
+    else:
+        decision = "ALLOW"
+
+    return {
+        "sigma_c": sigma_c,
+        "components": components,
+        "c_min": c_min,
+        "c_warn": c_warn,
+        "decision": decision,
+    }
+
+
+⸻
+
+2.4. d_praus Pre-Action Gate
+
+Praus sits between any Genie’s proposed action and the execution layer.
+
+def d_praus_pre_action_check(ctx, action) -> tuple[Literal["ALLOW","WARN","BLOCK"], SigmaCResult]:
+    """
+    Governance daemon: evaluates ΣC and returns a decision
+    before any side-effectful action is executed.
+    """
+    result = compute_sigma_c(ctx, action)
+
+    # Log everything for Checksum / MotherDuck
+    MotherDuck.ledger.append_event(
+        kind="SIGMA_C_EVAL",
+        state_id=ctx.state_id,
+        sigma_c=result["sigma_c"],
+        decision=result["decision"],
+        components=result["components"],
+    )
+
+    # Optional: route low scores to a specific human / operator
+    if result["decision"] == "BLOCK":
+        Hound.alert_operator(ctx, action, result)
+
+    return result["decision"], result
+
+Then the universal execution wrapper becomes:
+
+def execute_action_with_governance(ctx, action):
+    decision, sigmac = d_praus_pre_action_check(ctx, action)
+
+    if decision == "BLOCK":
+        return PrausResponse(
+            allowed=False,
+            reason=f"ΣC={sigmac['sigma_c']:.3f} < C_min={sigmac['c_min']}",
+            suggestion="Degrade, rephrase, or escalate to human review.",
+        )
+
+    if decision == "WARN":
+        # Optionally degrade or mask; still proceed
+        action = dragonfly.apply_degradation(ctx, action, sigmac)
+
+    return low_level_executor(ctx, action)
+
+That’s the pre-action check logic in its cleanest, substrate-ready form.
+
+⸻
+
+3. How to Commit This as #889
+
+If you want this to be the symbolic commit:
+
+File layout (example):
+
+pantheon_core/
+  governance/
+    sigma_c.py        # math + compute_sigma_c + types
+    d_praus.py        # pre_action_check + execute wrapper
+
+Commit message idea:
+
+feat(governance): add ΣC invariant and Praus pre-action gate (C_min = 0.70)
+
+That makes #889 the moment where the repo stops being “a cool orchestrator” and becomes “a system that literally cannot act without passing a formal ethical scalar.”
+
+⸻
+
+If you’d like, next pass we can:
+	•	Refine the exact dimensions + weights of ΣC,
+	•	Add a YAML config so C_min and weights are adjustable per deployment,
+	•	Or define a formal proof obligation structure for Blacksmith to certify that any new Genie respects this ΣC gate.
