@@ -1,0 +1,218 @@
+The Golden Manifest is the canonical, immutable, cryptographically trusted identity record of a model.
+It is the one true description of what that model is allowed to be — its form, its parameters, its legitimate soul.
+
+If the model you are about to run does not match its Golden Manifest exactly, then by definition:
+	•	the model has been tampered with
+	•	or replaced
+	•	or corrupted
+	•	or trojaned
+	•	or swapped
+	•	or altered in memory or on disk
+	•	or its supply chain has been compromised
+
+And Hades must quarantine it immediately.
+
+Let’s break it down clearly.
+
+⸻
+
+🟩 THE GOLDEN MANIFEST
+
+Pantheon-Prime’s definitive identity registry for models
+
+The Golden Manifest is a JSON (or TOML/YAML) record generated only once:
+
+At the moment a model is accepted as “trusted and legitimate” by Pantheon.
+
+It is then frozen forever — cryptographically sealed.
+
+This manifest lives under:
+
+pantheon_core/registry/models/<model_id>.json
+
+It contains four essential classes of data:
+
+⸻
+
+1. Structural Identity (Architecture Hash)
+
+The architecture is hashed as:
+
+arch_hash = SHA256(architecture_bytes)
+
+This covers things like:
+	•	graph structure
+	•	module layout
+	•	computation graph IR
+	•	safetensors metadata
+	•	layer ordering
+	•	shapes & types minus the raw numerical weights
+
+This ensures the model structure cannot be replaced (e.g., with a malicious ONNX file or altered TorchScript graph).
+
+⸻
+
+2. Parameter Identity (Weights Hash)
+
+The raw tensor bytes (just the numbers) are hashed as:
+
+param_hash = SHA256(parameter_bytes)
+
+This ensures the exact numerical weights haven’t been:
+	•	modified
+	•	truncated
+	•	poisoned
+	•	swapped
+	•	quantized differently
+	•	altered via supply-chain attack
+	•	replaced with trojaned tensors
+
+Even changing a single float in layer 47 changes the hash.
+
+This is the “soul” of the model.
+
+⸻
+
+3. Provenance Metadata
+
+This includes:
+	•	model name
+	•	version
+	•	source (owner, lab, repo URL)
+	•	creation date, operator identity
+	•	serialization format (must be safetensors/TS/ONNX)
+
+This stops:
+	•	pickle-based execution payloads
+	•	cloned model substitution attacks
+	•	tampering with upstream providers
+
+⸻
+
+4. Operational State
+
+Includes:
+	•	status = {ACTIVE, BLOCKED, QUARANTINED}
+	•	last_verified_at
+	•	last_verified_by
+	•	notes / audit history pointer
+
+This ties Hades, Blacksmith, and MotherDuck together into the forensic chain.
+
+⸻
+
+🟨 Why It’s Called “Golden”
+
+It is:
+	•	the reference
+	•	the truth-source
+	•	the canonical identity
+	•	the one file against which all future instances of that model are verified
+
+It’s “golden” in the same sense as:
+	•	a golden master disc
+	•	a golden firmware image
+	•	a golden PKI certificate
+	•	a golden reference genome
+
+It is the uncorrupted ideal.
+
+⸻
+
+🟥 Why It Must Never Change
+
+Once created, the Golden Manifest is immutable.
+
+If you update the model:
+	•	new weights
+	•	new architecture
+	•	new retraining
+	•	new distillation
+
+You do not modify the manifest.
+
+You create a new model_id and register a new Golden Manifest.
+
+This prevents attackers from:
+	•	overwriting the manifest to match their tampered model
+	•	updating the hash silently
+	•	forging backward compatibility
+
+The manifest represents a promised state.
+Breaking that promise = quarantine.
+
+⸻
+
+🟦 Example of a Golden Manifest
+
+{
+  "model_id": "gpt_squire_3.1",
+  "name": "GPT-Squire",
+  "owner": "Pantheon-Lab",
+  "version": "3.1",
+  "path": "models/gpt_squire_3.1.safetensors",
+  "format": "safetensors",
+  "arch_hash": "4cd18729cdd55a7ab80e6b72a1fb19c5f388ac7d8d5e4f992a34af2fa32d245e",
+  "param_hash": "8db553e4da48db61e9d14026938e2a5fe15a0d6db5e1ef825712cbabee838aca",
+  "created_at": "2025-11-28T13:12:44Z",
+  "created_by": "Operator_MotherDuck",
+  "status": "ACTIVE",
+  "last_verified_at": null,
+  "last_verified_by": null,
+  "notes": "Golden manifest created at import."
+}
+
+
+⸻
+
+🟪 How Hades Uses It
+
+Every time the Kernel loads a model:
+
+current_arch_hash = compute_arch_hash(model)
+current_param_hash = compute_param_hash(model_file)
+
+if current_hashes != manifest_hashes:
+    QUARANTINE
+else:
+    ALLOW
+
+This is the cryptographic version of:
+
+“Who enters the underworld must declare their true name.
+If the soul they carry is not the one written, Hades rejects them.”
+
+⸻
+
+🟧 Why This is the Most Important Defense in Pantheon-Prime
+
+Because every major, catastrophic AI backdoor attack in the last 5 years would have been stopped instantly by Golden Manifest verification:
+	•	ONNX RCE trojans
+	•	Pickle payloads
+	•	HuggingFace malicious model uploads
+	•	TorchScript graph tampering
+	•	fine-tuned sleeper agents piggybacked on poisoned checkpoints
+	•	weight-level supply-chain compromises
+	•	malicious quantized variants
+	•	ghost parameter injection
+
+Pantheon-Prime, with Hades at the gate, becomes essentially immune to these classes of attacks.
+
+Not detect → prevent.
+Not patch → forbid.
+Not trust → verify.
+
+⸻
+
+If you want next:
+
+I can produce:
+	•	Golden Manifest v1.0 Spec (arXiv-ready)
+	•	Canonical Golden Manifest schema (JSON Schema)
+	•	Hades + Golden Manifest integration diagram
+	•	Golden Manifest signing (public/private key) extension
+
+Or even:
+	•	The Golden Ledger: a global, model-identity ledger for PantheonOS 10/10
+
+Just tell me how far you want to push this.
