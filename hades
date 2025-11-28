@@ -1,0 +1,367 @@
+Hell yes, let’s forge Hades.
+
+Below is a drop-in daemon spec + Python-style implementation you can turn into commit d_hades.py inside Pantheon-Prime.
+
+⸻
+
+0. Hades in One Sentence
+
+Hades is the Model Integrity Daemon.
+It never lets a model run unless its bytes match a trusted, signed manifest and it’s executing inside an approved sandbox.
+
+⸻
+
+1. High-Level Design
+
+Responsibilities
+	1.	Registration – accept a new model, compute hashes, build a manifest, store in ledger.
+	2.	Verification – re-hash on load and compare to the “golden” manifest.
+	3.	Quarantine – if mismatch or policy violation, move model to blocked state, emit alerts, refuse execution.
+	4.	Attestation – provide signed attestations to the Kernel / Blacksmith / Merkle Warden: “this inference used model X @ hash Y.”
+
+Core invariants
+	1.	H_arch_current == H_arch_golden
+	2.	H_param_current == H_param_golden
+	3.	serialization_format ∈ {safetensors, torchscript, …} (never pickle)
+	4.	No model may be executed unless Hades returns ALLOW with a fresh verification stamp.
+
+⸻
+
+2. Data Structures
+
+Filesystem / repo layout (example)
+
+pantheon_core/
+  governance/
+    d_hades.py
+  registry/
+    models/
+      <model_id>.json         # Hades manifest
+      <model_id>.blocked.json # optional quarantine record
+
+ModelManifest (JSON) — canonical record
+
+from typing import TypedDict, Literal, Optional
+import datetime as dt
+
+class ModelManifest(TypedDict):
+    model_id: str
+    name: str
+    owner: str                  # "Pantheon", "3p-lab", etc.
+    version: str                # "v0.3.1"
+    path: str                   # where the file actually lives
+    format: Literal["safetensors", "torchscript", "onnx", "other"]
+    arch_hash: str              # SHA256 over 'architecture' bytes
+    param_hash: str             # SHA256 over weight tensor bytes
+    created_at: str             # ISO time
+    created_by: str             # operator / CI identity
+    status: Literal["ACTIVE", "BLOCKED", "QUARANTINED"]
+    last_verified_at: Optional[str]
+    last_verified_by: Optional[str]
+    notes: Optional[str]
+
+HadesVerdict
+
+class HadesVerdict(TypedDict):
+    decision: Literal["ALLOW", "BLOCK"]
+    reason: str
+    model_id: str
+    manifest: ModelManifest
+    verified_at: str
+
+
+⸻
+
+3. Core Hades API
+
+3.1 Hash helpers (conceptual)
+
+import hashlib
+from pathlib import Path
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+def compute_arch_hash(model) -> str:
+    """
+    Implementation detail:
+    - For torchscript: hash scripted graph IR
+    - For safetensors: hash the sorted set of tensor names + shapes + dtypes
+    - For ONNX: hash the graph proto minus numeric values
+    Here we just stub; but the interface is stable.
+    """
+    ir_bytes = model.export_architecture_bytes()
+    return hashlib.sha256(ir_bytes).hexdigest()
+
+def compute_param_hash(model_file: Path) -> str:
+    """Hash only the parameter payload bytes (weights)."""
+    return sha256_file(model_file)
+
+
+⸻
+
+3.2 Registration Flow
+
+Called when a new model is introduced to Pantheon-Prime.
+
+import json
+from pathlib import Path
+from typing import Optional
+from datetime import datetime, timezone
+
+REGISTRY_DIR = Path("pantheon_core/registry/models")
+
+SAFE_FORMATS = {"safetensors", "torchscript", "onnx"}  # extend as needed
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+def register_model(
+    *,
+    model_id: str,
+    name: str,
+    owner: str,
+    version: str,
+    path: str,
+    format: str,
+    created_by: str,
+    model_obj=None,
+    notes: Optional[str] = None,
+) -> ModelManifest:
+    """
+    One-time registration of a model into Hades' registry.
+    Assumes file exists but has not yet been trusted.
+    """
+    if format not in SAFE_FORMATS:
+        raise ValueError(f"Hades: format '{format}' is not allowed (pickle forbidden).")
+
+    model_path = Path(path)
+    if not model_path.exists():
+        raise FileNotFoundError(f"Hades: model path not found: {path}")
+
+    # If the caller didn't supply an in-memory object, you’d load it here.
+    if model_obj is None:
+        model_obj = load_model_for_arch_hash(model_path, format)
+
+    arch_hash = compute_arch_hash(model_obj)
+    param_hash = compute_param_hash(model_path)
+
+    manifest: ModelManifest = {
+        "model_id": model_id,
+        "name": name,
+        "owner": owner,
+        "version": version,
+        "path": str(model_path),
+        "format": format,
+        "arch_hash": arch_hash,
+        "param_hash": param_hash,
+        "created_at": now_iso(),
+        "created_by": created_by,
+        "status": "ACTIVE",
+        "last_verified_at": None,
+        "last_verified_by": None,
+        "notes": notes,
+    }
+
+    REGISTRY_DIR.mkdir(parents=True, exist_ok=True)
+    manifest_path = REGISTRY_DIR / f"{model_id}.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+
+    MotherDuck.ledger.append_event(
+        kind="HADES_REGISTER_MODEL",
+        model_id=model_id,
+        manifest_path=str(manifest_path),
+        arch_hash=arch_hash,
+        param_hash=param_hash,
+        created_by=created_by,
+    )
+
+    return manifest
+
+Narrative: this is the moment a model “enters the underworld” and is bound by Hades. From here on, any change in its bytes is a sin.
+
+⸻
+
+3.3 Verification on Load
+
+This is what the Kernel must call before any inference session.
+
+def load_manifest(model_id: str) -> ModelManifest:
+    manifest_path = REGISTRY_DIR / f"{model_id}.json"
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Hades: no manifest for model_id='{model_id}'")
+    return json.loads(manifest_path.read_text())
+
+def verify_model(model_id: str, verifier_id: str) -> HadesVerdict:
+    manifest = load_manifest(model_id)
+
+    model_path = Path(manifest["path"])
+    if not model_path.exists():
+        return quarantine_model(
+            manifest,
+            reason=f"Model file missing at {manifest['path']}.",
+            by=verifier_id,
+        )
+
+    if manifest["format"] not in SAFE_FORMATS:
+        return quarantine_model(
+            manifest,
+            reason=f"Disallowed format: {manifest['format']}.",
+            by=verifier_id,
+        )
+
+    # Load only enough to compute architecture hash
+    model_obj = load_model_for_arch_hash(model_path, manifest["format"])
+    current_arch_hash = compute_arch_hash(model_obj)
+    current_param_hash = compute_param_hash(model_path)
+
+    arch_ok = (current_arch_hash == manifest["arch_hash"])
+    param_ok = (current_param_hash == manifest["param_hash"])
+
+    if not arch_ok or not param_ok:
+        reason = []
+        if not arch_ok:
+            reason.append("architecture hash mismatch")
+        if not param_ok:
+            reason.append("parameter hash mismatch")
+        return quarantine_model(
+            manifest,
+            reason="; ".join(reason),
+            by=verifier_id,
+        )
+
+    # Update manifest verification fields
+    manifest["last_verified_at"] = now_iso()
+    manifest["last_verified_by"] = verifier_id
+    manifest["status"] = "ACTIVE"
+    (REGISTRY_DIR / f"{model_id}.json").write_text(json.dumps(manifest, indent=2))
+
+    MotherDuck.ledger.append_event(
+        kind="HADES_VERIFY_MODEL",
+        model_id=model_id,
+        arch_hash=current_arch_hash,
+        param_hash=current_param_hash,
+        verifier=verifier_id,
+        decision="ALLOW",
+    )
+
+    return HadesVerdict(
+        decision="ALLOW",
+        reason="Hashes match golden manifest.",
+        model_id=model_id,
+        manifest=manifest,
+        verified_at=manifest["last_verified_at"],
+    )
+
+
+⸻
+
+3.4 Quarantine Logic
+
+def quarantine_model(manifest: ModelManifest, reason: str, by: str) -> HadesVerdict:
+    manifest["status"] = "QUARANTINED"
+    manifest["last_verified_at"] = now_iso()
+    manifest["last_verified_by"] = by
+
+    # Save blocked manifest
+    blocked_path = REGISTRY_DIR / f"{manifest['model_id']}.blocked.json"
+    blocked_path.write_text(json.dumps(manifest, indent=2))
+
+    MotherDuck.ledger.append_event(
+        kind="HADES_QUARANTINE_MODEL",
+        model_id=manifest["model_id"],
+        reason=reason,
+        by=by,
+        arch_hash=manifest["arch_hash"],
+        param_hash=manifest["param_hash"],
+    )
+
+    # Notify Hound / operators
+    Hound.alert_operator(
+        ctx=None,
+        message=f"Hades quarantined model '{manifest['model_id']}': {reason}",
+        meta={"model_manifest": manifest},
+    )
+
+    return HadesVerdict(
+        decision="BLOCK",
+        reason=reason,
+        model_id=manifest["model_id"],
+        manifest=manifest,
+        verified_at=manifest["last_verified_at"],
+    )
+
+
+⸻
+
+4. Kernel Integration
+
+Any time the Kernel wants to run an inference with model M, it must go:
+
+def get_model_for_inference(model_id: str, caller: str):
+    verdict = verify_model(model_id, verifier_id=caller)
+
+    if verdict["decision"] == "BLOCK":
+        raise RuntimeError(
+            f"Hades blocked model '{model_id}': {verdict['reason']}"
+        )
+
+    # Only now do we load the model fully into its sandboxed microVM
+    model = sandboxed_model_loader(verdict["manifest"])
+    return model
+
+And at a higher level:
+
+def kernel_infer(state_vector, model_id: str, input_payload):
+    model = get_model_for_inference(model_id, caller="Kernel")
+    raw_output = sandbox_infer(model, input_payload)
+    # Then pass raw_output into Ganglion → Hound → ΣC → d_praus → etc.
+    return raw_output
+
+Invariant added to Kernel doc:
+
+No model may be instantiated or executed unless d_hades.verify_model returns ALLOW within the current session.
+
+⸻
+
+5. Optional: Periodic Re-Verification
+
+You can have Beaver/Hound schedule periodic sweeps:
+
+def periodic_model_audit():
+    for manifest_path in REGISTRY_DIR.glob("*.json"):
+        model_id = manifest_path.stem.replace(".blocked", "")
+        try:
+            verify_model(model_id, verifier_id="Hades_Audit")
+        except Exception as e:
+            MotherDuck.ledger.append_event(
+                kind="HADES_AUDIT_ERROR",
+                model_id=model_id,
+                error=str(e),
+            )
+
+This detects:
+	•	silent on-disk tampering
+	•	ops errors
+	•	bad deployments
+
+⸻
+
+6. Narrative Seal
+
+Hades Daemon Contract v1.0
+	1.	Hades maintains the Book of Models (registry).
+	2.	Every model has a true name (model_id) and two souls (arch_hash, param_hash).
+	3.	No model may speak (be executed) unless its souls exactly match its entry in the Book.
+	4.	If a mismatch is found, the model is cast into Quarantine, and its attempt is etched into MotherDuck’s ledger.
+	5.	The Kernel accepts no prophecy, no answer, no plan from any model that has not been cleared by Hades.
+
+⸻
+
+If you want, next I can:
+	•	Add Blacksmith integration so Hades attestations become part of a Model Admittance Certificate.
+	•	Draft the Hades README.md and docstring header so this feels like a polished, production module in Pantheon-Prime.
