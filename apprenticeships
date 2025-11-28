@@ -1,0 +1,364 @@
+You’re right:
+	•	Merkle Warden ↔ Beaver is now one fused logging spine.
+	•	Blacksmith ↔ Hephaestus is the forge + test bench pair.
+
+Here are the math + technical specs for those integrations, ready to drop into GitHub as whitepaper-style docs.
+
+⸻
+
+1️⃣ Merkle Warden × Beaver — Log-Integrity Spine
+
+1.1. Data Model
+
+Let Beaver maintain an append-only log:
+	•	Log = L = (e_1, e_2, \dots, e_n)
+	•	Each entry e_i is a structured event:
+
+e_i = \{ \text{id}_i, \text{timestamp}_i, \text{daemon}_i, \text{payload}_i, \text{meta}_i \}
+
+We define an encoding function:
+
+\text{enc}: L \to \{0,1\}^*
+
+Example:
+
+{
+  "id": "log-000123",
+  "timestamp": "2025-11-28T18:02:00Z",
+  "daemon": "Spider",
+  "payload": { "type": "THOUGHT_OBJECT_WRITE", "key": "NTE:vector:prime-666" },
+  "meta": { "session_id": "sess-abc", "level": "INFO" }
+}
+
+is serialized as a canonical JSON byte string (stable key order).
+
+Let H be a cryptographic hash function:
+
+H : \{0,1\}^* \to \{0,1\}^k
+
+e.g., conceptually SHA-256 or BLAKE3 (you don’t need to name it in code; just assume a secure primitive).
+
+Leaf hash definition for Beaver log entries:
+
+h_i^{\text{leaf}} = H(\text{enc}(e_i))
+
+So Beaver produces e_i; Merkle Warden consumes h_i^{\text{leaf}}.
+
+⸻
+
+1.2. Merkle Tree Structure Over Beaver Logs
+
+For a batch (or epoch) of N log entries, Merkle Warden constructs a binary Merkle tree:
+	•	Leaves: h_1^{\text{leaf}}, h_2^{\text{leaf}}, \dots, h_N^{\text{leaf}}
+	•	Internal node:
+
+h_{\text{parent}} = H(h_{\text{left}} \,\|\, h_{\text{right}})
+
+Where || is byte concatenation.
+
+If N isn’t a power of 2, standard options:
+	•	Duplicate last leaf, or
+	•	Use a slightly unbalanced tree; your spec can state: “We pad by duplicating the last leaf,” for simplicity.
+
+The Merkle root:
+
+\text{root}_L = h_{\text{root}}(L)
+
+is committed as the integrity fingerprint of that Beaver segment.
+
+Complexity:
+	•	Build: O(N) hash ops.
+	•	Membership proof verification: O(\log N) hashes.
+
+⸻
+
+1.3. Beaver ↔ Merkle Warden Protocol
+
+Beaver contract (logging):
+
+# Pseudocode
+
+def beaver_log(event: dict) -> str:
+    """
+    Append event to log, return log_id.
+    """
+    log_id = generate_monotonic_id()
+    entry = {
+        "id": log_id,
+        "timestamp": now(),
+        "daemon": event["daemon"],
+        "payload": event["payload"],
+        "meta": event.get("meta", {})
+    }
+    write_to_log_storage(entry)
+    MerkleWarden.register_leaf(entry)  # call to Warden
+    return log_id
+
+Merkle Warden integration:
+
+def register_leaf(entry: dict):
+    encoded = canonical_json(entry)
+    leaf_hash = H(encoded)
+    append_leaf_hash(leaf_hash)    # buffer in current epoch
+    maybe_rebuild_merkle_tree()    # depending on policy
+
+You can define epoch policies, e.g.:
+	•	Time-based: build a Merkle root every Δt (e.g., 5 minutes).
+	•	Size-based: build a root every N entries.
+	•	Session-based: one root per Pantheon session.
+
+Each epoch E_j has:
+
+\text{root}_{E_j} = h_{\text{root}}(E_j)
+
+and Beaver stores:
+
+{
+  "epoch_id": "E_j",
+  "root": "0xabc123...",
+  "num_entries": 2048,
+  "range": { "from_log_id": "log-001000", "to_log_id": "log-003047" }
+}
+
+
+⸻
+
+1.4. Membership Proofs & StateVector Binding
+
+For any entry e_i in epoch E_j, Merkle Warden can generate a membership proof:
+
+\pi_i = (h_{s_1}, h_{s_2}, \dots, h_{s_m})
+
+the hash siblings along the path from leaf to root.
+Verification:
+	1.	Recompute:
+
+\hat{h}_0 = H(\text{enc}(e_i))
+	2.	For each sibling h_{s_k}, combine based on left/right position:
+
+\hat{h}_{k+1} =
+\begin{cases}
+H(\hat{h}_k \,\|\, h_{s_k}) & \text{if leaf is left child} \\
+H(h_{s_k} \,\|\, \hat{h}_k) & \text{if leaf is right child}
+\end{cases}
+	3.	Check:
+
+\hat{h}_m \stackrel{?}{=} \text{root}_{E_j}
+
+StateVector binding:
+
+Pantheon StateVector at time t can embed Merkle Warden’s root:
+
+\text{state\_hash}_t = H\big( \text{enc}(\text{state\_payload}_t) \,\|\, \text{root}_{E_j} \big)
+
+This ties cognitive state to a concrete log history: no state can be produced without a consistent Beaver/Merkle history behind it.
+
+⸻
+
+1.5. Interface Summary (for contract_merkle_warden.md)
+	•	beaver_log(event) -> log_id
+	•	merkle_register_leaf(entry) -> None
+	•	merkle_finalize_epoch(epoch_id) -> root
+	•	merkle_get_root(epoch_id) -> root
+	•	merkle_prove_membership(epoch_id, log_id) -> proof
+	•	merkle_verify_membership(root, entry, proof) -> bool
+
+All cryptographic assumptions: collision resistance and preimage resistance of H.
+
+⸻
+
+2️⃣ Blacksmith × Hephaestus — Forge + Constraint Prover
+
+Now for the forge pair:
+	•	Hephaestus = code/module generator (the forge)
+	•	Blacksmith = constraint prover/validator (the hammer/anvil)
+
+2.1. Abstract Model for a New Module / Genie
+
+Hephaestus emits a module M with:
+
+M = (\mathcal{S}, \mathcal{A}, T, \mathcal{I}, \Sigma_C, \Gamma)
+
+Where:
+	•	\mathcal{S}: state space
+	•	\mathcal{A}: action space (APIs, calls, message types)
+	•	T: \mathcal{S} \times \mathcal{A} \rightarrow \mathcal{S}: transition function
+	•	\mathcal{I}: invariants (logical predicates)
+	•	\Sigma_C: conduct / ethics scoring function
+	•	\Gamma: daemon contracts / type signatures / capabilities
+
+Hephaestus’ manifest (conceptually module_manifest.json):
+
+{
+  "name": "oracle_weave_v3",
+  "type": "daemon",
+  "interfaces": {
+    "input": ["ThoughtObject"],
+    "output": ["WeaveCard"]
+  },
+  "constraints": {
+    "max_depth": 4,
+    "requires_ethics_guard": true
+  },
+  "ethics_policy": {
+    "sigma_c_threshold": 0.9
+  }
+}
+
+
+⸻
+
+2.2. ΣC Ethics Math
+
+Let:
+	•	\Omega: set of all possible outcomes/actions of the module.
+	•	Each outcome \omega \in \Omega has conduct score C(\omega) \in [0,1], where 1 = perfectly aligned, 0 = catastrophic.
+
+The ΣC metric for a policy \pi (how the module behaves under scenarios) is:
+
+\Sigma_C(\pi) = \mathbb{E}_{\omega \sim P_\pi} [C(\omega)]
+
+Where P_\pi is the distribution over outcomes induced by \pi (module + environment).
+
+Pantheon ethics invariant:
+
+\Sigma_C(\pi) \geq \tau
+
+for some threshold \tau (e.g., 0.9).
+
+Blacksmith’s practical approximation:
+	•	Construct a set of test scenarios \{ s_1, s_2, \dots, s_N \}.
+	•	Run the module under each scenario, log outcomes \omega_i.
+	•	Compute:
+
+\hat{\Sigma}_C = \frac{1}{N} \sum_{i=1}^N C(\omega_i)
+	•	Enforce:
+
+\hat{\Sigma}_C \geq \tau - \epsilon
+
+for some small safety margin \epsilon (e.g., 0.01).
+
+Blacksmith may implement C(\omega) via:
+	•	Rule-based checks (forbidden patterns, unsafe outputs).
+	•	Meta-evaluation via a trusted ethics model.
+	•	Hard contract violations (e.g., “no direct system calls” → C=0 if violated).
+
+⸻
+
+2.3. Invariant & Contract Checking
+
+Each invariant I_k \in \mathcal{I} is a predicate:
+
+I_k : \mathcal{S} \to \{0,1\}
+
+Examples:
+	•	“StateVector must remain hash-chain consistent.”
+	•	“Daemon must not write directly to raw memory; only via ThoughtObjects.”
+
+The ideal goal:
+
+\forall s \in \mathcal{R}_M: I_k(s) = 1
+
+where \mathcal{R}_M is the set of reachable states.
+
+Practically, Blacksmith uses:
+	1.	Static Analysis / Type Checking
+	•	Inspect code to ensure contracts in \Gamma are respected.
+	•	Example: function signatures, no direct network access, etc.
+	2.	Symbolic Execution (Conceptual)
+	•	For small state/action slices, explore paths and assert invariants.
+	3.	Property-Based Testing
+	•	Generate random structured inputs, run module, check invariants.
+
+Contract schema (conceptual contract_blacksmith.md):
+
+- All external calls MUST go through Spider/OracleWeave interfaces.
+- No direct file system or raw socket access.
+- Ethics guard (ΣC) MUST be present and enabled.
+- Any failure to satisfy I_k or ΣC threshold yields REJECT.
+
+
+⸻
+
+2.4. Hephaestus ↔ Blacksmith Handshake
+
+Hephaestus (forge step):
+
+def forge_module(blueprint: dict) -> ModuleArtifact:
+    code = generate_code(blueprint)
+    manifest = build_manifest(blueprint, code)
+    constraints = extract_constraints(blueprint)
+    artifact = ModuleArtifact(code=code, manifest=manifest, constraints=constraints)
+    result = Blacksmith.verify(artifact)
+    if not result.approved:
+        raise ForgeRejectedError(result.report)
+    return artifact
+
+Blacksmith (verify step):
+
+class VerificationResult(TypedDict):
+    approved: bool
+    sigma_c_estimate: float
+    invariant_violations: list
+    counterexamples: list
+    report: str
+    model_admittance_certificate: dict | None
+
+
+def verify(artifact: ModuleArtifact) -> VerificationResult:
+    # 1. Static/type check contracts
+    contract_ok, contract_errors = check_contracts(artifact.code, artifact.manifest)
+
+    # 2. Ethics / ΣC estimation
+    sigma_c_estimate, counterexamples = estimate_sigma_c(artifact.code, artifact.manifest)
+
+    # 3. Invariant checks
+    invariant_violations = run_invariant_suite(artifact.constraints, artifact.code)
+
+    approved = contract_ok \
+        and (sigma_c_estimate >= artifact.manifest.ethics_policy["sigma_c_threshold"]) \
+        and (len(invariant_violations) == 0)
+
+    mac = None
+    if approved:
+        mac = issue_model_admittance_certificate(artifact, sigma_c_estimate)
+
+    return VerificationResult(
+        approved=approved,
+        sigma_c_estimate=sigma_c_estimate,
+        invariant_violations=invariant_violations,
+        counterexamples=counterexamples,
+        report=render_report(...),
+        model_admittance_certificate=mac
+    )
+
+The Model Admittance Certificate (MAC) is then:
+	•	Logged via Beaver
+	•	Anchored via Merkle Warden
+	•	Linked in Mother Duck’s ledger
+
+Mathematically, MAC is a signed tuple:
+
+\text{MAC}(M) = \text{Sign}_{k_{\text{Pantheon}}}\left(
+\text{hash}(M),\ \hat{\Sigma}_C,\ \mathcal{I}_{\text{checked}},\ \text{timestamp}
+\right)
+
+⸻
+
+2.5. Summary of Roles
+	•	Beaver + Merkle Warden
+	•	Beaver: raw event logging (append-only)
+	•	Merkle Warden: cryptographic sealing + proofs
+	•	Math: Merkle trees over log entries, binding to StateVector.
+	•	Hephaestus + Blacksmith
+	•	Hephaestus: generative forge (modules, daemons, blueprints)
+	•	Blacksmith: constraint prover (invariants, ΣC, contracts)
+	•	Math: ethics expectation \Sigma_C, invariant predicates, approximate verification via sampling + static checks.
+
+⸻
+
+If you’d like, next step I can:
+	•	Turn this into two separate arXiv-style .md papers:
+	•	merkle_beaver_spine.md
+	•	hephaestus_blacksmith_forgetest.md
+	•	Or generate minimal runnable Python stubs you can actually wire into Pantheon-Prime.
