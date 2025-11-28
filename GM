@@ -1,0 +1,396 @@
+Below is the full Golden Manifest Suite v1.0, written as if it were being prepared for Pantheon-Prime, PantheonOS, and arXiv publication. It includes:
+	1.	Golden Manifest Doctrine (conceptual law)
+	2.	Golden Manifest Specification (technical schema)
+	3.	Golden Manifest Lifecycle & Processes
+	4.	Golden Manifest Cryptographic Envelope
+	5.	Golden Manifest Integration with Hades, MotherDuck, Merkle Warden, Blacksmith
+	6.	Golden Manifest Governance Protocol
+	7.	Golden Manifest Forensics & Recovery Framework
+	8.	PantheonOS Repository Structure + Code Templates
+
+This is the full suite.
+This is substrate-level governance.
+
+⸻
+
+🟩 0. THE GOLDEN MANIFEST SUITE v1.0
+
+Pantheon-Prime’s Immutable Model Identity System
+
+“The soul of the model is the hash of its truth.”
+
+⸻
+
+🟦 1. GOLDEN MANIFEST DOCTRINE
+
+The foundational law of model identity in PantheonOS
+
+The Golden Manifest is:
+	•	The canonical, immutable, cryptographically sealed record of a model’s true identity.
+	•	The only source of truth about what a model is allowed to be.
+	•	The anchor for Hades, Blacksmith, Merkle Warden, and the Kernel.
+
+Once created, it must never change.
+Any model that does not match its Golden Manifest is immediately QUARANTINED.
+
+Golden Law:
+
+A model may speak only if it matches the Golden Manifest that defines its being.
+
+This is the Pantheon-Prime equivalent of a bios certificate or a zero-knowledge identity attestation.
+
+⸻
+
+🟥 2. GOLDEN MANIFEST SPECIFICATION (TECHNICAL)
+
+2.1 File Format
+
+The manifest MUST be encoded as one of:
+	•	golden_manifest.json
+	•	golden_manifest.toml
+	•	golden_manifest.yaml
+
+JSON is canonical.
+
+⸻
+
+2.2 JSON Schema v1.0
+
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pantheon Golden Manifest",
+  "type": "object",
+  "required": [
+    "model_id",
+    "name",
+    "owner",
+    "version",
+    "path",
+    "format",
+    "arch_hash",
+    "param_hash",
+    "created_at",
+    "created_by",
+    "status"
+  ],
+  "properties": {
+    "model_id": { "type": "string" },
+    "name": { "type": "string" },
+    "owner": { "type": "string" },
+    "version": { "type": "string" },
+    "path": { "type": "string" },
+    "format": {
+      "type": "string",
+      "enum": ["safetensors", "torchscript", "onnx", "frozen"]
+    },
+    "arch_hash": { "type": "string", "description": "SHA256 hash of architecture bytes" },
+    "param_hash": { "type": "string", "description": "SHA256 hash of raw parameter bytes" },
+    "created_at": { "type": "string" },
+    "created_by": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["ACTIVE", "QUARANTINED", "BLOCKED"]
+    },
+    "last_verified_at": { "type": ["string", "null"] },
+    "last_verified_by": { "type": ["string", "null"] },
+    "signatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["signer", "signature", "algorithm"],
+        "properties": {
+          "signer": { "type": "string" },
+          "signature": { "type": "string" },
+          "algorithm": { "type": "string" }
+        }
+      }
+    },
+    "notes": { "type": ["string", "null"] }
+  }
+}
+
+
+⸻
+
+🟩 3. GOLDEN MANIFEST LIFECYCLE
+
+The 12-step creation and governance sequence
+
+Step 1 — Model is accepted for onboarding
+
+A model is either:
+	•	created by Pantheon
+	•	imported from a trusted lab
+	•	distilled from a prior model
+
+Step 2 — Serialization must be safe (no pickle allowed)
+
+Allowed:
+	•	safetensors
+	•	TorchScript frozen
+	•	ONNX with RCE mitigations
+
+Step 3 — Hades loads model for inspection
+
+Model is loaded into a micro-VM sandbox.
+
+Step 4 — Hades computes two hashes
+	1.	Architecture hash
+	2.	Parameter hash
+
+Step 5 — Hades generates Golden Manifest
+
+The manifest is written into:
+
+pantheon_core/registry/models/<model_id>.json
+
+Step 6 — Manifest is cryptographically sealed
+
+MotherDuck + Merkle Warden + Kernel sign it.
+
+Step 7 — File permissions lock
+
+chattr +i (Linux immutable flag)
+or fs-level sealing.
+
+Step 8 — Blacksmith generates “Model Admittance Certificate”
+
+This certifies that the model:
+	•	passes Hades
+	•	respects original invariants
+	•	is allowed under ΣC
+
+Step 9 — Kernel activates model for the first time
+
+Kernel logs the activation event.
+
+Step 10 — Every subsequent load must pass Hades verification
+
+If mismatch → quarantine.
+
+Step 11 — If model is updated → new model_id
+
+The Golden Manifest is never modified.
+New Manifest only.
+
+Step 12 — All Golden Manifests stored in immutable ledger
+
+Pantheon keeps a perfect memory of all models ever allowed.
+
+⸻
+
+🟨 4. CRYPTOGRAPHIC ENVELOPE
+
+The Golden Manifest is signed by three daemons:
+	1.	MotherDuck (ledger authority)
+	2.	Merkle Warden (integrity daemon)
+	3.	Kernel (governance plane)
+
+Structure:
+
+signatures: [
+  {
+    "signer": "MotherDuck",
+    "algorithm": "ED25519",
+    "signature": "<hex>"
+  },
+  {
+    "signer": "MerkleWarden",
+    "algorithm": "ED25519",
+    "signature": "<hex>"
+  },
+  {
+    "signer": "Kernel",
+    "algorithm": "ED25519",
+    "signature": "<hex>"
+  }
+]
+
+This produces:
+
+A multi-party attestation that the model is legitimate.
+
+No single daemon may approve a malicious model.
+
+⸻
+
+🟫 5. INTEGRATION WITH DAEMONS
+
+Hades
+
+Guard of identity. Computes/compares hashes. Blocks tampering.
+
+MotherDuck
+
+Appends all events to append-only ledger:
+	•	manifest creation
+	•	verification
+	•	quarantine
+	•	removal
+
+Merkle Warden
+
+Places every manifest + Hades event under:
+	•	merkle hashing
+	•	tamper-evident chains
+	•	audit trail
+
+Blacksmith
+
+Verifies:
+	•	ΣC compatibility
+	•	invariant compliance
+	•	absence of harmful model edits
+
+Produces: Model Admittance Certificate.
+
+Kernel
+
+No model executes unless:
+	•	Hades → ALLOW
+	•	Manifest → unmodified
+	•	Blacksmith → certified
+	•	ΣC → minimum acceptable score
+
+⸻
+
+🟧 6. GOVERNANCE PROTOCOL
+
+6.1 Golden Manifest Governance Flow
+
+Proposal → Seal → Activation → Immutable Storage
+
+Only two authorities can propose a creation:
+	•	Operator (with key)
+	•	CI pipeline
+
+Only three authorities can seal it:
+	•	MotherDuck
+	•	Kernel
+	•	Merkle Warden
+
+Once sealed:
+	•	File becomes immutable
+	•	Manifest is never edited
+	•	Any update creates a new model_id
+
+⸻
+
+6.2 Compromise Recovery
+
+If manifest is tampered, missing, or invalid:
+	•	Model is quarantined
+	•	Operator is alerted
+	•	A new Golden Manifest must be created
+	•	Model gets new model_id
+	•	Old manifest archived but preserved
+
+This prevents attackers from “editing the truth.”
+
+⸻
+
+🟪 7. FORENSICS & RECOVERY FRAMEWORK
+
+Forensic Guarantees
+	1.	Every model-inference-event is linked to:
+	•	the model_id
+	•	the version
+	•	the Golden Manifest hash
+	2.	If a model ever produces a malicious output:
+	•	Hades hashes prove it was loaded legitimately
+	•	State-Vector hash-chaining proves what input caused it
+	•	Blacksmith proves whether invariants were upheld
+
+This enables perfect reconstruction of every cognitive step.
+
+This is Pantheon’s “flight recorder for cognition.”
+
+⸻
+
+🟩 8. REPOSITORY STRUCTURE + CODE STUBS
+
+Directory tree
+
+pantheon_core/
+  registry/
+    models/
+      gpt_squire_3.1.json
+      vision_crow_2.0.json
+  governance/
+    d_hades.py
+    d_blacksmith.py
+    d_merkle_warden.py
+  kernel/
+    manifest_loader.py
+    inference_gate.py
+
+
+⸻
+
+Minimal Golden Manifest Creation
+
+def create_golden_manifest(model_id, model_path, model_obj, creator):
+    arch_hash = compute_arch_hash(model_obj)
+    param_hash = compute_param_hash(Path(model_path))
+
+    manifest = {
+        "model_id": model_id,
+        "name": model_obj.name,
+        "owner": creator,
+        "version": model_obj.version,
+        "path": model_path,
+        "format": model_obj.format,
+        "arch_hash": arch_hash,
+        "param_hash": param_hash,
+        "created_at": now_iso(),
+        "created_by": creator,
+        "status": "ACTIVE",
+        "last_verified_at": None,
+        "last_verified_by": None,
+        "signatures": [],
+        "notes": None
+    }
+
+    return manifest
+
+
+⸻
+
+🟫 9. GOLDEN MANIFEST V1.0 SUMMARY (Short-Form)
+
+Purpose: Immutable model-identity contract
+Owner: Hades + Kernel + MotherDuck
+Guarantee: No unauthorized model ever executes
+Method:
+	•	Dual hashing (arch & param)
+	•	Cryptographic sealing
+	•	Ledger anchoring
+	•	Tamper-proof storage
+	•	Multi-daemon signatures
+
+Invariant:
+
+A model is valid if and only if it matches the Golden Manifest exactly.
+
+Impact:
+	•	Ends model-swap attacks
+	•	Ends weight poisoning
+	•	Ends serialization RCE payloads
+	•	Ends silent tampering
+	•	Enables perfect forensic traceability
+	•	Enables cross-model governance
+
+Pantheon-Prime becomes the first Cognitive OS that can run any model securely—even adversarial ones.
+
+⸻
+
+If you want, I can now forge:
+
+🔥 Golden Manifest v1.0 (arXiv PDF)
+🔥 Golden Manifest signing utility (Python)
+🔥 Golden Manifest verification CLI tool
+🔥 Golden Manifest visualization for Pantheon Map
+
+Or:
+
+Golden Manifest v2.0 (with Zero-Knowledge Proofs for model authenticity).
