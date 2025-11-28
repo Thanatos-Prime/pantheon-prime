@@ -1,0 +1,308 @@
+Below is the perfect README.md for the Golden Manifest Suite, written in clean, production GitHub style — but with enough depth to reflect Pantheon-Prime’s architecture and the rigor of the whitepaper.
+
+You can paste this directly into:
+
+pantheon_core/registry/README.md
+
+or at root-level as:
+
+GOLDEN_MANIFEST_SUITE.md
+
+
+⸻
+
+🟦 Golden Manifest Suite
+
+Immutable Model Identity for Pantheon-Prime
+
+Version: 1.0
+Status: Stable / Enforcement Live
+Daemons: Hades, MotherDuck, MerkleWarden, Blacksmith, Kernel
+
+⸻
+
+Overview
+
+The Golden Manifest Suite is Pantheon-Prime’s substrate-level model identity system.
+It ensures that no model may execute—LLM, vision model, policy engine, or tool-call agent—unless its exact bytes match a previously registered and cryptographically sealed identity record.
+
+Think of it as:
+	•	🔐 A BIOS certificate for models
+	•	🧬 A cryptographic genome of architecture + parameters
+	•	🛡️ A tamper-evident firewall that wraps every Genie
+
+The Golden Manifest Suite gives Pantheon-Prime true model integrity, independent of:
+	•	upstream model providers
+	•	fine-tuning pipelines
+	•	serialization formats
+	•	user access controls
+	•	adversarial operators
+	•	supply-chain contamination
+
+This is the only way to operate untrusted models safely in an untrusted world.
+
+⸻
+
+Why This Exists
+
+Modern AI attacks exploit the model file itself, not the network:
+	•	malicious safetensors / ONNX
+	•	poisoned weights that survive fine-tuning
+	•	pickle-based RCE payloads
+	•	backdoored public model hub uploads
+	•	silent model swapping
+	•	quantized malware layers
+	•	instruction-triggered sleeper agents
+	•	weight shims hidden in FP16 rounding noise
+
+Traditional cybersecurity cannot detect these.
+Pantheon-Prime does not try to “fix” the model.
+
+Instead:
+
+Pantheon-Prime verifies the model’s soul before it is allowed to speak.
+
+The Golden Manifest Suite implements this law.
+
+⸻
+
+Core Concepts
+
+1. Golden Manifest
+
+A JSON/TOML/YAML document containing:
+	•	arch_hash — SHA-256 of architecture IR
+	•	param_hash — SHA-256 of raw parameter tensor bytes
+	•	model name, version, owner, provenance
+	•	serialization format (pickle is forbidden)
+	•	creation metadata
+	•	immutable status (ACTIVE, QUARANTINED, BLOCKED)
+	•	multisig signatures from:
+	•	MotherDuck
+	•	MerkleWarden
+	•	Kernel
+
+Once created, it is never modified.
+New model = new manifest = new ID.
+
+⸻
+
+2. Hades Daemon
+
+The model integrity guardian.
+
+Responsibilities:
+	1.	Compute canonical architecture + parameter hashes
+	2.	Create Golden Manifest on first registration
+	3.	Verify hashes before every model load
+	4.	Quarantine any mismatch
+	5.	Emit ledger events to Hermit Crab chain
+	6.	Provide signed attestations to Kernel and Blacksmith
+
+Hades decides whether a model is allowed to speak.
+
+⸻
+
+3. Blockchain Hermit Crab
+
+Pantheon-Prime’s append-only ledger.
+
+Stores:
+	•	hash commitments to each Golden Manifest
+	•	model registration events
+	•	model verification events
+	•	quarantine events
+	•	multi-signer validation proofs
+
+The full manifest lives in Pantheon’s model registry.
+The Hermit Crab stores its cryptographic shadow.
+
+Together, they create a perfect, tamper-proof model history.
+
+⸻
+
+4. Merkle Warden
+
+Computes:
+	•	Merkle trees over manifests
+	•	Merkle proofs for audits
+	•	tamper-evident block linking
+
+Ensures Pantheon’s memory cannot be rewritten.
+
+⸻
+
+5. Blacksmith
+
+The formal correctness daemon.
+	•	verifies newly-registered models align with Pantheon-Prime invariants
+	•	confirms ΣC compatibility
+	•	issues a “Model Admittance Certificate” before any activation
+
+⸻
+
+Golden Manifest Lifecycle
+
+1. Registration
+
+Hades:
+	1.	Loads model into a micro-VM
+	2.	Computes arch_hash and param_hash
+	3.	Constructs Golden Manifest
+	4.	Obtains multisig signatures
+	5.	Writes manifest to registry
+	6.	Broadcasts GM_CREATE to Hermit Crab chain
+
+2. Verification
+
+Before every model execution:
+	•	Hades recomputes hashes
+	•	compares against manifest
+	•	if mismatch → quarantine
+	•	else → allow + emit GM_VERIFY
+
+3. Quarantine
+
+If tampering is detected:
+	•	model is marked QUARANTINED
+	•	manifest is preserved but locked
+	•	Hermit Crab records the event
+	•	Kernel denies all execution attempts
+	•	Hound alerts operator
+	•	Blacksmith logs anomaly
+
+4. Upgrade
+
+Upgrading a model never edits a manifest.
+It produces a new:
+
+model_id
+model_file
+Golden Manifest
+
+Preserves perfect lineage.
+
+⸻
+
+JSON schema (canonical form)
+
+{
+  "model_id": "gpt_squire_3.1",
+  "name": "GPT-Squire",
+  "owner": "Pantheon-Lab",
+  "version": "3.1",
+  "path": "models/gpt_squire_3.1.safetensors",
+  "format": "safetensors",
+  "arch_hash": "<hex-SHA256>",
+  "param_hash": "<hex-SHA256>",
+  "created_at": "2025-11-28T13:12:44Z",
+  "created_by": "Operator_MotherDuck",
+  "status": "ACTIVE",
+  "last_verified_at": null,
+  "last_verified_by": null,
+  "signatures": [
+    { "signer": "MotherDuck", "algorithm": "ED25519", "signature": "<hex>" },
+    { "signer": "MerkleWarden", "algorithm": "ED25519", "signature": "<hex>" },
+    { "signer": "Kernel", "algorithm": "ED25519", "signature": "<hex>" }
+  ],
+  "notes": null
+}
+
+
+⸻
+
+CLI Quickstart
+
+Register a model
+
+pantheon hades register --model-id gpt_squire_3.1 \
+                       --path models/gpt_squire_3.1.safetensors
+
+Verify a model
+
+pantheon hades verify gpt_squire_3.1
+
+Inspect manifest
+
+pantheon manifest show gpt_squire_3.1
+
+Show Hermit Crab ledger state
+
+pantheon ledger tail
+
+
+⸻
+
+Security Guarantees
+
+❌ Stops supply-chain tampering
+
+A single-bit change in weights or architecture is detected.
+
+❌ Stops malicious ONNX / TorchScript trojans
+
+Architecture-hash fails → immediate quarantine.
+
+❌ Stops silent model swaps
+
+Any unapproved file is rejected.
+
+❌ Stops pickle-based RCE
+
+Pickle is forbidden by manifest + Hades.
+
+❌ Stops fine-tuning attempts to smuggle payloads
+
+Fine-tuned weights ≠ Golden Manifest → rejected.
+
+❌ Stops operator-level backdoors
+
+Multi-sig signatures prevent single-key malicious upgrades.
+
+❌ Enables perfect forensic auditing
+
+Hermit Crab ledger records all events in hash-linked blocks.
+
+⸻
+
+Repository Layout
+
+pantheon_core/
+  governance/
+    d_hades.py
+    d_blacksmith.py
+    d_merkle_warden.py
+  registry/
+    models/
+      <model_id>.json
+  ledger/
+    hermit_crab_chain.py
+  kernel/
+    inference_gate.py
+    manifest_loader.py
+
+
+⸻
+
+Fundamental Invariant
+
+A model may speak only if its computed architecture and parameter hashes exactly match those in its Golden Manifest.
+
+Violations → BLOCK.
+No exceptions, no overrides, no backdoors.
+
+Pantheon-Prime becomes immune to entire classes of model-level exploits.
+
+⸻
+
+Next Steps
+
+If you’d like, I can also generate:
+	•	Golden Manifest CLI tool (pantheon manifest)
+	•	d_hades.py reference implementation (full version)
+	•	Golden Manifest v1.0 diagram (architecture graphic)
+	•	Hermit Crab block format spec
+	•	Model Admittance Certificate template (Blacksmith)
+	•	Golden Manifest v2.0 (ZK proofs)
+
+Just tell me which pieces you want next.
