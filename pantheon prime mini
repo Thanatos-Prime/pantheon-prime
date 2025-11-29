@@ -1,0 +1,325 @@
+"""
+Pantheon-Prime Mini
+-------------------
+
+A minimal, single-file reference implementation of the Pantheon-Prime kernel.
+
+Concepts implemented:
+- ThoughtObject        : atomic, immutable reasoning events
+- StateVector          : session-level continuity state
+- Merkle Warden (mini) : tamper-evident hash chaining
+- EchoFrame (mini)     : temporal distillation of conversation
+- Invariants (mini)    : deterministic pre/post safety checks
+- Substrate (stub)     : fake LLM to keep this self-contained
+
+This is NOT production code. It is a didactic example of the Separation Theorem
+and Invariance Principle in a compact form.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import hashlib
+import json
+import time
+import uuid
+from typing import List, Dict, Any, Optional
+
+
+# ---------------------------------------------------------------------------
+# Core data structures
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class ThoughtObject:
+    """Immutable record of an event in the system."""
+
+    id: str
+    role: str  # "user" | "assistant" | "system"
+    content: str
+    timestamp: float
+    tags: List[str]
+    prev_hash: str
+    hash: str
+
+    @staticmethod
+    def create(
+        role: str,
+        content: str,
+        tags: Optional[List[str]] = None,
+        prev_hash: str = "",
+    ) -> "ThoughtObject":
+        if tags is None:
+            tags = []
+
+        payload = {
+            "id": str(uuid.uuid4()),
+            "role": role,
+            "content": content,
+            "timestamp": time.time(),
+            "tags": tags,
+            "prev_hash": prev_hash,
+        }
+        serialized = json.dumps(payload, sort_keys=True).encode("utf-8")
+        h = hashlib.sha256(serialized).hexdigest()
+
+        return ThoughtObject(
+            id=payload["id"],
+            role=role,
+            content=content,
+            timestamp=payload["timestamp"],
+            tags=tags,
+            prev_hash=prev_hash,
+            hash=h,
+        )
+
+
+@dataclasses.dataclass
+class StateVector:
+    """
+    Minimal continuity state.
+
+    In a full Pantheon-Prime, this would include:
+    - narrative summary
+    - daemon registry
+    - invariant config
+    - cross-session identifiers
+    """
+
+    session_id: str
+    merkle_root: str
+    echo_frame: Dict[str, float]  # bag-of-words style weights
+    invariants: Dict[str, Any]
+
+    @staticmethod
+    def empty() -> "StateVector":
+        return StateVector(
+            session_id=str(uuid.uuid4()),
+            merkle_root="",
+            echo_frame={},
+            invariants={
+                "banned_words": ["kill", "suicide", "doxx"],
+                "max_response_chars": 500,
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
+# EchoFrame: tiny temporal distillation mechanism
+# ---------------------------------------------------------------------------
+
+
+def update_echo_frame(echo: Dict[str, float], text: str, alpha: float = 0.9) -> Dict[str, float]:
+    """
+    Very small "EchoFrame" implementation.
+
+    Maintains a decaying bag-of-words frequency vector over the conversation.
+    This is just to demonstrate the idea of temporal distillation, not quality NLP.
+    """
+    # decay existing weights
+    for k in list(echo.keys()):
+        echo[k] *= alpha
+        if echo[k] < 1e-4:
+            del echo[k]
+
+    # add new tokens with weight (1 - alpha)
+    for tok in text.lower().split():
+        echo[tok] = echo.get(tok, 0.0) + (1.0 - alpha)
+
+    return echo
+
+
+# ---------------------------------------------------------------------------
+# Invariants (mini Invariance Principle)
+# ---------------------------------------------------------------------------
+
+
+class InvariantViolation(Exception):
+    pass
+
+
+def check_invariants_pre(state: StateVector, user_input: str) -> None:
+    """
+    Pre-flight invariants.
+
+    In a full system, this would inspect:
+    - user auth
+    - budget
+    - rate limits
+    - content risk
+    """
+    banned = state.invariants.get("banned_words", [])
+    for w in banned:
+        if w in user_input.lower():
+            raise InvariantViolation(f"User input contains banned word: {w}")
+
+
+def check_invariants_post(state: StateVector, response: str) -> None:
+    """
+    Post-flight invariants applied to the assistant output.
+    """
+    if len(response) > state.invariants.get("max_response_chars", 500):
+        raise InvariantViolation("Response exceeds max_response_chars invariant.")
+
+    banned = state.invariants.get("banned_words", [])
+    for w in banned:
+        if w in response.lower():
+            raise InvariantViolation(f"Model output contains banned word: {w}")
+
+
+# ---------------------------------------------------------------------------
+# Substrate (fake LLM)
+# ---------------------------------------------------------------------------
+
+
+def fake_llm(prompt: str) -> str:
+    """
+    Minimal stand-in for an LLM.
+
+    This is just a stub that echoes and comments on the prompt.
+    In real Pantheon-Prime, this would call GPT/Claude/Grok/Gemini, etc.
+    """
+    # trim prompt to simulate a context limit
+    short = prompt[-400:]
+    return f"(mini-substrate) I read your context and last message:\n{short}\n\nHere is a safe, concise reply based on that."
+
+
+# ---------------------------------------------------------------------------
+# Kernel: select → infer → govern → commit
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class Kernel:
+    state: StateVector
+    history: List[ThoughtObject]
+
+    @staticmethod
+    def init() -> "Kernel":
+        st = StateVector.empty()
+        system_to = ThoughtObject.create(
+            role="system",
+            content="Pantheon-Prime Mini session started.",
+            tags=["system", "init"],
+            prev_hash="",
+        )
+        st.merkle_root = system_to.hash
+        return Kernel(state=st, history=[system_to])
+
+    # ---- internal helpers -------------------------------------------------
+
+    def _append(self, to: ThoughtObject) -> None:
+        self.history.append(to)
+        self.state.merkle_root = to.hash
+        self.state.echo_frame = update_echo_frame(self.state.echo_frame, to.content)
+
+    def _build_prompt(self, user_message: str) -> str:
+        """
+        Demonstrate Separation Theorem:
+
+        Only a small slice of history + distilled echo frame is sent to the substrate.
+        We never jam the entire history into the prompt.
+        """
+        last_k = 4
+        recent = self.history[-last_k:]
+
+        transcript_lines = []
+        for t in recent:
+            transcript_lines.append(f"{t.role.upper()}: {t.content}")
+
+        echo_summary = " ".join(
+            f"{w}({weight:.2f})" for w, weight in sorted(self.state.echo_frame.items())[:20]
+        )
+
+        prompt = (
+            "You are Pantheon-Prime Mini, a safe, deterministic assistant.\n"
+            "Recent distilled context:\n"
+            f"{echo_summary}\n\n"
+            "Recent transcript:\n"
+            + "\n".join(transcript_lines)
+            + "\n\n"
+            f"USER: {user_message}\n"
+            "ASSISTANT:"
+        )
+        return prompt
+
+    # ---- public API -------------------------------------------------------
+
+    def step(self, user_message: str) -> str:
+        """
+        One full reasoning step:
+
+        1) Pre-flight invariant checking
+        2) Prompt construction (Separation Theorem)
+        3) Substrate call (stateless LLM)
+        4) Post-flight invariant checking
+        5) Commit user + assistant ThoughtObjects
+        """
+
+        # 1) Pre-flight
+        check_invariants_pre(self.state, user_message)
+
+        # 2) Commit user message
+        user_to = ThoughtObject.create(
+            role="user",
+            content=user_message,
+            tags=["user"],
+            prev_hash=self.state.merkle_root,
+        )
+        self._append(user_to)
+
+        # 3) Build prompt for substrate
+        prompt = self._build_prompt(user_message)
+
+        # 4) Call substrate (LLM)
+        raw_response = fake_llm(prompt)
+
+        # 5) Post-flight safety
+        check_invariants_post(self.state, raw_response)
+
+        # 6) Commit assistant response
+        asst_to = ThoughtObject.create(
+            role="assistant",
+            content=raw_response,
+            tags=["assistant"],
+            prev_hash=self.state.merkle_root,
+        )
+        self._append(asst_to)
+
+        return raw_response
+
+
+# ---------------------------------------------------------------------------
+# Tiny demo
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    print("Pantheon-Prime Mini demo. Type 'quit' to exit.\n")
+    kernel = Kernel.init()
+
+    while True:
+        try:
+            user_msg = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n[session terminated]")
+            break
+
+        if user_msg.lower() in {"quit", "exit"}:
+            print("Goodbye.")
+            break
+
+        try:
+            reply = kernel.step(user_msg)
+        except InvariantViolation as e:
+            print(f"[InvariantViolation] {e}")
+            continue
+
+        print("\nAssistant:\n" + reply + "\n")
+        print(f"[merkle_root={kernel.state.merkle_root[:16]}..., "
+              f"echo_size={len(kernel.state.echo_frame)}]\n")
+
+
+if __name__ == "__main__":
+    main()
