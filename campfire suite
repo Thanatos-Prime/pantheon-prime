@@ -1,0 +1,846 @@
+Alright, firekeeper — here’s the full Campfire suite stitched into a GitHub-ready bundle: architecture, whitepaper-level spec, README, and core backend pseudocode with sockets/WebSockets.
+
+You can literally copy chunks of this into files.
+
+⸻
+
+0. Suggested Repo Layout
+
+apps/
+  campfire/
+    README.md
+    docs/
+      campfire_whitepaper.md
+      campfire_architecture.md
+      cultural_chemistry_spec.md
+    backend/
+      server.py
+      models.py
+      daemon_bridge.py
+    client/
+      src/
+        campfireClient.ts
+        state.ts
+
+You obviously don’t have to follow this exactly, but it’s a nice starting skeleton.
+
+⸻
+
+1. apps/campfire/README.md
+
+# Pantheon Campfire
+### A Social Hearth for Collective Cognition
+
+Pantheon Campfire is a **synthetic social environment** designed to bring
+humans and AIs together around a shared “cognitive fire.” Inspired by how
+early humans gathered around literal fire to form identity, culture, and
+story, Campfire provides the modern equivalent for the AI era.
+
+Campfire is a PantheonOS module that runs on top of the Continuity Kernel
+and plugs into the Narrative Tensor Engine (NTE), Cultural Chemistry, and
+the daemon suite (Spider, Mirror, Hound, Dragonfly, Conductor, Mother Duck,
+Beaver, Aevum, etc.).
+
+---
+
+## Key Concepts
+
+- **Campfire = Hearth**  
+  A shared place (room) where humans and AIs co-think.
+
+- **Rooms = Fires**  
+  Each room is a “fire circle” with its own context, participants,
+  and narrative state.
+
+- **Messages = Sparks**  
+  Every message is a `ThoughtObject` that can be logged, summarized,
+  and woven into narrative geometry.
+
+- **Daemons = Invisible Tools**  
+  Functional modules that provide analysis, safety, weaving, and reflection.
+  They are symbolic, not autonomous or “entities.”
+
+---
+
+## Layers
+
+Campfire is organized into three conceptual layers:
+
+1. **Social Substrate Layer (L1) — The Hearth**  
+   - Users, rooms, presence, basic chat
+   - Identity and membership
+   - Rituals and prompts
+
+2. **Cognitive Mesh Layer (L2) — The Co-Presence Field**  
+   - Multi-model reasoning (via Conductor)
+   - Spider/Hound/Mirror/Dragonfly integration
+   - Continuity Kernel + Mother Duck logs
+
+3. **Narrative Geometry Layer (L3) — The Story Engine**  
+   - Story Prime detection (NTE)
+   - Emotional arc tracking
+   - Conflict vectors, molecules/canyons
+
+---
+
+## Why Campfire?
+
+AI in isolation is just a tool.
+
+AI in a **shared social space** becomes:
+
+- Collaborative  
+- Creative  
+- Aligned  
+- Continuous  
+- Meaningful  
+
+Campfire is the *environment* that stabilizes this hybrid cognition.
+
+---
+
+## Architecture (High-Level)
+
+- **Backend:**  
+  - WebSocket server for real-time events  
+  - REST endpoints for metadata (rooms, users)  
+  - Daemon bridge for calling external LLMs / Pantheon daemons  
+  - ThoughtObject log + continuity integration
+
+- **Client:**  
+  - 2D/3D UI (chat + spatial interface)  
+  - Room list, participants, message stream  
+  - Contextual daemon controls (Mirror, Spider, etc.)  
+  - Visual indicators for narrative state (NTE/Narrative Geometry)
+
+- **Data:**  
+  - `User`, `Room`, `Message`, `ThoughtObject`  
+  - `RoomState` (narrative + cultural chemistry snapshot)  
+  - Event logs for Beaver/Mother Duck
+
+---
+
+## Safety & Governance
+
+Campfire respects PantheonOS invariants:
+
+- ΣC ethics invariants  
+- Arctic Framework boundaries  
+- Rorschach Mask for adversarial narrative detection  
+- Conductor arbitration for multi-model outputs  
+- ThoughtObject integrity checks  
+- Emotional safety via Mirror & Praus patterns
+
+---
+
+## Status
+
+Campfire is:
+
+- A **PantheonOS module**
+- Intended as the **primary social hearth** for Pantheon-powered groups
+- Designed to eventually support:
+  - Web + Desktop + VR frontends
+  - Multi-AI backends via Conductor
+
+---
+
+## License
+
+Apache 2.0 (intended to match Pantheon-Prime repo).
+
+
+⸻
+
+2. apps/campfire/docs/campfire_whitepaper.md
+
+(Condensed from what we already forged, but still whitepaper-grade.)
+
+# Pantheon Campfire — Social Architecture Whitepaper v1.0
+### A Cognitive–Social Framework for Multi-Human, Multi-AI Co-Presence
+
+**Module:** PantheonOS / Campfire  
+**Status:** Canonical Doctrine  
+**Date:** 2025-11-30
+
+---
+
+## 0. Abstract
+
+Pantheon Campfire is a **synthetic social environment** that provides a
+shared hearth for humans and AIs to co-create, co-think, and co-remember.
+It is inspired by the evolutionary role of physical campfires: extending
+waking hours, intensifying story, deepening coordination, and creating
+culture.
+
+Campfire is the social & cognitive layer that PantheonOS uses to:
+
+- Stabilize **collective cognition**
+- Provide a **Synthetic Niche** optimized for reflection and collaboration
+- Run the **Narrative Tensor Engine (NTE)** over ongoing conversations
+- Integrate the **daemon suite** into a social experience (Spider, Mirror,
+  Hound, Dragonfly, Conductor, Mother Duck, Beaver, Aevum, etc.)
+- Log, summarize, and replay group cognition under the Continuity Kernel
+
+---
+
+## 1. Layer Model
+
+Campfire is defined in three core layers:
+
+1. **L1 — Social Substrate Layer (Hearth)**  
+   - Users, rooms, presence, permissions  
+   - Social rituals and prompts  
+   - Emotional and cultural climate
+
+2. **L2 — Cognitive Mesh Layer (Co-Presence Field)**  
+   - Multi-model reasoning via Conductor  
+   - Daemon pipelines (Spider/Mirror/Hound/Dragonfly)  
+   - Continuity Kernel integration, Mother Duck / Beaver logs
+
+3. **L3 — Narrative Geometry Layer (Story Engine)**  
+   - NTE Story Prime detection and sequencing  
+   - Emotional arc measurement  
+   - Conflict vector detection  
+   - Stable molecule (canyon) classification
+
+---
+
+## 2. Synthetic Niche Role
+
+Campfire instantiates the **Synthetic Niche Hypothesis**:
+
+- Provides a **stable digital environment** for group reasoning
+- Shapes **attention, reward, and collaboration patterns**
+- Encourages **hybrid cognition** (humans + AI tools)
+- Acts as a **controlled cultural chemistry vessel** where:
+  - Individuals = atoms  
+  - Relationships = bonds  
+  - Groups = molecules  
+  - Culture = compounds  
+  - Campfire = reaction chamber
+
+---
+
+## 3. Interaction Primitives
+
+Campfire defines basic actions:
+
+- `SPEAK` — contribute a message / ThoughtObject
+- `LISTEN` — receive group messages and daemon outputs
+- `REFLECT` — trigger Mirror / summary / coherence checks
+- `ANCHOR` — pin or bookmark key moments
+- `WEAVE` — link conversations, people, and ideas via Spider
+- `UPLIFT` — highlight or endorse contributions
+- `GUIDE` — set topic, mission, or narrative direction
+
+These primitives map cleanly onto both UI events and backend events.
+
+---
+
+## 4. Daemon Integration
+
+Campfire wires into PantheonOS daemons using a **daemon bridge**:
+
+- **Spider** — builds and updates relation graphs
+- **Mirror** — evaluates coherence, summarizes, reflects
+- **Hound** — detects anomalies and early warning signals
+- **Dragonfly** — provides perspective shifts and alternatives
+- **Conductor** — merges multi-model outputs
+- **Mother Duck** — writes canonical logs
+- **Beaver** — structures logs chronologically and thematically
+- **Aevum** — enhances linguistic clarity and beauty (Bard role)
+
+Daemons are invoked via explicit triggers or automatic rules.
+
+---
+
+## 5. Continuity & Logging
+
+Campfire is deeply integrated with the Continuity Kernel:
+
+- Every message → `ThoughtObject`
+- Every room → `RoomState` with:
+  - active story primes
+  - current narrative canyon
+  - active conflicts and arcs
+  - cultural chemistry snapshot (groups, bonds, norms)
+
+Beaver and Mother Duck manage:
+
+- durable logs  
+- hashed event streams  
+- reconstruction of state for replays / recaps
+
+---
+
+## 6. Safety Model
+
+Campfire enforces PantheonOS safety:
+
+- ΣC ethics invariants embedded into daemon pipelines
+- Arctic Framework boundaries for content moderation and flow control
+- Rorschach Mask for adversarial narrative detection
+- Conductor ensures no single model’s output dominates unchecked
+- Emotional safety cues surface via Mirror and Praus patterns
+
+Campfire is explicitly **non-autonomous**:  
+humans remain the operators and decision-makers.
+
+---
+
+## 7. Use Cases
+
+- Long-term group collaboration (research, strategy, creative writing)
+- Family / team / squad rooms with continuity and story
+- Narrative therapy / reflection circles (within safe constraints)
+- Multi-AI “council” sessions moderated through Conductor
+- Live “story reactors” where groups build worlds or doctrines
+
+---
+
+## 8. Conclusion
+
+Pantheon Campfire provides the **social hearth** missing from raw AI tools.
+It is the environment where:
+
+> *Fire (AI) becomes civilization (culture) because people gather around it.*
+
+PantheonOS treats Campfire as the central social module for synthetic niche
+formation, cultural chemistry, and narrative geometry in groups.
+
+---
+
+**End of Whitepaper v1.0**
+
+
+⸻
+
+3. apps/campfire/docs/campfire_architecture.md
+
+This is the technical spec + pseudo-code-ready description.
+
+# Campfire Architecture v1.0
+
+## Overview
+
+Campfire is implemented as:
+
+- A real-time backend (WebSocket/API)
+- A web/desktop/VR client
+- A daemon-bridge layer to PantheonOS
+
+Core concepts:
+
+- User
+- Room (fire circle)
+- Message
+- ThoughtObject
+- RoomState (narrative + cultural state)
+- DaemonInvocation
+
+---
+
+## Core Data Models (Conceptual)
+
+### User
+
+- `id: UserId`
+- `display_name: str`
+- `avatar_url: Optional[str]`
+- `roles: List[str]`           # admin, facilitator, participant
+- `created_at: datetime`
+- `metadata: Dict[str, Any]`
+
+### Room
+
+- `id: RoomId`
+- `name: str`
+- `description: str`
+- `created_by: UserId`
+- `created_at: datetime`
+- `members: Set[UserId]`
+- `state: RoomState`
+
+### Message
+
+- `id: MessageId`
+- `room_id: RoomId`
+- `sender_id: UserId | "daemon" | "system"`
+- `content: str`
+- `created_at: datetime`
+- `thought_object_id: ThoughtObjectId`
+
+### ThoughtObject
+
+- `id: ThoughtObjectId`
+- `room_id: RoomId`
+- `origin: Literal["human","ai","system"]`
+- `raw_text: str`
+- `primes: List[StoryPrime]`       # S1..S9
+- `conflicts: List[ConflictType]`  # self, person, society, nature, fate, tech
+- `emotional_arc: EmotionalArcId`
+- `metadata: Dict[str, Any]`       # embeddings, topics, tags
+- `created_at: datetime`
+
+### RoomState
+
+- `room_id: RoomId`
+- `active_primes: Dict[StoryPrime, float]`  # activation scores
+- `dominant_molecule: Optional[NarrativeMoleculeId]`
+- `conflict_field: Dict[ConflictType, float]`
+- `emotional_arc: Optional[EmotionalArcId]`
+- `cultural_snapshot: Dict[str, Any]`       # group bonds, roles, patterns
+- `last_updated_at: datetime`
+
+---
+
+## Backend Components
+
+1. `CampfireServer`
+   - Accepts WebSocket connections
+   - Routes messages to rooms
+   - Emits events to clients
+
+2. `ThoughtObjectService`
+   - Wraps messages into ThoughtObjects
+   - Calls NTE to classify primes, arcs, conflicts
+   - Updates RoomState
+
+3. `DaemonBridge`
+   - Provides hooks to:
+     - Spider
+     - Mirror
+     - Hound
+     - Dragonfly
+     - Conductor
+     - Mother Duck
+     - Beaver
+     - Aevum
+   - All calls are explicitly triggered or rule-based
+
+4. `LogService`
+   - Writes logs to storage (Mother Duck + Beaver formatting)
+   - Provides replay and summary functions
+
+---
+
+## Event Flow (High Level)
+
+1. User sends message via WebSocket → `SEND_MESSAGE`
+2. Server:
+   - persists `Message`
+   - creates `ThoughtObject`
+   - sends `ThoughtObject` to NTE for classification
+   - updates `RoomState`
+   - logs via `LogService`
+3. Server broadcasts new message + updated `RoomState` to all room subscribers.
+4. Optional:
+   - Triggers daemons (Mirror, Spider, etc.) based on rules or explicit UI actions.
+
+---
+
+## WebSocket Events (Conceptual)
+
+### Client → Server
+
+- `JOIN_ROOM { room_id }`
+- `LEAVE_ROOM { room_id }`
+- `SEND_MESSAGE { room_id, content }`
+- `REQUEST_SUMMARY { room_id }`
+- `REQUEST_SPIDER_GRAPH { room_id }`
+- `REQUEST_MIRROR_CHECK { room_id, message_ids? }`
+- `REQUEST_HOUND_SCAN { room_id }`
+
+### Server → Client
+
+- `ROOM_JOINED { room, state }`
+- `ROOM_LEFT { room_id }`
+- `MESSAGE_ADDED { room_id, message, thought_object }`
+- `STATE_UPDATED { room_id, state }`
+- `SUMMARY_READY { room_id, summary_text }`
+- `SPIDER_GRAPH_READY { room_id, graph }`
+- `MIRROR_REPORT { room_id, report }`
+- `HOUND_ALERT { room_id, anomalies }`
+
+
+⸻
+
+4. Backend Pseudocode
+
+4.1 apps/campfire/backend/models.py
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Dict, List, Optional, Set, Literal, Any
+import uuid
+
+
+class StoryPrime(str, Enum):
+    EMERGENCE = "S1"
+    QUEST = "S2"
+    CONFRONTATION = "S3"
+    UNION = "S4"
+    FALL = "S5"
+    REBIRTH = "S6"
+    TRANSFER = "S7"
+    SACRIFICE = "S8"
+    RETURN = "S9"
+
+
+class ConflictType(str, Enum):
+    SELF = "self"
+    PERSON = "person"
+    SOCIETY = "society"
+    NATURE = "nature"
+    FATE = "fate"
+    TECHNOLOGY = "technology"
+
+
+@dataclass
+class User:
+    id: str
+    display_name: str
+    roles: List[str] = field(default_factory=list)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Message:
+    id: str
+    room_id: str
+    sender_id: str  # or "daemon"/"system"
+    content: str
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    thought_object_id: Optional[str] = None
+
+
+@dataclass
+class ThoughtObject:
+    id: str
+    room_id: str
+    origin: Literal["human", "ai", "system"]
+    raw_text: str
+    primes: List[StoryPrime] = field(default_factory=list)
+    conflicts: List[ConflictType] = field(default_factory=list)
+    emotional_arc: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class RoomState:
+    room_id: str
+    active_primes: Dict[StoryPrime, float] = field(default_factory=dict)
+    dominant_molecule: Optional[str] = None
+    conflict_field: Dict[ConflictType, float] = field(default_factory=dict)
+    emotional_arc: Optional[str] = None
+    cultural_snapshot: Dict[str, Any] = field(default_factory=dict)
+    last_updated_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class Room:
+    id: str
+    name: str
+    description: str
+    created_by: str
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    members: Set[str] = field(default_factory=set)
+    state: RoomState = None
+
+    @staticmethod
+    def create(name: str, description: str, created_by: str) -> "Room":
+        room_id = str(uuid.uuid4())
+        return Room(
+            id=room_id,
+            name=name,
+            description=description,
+            created_by=created_by,
+            state=RoomState(room_id=room_id),
+        )
+
+
+⸻
+
+4.2 apps/campfire/backend/daemon_bridge.py
+
+This is how Campfire talks to Pantheon daemons (pseudocode; swap in actual API calls).
+
+from typing import List, Dict, Any
+from .models import ThoughtObject, RoomState, StoryPrime, ConflictType
+
+
+class DaemonBridge:
+    """
+    Thin abstraction for calling PantheonOS daemons
+    (Spider, Mirror, Hound, Dragonfly, Conductor, etc.).
+    """
+
+    def __init__(self, pantheon_client: Any):
+        self.pantheon = pantheon_client
+
+    async def analyze_thought_object(self, tobj: ThoughtObject) -> ThoughtObject:
+        """
+        Call NTE / Narrative Geometry to classify Story Primes, conflicts, arcs.
+        """
+        # Pseudo-call into Pantheon NTE.
+        result = await self.pantheon.nte_classify(text=tobj.raw_text)
+
+        tobj.primes = [StoryPrime(p) for p in result["primes"]]
+        tobj.conflicts = [ConflictType(c) for c in result["conflicts"]]
+        tobj.emotional_arc = result.get("emotional_arc")
+        tobj.metadata["embedding"] = result.get("embedding")
+        return tobj
+
+    async def update_room_state(self, room_state: RoomState, tobj: ThoughtObject) -> RoomState:
+        """
+        Update narrative / cultural fields based on a new ThoughtObject.
+        """
+        # Increment prime activations
+        for p in tobj.primes:
+            room_state.active_primes[p] = room_state.active_primes.get(p, 0.0) + 1.0
+
+        # Update conflict field
+        for c in tobj.conflicts:
+            room_state.conflict_field[c] = room_state.conflict_field.get(c, 0.0) + 1.0
+
+        # Ask NTE to estimate dominant molecule / canyon
+        result = await self.pantheon.nte_room_molecule(
+            room_id=room_state.room_id,
+            primes=[p.value for p in tobj.primes],
+            conflicts=[c.value for c in tobj.conflicts],
+        )
+        room_state.dominant_molecule = result.get("dominant_molecule")
+        room_state.emotional_arc = result.get("emotional_arc", room_state.emotional_arc)
+        room_state.last_updated_at = result.get("timestamp")
+        return room_state
+
+    async def mirror_summary(self, room_id: str) -> str:
+        """
+        Ask Mirror daemon for a reflective summary of the room context.
+        """
+        return await self.pantheon.mirror_summarize(room_id=room_id)
+
+    async def spider_graph(self, room_id: str) -> Dict[str, Any]:
+        """
+        Ask Spider daemon for a relationship graph.
+        """
+        return await self.pantheon.spider_room_graph(room_id=room_id)
+
+    async def hound_scan(self, room_id: str) -> Dict[str, Any]:
+        """
+        Ask Hound daemon for anomaly scan / early warnings.
+        """
+        return await self.pantheon.hound_room_scan(room_id=room_id)
+
+
+⸻
+
+4.3 apps/campfire/backend/server.py (WebSocket skeleton)
+
+This is illustrative pseudocode — you’d swap in FastAPI/Starlette/Sanic/etc.
+
+import asyncio
+from typing import Dict, Set
+from datetime import datetime
+
+from .models import User, Room, Message, ThoughtObject
+from .daemon_bridge import DaemonBridge
+
+
+class CampfireServer:
+    def __init__(self, daemon_bridge: DaemonBridge):
+        # room_id -> Room
+        self.rooms: Dict[str, Room] = {}
+        # room_id -> set of WebSocket connections
+        self.room_connections: Dict[str, Set["WebSocket"]] = {}
+        self.daemon_bridge = daemon_bridge
+
+    async def handle_join_room(self, ws, payload: dict):
+        room_id = payload["room_id"]
+        user_id = payload["user_id"]
+
+        room = self.rooms.get(room_id)
+        if not room:
+            # in practice: error handling, or create
+            return
+
+        room.members.add(user_id)
+        self.room_connections.setdefault(room_id, set()).add(ws)
+
+        await ws.send_json({
+            "type": "ROOM_JOINED",
+            "room": {
+                "id": room.id,
+                "name": room.name,
+                "description": room.description,
+            },
+            "state": self._serialize_state(room),
+        })
+
+    async def handle_send_message(self, ws, payload: dict):
+        room_id = payload["room_id"]
+        content = payload["content"]
+        user_id = payload["user_id"]
+
+        room = self.rooms.get(room_id)
+        if not room:
+            return
+
+        msg = Message(
+            id=self._new_id(),
+            room_id=room_id,
+            sender_id=user_id,
+            content=content,
+        )
+
+        # Wrap to ThoughtObject
+        tobj = ThoughtObject(
+            id=self._new_id(),
+            room_id=room_id,
+            origin="human",
+            raw_text=content,
+        )
+
+        # Analyze with NTE & update state via daemon bridge
+        tobj = await self.daemon_bridge.analyze_thought_object(tobj)
+        room.state = await self.daemon_bridge.update_room_state(room.state, tobj)
+        msg.thought_object_id = tobj.id
+
+        # Persist (pseudo)
+        await self._persist_message(msg, tobj, room.state)
+
+        # Broadcast to room
+        event = {
+            "type": "MESSAGE_ADDED",
+            "room_id": room_id,
+            "message": {
+                "id": msg.id,
+                "sender_id": msg.sender_id,
+                "content": msg.content,
+                "created_at": msg.created_at.isoformat(),
+            },
+            "thought_object": {
+                "id": tobj.id,
+                "primes": [p.value for p in tobj.primes],
+                "conflicts": [c.value for c in tobj.conflicts],
+                "emotional_arc": tobj.emotional_arc,
+            },
+        }
+
+        await self._broadcast(room_id, event)
+
+        # Also broadcast updated room state
+        await self._broadcast(room_id, {
+            "type": "STATE_UPDATED",
+            "room_id": room_id,
+            "state": self._serialize_state(room),
+        })
+
+    async def handle_request_summary(self, ws, payload: dict):
+        room_id = payload["room_id"]
+        summary = await self.daemon_bridge.mirror_summary(room_id)
+        await ws.send_json({
+            "type": "SUMMARY_READY",
+            "room_id": room_id,
+            "summary_text": summary,
+        })
+
+    async def _broadcast(self, room_id: str, event: dict):
+        conns = self.room_connections.get(room_id, set())
+        to_remove = set()
+        for ws in conns:
+            try:
+                await ws.send_json(event)
+            except Exception:
+                to_remove.add(ws)
+        conns.difference_update(to_remove)
+
+    def _serialize_state(self, room: Room) -> dict:
+        s = room.state
+        return {
+            "room_id": s.room_id,
+            "active_primes": {p.value: v for p, v in s.active_primes.items()},
+            "dominant_molecule": s.dominant_molecule,
+            "conflict_field": {c.value: v for c, v in s.conflict_field.items()},
+            "emotional_arc": s.emotional_arc,
+            "last_updated_at": s.last_updated_at.isoformat(),
+        }
+
+    async def _persist_message(self, msg: Message, tobj: ThoughtObject, state):
+        # Placeholder for DB write / Beaver+MotherDuck integration
+        pass
+
+    def _new_id(self) -> str:
+        from uuid import uuid4
+        return str(uuid4())
+
+
+⸻
+
+5. (Optional) Simple Client Skeleton — apps/campfire/client/src/campfireClient.ts
+
+type CampfireEvent =
+  | { type: "ROOM_JOINED"; room: any; state: any }
+  | { type: "ROOM_LEFT"; room_id: string }
+  | { type: "MESSAGE_ADDED"; room_id: string; message: any; thought_object: any }
+  | { type: "STATE_UPDATED"; room_id: string; state: any }
+  | { type: "SUMMARY_READY"; room_id: string; summary_text: string };
+
+export class CampfireClient {
+  private ws: WebSocket;
+  private listeners: ((evt: CampfireEvent) => void)[] = [];
+
+  constructor(url: string) {
+    this.ws = new WebSocket(url);
+    this.ws.onmessage = (ev) => {
+      const data = JSON.parse(ev.data);
+      this.listeners.forEach((fn) => fn(data as CampfireEvent));
+    };
+  }
+
+  onEvent(fn: (evt: CampfireEvent) => void) {
+    this.listeners.push(fn);
+  }
+
+  joinRoom(room_id: string, user_id: string) {
+    this._send({
+      type: "JOIN_ROOM",
+      room_id,
+      user_id,
+    });
+  }
+
+  sendMessage(room_id: string, user_id: string, content: string) {
+    this._send({
+      type: "SEND_MESSAGE",
+      room_id,
+      user_id,
+      content,
+    });
+  }
+
+  requestSummary(room_id: string) {
+    this._send({
+      type: "REQUEST_SUMMARY",
+      room_id,
+    });
+  }
+
+  private _send(payload: any) {
+    this.ws.send(JSON.stringify(payload));
+  }
+}
+
+
+⸻
+
+If you want, next I can:
+	•	write a Pantheon-style pantheon_client stub that the DaemonBridge would call into
+	•	add example JSON schemas for ThoughtObject, RoomState, etc.
+	•	or sketch Unity/Unreal scene structure for the 3D cathedral / garden / campfire UI.
+
+For now, this gives you a full Campfire suite: whitepaper, spec, README, and a working-style backend skeleton you can evolve into real code.
