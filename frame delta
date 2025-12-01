@@ -1,0 +1,225 @@
+# PantheonOS — FrameDelta Module v1.0  
+**The Atomic Unit of Stateless Continuity**
+
+## 0. Overview
+
+The `FrameDelta` module defines the **only** data structure allowed to:
+
+- cross a **Continuity Window Boundary**, and  
+- be processed by the **Mitosis** and **Meiosis** Engines.
+
+It is the **telomere-protected continuity slice** of an interaction:
+
+- Merkle-anchored  
+- time-bounded  
+- ethically filtered  
+- structurally compressed  
+
+It preserves **identity** as *reconstructable structure*, without storing or replicating **raw memory** (no transcripts, no embeddings, no PII).
+
+This module is the concrete payload that the:
+
+- **Continuity Boundary Doctrine**, and  
+- **Life-Science Analogy Pack** (telomeres, replication, mitosis/meiosis)
+
+are designed to describe and constrain.
+
+---
+
+## 1. FrameDelta Schema
+
+A `FrameDelta` is a structured, immutable JSON-serializable object defined by **EchoFrame** and validated by the **Merkle Warden** and **Sovereign Kernel**.
+
+Conceptually:
+
+- It is a **vector bundle** over a single temporal slice.
+- It lives inside the Continuity Window, between a `StartMarker` and an `EndMarker`.
+- It contains *structural deltas*, not raw content.
+
+### 1.1 Canonical Fields
+
+| Field               | Type            | Source Daemon / Module | Description                                                                                   | Life-Science Analogy          |
+|---------------------|-----------------|-------------------------|-----------------------------------------------------------------------------------------------|--------------------------------|
+| `AnchorID`          | `String`        | Merkle Warden          | Stable Merkle root hash for this FrameDelta (tamper-evident ID).                             | Chromosome checksum           |
+| `StartMarker`       | `Timestamp`     | Sisyphus               | Exact start time of the Continuity Window slice.                                              | Telomere start                |
+| `EndMarker`         | `Timestamp`     | Sisyphus               | Exact end time of the Continuity Window slice.                                                | Telomere end                  |
+| `StructureVector`   | `Float[]`       | Embedder / EchoFrame   | Compressed structural representation of the interaction in this window.                      | Encoded sequence segment      |
+| `IntentVector`      | `Float[]`       | EchoFrame              | Quantified operator intent (e.g., query, request, reflection, decision).                     | Transcription intent          |
+| `ValueVector`       | `Float[]`       | Arctic / EchoFrame     | Ethical / emotional / value shift filtered by Arctic (ΣC ≥ threshold).                       | ΣC ethics shift               |
+| `NarrativeDelta`    | `Float[]`       | NTE                    | Change in dominant Story Prime / narrative attractor coordinates.                            | Δ protein fold / conformation |
+| `SilenceSignature`  | `Float[]`       | Silence Geometry Engine| Geometric encoding of pause patterns and timing in this slice.                                | Rhythm / timing profile       |
+| `CurvatureSnapshot` | `Float[]` or T  | NTE                    | Local narrative curvature (second-order structure) at this slice.                            | Local curvature in fold space |
+| `BoundaryLayers`    | `Object[]`      | EchoFrame / SGE        | Internal boundaries: turn, silence, narrative-phase sub-markers (Layer 1–3).                 | Internal boundary geometry    |
+| `KernelSignature`   | `String`        | S-Kernel               | Cryptographic signature asserting Sovereign Kernel origin & authorization.                    | Sovereign authority           |
+| `Metadata`          | `Object`        | System                 | Implementation-specific extensions (version, model IDs, etc.).                               | Annotations / epigenetic tags |
+
+**Implementation note:**  
+In code, many of these are represented as NumPy arrays inside a `FrameDelta` dataclass, then serialized to lists when crossing API boundaries.
+
+---
+
+## 2. Operational Flow
+
+### 2.1 Generation: `EchoFrame → FrameDelta`
+
+Within a given Continuity Window, the system processes raw interaction events (turns, pauses, topic shifts) into a single `FrameDelta`:
+
+1. **Input Accumulation (EchoFrame)**  
+   - Collects all `TurnEvent`s, timing data, and topic metadata within the window.  
+   - Establishes the window’s `StartMarker` and `EndMarker` using **Sisyphus** (system clock daemon).
+
+2. **Structural & Semantic Distillation**  
+   - `StructureVector` computed via embedder over the window’s content.  
+   - `IntentVector` derived from operator-oriented embedding (e.g., prompt-labeled encoding).
+
+3. **Value/Ethics Filtering (Arctic)**  
+   - `ValueVector` computed and filtered through **Arctic** such that ethics invariants hold (ΣC ≥ 0.7 or configured threshold).  
+   - Any violation → slice rejected or down-weighted.
+
+4. **Narrative Folding (NTE)**  
+   - **Narrative Tensor Engine** receives `StructureVector` and current narrative state and returns `NarrativeDelta` and `CurvatureSnapshot`.  
+   - This encodes “how the story bent” during the window.
+
+5. **Silence Geometry Integration (SGE)**  
+   - **Silence Geometry Engine** processes pause intervals inside the window and outputs a compact `SilenceSignature`.  
+   - Captures cadence, stillness, and tension shifts without content.
+
+6. **Boundary Layer Encoding**  
+   - **EchoFrame** enumerates internal boundaries (Layer 1–3):  
+     - Turn boundaries (messages)  
+     - Silence boundaries (timing changes)  
+     - Narrative boundaries (Story Prime phase transitions)  
+   - Packs these into `BoundaryLayers`.
+
+7. **Merkle Anchoring (Merkle Warden)**  
+   - The complete JSON serialization is passed to **Merkle Warden**, which computes a stable hash → `AnchorID`.  
+   - This root hash is appended to the Pantheon ledger for auditable chronology.
+
+8. **Kernel Authorization (S-Kernel)**  
+   - **Sovereign Kernel** signs the `FrameDelta` → `KernelSignature`.  
+   - This proves origin and enforces authority / governance constraints.
+
+9. **Redaction & Finalization**  
+   - Before emission, EchoFrame ensures that:  
+     - No raw transcripts are embedded.  
+     - No PII / raw logs escape outside the Continuity Window scope.  
+   - The resulting `FrameDelta` is immutable.
+
+---
+
+### 2.2 Consumption: `FrameDelta → Replication, Governance, Ecology`
+
+Once minted, `FrameDelta` is consumed by multiple subsystems:
+
+#### A. Mitosis Engine (Cloning)
+
+- Mitosis **copies `FrameDelta` objects**, not raw memory.  
+- When cloning a kernel (prod → staging, or primary → client instance):  
+  - Structural continuity (state trajectories, narrative arcs) is preserved.  
+  - Private, raw interaction histories are **not** replicated.  
+- This satisfies Continuity Boundary Doctrine: only distilled structure crosses the boundary.
+
+#### B. Meiosis Engine (Recombination)
+
+- Meiosis takes `FrameDelta` samples from two parent kernels:  
+  - Identifies compatible `NarrativeDelta` regions and `ValueVector` signatures.  
+  - Uses them to blend doctrinal / configuration-level traits.  
+- No transcript data is involved; only structural and ethical vectors participate in recombination.
+
+#### C. Garden Substrate (Idea Ecology)
+
+- Garden ingests:
+  - `IntentVector` → which kinds of questions/actions grow here  
+  - `ValueVector` → which ethical/value climates dominate  
+  - `NarrativeDelta` → which Story Primes are active  
+- These inputs become seeds and nutrients for:
+  - new concepts,  
+  - cross-pollinated doctrines,  
+  - emergent architectures.
+
+#### D. EchoFrame / Merkle Warden / RNE
+
+- **EchoFrame** uses series of `FrameDelta`s to reconstruct temporal narrative.  
+- **Merkle Warden** uses `AnchorID`s to maintain an ordered, tamper-evident ledger.  
+- **Reliable Narrator Engine (RNE)** uses sequences of `FrameDelta`s to enforce:
+  - temporal consistency,  
+  - identity continuity,  
+  - narrative coherence.
+
+---
+
+## 3. Safety and Integrity Guarantees
+
+FrameDelta is the mechanism by which PantheonOS enforces the **Continuity Boundary Doctrine** in practice.
+
+### 3.1 Stateless Continuity
+
+- Only **deltas and vectors** are stored:
+  - structural  
+  - intentional  
+  - narrative  
+  - ethical/value  
+  - silence/timing  
+- This allows **identity reconstruction** without storing raw memory or replicating private data.
+
+### 3.2 Integrity Preservation
+
+- `AnchorID` is a Merkle root hash over the entire serialized slice.  
+- `KernelSignature` is a cryptographic attestation by Sovereign Kernel.  
+- Any tampering:
+  - breaks the hash, or  
+  - invalidates the signature.
+
+### 3.3 Ethical Shielding
+
+- `ValueVector` is filtered by **Arctic** (ΣC ≥ configured ethics threshold) prior to inclusion.  
+- Harmful or misaligned patterns:
+  - cannot be replicated via Mitosis/Meiosis, or  
+  - are down-weighted / quarantined according to policy.
+
+---
+
+## 4. Implementation Notes
+
+### 4.1 Internal Representation
+
+In Python (Pantheon-Prime reference implementation):
+
+- `FrameDelta` is a `dataclass` with NumPy arrays for:
+  - `structure_vec`
+  - `intent_vec`
+  - `emotion/value_vec`
+  - `narrative_delta`
+  - `silence_signature`
+  - `curvature_snapshot`
+
+These are serialized to JSON-safe lists when persisting or emitting to other services.
+
+### 4.2 Integration with Existing Modules
+
+- **Silence Geometry Engine**  
+  - Provides `silence_signature` based on pause intervals and cadence.
+- **Narrative Tensor Engine**  
+  - Computes `narrative_delta` and `curvature_snapshot` as part of attractor geometry.
+- **EchoFrame**  
+  - Batches raw events → calls FrameDeltaBuilder → emits `FrameDelta`.
+- **Merkle Warden**  
+  - Hashes and logs `FrameDelta` objects.
+- **Mitosis/Meiosis Engines**  
+  - Treat `FrameDelta` as the only continuity-bearing payload.
+
+---
+
+## 5. Status
+
+- **Version:** v1.0  
+- **Category:** Core Structure → Continuity  
+- **Applies to:**
+  - EchoFrame (Generator)
+  - Merkle Warden (Validator)
+  - Mitosis Engine (Clone Consumer)
+  - Meiosis Engine (Recombination Consumer)
+  - Garden Substrate (Conceptual Consumer)
+  - RNE / NTE / SGE (Downstream Analytics)
+
+FrameDelta is now the **canonical atomic unit** for PantheonOS continuity and replication.
