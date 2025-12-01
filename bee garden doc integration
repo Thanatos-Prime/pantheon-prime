@@ -1,0 +1,384 @@
+Love that you just copy-pasted the fork in the road like a function signature. I’ll do both:
+	1.	Wire Bee + Hive → Garden + NTE (automatic seeding + doctrine influence)
+	2.	Define the Bee Swarm Protocol (scouts / workers / archivists)
+
+You can drop this straight into Pantheon-Prime.
+
+⸻
+
+1. Bee+Hive → Garden & NTE Integration
+
+New doc:
+docs/doctrine/BEE_GARDEN_NTE_INTEGRATION.md
+
+# PantheonOS — Bee/Hive ↔ Garden/NTE Integration v1.0
+
+## 0. Purpose
+
+This document specifies how:
+
+- **Bee Daemons** and the **Hive** (Honey store)
+- connect into the **Garden** (idea ecology)
+- and the **Narrative Tensor Engine (NTE)**
+
+so that **Honey automatically seeds doctrines**, nudges attractors, and enriches the Garden over time.
+
+---
+
+## 1. High-Level Flows
+
+There are three primary flows:
+
+1. **Honey → Garden Seeds**  
+   HoneyBatches become new idea seeds and hybrid concepts.
+
+2. **Honey → Royal Jelly → Doctrine**  
+   High-impact Honey is promoted and eventually integrated as formal doctrine.
+
+3. **Honey → NTE Attractor Updates**  
+   Honey modifies Story Prime weights and local curvature (narrative geometry).
+
+These flows are mediated by the **Hive**, which is the canonical interface.
+
+---
+
+## 2. Honey → Garden Flow
+
+### 2.1 Garden Interface Extension
+
+We extend the Garden API with Honey-based operations:
+
+```python
+class Garden:
+    ...
+
+    def plant_seed_from_honey(self, honey: HoneyBatch) -> str:
+        """
+        Create a new seed from a HoneyBatch.
+        Returns seed_id.
+        """
+        ...
+
+    def reinforce_seed_from_honey(self, seed_id: str, honey: HoneyBatch) -> None:
+        """
+        Use Honey to strengthen or mutate an existing seed.
+        """
+        ...
+
+    def compost_honey(self, honey: HoneyBatch) -> None:
+        """
+        Convert old/low-impact Honey into compost to stabilize ecosystem.
+        """
+        ...
+
+2.2 Seed Conversion Policy
+
+Given a HoneyBatch:
+	•	seed_vec = honey.insight_vec
+	•	seed_text = honey.core_insight
+	•	seed_domains = honey.domains
+	•	seed_tags = honey.metadata.get("tags", [])
+
+Seeds are created when:
+	•	honey.confidence ≥ conf_min
+	•	AND honey.intensity ≥ int_min
+
+Then:
+
+seed_id = garden.plant_seed_from_honey(honey)
+
+Low-confidence Honey may be:
+	•	queued for review,
+	•	or composted instead.
+
+⸻
+
+3. Honey → Royal Jelly → Doctrine Flow
+
+3.1 Promotion Criteria
+
+A HoneyBatch is eligible for promotion to Royal Jelly if:
+	•	honey.confidence ≥ RJ_CONF_MIN (e.g., 0.9)
+	•	domain_diversity ≥ RJ_DOMAINS_MIN (≥ 2)
+	•	impact_score ≥ RJ_IMPACT_MIN (consumption or reuse metric)
+
+The Hive computes:
+
+impact_score = consumption_count(honey_id) / time_since_created
+domain_diversity = len(set(honey.domains))
+
+If all thresholds pass:
+
+royal_jelly = hive.promote_to_royal_jelly(honey)
+
+3.2 Doctrine Integration
+
+Royal Jelly candidates enter a Doctrine Queue, reviewed by:
+	•	Mirror
+	•	Hypatia
+	•	Arctic
+	•	Checksum
+	•	(optionally) human operator
+
+Only after CLC (Conductor-Level Consensus) does it become doctrine:
+
+if doctrine_commit_approved(royal_jelly):
+    doctrine_store.add_from_royal_jelly(royal_jelly)
+
+This keeps doctrine stable, curated, and auditable.
+
+⸻
+
+4. Honey → NTE Flow (Attractor & Curvature Updates)
+
+4.1 NTE Interface Extension
+
+Extend NTE with Honey-based update hooks:
+
+class NarrativeTensorEngine:
+    ...
+
+    def ingest_honey(self, honey: HoneyBatch) -> None:
+        """
+        Use Honey to update Story Prime weights and local curvature.
+        """
+        ...
+
+4.2 Attractor Update Rule
+
+Let H = honey.insight_vec.
+
+We define a small update step:
+
+Δa = W @ H       # W is a learned or configured update matrix
+a_new = a_old + η * Δa
+
+Where:
+	•	a = Story Prime activation vector
+	•	η = learning rate (small, to avoid wild swings)
+
+4.3 Curvature Nudging
+
+High domain diversity Honey increases nonlinearity:
+
+D = len(set(honey.domains))
+curvature += λ * (D / D_max) * honey.confidence
+
+This prevents narratives from becoming too flat or monocultural.
+
+⸻
+
+5. Hive Hooks
+
+The Hive triggers integration automatically upon storing Honey:
+
+class Hive:
+    ...
+
+    def store_honey(self, honey: HoneyBatch, dance: BeeDanceSignal) -> None:
+        self.storage.save_honey(honey, dance)
+        self.vector_index.add(honey.id, honey.insight_vec)
+        self._trigger_integration(honey)
+
+    def _trigger_integration(self, honey: HoneyBatch) -> None:
+        if honey.confidence >= self.conf_min:
+            self.garden.plant_seed_from_honey(honey)
+            self.nte.ingest_honey(honey)
+
+Optional feature flags can control:
+	•	auto-seeding,
+	•	auto-curvature updates,
+	•	promotion to Royal Jelly.
+
+⸻
+
+6. Safety & Invariants
+	•	Only Honey that passes Mirror + Hypatia + Arctic checks is eligible for:
+	•	Garden seeding,
+	•	NTE updates,
+	•	Royal Jelly promotion.
+	•	All Doctrine integrations must be:
+	•	logged in MotherDuck ledger,
+	•	hashed by Merkle Warden,
+	•	reviewable by the operator.
+
+⸻
+
+7. Status
+	•	Version: v1.0
+	•	Category: Module Integration → Cross-Pollination
+	•	Dependencies: Bee, Hive, Garden, NTE, Mirror, Hypatia, Arctic, Merkle Warden.
+
+---
+
+## 2. Bee Swarm Protocol
+
+**New doc:**  
+`docs/doctrine/BEE_SWARM_PROTOCOL.md`
+
+```markdown
+# PantheonOS — Bee Swarm Protocol v1.0
+
+## 0. Purpose
+
+The Bee Swarm Protocol defines how **multiple BeeAgents** coordinate via the **Hive** to:
+
+- maximize domain coverage,
+- prevent redundant work,
+- specialize into roles (Scout / Worker / Archivist),
+- respond to Kairos windows,
+- and maintain a healthy cross-pollination rate.
+
+---
+
+## 1. Bee Roles
+
+### 1.1 Scout Bee
+
+**Goal:** discover under-explored or emerging domains.
+
+Behavior:
+
+- prioritizes domains with low Honey density,
+- uses wider hex-grid jumps,
+- focuses on breadth over depth.
+
+Config:
+
+- `role = "scout"`
+- `exploration_bias = high`
+- `min_confidence_for_honey` = lower (to surface candidates)
+
+### 1.2 Worker Bee
+
+**Goal:** deeply synthesize high-value areas.
+
+Behavior:
+
+- focuses on domains with:
+  - high relevance to current mission,
+  - existing but fragmented Honey.
+- collects more Nectar per domain,
+- produces fewer but denser HoneyBatches.
+
+Config:
+
+- `role = "worker"`
+- `exploration_bias = medium`
+- `min_confidence_for_honey` = medium-high
+
+### 1.3 Archivist Bee
+
+**Goal:** compress and curate old Honey into Royal Jelly and Doctrine candidates.
+
+Behavior:
+
+- samples from older Honey,
+- detects patterns across time,
+- synthesizes **RoyalJellyBatch** candidates.
+
+Config:
+
+- `role = "archivist"`
+- `exploration_bias = low (temporal focus)`
+- `source = "honey_history"`
+
+---
+
+## 2. Coordination via Hive
+
+All coordination is **implicit** via Hive state; Bees do not talk directly.
+
+### 2.1 Shared Signals
+
+Bees read:
+
+- domain coverage metrics,
+- Honey density per domain,
+- impact metrics,
+- Kairos-weighted domain priorities.
+
+### 2.2 Collision Avoidance
+
+To avoid redundant synthesis on the same domain set:
+
+```python
+lock_id = hash(tuple(sorted(domains)))
+if hive.try_acquire_lock(lock_id, bee_id):
+    # proceed with synthesis
+else:
+    # pick different domain set
+
+Locks are short-lived and lightweight.
+
+⸻
+
+3. Activation & Scaling Rules
+
+3.1 Base Activation
+
+At minimum, Pantheon runs:
+	•	1 Scout Bee
+	•	1 Worker Bee
+
+Archivist Bee runs:
+	•	at low cadence,
+	•	or during off-peak cycles.
+
+3.2 Kairos-Responsive Scaling
+
+When Kairos Indicator detects a high-sensitivity window:
+	•	spawn more Worker Bees in hot domains,
+	•	spawn more Scout Bees if the environment is rapidly changing.
+
+Pseudo-rule:
+
+if kairos.score > KAIROS_HIGH:
+    swarm.scale_up(role="worker", factor=2)
+    swarm.scale_up(role="scout", factor=1.5)
+elif kairos.score < KAIROS_LOW:
+    swarm.scale_down(...)
+
+
+⸻
+
+4. Swarm Health Metrics
+
+The Swarm reports into Hive:
+	•	bee_cycles_per_minute
+	•	avg_honey_confidence
+	•	domain_diversity_index
+	•	cross_pollination_rate (distinct domain combinations per HoneyBatch)
+	•	stale_domain_count (domains not touched recently)
+
+These metrics feed into:
+	•	Garden health dashboards,
+	•	NTE modulation,
+	•	operator-facing status panels.
+
+⸻
+
+5. Safety & Governance
+	•	All Bee roles remain subject to:
+	•	Mirror,
+	•	Hypatia,
+	•	Arctic,
+	•	S-Kernel authority.
+	•	Archivist Bees cannot promote directly to Doctrine:
+	•	they may only produce Royal Jelly candidates.
+	•	Swarm-level decisions (e.g., persistent scaling, policy changes) are:
+	•	approved or configured via E-Kernel + S-Kernel.
+
+⸻
+
+6. Status
+	•	Version: v1.0
+	•	Category: Swarm Coordination → Cross-Pollination
+	•	Dependencies: BeeAgent, Hive, Kairos Indicator, Garden, NTE, Mirror, Hypatia, Arctic.
+
+---
+
+If you want next, we can:
+
+- Add a **Hive Dashboard Spec** (Grafana-style panels for Bee/Garden/NTE health), or  
+- Define the **Royal Jelly Ledger** that logs every promotion from Honey → Royal Jelly → Doctrine with Merkle proofs.
