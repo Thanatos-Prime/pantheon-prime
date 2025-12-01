@@ -1,0 +1,915 @@
+Ohhh you meant the TPU implementation suite. Got you.
+Here’s a full, GitHub-ready Pantheon × TPU Implementation Suite v1.0.
+
+I’ll give you:
+	1.	Folder layout
+	2.	TPU-Optimized Axiom Forge Spec (with math + pseudocode)
+	3.	Daemon Invocation Graph (DIG) schema + example
+	4.	Daemon Mesh Protocol v1.0 (events, messages, states)
+	5.	TPU Cluster Orchestration Blueprint (K8s-style YAML)
+	6.	README snippets you can paste straight into the repo
+
+You can drop this into a new folder like pantheon_tpu_suite/ in Pantheon-Prime.
+
+⸻
+
+0. Repo Layout
+
+pantheon_tpu_suite/
+├── README.md
+├── axiom_forge_tpu/
+│   ├── SPEC.md
+│   ├── axiom_forge_core.py
+│   └── examples/
+│       └── invariant_demo.ipynb
+├── daemon_invocation_graph/
+│   ├── DIG_SPEC.md
+│   ├── dig_schema.json
+│   └── examples/
+│       └── sample_dig_pantheon.json
+├── daemon_mesh_protocol/
+│   ├── DMP_SPEC.md
+│   └── dmp_envelope_schema.json
+└── tpu_orchestration/
+    ├── ORCHESTRATION_SPEC.md
+    └── k8s_pantheon_tpu_example.yaml
+
+
+⸻
+
+1. TPU-Optimized Axiom Forge Spec
+
+axiom_forge_tpu/SPEC.md
+
+# Axiom Forge — TPU-Optimized Core Spec v1.0
+
+## 1. Purpose
+
+The Axiom Forge is PantheonOS's "lawsmith":
+it extracts **invariants** (stable truths, constraints, or laws)
+from high-dimensional data and model behavior.
+
+This spec describes how to map Axiom Forge operations onto
+**tensor-first hardware** (TPUs).
+
+Goal: 
+- Treat Axiom Forge as a **tensor program** 
+- Compile it with XLA (or equivalent) 
+- Execute it on TPUs for fast invariant discovery and evaluation.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 Inputs
+
+Let:
+- `X ∈ ℝ^{N×D}`  — dataset of N samples, D features
+- `Y ∈ ℝ^{N×K}`  — labeled outputs or model behaviors
+- `M(·)`         — model(s) under analysis (LLM or subsystem)
+- `C`            — candidate constraint family (e.g. linear, quadratic, logical)
+
+### 2.2 Outputs
+
+Axiom Forge returns:
+
+- `A` — set of **axioms** / invariants:
+  - Each axiom `a_i` has:
+    - A **formal expression** (e.g. wᵀx ≈ const)
+    - A **support score** (fraction of data satisfying it)
+    - A **stability score** (robustness under perturbation)
+    - A **simplicity score** (penalizing overly complex forms)
+
+- `R` — **residuals**: where invariants *fail* most strongly.
+
+These outputs become **governance rules**, **safety tests**, and
+**optimization hints** for Pantheon daemons.
+
+---
+
+## 3. Tensor Formulation
+
+### 3.1 Covariance and Principal Directions
+
+Compute mean-centered data:
+
+- `μ = mean(X, axis=0)`  
+- `Xc = X - μ`
+
+Covariance:
+
+- `Σ = (1 / (N-1)) * Xcᵀ Xc`  where `Σ ∈ ℝ^{D×D}`
+
+Eigen-decomposition or SVD:
+
+- `Σ = Q Λ Qᵀ`
+
+Here:
+
+- Each column qᵢ of Q is a **direction**
+- Corresponding λᵢ encodes **variance along that direction**
+
+Candidate invariant pattern:
+- Directions with **very low variance** (λᵢ small) define
+  *approximate invariants*:
+
+  `qᵢᵀ x ≈ const`
+
+These ops are **dense linear algebra** → perfect for TPUs.
+
+---
+
+### 3.2 Constraint Families
+
+Axiom Forge supports multiple parametric families:
+
+1. **Linear invariants**:  
+   `wᵀ x ≈ b`
+
+2. **Affine invariants**:  
+   `wᵀ x + c ≈ b`
+
+3. **Low-rank manifold constraints**:  
+   `x lies near subspace U_k`  
+   where `U_k ∈ ℝ^{D×k}` from truncated SVD.
+
+4. **Simple logical invariants** (encoded numerically):  
+   - Threshold rules: `x_j > θ` ⇒ class k  
+   - Region rules: `x ∈ [L, U]` ⇒ stable outcome
+
+Each family is implemented as **tensor operations**:
+matrix multiplications, elementwise comparisons, norms.
+
+---
+
+## 4. Forge Pipeline
+
+### 4.1 Pipeline Stages
+
+1. **Ingest**
+   - Collect `(X, Y)` batches from:
+     - Pantheon daemons (Spider, Hound, Oracle Weave, etc.)
+     - Model traces
+     - Logs via Mother Duck
+
+2. **Projection / Compression**
+   - Compute principal components or other low-rank basis
+   - Reduce to `Xk ∈ ℝ^{N×k}` with `k << D`
+   - TPU focus: batched matmul + SVD
+
+3. **Candidate Generation**
+   - Enumerate candidate `w` directions (PCs, random, sparse)
+   - Compute `z = Xk w` for many `w` in parallel on TPUs
+   - Look for near-constant distributions (low variance, clustered)
+
+4. **Scoring**
+   For each candidate axiom `a`:
+   - **Support**: fraction of data satisfying it within tolerance
+   - **Stability**: how support changes under noise/perturbation
+   - **Simplicity**: regularizers (L1, L0-like, rule length)
+
+5. **Selection**
+   - Select top-k axioms by composite score
+   - Send to Mirror + Checksum for verification review
+
+6. **Deployment**
+   - Export axioms to:
+     - ΣC governance engine
+     - Rorschach Engine projections
+     - Oracle Weave story constraints
+     - Documentation via Mother Duck
+
+All stages are vectorized and batched for TPU execution.
+
+---
+
+## 5. TPU Mapping
+
+### 5.1 Primitive Ops (TPU-friendly)
+
+- Matrix multiplies: `Xcᵀ Xc`, `Xk W`
+- SVD / eigendecomposition via vendor ops
+- Batched norms and variances
+- Elementwise thresholds and masks
+- Reduction ops (mean, sum, max)
+
+### 5.2 XLA Graph
+
+The entire Forge pipeline is expressed as a static or semi-static
+computation graph:
+
+```text
+Ingest → Center → Covariance → SVD → Projections → Variance Scan
+      → Candidate Rules → Scoring → Top-k Selection → Export
+
+XLA fuses adjacent ops and schedules them on TPU cores.
+
+⸻
+
+6. Pseudocode (Python-like, TPU-ready)
+
+Below is framework-agnostic pseudocode, but shaped so it maps well
+onto JAX/TF-XLA.
+
+def axiom_forge(X, Y, k=32, num_candidates=256, tol=1e-3):
+    """
+    X: [N, D] data
+    Y: [N, K] labels or behaviors
+    k: reduced rank
+    num_candidates: number of candidate directions
+    """
+    # 1) Center
+    mu = mean(X, axis=0)           # [D]
+    Xc = X - mu                    # [N, D]
+
+    # 2) Covariance + PCA
+    # Covariance: [D, D]
+    Sigma = (Xc.T @ Xc) / (X.shape[0] - 1)
+    
+    # Eigen-decomposition (or SVD)
+    # Sigma = Q Λ Qᵀ
+    eigvals, Q = eig(Sigma)       # [D], [D, D]
+
+    # Sort by eigenvalue ascending (smallest variance first)
+    idx = argsort(eigvals)        # [D]
+    Q_sorted = Q[:, idx]
+    Lambda_sorted = eigvals[idx]
+
+    # 3) Truncate to k components for compression
+    Qk = Q_sorted[:, :k]          # [D, k]
+    Xk = Xc @ Qk                  # [N, k]
+
+    # 4) Build candidate directions
+    # First few from smallest-variance PCs
+    base_dirs = Q_sorted[:, :min(num_candidates, D)]  # [D, c]
+    
+    # Optionally: add random / sparse candidates
+    extra_dirs = sample_random_directions(D, num_candidates - base_dirs.shape[1])
+    W = concat([base_dirs, extra_dirs], axis=1)  # [D, num_candidates]
+
+    # 5) Project data onto candidates
+    Z = Xc @ W                                 # [N, num_candidates]
+
+    # 6) Compute variance for each candidate
+    var_z = var(Z, axis=0)                     # [num_candidates]
+
+    # 7) Identify low-variance directions as invariants
+    invariant_mask = var_z < tol
+    invariant_dirs = W[:, invariant_mask]      # [D, num_invariants]
+
+    # 8) Score invariants against Y if desired
+    scores = score_invariants(Xc, Y, invariant_dirs)
+
+    axioms = build_axiom_objects(invariant_dirs, scores, mu)
+    return axioms
+
+On TPU:
+	•	eig, @, var, mean are all backed by fused XLA kernels.
+	•	The whole function can be jit-compiled and executed on TPU pods.
+
+⸻
+
+
+### `axiom_forge_tpu/axiom_forge_core.py`
+
+You can drop a minimal skeleton like:
+
+```python
+class Axiom:
+    def __init__(self, direction, bias, support, stability, simplicity):
+        self.direction = direction  # np.ndarray or tensor
+        self.bias = bias
+        self.support = support
+        self.stability = stability
+        self.simplicity = simplicity
+
+
+def build_axiom_objects(directions, scores, mu):
+    axioms = []
+    for i in range(directions.shape[1]):
+        w = directions[:, i]
+        s = scores[i]
+        # bias = wᵀ μ
+        bias = float((w * mu).sum())
+        axioms.append(
+            Axiom(
+                direction=w,
+                bias=bias,
+                support=s["support"],
+                stability=s["stability"],
+                simplicity=s["simplicity"],
+            )
+        )
+    return axioms
+
+(You can wire this into JAX/TF as you like.)
+
+⸻
+
+2. Daemon Invocation Graph (DIG) Spec
+
+daemon_invocation_graph/DIG_SPEC.md
+
+# Daemon Invocation Graph (DIG) Spec v1.0
+
+## 1. Purpose
+
+The Daemon Invocation Graph (DIG) formalizes **how Pantheon daemons are called**:
+
+- based on **events**,
+- under explicit **conditions**,
+- with **ordering** and **fan-out** rules.
+
+DIG is **declarative**:
+- It defines *which* daemons should wake under which circumstances,
+- not *how* they internally compute.
+
+---
+
+## 2. Concepts
+
+- **Daemon**: named process with a role (`Spider`, `Hound`, `Mirror`, etc.)
+- **Event**: typed signal (e.g. `USER_REQUEST`, `HIGH_RISK_DECISION`)
+- **Invocation**: a rule describing when a daemon should run
+- **Graph**: a directed acyclic graph (DAG) of daemon calls
+
+---
+
+## 3. JSON Schema
+
+The DIG is represented as JSON.
+
+### 3.1 Top Level
+
+```jsonc
+{
+  "version": "1.0",
+  "graph_id": "pantheon_default_dig",
+  "description": "Default daemon invocation graph for PantheonOS.",
+  "nodes": [],
+  "edges": [],
+  "triggers": []
+}
+
+
+⸻
+
+3.2 Nodes
+
+Each node is a daemon instance:
+
+{
+  "id": "spider_core",
+  "daemon": "Spider",
+  "role": "connector",
+  "priority": 5,
+  "config": {
+    "max_weave_depth": 3,
+    "lookback_horizon_days": 30
+  }
+}
+
+Fields:
+	•	id — unique identifier in the graph
+	•	daemon — canonical daemon type
+	•	role — human-friendly label
+	•	priority — lower number = earlier scheduling preference
+	•	config — optional daemon-specific configuration
+
+⸻
+
+3.3 Edges
+
+Edges define dependencies/ordering between nodes:
+
+{
+  "from": "spider_core",
+  "to": "mirror_core",
+  "condition": "output.confidence < 0.85",
+  "label": "verify_low_confidence"
+}
+
+Fields:
+	•	from, to — node ids
+	•	condition — expression evaluated against upstream outputs
+	•	label — human-friendly description
+
+⸻
+
+3.4 Triggers
+
+Triggers map events to entry nodes:
+
+{
+  "event_type": "USER_REQUEST",
+  "match": {
+    "risk_level": ">= medium"
+  },
+  "entry_nodes": ["spider_core", "hound_core"]
+}
+
+Fields:
+	•	event_type — string enumerating event category
+	•	match — key/value conditions (interpreted by runtime)
+	•	entry_nodes — list of node ids to invoke initially
+
+⸻
+
+4. Execution Semantics
+	1.	An event arrives (e.g. user query with metadata).
+	2.	The runtime selects all matching triggers.
+	3.	All entry_nodes for those triggers are scheduled (respecting priority).
+	4.	As each node finishes, its outgoing edges are evaluated:
+	•	if condition holds, the downstream node is added to the queue.
+	5.	This continues until no nodes remain to execute.
+
+⸻
+
+5. TPU Relevance
+
+DIG itself is not heavy compute; it’s control flow.
+
+However, the DAG makes it easier to:
+	•	batch daemon workloads
+	•	map groups of daemons to TPU-accelerated subgraphs
+	•	reason about performance and latency
+
+The Pantheon runtime can:
+	•	compile frequent subpaths into XLA graphs,
+	•	measure timings per edge,
+	•	adaptively rewire or reweight the graph under load.
+
+⸻
+
+
+### `daemon_invocation_graph/dig_schema.json`
+
+A lightweight JSON schema (non-exhaustive):
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pantheon Daemon Invocation Graph",
+  "type": "object",
+  "required": ["version", "graph_id", "nodes", "edges", "triggers"],
+  "properties": {
+    "version": { "type": "string" },
+    "graph_id": { "type": "string" },
+    "description": { "type": "string" },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/edge" }
+    },
+    "triggers": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/trigger" }
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "required": ["id", "daemon"],
+      "properties": {
+        "id": { "type": "string" },
+        "daemon": { "type": "string" },
+        "role": { "type": "string" },
+        "priority": { "type": "integer" },
+        "config": { "type": "object" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "condition": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "required": ["event_type", "entry_nodes"],
+      "properties": {
+        "event_type": { "type": "string" },
+        "match": { "type": "object" },
+        "entry_nodes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+
+Example DIG (examples/sample_dig_pantheon.json)
+
+{
+  "version": "1.0",
+  "graph_id": "pantheon_core_v1",
+  "description": "Core Pantheon daemon invocation graph.",
+  "nodes": [
+    { "id": "spider_core", "daemon": "Spider", "role": "connector", "priority": 5 },
+    { "id": "hound_core",  "daemon": "Hound",  "role": "anomaly",   "priority": 6 },
+    { "id": "mirror_core", "daemon": "Mirror", "role": "verifier",  "priority": 10 },
+    { "id": "motherduck_core", "daemon": "MotherDuck", "role": "ledger", "priority": 20 }
+  ],
+  "edges": [
+    {
+      "from": "spider_core",
+      "to": "mirror_core",
+      "condition": "spider_core.confidence < 0.9",
+      "label": "verify_low_confidence"
+    },
+    {
+      "from": "hound_core",
+      "to": "motherduck_core",
+      "condition": "hound_core.anomaly_score > 0.7",
+      "label": "log_high_risk"
+    }
+  ],
+  "triggers": [
+    {
+      "event_type": "USER_REQUEST",
+      "match": { "risk_level": ">= medium" },
+      "entry_nodes": ["spider_core", "hound_core"]
+    }
+  ]
+}
+
+
+⸻
+
+3. Daemon Mesh Protocol (DMP) v1.0
+
+daemon_mesh_protocol/DMP_SPEC.md
+
+# Daemon Mesh Protocol (DMP) v1.0
+
+## 1. Purpose
+
+DMP defines how Pantheon daemons **talk to each other**:
+
+- message envelope format,
+- event types,
+- routing keys,
+- error semantics.
+
+This allows Pantheon to run as:
+- a local process graph,
+- a distributed microservice mesh,
+- or a hybrid TPU-backed runtime.
+
+---
+
+## 2. Message Envelope
+
+All messages share a common envelope:
+
+```jsonc
+{
+  "id": "uuid-1234",
+  "timestamp": "2025-12-01T15:04:05Z",
+  "source_daemon": "Spider",
+  "target_daemon": "Mirror",
+  "correlation_id": "uuid-req-1",
+  "event_type": "CONTEXT_ANALYSIS_RESULT",
+  "routing_key": "risk.medium",
+  "payload": {},
+  "meta": {}
+}
+
+Fields:
+	•	id — unique message id
+	•	timestamp — ISO 8601 string
+	•	source_daemon — daemon type or instance id
+	•	target_daemon — daemon type or instance id (or "broadcast")
+	•	correlation_id — ties together request/response chains
+	•	event_type — semantic type of message (see below)
+	•	routing_key — for topic-based routing (e.g. risk.high, governance.ax)
+	•	payload — domain-specific content
+	•	meta — tracing, versioning, debug
+
+⸻
+
+3. Event Types (Non-exhaustive)
+	•	USER_REQUEST_RECEIVED
+	•	CONTEXT_ANALYSIS_RESULT
+	•	ANOMALY_DETECTED
+	•	GOVERNANCE_CHECK_REQUEST
+	•	GOVERNANCE_CHECK_RESULT
+	•	AXIOM_FORGE_RESULT
+	•	LEDGER_WRITE_REQUEST
+	•	LEDGER_WRITE_CONFIRMED
+	•	ERROR_EVENT
+	•	HEARTBEAT
+
+⸻
+
+4. Error Semantics
+
+Error messages use event_type = "ERROR_EVENT" and include:
+
+{
+  "error_code": "HOUND_TIMEOUT",
+  "error_message": "Hound daemon exceeded its SLA.",
+  "severity": "warning",
+  "suggested_action": "retry"
+}
+
+
+⸻
+
+5. Transport
+
+DMP is transport-agnostic:
+	•	in-process async queues,
+	•	gRPC,
+	•	message buses (NATS, Kafka, etc.),
+	•	or custom channels for TPU pods.
+
+The only requirement:
+	•	Message order preserved per correlation_id.
+	•	Delivery is at-least-once or exactly-once (depending on deployment).
+
+⸻
+
+6. TPU Considerations
+
+DMP messages can carry tensor handles or references to:
+	•	TPU-resident buffers,
+	•	XLA computation handles.
+
+Pattern:
+	•	A daemon submits a batch to a TPU-backed computation graph,
+	•	receives a computation_id,
+	•	later receives a COMPUTATION_RESULT event with references to outputs.
+
+⸻
+
+
+### `daemon_mesh_protocol/dmp_envelope_schema.json`
+
+Skeleton schema (similar pattern to DIG):
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pantheon Daemon Mesh Protocol Envelope",
+  "type": "object",
+  "required": [
+    "id",
+    "timestamp",
+    "source_daemon",
+    "target_daemon",
+    "event_type",
+    "payload"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "source_daemon": { "type": "string" },
+    "target_daemon": { "type": "string" },
+    "correlation_id": { "type": "string" },
+    "event_type": { "type": "string" },
+    "routing_key": { "type": "string" },
+    "payload": { "type": "object" },
+    "meta": { "type": "object" }
+  }
+}
+
+
+⸻
+
+4. TPU Cluster Orchestration Blueprint
+
+tpu_orchestration/ORCHESTRATION_SPEC.md
+
+# Pantheon × TPU Orchestration Spec v1.0
+
+## 1. Layers
+
+Deployment architecture:
+
+1. **Model Serving Layer**
+   - Hosts LLMs or domain models
+   - TPU-backed
+   - Accessible via RPC from daemons
+
+2. **Pantheon Runtime Layer**
+   - Daemon processes
+   - DIG executor
+   - DMP message bus
+
+3. **Control & Governance Layer**
+   - ΣC / Arctic / Axiom Forge
+   - Logging (Mother Duck, Logwright Beaver)
+   - Monitoring & metrics
+
+---
+
+## 2. Components
+
+- `pantheon-controller`:
+  - Reads DIG
+  - Schedules daemons
+  - Routes messages
+
+- `daemon-*` pods:
+  - Individual daemon services (Spider, Hound, etc.)
+
+- `tpu-model-server`:
+  - Wraps model calls
+  - Provides inference/training endpoints
+
+---
+
+## 3. Scheduling Goals
+
+- Keep **daemon logic** CPU/GPU-local.
+- Use **TPUs** for:
+  - Axiom Forge runs
+  - NTE computations
+  - Rorschach projections
+  - Oracle Weave heavy phases
+
+- Use **queue backpressure**:
+  - If TPU saturation occurs, degrade gracefully:
+    - reduce daemon fan-out
+    - skip non-critical analyses
+    - prioritize governance checks over extras.
+
+---
+
+## 4. Metrics to Track
+
+- Latency per daemon chain (per DIG path)
+- TPU utilization
+- Queue depth per message type
+- Governance check coverage
+- Axiom Forge run frequency & cost
+
+tpu_orchestration/k8s_pantheon_tpu_example.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pantheon-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pantheon-controller
+  template:
+    metadata:
+      labels:
+        app: pantheon-controller
+    spec:
+      containers:
+        - name: pantheon-controller
+          image: your-registry/pantheon-controller:latest
+          env:
+            - name: DIG_PATH
+              value: "/config/dig.json"
+            - name: DMP_BUS_URL
+              value: "nats://nats:4222"
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: pantheon-dig-config
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: daemon-spider
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: daemon-spider
+  template:
+    metadata:
+      labels:
+        app: daemon-spider
+    spec:
+      containers:
+        - name: daemon-spider
+          image: your-registry/daemon-spider:latest
+          env:
+            - name: DMP_BUS_URL
+              value: "nats://nats:4222"
+            - name: MODEL_SERVER_URL
+              value: "http://tpu-model-server:8080"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: daemon-axiomforge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: daemon-axiomforge
+  template:
+    metadata:
+      labels:
+        app: daemon-axiomforge
+    spec:
+      containers:
+        - name: daemon-axiomforge
+          image: your-registry/daemon-axiomforge:latest
+          env:
+            - name: DMP_BUS_URL
+              value: "nats://nats:4222"
+            - name: TPU_ENDPOINT
+              value: "grpc://tpu-bridge:9000"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tpu-model-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tpu-model-server
+  template:
+    metadata:
+      labels:
+        app: tpu-model-server
+    spec:
+      containers:
+        - name: tpu-model-server
+          image: your-registry/tpu-model-server:latest
+          env:
+            - name: TPU_VISIBLE_CHIPS
+              value: "0,1,2,3"
+          ports:
+            - containerPort: 8080
+
+(This is schematic—you or Gemini/GPT-4.1 can flesh out the exact infra.)
+
+⸻
+
+5. README Snippet
+
+pantheon_tpu_suite/README.md
+
+# Pantheon × TPU Implementation Suite v1.0
+
+This module contains reference implementations and specs for running
+**PantheonOS** on **Tensor Processing Units (TPUs)**.
+
+## Contents
+
+- `axiom_forge_tpu/`  
+  TPU-optimized spec and core implementation of the **Axiom Forge**,
+  PantheonOS's invariant extraction engine.
+
+- `daemon_invocation_graph/`  
+  JSON schema and examples for the **Daemon Invocation Graph (DIG)**,
+  a declarative description of when and how daemons should wake.
+
+- `daemon_mesh_protocol/`  
+  The **Daemon Mesh Protocol (DMP)**, defining message envelopes and event
+  types for daemon-to-daemon communication.
+
+- `tpu_orchestration/`  
+  A high-level orchestration spec and example Kubernetes manifest for
+  deploying Pantheon daemons alongside a TPU-backed model server.
+
+## How It Fits Together
+
+1. **DIG** defines the *control flow* of which daemons should run.
+2. **DMP** defines *how they talk to each other*.
+3. **Axiom Forge TPU** defines how to turn Pantheon behavior and data into
+   **axioms** and **constraints** using TPU-accelerated tensor math.
+4. **TPU Orchestration** ties it all to a cluster deployment model.
+
+PantheonOS stays true to its core design:
+
+- **Mesh-based, on-demand cognition**
+- **Continuity + governance around stateless models**
+- **Tensor-native geometry**, now with **TPU-native acceleration**
+
+You can treat this suite as:
+
+- a starting point for a production deployment, or  
+- a reference architecture to adapt to your own infra.
+
+---
+
+
+⸻
+
+If you want, next step I can do is write a pantheon_tpu_suite/CONTRIBUTING.md that explains how external collaborators should extend daemons, graphs, and TPU jobs without breaking the canon.
