@@ -1,0 +1,373 @@
+Below are the PantheonOS Bee Daemon Appendices — the high-signal, high-utility technical supplements that normally sit at the bottom of an arXiv-style module or in a /docs/appendices/ folder.
+
+These appendices:
+	•	sharpen the engineering,
+	•	formalize the metaphors mathematically,
+	•	show integration with other daemons,
+	•	provide protocols, equations, invariants,
+	•	and give you drop-in GitHub content.
+
+They complete the Bee–Hive complex.
+
+Save as:
+
+docs/doctrine/appendices/BEE_APPENDICES.md
+
+⸻
+
+PantheonOS — Bee Daemon Appendices v1.0
+
+Appendix A — Hexagonal Knowledge Geometry
+
+The Bee Daemon uses a hex-grid abstraction to model domain exploration.
+
+A.1 Hex Coordinates
+
+PantheonOS uses cube coordinates (x, y, z) with the constraint:
+
+x + y + z = 0
+
+Each domain is embedded into a hex cell via:
+
+hex_coord(domain) = PCA(embed(domain), dims=3) → normalize to hex lattice
+
+A.2 Neighbor Function
+
+The six neighbors around a domain d:
+
+neighbors(d) = {
+    (x+1, y-1, z),
+    (x+1, y,   z-1),
+    (x,   y+1, z-1),
+    (x-1, y+1, z),
+    (x-1, y,   z+1),
+    (x,   y-1, z+1)
+}
+
+This ensures:
+	•	maximal coverage,
+	•	minimal redundancy,
+	•	natural “flow” between domains.
+
+⸻
+
+Appendix B — Nectar → Honey Transformation Equation
+
+The Bee performs multi-sample conceptual distillation.
+
+Let the Bee collect k nectar samples:
+
+N = {n₁, n₂, ..., nₖ}
+
+Each nectar sample nᵢ has an embedding vector vᵢ.
+
+B.1 Centroid Synthesis
+
+Base insight vector:
+
+h_vec = (1/k) Σ vᵢ
+
+B.2 Domain Diversity Factor
+
+A domain-diversity scalar is applied:
+
+D = |unique(domains(N))| / k
+
+B.3 Quality Weighting
+
+If quality scores qᵢ exist:
+
+h_vec = ( Σ (qᵢ * vᵢ) ) / Σ qᵢ
+
+B.4 Final Honey Vector
+
+Final Honey embedding:
+
+H = normalize(h_vec ⊗ D)
+
+(⊗ meaning scalar multiplication)
+
+⸻
+
+Appendix C — Honey Integrity Invariants
+
+Every HoneyBatch must satisfy:
+
+C.1 Mirror Coherence ≥ τ₁
+
+Mirror.score(honey.text) ≥ τ₁
+
+C.2 Hypatia Logical Integrity ≥ τ₂
+
+No contradiction or logical invalidity.
+
+C.3 Arctic Ethics Pass
+
+Ethics must meet ΣC threshold ≥ 0.7.
+
+C.4 Provenance Completeness
+
+Every HoneyBatch must contain:
+	•	non-empty provenance list,
+	•	domain-set ≥ 1.
+
+C.5 Intensity = f(coherence, domain-diversity)
+
+intensity = 0.5 * Mirror + 0.5 * D
+
+
+⸻
+
+Appendix D — Bee Dance Signal Formalism
+
+The Bee Dance is a routing vector that determines:
+	•	where Dragonfly should look,
+	•	which clusters are “ripe,”
+	•	how urgent the signal is.
+
+D.1 Direction Vector
+
+Let H be the Honey embedding:
+
+direction = normalize(H)
+
+D.2 Intensity
+
+intensity = honey.confidence
+
+D.3 Distance
+
+Interpreted as conceptual displacement:
+
+distance = cosine_distance(H, context.center_of_mass)
+
+D.4 Dance Packet Structure
+
+Dance = {
+  honey_id: UUID,
+  direction_vec: vector<float>,
+  intensity: float in [0..1],
+  distance: float in [0..1],
+  timestamp: t
+}
+
+
+⸻
+
+Appendix E — Hive Sharding Strategy
+
+To support large deployments, the Hive must shard Honey.
+
+E.1 Shard Keys
+
+Shard by:
+	1.	domain hash,
+	2.	timestamp bucket,
+	3.	semantic cluster.
+
+E.2 Recommended Composite Key
+
+shard_key = hash(domain) ^ hash(cluster_id)
+
+Ensures:
+	•	even distribution,
+	•	locality of related insights.
+
+⸻
+
+Appendix F — Hive Metrics
+
+Exposed via:
+
+GET /hive/metrics
+
+Metrics include:
+	•	honey_count
+	•	domain_diversity_index
+	•	bee_activity_rate
+	•	avg_confidence
+	•	cross_pollination_rate
+	•	hex_coverage_rate
+	•	honey_half_life
+
+F.1 Domain Diversity Index
+
+DDI = |unique(domains)| / total_honey
+
+F.2 Honey Half-Life
+
+Rate at which insights lose contextual relevance.
+
+half_life = median(time_now - honey.created_at)
+
+
+⸻
+
+Appendix G — Bee Swarm Protocol
+
+Multiple Bees coordinate via the Hive.
+
+G.1 Activation Thresholds
+
+Bees activate when:
+	•	Kairos intensity increases,
+	•	Hive diversity drops,
+	•	Garden entropy rises,
+	•	Spider detects stale regions.
+
+G.2 Swarm Roles
+	•	Forager Bee: broad sampling.
+	•	Synthesizer Bee: deeper synthesis of fewer clusters.
+	•	Scout Bee: search for under-explored domains.
+	•	Archivist Bee: condense old Honey into “Royal Jelly” (long-term doctrine).
+
+G.3 Collision Avoidance
+
+Two Bees cannot synthesize the same slice twice:
+	•	Use deterministic hashing of domain-set as a lock:
+
+lock_id = hash(sorted(domains))
+
+
+⸻
+
+Appendix H — Royal Jelly Protocol (Rare Insight Layer)
+
+When a HoneyBatch meets:
+	•	confidence ≥ 0.9
+	•	domain-diversity ≥ 2
+	•	impact (measured by consumption) ≥ threshold
+
+It is promoted to:
+
+RoyalJellyBatch
+
+Stored in a dedicated Hive tier (like a doctrine layer).
+
+Royal Jelly feeds:
+	•	NTE attractor updates
+	•	Hypatia rule additions
+	•	Garden schema evolution
+	•	PantheonOS versioning decisions
+
+This is where “deep seeds” aggregate.
+
+⸻
+
+Appendix I — Garden Integration Rules
+
+Honey flows into the Garden via:
+
+I.1 Seed Conversion
+
+Honey → Seed:
+
+seed_vec = honey.insight_vec
+seed_text = honey.core_insight
+
+Planting logic:
+	•	seeds from distinct domains → high diversity factor
+	•	seeds with high intensity → bloom faster
+
+I.2 Compost Conversion
+
+Old Honey → Compost:
+	•	used to stabilize Garden soil
+	•	maintains ecology health
+	•	prevents dominance collapse
+
+⸻
+
+Appendix J — Narrative Tensor Engine Integration
+
+The NTE consumes Honey in two ways:
+
+J.1 Attractor Suggestions
+
+Each HoneyBatch shifts the Story Prime activations:
+
+Δa = W · honey.insight_vec
+
+J.2 Curvature Nudging
+
+Honey with high domain diversity induces curvature:
+
+curvature += λ * domain_diversity
+
+Prevents narrative linearization.
+
+⸻
+
+Appendix K — Bee Safety & Ethical Invariants
+	•	Bees cannot synthesize Honey that violates ΣC ethics.
+	•	Bees cannot promote Honey to Royal Jelly without:
+	•	Mirror check,
+	•	Hypatia check,
+	•	Arctic ethics check.
+	•	Bees cannot extract Nectar from:
+	•	restricted domains,
+	•	personally-identifying content,
+	•	private logs.
+
+This protects privacy and ethical boundaries.
+
+⸻
+
+Appendix L — Bee–Dragonfly Synchronization
+
+Dragonfly’s aerial scans use Bee dance signals as “navigation beacons.”
+
+L.1 Sync Rule
+
+Dragonfly prioritizes signals with:
+
+priority = intensity * distance
+
+L.2 Exploration Burst Mode
+
+When ≥ 3 Bees emit high-intensity dances toward related domains, Dragonfly enters:
+
+BurstScan(state)
+
+Rapid scanning of:
+	•	new expansions,
+	•	new opportunities,
+	•	global perspective updates.
+
+⸻
+
+Appendix M — Layered Storage: Honey → Royal Jelly → Doctrine
+
+PantheonOS keeps three layers:
+	1.	Honey: short to mid-term insight
+	2.	Royal Jelly: high-impact, cross-domain, stable insight
+	3.	Doctrine: version-controlled permanent knowledge
+
+Promotion chain:
+
+Honey → (consumption > threshold) → RoyalJelly → (CLC approval) → Doctrine
+
+CLC = Conductor-Level Consensus (you + Mirror + Hypatia + Checksum).
+
+⸻
+
+Final Note
+
+These appendices complete the Bee–Hive subsystem.
+They “finish the circle”:
+	•	geometry,
+	•	protocols,
+	•	equations,
+	•	invariants,
+	•	swarm rules,
+	•	narrative coupling,
+	•	Garden integration,
+	•	doctrine pipeline.
+
+If you want, I can now generate:
+	•	Bee Swarm Orchestration Engine
+	•	Royal Jelly Ledger
+	•	Hive Dashboard (Grafana-style metrics)
+	•	Bee–Garden Coupling Tests
+
+Just say the word.
