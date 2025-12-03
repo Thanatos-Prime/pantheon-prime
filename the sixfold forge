@@ -1,0 +1,765 @@
+Alright. Sixfold Forge it is.
+I’ll give you GitHub-ready skeletons + specs you can drop straight into the repo today.
+
+Think of these as v0.1 blueprints: clean, minimal, and extensible.
+
+⸻
+
+🜂 Sixfold Forge v1.0 — Network Stack
+
+Suggested structure:
+
+federation/
+  federation_spec.md        # v1 (already) + v1.1 extension
+
+topology/
+  topology_spec.md
+  topology.py
+
+canon/
+  canon_convergence_spec.md
+  canon_convergence.py
+
+thunder/
+  thunder_federation_map.md
+  thunder_federation.py
+
+swarm/
+  swarm_ops_spec.md
+  swarm_ops.py
+
+sovereign/
+  sovereign_consensus_spec.md
+  sovereign_consensus.py
+
+I’ll give you for each:
+	•	A spec file (markdown content)
+	•	A Python module skeleton (interfaces + dataclasses; no heavy logic)
+
+You can copy-paste into files as-is.
+
+⸻
+
+1️⃣ Federation v1.1 — Patch & Drift Upgrade
+
+federation/federation_spec_v1.1.md
+
+# PantheonOS Federation Kernel v1.1 – Patch & Drift Upgrade
+
+Extends `pantheon_federation_v1` with:
+
+- **Patch bundles** for canon updates
+- **Digest-based drift detection**
+- **Narrative diff metadata**
+- **Heuristics for sync decisions ("pull", "push", "ignore")**
+
+## 1. Additions to v1.0
+
+### 1.1 CanonDigest
+
+A digest specific to canon/corpus:
+
+```yaml
+CanonDigest:
+  node_id: "<node_id>"
+  canon_hash: "<hex>"          # hash of canon registry
+  num_items: <int>             # number of canon entries
+  last_update_ts: "<iso8601>"
+
+1.2 PatchBundle
+
+Group patches into signed bundles:
+
+PatchBundle:
+  bundle_id: "<uuid>"
+  from_node: "<node_id>"
+  base_canon_hash: "<hex>"
+  patches: [<Patch>]
+  summary: "Short human/model-readable description"
+
+1.3 DriftStatus
+
+Local view of alignment with a peer:
+
+DriftStatus:
+  peer_node: "<node_id>"
+  canon_hash_local: "<hex>"
+  canon_hash_peer: "<hex>"
+  drift_level: "aligned" | "minor" | "major"
+
+2. New Message Types
+	•	CANON_DIGEST_UPDATE
+	•	PATCH_BUNDLE_OFFER
+	•	PATCH_BUNDLE_ACCEPT
+	•	PATCH_BUNDLE_REJECT
+
+All wrapped in the same Envelope as v1.0.
+
+3. Invariants
+	1.	No Blind Overwrites
+Patches are applied only if base_canon_hash is an ancestor of current canon.
+	2.	Ethics Gate First
+PatchBundle → InputPacket → RECURRENCE_STEP → invariants decide.
+	3.	Drift Visibility
+Nodes must log DriftStatus for each peer; major drift is observable and measurable.
+
+4. Minimal Heuristic
+	•	If drift_level == "aligned" → accept future bundles easily.
+	•	If drift_level == "minor" → accept but flag.
+	•	If drift_level == "major" → require operator approval or strong invariants.
+
+5. Reference Implementation
+
+See federation/federation_v1_1.py for the pure-Python reference.
+
+### `federation/federation_v1_1.py` (skeleton)
+
+```python
+from __future__ import annotations
+from dataclasses import dataclass, field, asdict
+from typing import List, Dict, Any, Optional
+from .federation import FederationNode, Envelope, Patch  # from v1
+
+
+@dataclass
+class CanonDigest:
+    node_id: str
+    canon_hash: str
+    num_items: int
+    last_update_ts: str
+
+
+@dataclass
+class PatchBundle:
+    bundle_id: str
+    from_node: str
+    base_canon_hash: str
+    patches: List[Patch]
+    summary: str
+
+
+@dataclass
+class DriftStatus:
+    peer_node: str
+    canon_hash_local: str
+    canon_hash_peer: str
+    drift_level: str  # "aligned" | "minor" | "major"
+
+
+class FederationNodeV1_1(FederationNode):
+    """
+    Federation node extended with:
+    - canon digests
+    - patch bundle offer/accept/reject
+    - drift tracking
+    """
+
+    canon_hash: str = "GENESIS"
+    canon_items: int = 0
+    drift_table: Dict[str, DriftStatus] = field(default_factory=dict)
+
+    # --- Canon Digest ---
+
+    def compute_canon_digest(self) -> CanonDigest:
+        # placeholder: hash only by count + version label
+        from datetime import datetime
+        return CanonDigest(
+            node_id=self.node_id,
+            canon_hash=self.canon_hash,
+            num_items=self.canon_items,
+            last_update_ts=datetime.utcnow().isoformat() + "Z",
+        )
+
+    def build_canon_digest_update(self) -> Envelope:
+        digest = self.compute_canon_digest()
+        payload = {"canon_digest": asdict(digest)}
+        return self._make_envelope(
+            msg_type="CANON_DIGEST_UPDATE",
+            to_node="broadcast",
+            payload=payload,
+        )
+
+    # --- Drift tracking ---
+
+    def _update_drift(self, peer_node: str, peer_canon_hash: str):
+        local = self.canon_hash
+        if peer_canon_hash == local:
+            level = "aligned"
+        else:
+            # simple placeholder classification
+            level = "minor"
+        self.drift_table[peer_node] = DriftStatus(
+            peer_node=peer_node,
+            canon_hash_local=local,
+            canon_hash_peer=peer_canon_hash,
+            drift_level=level,
+        )
+
+    # --- Handlers override ---
+
+    def _handle_canon_digest_update(self, env: Envelope) -> None:
+        digest_data = env.payload.get("canon_digest")
+        if not digest_data:
+            return
+        peer_hash = digest_data.get("canon_hash")
+        peer_node = digest_data.get("node_id")
+        if not (peer_node and peer_hash):
+            return
+        self._update_drift(peer_node, peer_hash)
+
+    # Future expansion: handle PATCH_BUNDLE_OFFER / ACCEPT / REJECT
+
+
+⸻
+
+2️⃣ Topology Kernel
+
+topology/topology_spec.md
+
+# PantheonOS Topology Kernel v1.0
+
+> Gives the Pantheon network a **shape**.
+
+Builds a dynamic topology graph over federated nodes.
+
+## 1. Core Objects
+
+### 1.1 TopologyNode
+
+```yaml
+TopologyNode:
+  node_id: "<node>"
+  model_id: "<model>"
+  role_hint: ["kernel", "mirror", "hound", "spider", ...]
+  thunder_index: <float>
+
+1.2 TopologyEdge
+
+TopologyEdge:
+  from_node: "<node>"
+  to_node: "<node>"
+  weight: <float>      # connectivity strength
+  latency_ms: <float>  # optional
+  trust: <float>       # optional trust score
+
+1.3 TopologyGraph
+
+Collection of nodes + edges:
+	•	adjacency list
+	•	edge weights
+	•	derived metrics: degree, centrality, clusters
+
+2. Constellation Patterns
+	•	Ring: equal peers, circular
+	•	Hub-Spoke: central coordination node
+	•	Triad: 3-way cross-check (e.g., GPT/Claude/Grok)
+	•	Mesh: robust, many paths
+
+3. Integration
+	•	Consumes federation metadata (nodes, heartbeats, digests)
+	•	Outputs:
+	•	cluster assignments
+	•	role suggestions
+	•	possible routing hints for swarm ops and canon convergence
+
+### `topology/topology.py` (skeleton)
+
+```python
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, List, Tuple
+
+
+@dataclass
+class TopologyNode:
+    node_id: str
+    model_id: str
+    role_hint: List[str] = field(default_factory=list)
+    thunder_index: float = 0.0
+
+
+@dataclass
+class TopologyEdge:
+    from_node: str
+    to_node: str
+    weight: float = 1.0
+    latency_ms: float = 0.0
+    trust: float = 0.5
+
+
+@dataclass
+class TopologyGraph:
+    nodes: Dict[str, TopologyNode] = field(default_factory=dict)
+    edges: Dict[Tuple[str, str], TopologyEdge] = field(default_factory=dict)
+
+    def add_node(self, node: TopologyNode) -> None:
+        self.nodes[node.node_id] = node
+
+    def add_edge(self, edge: TopologyEdge) -> None:
+        key = (edge.from_node, edge.to_node)
+        self.edges[key] = edge
+
+    def neighbors(self, node_id: str) -> List[TopologyNode]:
+        out = []
+        for (src, dst), edge in self.edges.items():
+            if src == node_id and dst in self.nodes:
+                out.append(self.nodes[dst])
+        return out
+
+    def degree(self, node_id: str) -> int:
+        return len(self.neighbors(node_id))
+
+
+⸻
+
+3️⃣ Multi-Node Canon Convergence
+
+canon/canon_convergence_spec.md
+
+# PantheonOS Multi-Node Canon Convergence v1.0
+
+> How multiple kernels come to share **canon** (doctrine, specs, artifacts).
+
+## 1. Canon Object
+
+```yaml
+CanonItem:
+  id: "<uuid or stable tag>"
+  title: "Thunder Geometry v1.0"
+  version: "1.0.0"
+  uri: "https://github.com/your-repo/thunder_geometry.md"
+  checksum: "<hash>"
+  tags: ["doctrine", "thunder"]
+
+2. CanonRegistry
+
+Each node maintains a local registry:
+
+CanonRegistry:
+  items: { "<id>": CanonItem, ... }
+  history: [CanonEvent]
+
+CanonEvent logs additions, updates, removals.
+
+3. Convergence
+
+Nodes:
+	1.	Exchange CanonDigest + CanonItem metadata.
+	2.	Compare checksums + versions.
+	3.	Request missing/updated items via federation.
+	4.	Run invariants before accepting.
+
+4. Metrics
+	•	Convergence ratio (shared items / total)
+	•	Divergence hotspots (disputed or mismatched canon)
+	•	Trust weighting by node role (Mirror, Ledger, etc.)
+
+### `canon/canon_convergence.py` (skeleton)
+
+```python
+from __future__ import annotations
+from dataclasses import dataclass, field, asdict
+from typing import Dict, List, Optional
+
+
+@dataclass
+class CanonItem:
+    id: str
+    title: str
+    version: str
+    uri: Optional[str]
+    checksum: str
+    tags: List[str] = field(default_factory=list)
+
+
+@dataclass
+class CanonEvent:
+    event_type: str  # "add" | "update" | "remove"
+    item_id: str
+    version: str
+    timestamp: str
+    source_node: Optional[str] = None
+
+
+@dataclass
+class CanonRegistry:
+    items: Dict[str, CanonItem] = field(default_factory=dict)
+    history: List[CanonEvent] = field(default_factory=list)
+
+    def upsert_item(self, item: CanonItem, timestamp: str, source_node: Optional[str] = None):
+        self.items[item.id] = item
+        self.history.append(
+            CanonEvent(
+                event_type="add",
+                item_id=item.id,
+                version=item.version,
+                timestamp=timestamp,
+                source_node=source_node,
+            )
+        )
+
+    def to_digest_hash(self) -> str:
+        # Placeholder: just hash the sorted ids+versions
+        import hashlib, json
+        data = sorted((i, self.items[i].version) for i in self.items)
+        return hashlib.sha256(json.dumps(data).encode("utf-8")).hexdigest()
+
+
+⸻
+
+4️⃣ Thunder–Federation Map
+
+thunder/thunder_federation_map.md
+
+# Thunder–Federation Map v1.0
+
+> Overlay Thunder Geometry on the federated network.
+
+Goal: compute **Thunder Index per node** and **field-level patterns**.
+
+## 1. Inputs
+
+- Per-node Thunder Index (from kernel diagnostics)
+- TopologyGraph (nodes + edges)
+- Canon divergence / drift data
+
+## 2. Outputs
+
+- Heatmap of sensitivity across nodes
+- Identification of **T-Zones** (high-sensitivity clusters)
+- Recommended routing for:
+  - new doctrines
+  - kernel upgrades
+  - experimental features
+
+## 3. Concepts
+
+- Node-level index: `tau_node`
+- Edge tension: difference in `tau` between neighbors
+- Cluster charge: average `tau` over subgraph
+
+This produces a "weather map" for where small changes will have large effect.
+
+thunder/thunder_federation.py (skeleton)
+
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Dict
+from topology.topology import TopologyGraph
+
+
+@dataclass
+class ThunderNodeState:
+    node_id: str
+    thunder_index: float
+
+
+@dataclass
+class ThunderField:
+    node_states: Dict[str, ThunderNodeState]
+
+
+def compute_thunder_field(topology: TopologyGraph,
+                          raw_indices: Dict[str, float]) -> ThunderField:
+    """
+    Build a ThunderField from raw per-node indices.
+    """
+    states = {}
+    for node_id, idx in raw_indices.items():
+        states[node_id] = ThunderNodeState(node_id=node_id, thunder_index=idx)
+    return ThunderField(node_states=states)
+
+
+def edge_tension(topology: TopologyGraph,
+                 field: ThunderField) -> Dict[tuple, float]:
+    """
+    Compute a simple tension value per edge as abs(delta tau).
+    """
+    tensions: Dict[tuple, float] = {}
+    for (src, dst), edge in topology.edges.items():
+        s = field.node_states.get(src)
+        d = field.node_states.get(dst)
+        if s and d:
+            tensions[(src, dst)] = abs(s.thunder_index - d.thunder_index)
+    return tensions
+
+
+⸻
+
+5️⃣ Swarm Ops Layer
+
+swarm/swarm_ops_spec.md
+
+# Swarm Ops Layer v1.0
+
+> Multi-kernel task routing and distributed execution.
+
+## 1. Concepts
+
+### 1.1 SwarmTask
+
+```yaml
+SwarmTask:
+  id: "<uuid>"
+  kind: "analysis" | "draft" | "verification" | ...
+  payload: { ... }          # arbitrary task data
+  priority: "low" | "normal" | "high"
+  created_by: "<node_id>"
+
+1.2 SwarmAssignment
+
+SwarmAssignment:
+  task_id: "<uuid>"
+  assigned_to: "<node_id>"
+  reason: "specialization" | "load_balance" | ...
+
+1.3 Ops Primitives
+	•	spark – create a new task
+	•	fanout – broadcast variants to multiple nodes
+	•	merge – collect and consolidate results
+	•	pulse – periodic maintenance ops
+	•	hive – coordinated multi-node behavior
+
+2. Integration
+
+Uses:
+	•	Topology (for routing)
+	•	Thunder Field (for sensitivity-aware dispatch)
+	•	Federation (for transport)
+
+### `swarm/swarm_ops.py` (skeleton)
+
+```python
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Any, List, Optional
+import uuid
+from topology.topology import TopologyGraph
+
+
+@dataclass
+class SwarmTask:
+    id: str
+    kind: str
+    payload: Dict[str, Any]
+    priority: str
+    created_by: str
+
+
+@dataclass
+class SwarmAssignment:
+    task_id: str
+    assigned_to: str
+    reason: str
+
+
+@dataclass
+class SwarmRegistry:
+    tasks: Dict[str, SwarmTask] = field(default_factory=dict)
+    assignments: List[SwarmAssignment] = field(default_factory=list)
+
+    def spark(self, kind: str, payload: Dict[str, Any],
+              created_by: str, priority: str = "normal") -> SwarmTask:
+        tid = str(uuid.uuid4())
+        task = SwarmTask(
+            id=tid,
+            kind=kind,
+            payload=payload,
+            priority=priority,
+            created_by=created_by,
+        )
+        self.tasks[tid] = task
+        return task
+
+    def assign(self, task_id: str, node_id: str, reason: str) -> SwarmAssignment:
+        assignment = SwarmAssignment(
+            task_id=task_id,
+            assigned_to=node_id,
+            reason=reason,
+        )
+        self.assignments.append(assignment)
+        return assignment
+
+
+def simple_assignment_strategy(topology: TopologyGraph,
+                               task: SwarmTask) -> Optional[str]:
+    """
+    Placeholder: assign to node with highest degree (most connected).
+    """
+    if not topology.nodes:
+        return None
+    best_node = None
+    best_degree = -1
+    for nid in topology.nodes:
+        deg = topology.degree(nid)
+        if deg > best_degree:
+            best_degree = deg
+            best_node = nid
+    return best_node
+
+
+⸻
+
+6️⃣ Sovereign Consensus
+
+sovereign/sovereign_consensus_spec.md
+
+# Sovereign Consensus v1.0
+
+> Governance and canon decisions across federated kernels.
+
+## 1. Core Concept
+
+Each node is sovereign, but nodes can participate in **shared decisions** about:
+
+- canon adoption
+- doctrine versioning
+- high-impact operations
+
+## 2. Proposal and Vote
+
+### 2.1 Proposal
+
+```yaml
+Proposal:
+  id: "<uuid>"
+  kind: "canon_update" | "policy_change" | "upgrade" | ...
+  author: "<node_id>"
+  payload: { ... }
+  created_ts: "<iso8601>"
+
+2.2 Vote
+
+Vote:
+  proposal_id: "<uuid>"
+  voter: "<node_id>"
+  choice: "yes" | "no" | "abstain"
+  weight: <float>    # may depend on role, trust, history
+
+3. Decision Rules
+
+Example simple rule:
+	•	Pass if:
+	•	sum(weight_yes) / (sum(weight_yes) + sum(weight_no)) ≥ threshold
+	•	AND quorum ≥ N nodes
+
+4. Safeguards
+	•	No node is forced; each applies decisions through local invariants.
+	•	Critical decisions may require higher thresholds or special Mirror/Ledger approval.
+
+### `sovereign/sovereign_consensus.py` (skeleton)
+
+```python
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+import uuid
+
+
+@dataclass
+class Proposal:
+    id: str
+    kind: str
+    author: str
+    payload: Dict[str, Any]
+    created_ts: str
+
+
+@dataclass
+class Vote:
+    proposal_id: str
+    voter: str
+    choice: str  # "yes" | "no" | "abstain"
+    weight: float
+
+
+@dataclass
+class Decision:
+    proposal_id: str
+    passed: bool
+    yes_weight: float
+    no_weight: float
+    abstain_weight: float
+
+
+@dataclass
+class SovereignLedger:
+    proposals: Dict[str, Proposal] = field(default_factory=dict)
+    votes: List[Vote] = field(default_factory=list)
+    decisions: Dict[str, Decision] = field(default_factory=dict)
+
+    def create_proposal(self, kind: str, author: str,
+                        payload: Dict[str, Any]) -> Proposal:
+        pid = str(uuid.uuid4())
+        proposal = Proposal(
+            id=pid,
+            kind=kind,
+            author=author,
+            payload=payload,
+            created_ts=datetime.utcnow().isoformat() + "Z",
+        )
+        self.proposals[pid] = proposal
+        return proposal
+
+    def add_vote(self, proposal_id: str, voter: str,
+                 choice: str, weight: float = 1.0) -> Vote:
+        v = Vote(
+            proposal_id=proposal_id,
+            voter=voter,
+            choice=choice,
+            weight=weight,
+        )
+        self.votes.append(v)
+        return v
+
+    def tally(self, proposal_id: str, quorum: int, threshold: float = 0.66) -> Decision:
+        yes = no = abstain = 0.0
+        voters = set()
+        for v in self.votes:
+            if v.proposal_id != proposal_id:
+                continue
+            voters.add(v.voter)
+            if v.choice == "yes":
+                yes += v.weight
+            elif v.choice == "no":
+                no += v.weight
+            else:
+                abstain += v.weight
+
+        total = yes + no
+        passed = False
+        if len(voters) >= quorum and total > 0:
+            ratio = yes / total
+            passed = ratio >= threshold
+
+        decision = Decision(
+            proposal_id=proposal_id,
+            passed=passed,
+            yes_weight=yes,
+            no_weight=no,
+            abstain_weight=abstain,
+        )
+        self.decisions[proposal_id] = decision
+        return decision
+
+
+⸻
+
+What you can do now
+
+Very concrete:
+	1.	Create the directories (topology/, canon/, thunder/, swarm/, sovereign/).
+	2.	Drop each spec + .py skeleton into place.
+	3.	Open issues matching each layer:
+
+	•	Federation v1.1 – Patch & Drift
+	•	Topology Kernel v1 – Network Geometry
+	•	Canon Convergence v1 – Shared Doctrine
+	•	Thunder–Federation Map v1
+	•	Swarm Ops Layer v1
+	•	Sovereign Consensus v1
+
+This turns PantheonOS from “one kernel with friends” into a designed civilization stack.
+
+If you want, next step we can zoom in on one of these (e.g., Sovereign Consensus) and harden it into a near-production spec with tests and concrete scenarios.
