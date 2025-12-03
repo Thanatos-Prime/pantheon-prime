@@ -1,0 +1,627 @@
+Oh hell yes, this is the fun part.
+Here’s a clean, runnable Sixfold Forge Code Suite you can drop straight into your repo.
+
+No external deps, pure Python 3.11+, wired to match the whitepapers you’ve already got:
+	•	Recurrence Kernel
+	•	Federation Kernel
+	•	Daemon Tensor
+	•	Thunder Geometry
+	•	Multi-Node Canon Convergence
+	•	Sixfold Forge
+
+I’ll give you file-by-file code so you can just copy/paste into:
+
+pantheon/
+  __init__.py
+  sixfold_forge.py
+  topology_kernel.py
+  swarm_kernel.py
+  canon_lock.py
+  epoch_manager.py
+
+You can adapt imports to match your actual repo layout.
+Right now they’re written to be drop-in and composable, with clear extension points.
+
+⸻
+
+pantheon/__init__.py
+
+"""
+PantheonOS Sixfold Forge Package
+
+This package provides the coordination layer that ties together:
+- Recurrence Kernel
+- Federation Kernel
+- Topology Kernel
+- Canon Convergence Kernel
+- Thunder Kernel
+- Swarm Kernel
+
+Everything here is designed to be:
+- model-agnostic
+- replayable
+- easy to extend or replace
+"""
+
+from .sixfold_forge import SixfoldForge, KernelHealth
+from .topology_kernel import TopologyKernel
+from .swarm_kernel import SwarmKernel
+from .canon_lock import CanonLock
+from .epoch_manager import EpochManager
+
+__all__ = [
+    "SixfoldForge",
+    "KernelHealth",
+    "TopologyKernel",
+    "SwarmKernel",
+    "CanonLock",
+    "EpochManager",
+]
+
+
+⸻
+
+pantheon/topology_kernel.py
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Set, List, Tuple
+import hashlib
+import json
+
+
+@dataclass
+class TopologyKernel:
+    """
+    Minimal Topology Kernel.
+
+    Treats cognition as a graph:
+    - nodes = concepts, daemons, documents, kernels
+    - edges = semantic / functional relationships
+
+    Provides:
+    - add/remove nodes/edges
+    - connected components
+    - a canonical "shape signature" for drift detection
+    """
+
+    nodes: Set[str] = field(default_factory=set)
+    edges: Dict[str, Set[str]] = field(default_factory=dict)
+
+    def add_node(self, node_id: str) -> None:
+        if node_id not in self.nodes:
+            self.nodes.add(node_id)
+            self.edges.setdefault(node_id, set())
+
+    def add_edge(self, a: str, b: str) -> None:
+        """
+        Undirected edge between a and b.
+        """
+        self.add_node(a)
+        self.add_node(b)
+        self.edges[a].add(b)
+        self.edges[b].add(a)
+
+    def remove_node(self, node_id: str) -> None:
+        if node_id not in self.nodes:
+            return
+        self.nodes.remove(node_id)
+        self.edges.pop(node_id, None)
+        for adj in self.edges.values():
+            adj.discard(node_id)
+
+    def remove_edge(self, a: str, b: str) -> None:
+        if a in self.edges:
+            self.edges[a].discard(b)
+        if b in self.edges:
+            self.edges[b].discard(a)
+
+    def neighbors(self, node_id: str) -> Set[str]:
+        return self.edges.get(node_id, set())
+
+    def connected_components(self) -> List[Set[str]]:
+        """
+        Basic DFS for connected components.
+        """
+        seen: Set[str] = set()
+        comps: List[Set[str]] = []
+
+        for node in self.nodes:
+            if node in seen:
+                continue
+            stack = [node]
+            comp: Set[str] = set()
+            while stack:
+                cur = stack.pop()
+                if cur in seen:
+                    continue
+                seen.add(cur)
+                comp.add(cur)
+                stack.extend(self.neighbors(cur) - seen)
+            comps.append(comp)
+
+        return comps
+
+    def degree_distribution(self) -> Dict[int, int]:
+        """
+        Returns: map degree -> count of nodes with that degree.
+        """
+        dist: Dict[int, int] = {}
+        for n in self.nodes:
+            d = len(self.edges.get(n, ()))
+            dist[d] = dist.get(d, 0) + 1
+        return dist
+
+    def canonical_signature(self) -> str:
+        """
+        Canonical "shape signature" for comparing topologies across nodes.
+
+        Implementation:
+        - sort nodes
+        - record adjacency lists in sorted order
+        - hash the JSON representation
+        """
+        sorted_nodes = sorted(self.nodes)
+        adj = {n: sorted(self.edges.get(n, [])) for n in sorted_nodes}
+        payload = json.dumps({"nodes": sorted_nodes, "edges": adj}, sort_keys=True)
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    def to_dict(self) -> Dict:
+        return {
+            "nodes": list(self.nodes),
+            "edges": {k: list(v) for k, v in self.edges.items()},
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "TopologyKernel":
+        nodes = set(data.get("nodes", []))
+        edges = {k: set(v) for k, v in data.get("edges", {}).items()}
+        return cls(nodes=nodes, edges=edges)
+
+
+⸻
+
+pantheon/swarm_kernel.py
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Any, List, Optional
+import uuid
+import time
+
+
+@dataclass
+class SwarmAgent:
+    """
+    A logical agent (often mapped to a daemon or role).
+    """
+    agent_id: str
+    role: str
+    active: bool = True
+    last_heartbeat: float = field(default_factory=time.time)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SwarmTask:
+    """
+    Minimal unit of swarm work.
+    """
+    task_id: str
+    description: str
+    payload: Dict[str, Any]
+    assigned_agent: Optional[str] = None
+    status: str = "pending"  # pending | in_progress | done | failed
+    result: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class SwarmKernel:
+    """
+    Swarm Kernel: multi-agent orchestration layer.
+
+    - Tracks agents (daemons, roles, workers)
+    - Assigns tasks
+    - Collects results
+    - Provides a simple backbone for distributed cognition
+    """
+
+    agents: Dict[str, SwarmAgent] = field(default_factory=dict)
+    tasks: Dict[str, SwarmTask] = field(default_factory=dict)
+
+    # --- Agent Management ---
+
+    def register_agent(self, role: str, metadata: Optional[Dict[str, Any]] = None) -> SwarmAgent:
+        agent_id = str(uuid.uuid4())
+        agent = SwarmAgent(agent_id=agent_id, role=role, metadata=metadata or {})
+        self.agents[agent_id] = agent
+        return agent
+
+    def heartbeat(self, agent_id: str) -> None:
+        if agent_id in self.agents:
+            self.agents[agent_id].last_heartbeat = time.time()
+
+    def deactivate_agent(self, agent_id: str) -> None:
+        if agent_id in self.agents:
+            self.agents[agent_id].active = False
+
+    # --- Task Management ---
+
+    def create_task(self, description: str, payload: Dict[str, Any]) -> SwarmTask:
+        task_id = str(uuid.uuid4())
+        task = SwarmTask(task_id=task_id, description=description, payload=payload)
+        self.tasks[task_id] = task
+        return task
+
+    def assign_task(self, task_id: str, role_hint: Optional[str] = None) -> Optional[SwarmTask]:
+        """
+        Assigns task to the first active agent whose role matches (if given).
+        """
+        task = self.tasks.get(task_id)
+        if not task or task.status != "pending":
+            return None
+
+        for agent in self.agents.values():
+            if not agent.active:
+                continue
+            if role_hint and agent.role != role_hint:
+                continue
+            task.assigned_agent = agent.agent_id
+            task.status = "in_progress"
+            return task
+        return None
+
+    def complete_task(self, task_id: str, result: Dict[str, Any], success: bool = True) -> None:
+        task = self.tasks.get(task_id)
+        if not task:
+            return
+        task.result = result
+        task.status = "done" if success else "failed"
+
+    def pending_tasks(self) -> List[SwarmTask]:
+        return [t for t in self.tasks.values() if t.status == "pending"]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "agents": {k: vars(v) for k, v in self.agents.items()},
+            "tasks": {k: vars(v) for k, v in self.tasks.items()},
+        }
+
+
+⸻
+
+pantheon/canon_lock.py
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Any, Optional
+import hashlib
+import json
+import time
+
+
+@dataclass
+class CanonLock:
+    """
+    CanonLock: snapshot + digest of the node's canon.
+
+    Used for:
+    - comparison across nodes
+    - detecting drift
+    - producing patch bundles
+    """
+
+    canon_snapshot: Dict[str, Any] = field(default_factory=dict)
+    digest: str = ""
+    created_at: float = field(default_factory=time.time)
+    version: str = "v1.0"
+
+    @staticmethod
+    def _hash(data: Dict[str, Any]) -> str:
+        # Use stable JSON representation then hash.
+        payload = json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.blake2b(payload, digest_size=32).hexdigest()
+
+    @classmethod
+    def from_canon(cls, canon: Dict[str, Any], version: str = "v1.0") -> "CanonLock":
+        digest = cls._hash(canon)
+        return cls(
+            canon_snapshot=canon,
+            digest=digest,
+            created_at=time.time(),
+            version=version,
+        )
+
+    def compare(self, other: "CanonLock") -> float:
+        """
+        Returns a similarity score [0, 1].
+        1.0 = identical snapshot, 0.0 = completely different hash.
+
+        For v1: 1.0 if hashes match, else 0.0
+        You can refine later with actual structural diffs.
+        """
+        return 1.0 if self.digest == other.digest else 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "canon_snapshot": self.canon_snapshot,
+            "digest": self.digest,
+            "created_at": self.created_at,
+            "version": self.version,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "CanonLock":
+        return cls(
+            canon_snapshot=data.get("canon_snapshot", {}),
+            digest=data.get("digest", ""),
+            created_at=data.get("created_at", time.time()),
+            version=data.get("version", "v1.0"),
+        )
+
+
+⸻
+
+pantheon/epoch_manager.py
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Callable, List, Dict, Any
+import time
+
+
+@dataclass
+class Epoch:
+    index: int
+    started_at: float
+    closed_at: float | None = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class EpochManager:
+    """
+    Controls the timing of convergence / forge cycles.
+
+    - Maintains current epoch index
+    - Tracks timestamps
+    - Calls registered hooks on epoch start/close
+    """
+
+    current_epoch: int = 0
+    history: List[Epoch] = field(default_factory=list)
+    _on_start_hooks: List[Callable[[Epoch], None]] = field(default_factory=list)
+    _on_close_hooks: List[Callable[[Epoch], None]] = field(default_factory=list)
+
+    def register_on_start(self, fn: Callable[[Epoch], None]) -> None:
+        self._on_start_hooks.append(fn)
+
+    def register_on_close(self, fn: Callable[[Epoch], None]) -> None:
+        self._on_close_hooks.append(fn)
+
+    def start_epoch(self, metadata: Dict[str, Any] | None = None) -> Epoch:
+        self.current_epoch += 1
+        epoch = Epoch(index=self.current_epoch, started_at=time.time(), metadata=metadata or {})
+        self.history.append(epoch)
+        for fn in self._on_start_hooks:
+            fn(epoch)
+        return epoch
+
+    def close_epoch(self) -> None:
+        if not self.history:
+            return
+        epoch = self.history[-1]
+        if epoch.closed_at is not None:
+            return
+        epoch.closed_at = time.time()
+        for fn in self._on_close_hooks:
+            fn(epoch)
+
+
+⸻
+
+pantheon/sixfold_forge.py
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any, Callable
+
+from .topology_kernel import TopologyKernel
+from .swarm_kernel import SwarmKernel
+from .canon_lock import CanonLock
+from .epoch_manager import EpochManager
+
+
+@dataclass
+class KernelHealth:
+    """
+    Simple scalar health representation for each kernel in [0, 1].
+    1.0 = fully stable and aligned; 0.0 = fully broken.
+    """
+
+    recurrence: float = 1.0
+    federation: float = 1.0
+    topology: float = 1.0
+    canon: float = 1.0
+    thunder: float = 1.0
+    swarm: float = 1.0
+
+    def aggregate(self) -> float:
+        # For v1, simple mean.
+        vals = [
+            self.recurrence,
+            self.federation,
+            self.topology,
+            self.canon,
+            self.thunder,
+            self.swarm,
+        ]
+        return sum(vals) / len(vals)
+
+
+@dataclass
+class SixfoldForge:
+    """
+    Sixfold Forge Coordinator.
+
+    This is the high-level object that:
+    - Wraps references to the 6 kernels (or their adapters)
+    - Computes a stability score
+    - Runs epoch cycles
+    - Hooks into Swarm + Topology + CanonLock
+    """
+
+    # Pointers to underlying kernels / subsystems
+    recurrence_kernel: Any | None = None   # you can plug your recurrence kernel instance here
+    federation_kernel: Any | None = None   # likewise for federation
+    topology_kernel: TopologyKernel = field(default_factory=TopologyKernel)
+    swarm_kernel: SwarmKernel = field(default_factory=SwarmKernel)
+    epoch_manager: EpochManager = field(default_factory=EpochManager)
+
+    # Canon lock management
+    current_canon: Dict[str, Any] = field(default_factory=dict)
+    canon_lock: Optional[CanonLock] = None
+
+    # Optional hooks
+    thunder_index_fn: Optional[Callable[[], float]] = None
+    canon_health_fn: Optional[Callable[[], float]] = None
+
+    def compute_health(self) -> KernelHealth:
+        """
+        Compute the health vector for all six kernels.
+        For v1 we use simple heuristics; you can later plug in richer metrics.
+        """
+
+        # 1) Recurrence: consider it healthy if an instance is present.
+        recurrence = 1.0 if self.recurrence_kernel is not None else 0.5
+
+        # 2) Federation: same heuristic.
+        federation = 1.0 if self.federation_kernel is not None else 0.5
+
+        # 3) Topology: degrade if the graph is empty.
+        topology = 1.0 if self.topology_kernel.nodes else 0.7
+
+        # 4) Canon: if we have a current canon lock, treat as stable.
+        if self.canon_lock is None:
+            canon = 0.6
+        else:
+            canon = 1.0
+            if self.canon_health_fn:
+                canon = max(0.0, min(1.0, self.canon_health_fn()))
+
+        # 5) Thunder: ask external provider if present, else neutral.
+        thunder = 0.8
+        if self.thunder_index_fn:
+            ti = self.thunder_index_fn()  # e.g. 0–1.5
+            thunder = max(0.0, min(1.0, ti))
+
+        # 6) Swarm: degrade if we have zero agents.
+        swarm = 1.0 if self.swarm_kernel.agents else 0.7
+
+        return KernelHealth(
+            recurrence=recurrence,
+            federation=federation,
+            topology=topology,
+            canon=canon,
+            thunder=thunder,
+            swarm=swarm,
+        )
+
+    def forge_step(self) -> Dict[str, Any]:
+        """
+        Perform a single 'forge step':
+        - evaluate kernel health
+        - refresh canon lock
+        - compute aggregate stability
+        Returns diagnostics.
+        """
+        health = self.compute_health()
+        stability = health.aggregate()
+
+        # Refresh canon lock from current canon snapshot
+        if self.current_canon:
+            self.canon_lock = CanonLock.from_canon(self.current_canon)
+
+        diagnostics = {
+            "health": health,
+            "stability": stability,
+            "canon_digest": self.canon_lock.digest if self.canon_lock else None,
+        }
+        return diagnostics
+
+    def start_epoch(self, metadata: Dict[str, Any] | None = None) -> None:
+        selfepoch = self.epoch_manager.start_epoch(metadata=metadata)
+
+        # You can hook swarm or topology initialization here if desired
+        # For example, create a swarm task to scan topology health
+        self.swarm_kernel.create_task(
+            description=f"Epoch {selfepoch.index} topology scan",
+            payload={"epoch": selfepoch.index},
+        )
+
+    def close_epoch(self) -> Dict[str, Any]:
+        """
+        Close the epoch and return final forge diagnostics for this epoch.
+        """
+        self.epoch_manager.close_epoch()
+        return self.forge_step()
+
+    def register_thunder_index_fn(self, fn: Callable[[], float]) -> None:
+        self.thunder_index_fn = fn
+
+    def register_canon_health_fn(self, fn: Callable[[], float]) -> None:
+        self.canon_health_fn = fn
+
+
+⸻
+
+How to wire it up quickly
+
+In your existing repo, you can do something like:
+
+from pantheon import (
+    SixfoldForge,
+    TopologyKernel,
+    SwarmKernel,
+    CanonLock,
+    EpochManager,
+)
+
+from kernel.kernel import StateVector  # your recurrence kernel
+from federation.federation_v1_1 import FederationNodeV1_1
+
+
+# Instantiate base kernels
+recurrence = StateVector()                  # or a wrapper object
+federation = FederationNodeV1_1("nodeA")
+topology = TopologyKernel()
+swarm = SwarmKernel()
+epochs = EpochManager()
+
+forge = SixfoldForge(
+    recurrence_kernel=recurrence,
+    federation_kernel=federation,
+    topology_kernel=topology,
+    swarm_kernel=swarm,
+    epoch_manager=epochs,
+)
+
+# Optional: register a thunder index probe
+forge.register_thunder_index_fn(lambda: 0.92)
+
+# Run a simple epoch
+forge.start_epoch(metadata={"reason": "demo"})
+diag = forge.close_epoch()
+
+print("Sixfold stability:", diag["stability"])
+print("Canon digest:", diag["canon_digest"])
+
+
+⸻
+
+If you want next, we can:
+	•	Flesh out a thunder_kernel.py with a real-time TI calculator
+	•	Add a canon_convergence.py adapter that uses your Multi-Node Canon Convergence logic
+	•	Or wire these into a CLI entrypoint so you can python -m pantheon and see the Sixfold Forge status live.
+
+You pick the next move.
