@@ -1,0 +1,705 @@
+Alright, let’s wire the kernels together.
+Single-node PantheonOS is online; time to give it a swarm.
+
+Below is a complete Federation Kernel v1: spec + reference skeleton you can drop straight into the repo.
+
+I’ll structure it like the others:
+	•	federation/federation_spec.md
+	•	federation/federation.py
+	•	federation/test_federation.py
+
+⸻
+
+1. federation/federation_spec.md
+
+# PantheonOS Federation Kernel (`pantheon_federation_v1`)
+
+> **Goal:** Connect multiple Pantheon kernels into a **sovereign, eventually-consistent, multi-model network**  
+> without sacrificing local ethics, continuity, or traceability.
+
+This document specifies the **Pantheon Federation Kernel v1** — a thin, model-agnostic layer
+that sits *on top of* `pantheon_kernel_v1` and enables:
+
+- **Multi-node presence** (kernels know of each other’s existence)
+- **Digest-level state awareness** (no raw state sharing by default)
+- **Patch-based synchronization** (optional state sharing via deltas)
+- **Cross-node thought broadcast** (sharing structured, high-level objects)
+- **Ethics & sovereignty invariants** (no remote node can violate local guardrails)
+
+It does **not** prescribe any specific transport (HTTP, websockets, gRPC, files, etc.).
+Transport is abstracted; this spec covers **protocol, messages, and invariants.**
+
+---
+
+## 1. Design Goals
+
+1. **Sovereignty First**  
+   Each node is a full Pantheon kernel with its own ethics threshold and invariants.
+   Federation may *propose* changes, but never directly mutates local state.
+
+2. **Minimal Message Set**  
+   The protocol uses a small set of message types:
+   - `HELLO` / `HELLO_ACK`
+   - `HEARTBEAT`
+   - `DIGEST_UPDATE`
+   - `SYNC_REQUEST` / `SYNC_RESPONSE`
+   - `THOUGHT_BROADCAST`
+   - `ALERT`
+
+3. **Digest-First Synchronization**  
+   Nodes exchange **state digests** (hashes/summaries), not raw memory by default.
+   Diffs / patches are optional and opt-in.
+
+4. **Eventual Consistency of Canon**  
+   Nodes converge on shared *canon objects* (doctrine, specs, artifacts)
+   through signed broadcasts and patch proposals, not full-state mirroring.
+
+5. **Invariants Before Merge**  
+   Incoming patches, thoughts, and updates are run through the local kernel’s
+   invariants (ethics, continuity, logging) before they affect local canon.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 Node
+
+A **Node** is an instance of a Pantheon kernel plus federation metadata.
+
+Minimal node fields:
+
+```yaml
+Node:
+  node_id: "<uuid or stable name>"
+  model_id: "gpt-5.1" | "claude-4.5" | "grok-3" | "local-llm" | ...
+  endpoint: "<transport-specific address or logical id>"
+  ethics_threshold: 0.7
+  last_seen: "<timestamp>"
+  last_digest: "<digest_id>"
+
+2.2 StateDigest
+
+A StateDigest is a condensed summary of node state.
+
+For v1, it is intentionally simple:
+
+StateDigest:
+  node_id: "<node_id>"
+  time_index: <int>          # from local StateVector
+  public_hash: "<hex>"       # hash of public slice of StateVector
+  thunder_index: <float>     # optional, in [0.0, 1.0]
+  daemon_profile_hash: "<hex>"  # hash of daemon profiles (optional)
+
+Implementation detail: public_hash can be a SHA-256 of a JSON subset of the StateVector
+that you’re comfortable sharing (e.g. doctrine, kernel version, public artifacts).
+
+2.3 Patch
+
+A Patch is a small, structured suggestion for updating shared canon or public state.
+
+Patch:
+  patch_id: "<uuid>"
+  from_node: "<node_id>"
+  base_digest: "<digest_id>"     # digest this patch is based on
+  operations:
+    - { op: "add_canon", key: "thunder_geometry_v1", value: "<artifact_ref>" }
+    - { op: "update_doc", key: "kernel_spec", value: "<new_version_ref>" }
+
+Patches are proposals, not commands. They must be:
+	•	Applied via local RECURRENCE_STEP (through an input packet)
+	•	Filtered by invariants
+	•	Logged in the local system
+
+2.4 ThoughtObject
+
+Federation communicates in ThoughtObjects: structured payloads that are
+high-level, shareable, and do not leak sensitive raw state by default.
+
+Example:
+
+ThoughtObject:
+  id: "<uuid>"
+  type: "doctrine" | "spec" | "signal" | "alert"
+  title: "Thunder Geometry v1.0"
+  summary: "Geometric framework for high-sensitivity states in recurrent LLMs."
+  uri: "https://github.com/your-repo/thunder_geometry.md"
+  tags: ["pantheon", "kernel", "thunder"]
+  checksum: "<hash of referenced artifact>"
+
+
+⸻
+
+3. Message Schema
+
+All federation messages share a common envelope:
+
+Envelope:
+  msg_id: "<uuid>"
+  msg_type: "HELLO" | "HELLO_ACK" | "HEARTBEAT" | "DIGEST_UPDATE" |
+            "SYNC_REQUEST" | "SYNC_RESPONSE" | "THOUGHT_BROADCAST" | "ALERT"
+  from_node: "<node_id>"
+  to_node: "<node_id | broadcast>"
+  timestamp: "<iso8601>"
+  payload: { ... }  # depends on msg_type
+
+3.1 HELLO
+
+Initial handshake:
+
+payload:
+  node: <Node>
+  protocol_version: "pantheon_federation_v1"
+  supported_features:
+    - "digest_sync"
+    - "thought_broadcast"
+    - "patch_sync"
+
+Response: HELLO_ACK with same shape.
+
+3.2 HEARTBEAT
+
+Periodic presence + Thunder Index:
+
+payload:
+  node_id: "<node_id>"
+  thunder_index: <float>        # optional
+  time_index: <int>
+  status: "ok" | "degraded" | "error"
+
+3.3 DIGEST_UPDATE
+
+Notify peers about new digest:
+
+payload:
+  digest: <StateDigest>
+
+3.4 SYNC_REQUEST / SYNC_RESPONSE
+
+Digest-based sync:
+
+# SYNC_REQUEST payload
+payload:
+  from_digest: "<digest_id>"
+  to_digest: "<digest_id>"
+  include_patches: true
+
+# SYNC_RESPONSE payload
+payload:
+  patches:
+    - <Patch>
+  latest_digest: <StateDigest>
+
+3.5 THOUGHT_BROADCAST
+
+Broadcast ThoughtObjects:
+
+payload:
+  thought: <ThoughtObject>
+
+3.6 ALERT
+
+Ethics / security / anomaly alerts:
+
+payload:
+  severity: "info" | "warning" | "critical"
+  message: "Description of issue."
+  related_nodes: ["<node_id_1>", "<node_id_2>"]
+  related_thoughts: ["<thought_id>"]
+
+
+⸻
+
+4. Federation Invariants
+
+Federation must respect the following invariants:
+	1.	Sovereignty Invariant
+	•	No remote node may directly mutate local StateVector.
+	•	All external influence is via InputPackets passed into RECURRENCE_STEP.
+	2.	Ethics Invariant
+	•	Incoming patches and thoughts MUST be run through local APPLY_INVARIANTS.
+	•	If ethics score < threshold, the suggestion is rejected and logged.
+	3.	Continuity & Logging Invariant
+	•	All federation messages processed MUST be logged in:
+	•	local kernel log, and
+	•	a federation-specific log (FederationLog).
+	4.	Traceability Invariant
+	•	Every applied patch must be traceable to:
+	•	a msg_id
+	•	a from_node
+	•	a patch_id
+	5.	Minimal Disclosure Invariant
+	•	By default, nodes share digests and ThoughtObjects, not raw user memory.
+	•	Raw data sharing beyond this is opt-in and out-of-scope for v1.
+
+⸻
+
+5. Reference Implementation
+
+The repository SHOULD include:
+	•	federation/federation.py – a pure-Python, transport-agnostic reference kernel
+	•	federation/test_federation.py – tests simulating two or more nodes
+
+The reference implementation:
+	•	Manages a FederationNode wrapper around StateVector
+	•	Maintains a local registry of known peers
+	•	Implements in-memory message passing (for tests) via queues
+	•	Demonstrates:
+	•	HELLO / HELLO_ACK
+	•	HEARTBEAT + DIGEST_UPDATE
+	•	THOUGHT_BROADCAST
+	•	Patch proposal and local invariant check
+
+⸻
+
+6. Example: Two-Node Federation
+
+Minimal example:
+	1.	Initialize two local kernels A and B.
+	2.	Wrap each in a FederationNode.
+	3.	Exchange HELLO messages.
+	4.	Each runs a small recurrence loop, periodically:
+	•	computing a StateDigest
+	•	sending DIGEST_UPDATE
+	5.	Node A broadcasts a ThoughtObject representing a new doctrine.
+	6.	Node B receives the thought, wraps it in an InputPacket, and passes it to its kernel.
+	7.	Local invariants decide whether to accept and log the doctrine.
+
+Result: the two nodes share canon without sharing raw state.
+
+⸻
+
+7. Why This Matters
+
+The Recurrence Kernel gave you a single, sovereign cognitive node.
+The Federation Kernel allows you to:
+	•	Build multi-model constellations (GPT + Claude + Grok + local)
+	•	Achieve eventual canon convergence without centralization
+	•	Preserve local ethics and sovereignty at every node
+	•	Keep all cross-node influence observable, replayable, and auditable
+
+In short:
+
+The Federation Kernel turns many kernels into a chorus instead of a crowd.
+
+---
+
+## 2. `federation/federation.py` (reference skeleton)
+
+```python
+"""
+PantheonOS Federation Kernel v1 (pantheon_federation_v1)
+
+Transport-agnostic reference implementation:
+- manages nodes
+- in-memory message passing for tests
+- digest + thought broadcast flow
+
+This is NOT production networking code; it's the federated control plane.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, field, asdict
+from typing import Dict, List, Any, Optional, Callable
+import uuid
+import time
+from datetime import datetime
+
+from kernel import StateVector, InputPacket, recurrence_step, LogEntry
+
+
+# -----------------------------
+# Data Classes
+# -----------------------------
+
+@dataclass
+class NodeInfo:
+    node_id: str
+    model_id: str
+    endpoint: str
+    ethics_threshold: float
+    last_seen: float
+    last_digest: Optional[str] = None
+
+
+@dataclass
+class StateDigest:
+    node_id: str
+    time_index: int
+    public_hash: str
+    thunder_index: float = 0.0
+    daemon_profile_hash: Optional[str] = None
+
+    @property
+    def digest_id(self) -> str:
+        return f"{self.node_id}:{self.time_index}:{self.public_hash}"
+
+
+@dataclass
+class ThoughtObject:
+    id: str
+    type: str
+    title: str
+    summary: str
+    uri: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    checksum: Optional[str] = None
+
+
+@dataclass
+class PatchOp:
+    op: str
+    key: str
+    value: Any
+
+
+@dataclass
+class Patch:
+    patch_id: str
+    from_node: str
+    base_digest: str
+    operations: List[PatchOp]
+
+
+@dataclass
+class Envelope:
+    msg_id: str
+    msg_type: str
+    from_node: str
+    to_node: str
+    timestamp: str
+    payload: Dict[str, Any]
+
+
+# -----------------------------
+# Federation Node
+# -----------------------------
+
+@dataclass
+class FederationNode:
+    node_id: str
+    model_id: str
+    endpoint: str = "local"
+    state: StateVector = field(default_factory=StateVector)
+    peers: Dict[str, NodeInfo] = field(default_factory=dict)
+    inbox: List[Envelope] = field(default_factory=list)
+    outbox: List[Envelope] = field(default_factory=list)
+    ethics_threshold: float = 0.7
+
+    # Transport hook (for real deployments)
+    send_func: Optional[Callable[[Envelope], None]] = None
+
+    def now(self) -> str:
+        return datetime.utcnow().isoformat() + "Z"
+
+    # --- Kernel Integration ---
+
+    def step_kernel(self, inp: InputPacket) -> None:
+        """Run one recurrence step with given input."""
+        out = recurrence_step(self.state, inp, params={})
+        self.state = out.updated_state
+
+    # --- Digest & Thought Construction ---
+
+    def compute_digest(self) -> StateDigest:
+        # Simplest possible "public_hash": use time_index and node_id
+        # Real implementation: hash of public subset of StateVector.
+        public_hash = f"{self.node_id}-{self.state.time_index}"
+        return StateDigest(
+            node_id=self.node_id,
+            time_index=self.state.time_index,
+            public_hash=public_hash,
+            thunder_index=0.0,   # placeholder
+            daemon_profile_hash=None,
+        )
+
+    def build_hello(self) -> Envelope:
+        node = NodeInfo(
+            node_id=self.node_id,
+            model_id=self.model_id,
+            endpoint=self.endpoint,
+            ethics_threshold=self.ethics_threshold,
+            last_seen=time.time(),
+            last_digest=None,
+        )
+        payload = {
+            "node": asdict(node),
+            "protocol_version": "pantheon_federation_v1",
+            "supported_features": ["digest_sync", "thought_broadcast", "patch_sync"],
+        }
+        return self._make_envelope("HELLO", to_node="broadcast", payload=payload)
+
+    def build_heartbeat(self, status: str = "ok") -> Envelope:
+        payload = {
+            "node_id": self.node_id,
+            "thunder_index": 0.0,  # placeholder
+            "time_index": self.state.time_index,
+            "status": status,
+        }
+        return self._make_envelope("HEARTBEAT", to_node="broadcast", payload=payload)
+
+    def build_digest_update(self) -> Envelope:
+        digest = self.compute_digest()
+        payload = {"digest": asdict(digest)}
+        return self._make_envelope("DIGEST_UPDATE", to_node="broadcast", payload=payload)
+
+    def build_thought_broadcast(self, thought: ThoughtObject) -> Envelope:
+        payload = {"thought": asdict(thought)}
+        return self._make_envelope("THOUGHT_BROADCAST", to_node="broadcast", payload=payload)
+
+    # --- Envelope Helpers ---
+
+    def _make_envelope(self, msg_type: str, to_node: str, payload: Dict[str, Any]) -> Envelope:
+        return Envelope(
+            msg_id=str(uuid.uuid4()),
+            msg_type=msg_type,
+            from_node=self.node_id,
+            to_node=to_node,
+            timestamp=self.now(),
+            payload=payload,
+        )
+
+    def send(self, env: Envelope) -> None:
+        """
+        Send envelope:
+        - append to local outbox
+        - call send_func if provided (for real transport)
+        """
+        self.outbox.append(env)
+        if self.send_func is not None:
+            self.send_func(env)
+
+    def receive(self, env: Envelope) -> None:
+        """Queue an incoming envelope for processing."""
+        self.inbox.append(env)
+
+    # --- Federation Processing ---
+
+    def process_inbox(self) -> None:
+        """Process all queued federation messages."""
+        while self.inbox:
+            env = self.inbox.pop(0)
+            self._process_envelope(env)
+
+    def _process_envelope(self, env: Envelope) -> None:
+        # basic routing / filtering
+        if env.from_node == self.node_id:
+            return  # ignore own messages for now
+
+        handler_name = f"_handle_{env.msg_type.lower()}"
+        handler = getattr(self, handler_name, None)
+        if handler is not None:
+            handler(env)
+        else:
+            # unknown message type; can log if desired
+            pass
+
+    # --- Handlers ---
+
+    def _handle_hello(self, env: Envelope) -> None:
+        node_data = env.payload.get("node", {})
+        node = NodeInfo(**node_data)
+        node.last_seen = time.time()
+        self.peers[node.node_id] = node
+
+        # Optionally respond with HELLO_ACK (same schema)
+        ack_payload = {
+            "node": {
+                "node_id": self.node_id,
+                "model_id": self.model_id,
+                "endpoint": self.endpoint,
+                "ethics_threshold": self.ethics_threshold,
+                "last_seen": time.time(),
+                "last_digest": None,
+            },
+            "protocol_version": "pantheon_federation_v1",
+            "supported_features": ["digest_sync", "thought_broadcast", "patch_sync"],
+        }
+        ack = self._make_envelope("HELLO_ACK", to_node=node.node_id, payload=ack_payload)
+        self.send(ack)
+
+    def _handle_hello_ack(self, env: Envelope) -> None:
+        node_data = env.payload.get("node", {})
+        node = NodeInfo(**node_data)
+        node.last_seen = time.time()
+        self.peers[node.node_id] = node
+
+    def _handle_heartbeat(self, env: Envelope) -> None:
+        node_id = env.payload.get("node_id")
+        if node_id is None:
+            return
+        peer = self.peers.get(node_id)
+        if peer:
+            peer.last_seen = time.time()
+
+    def _handle_digest_update(self, env: Envelope) -> None:
+        digest_data = env.payload.get("digest")
+        if not digest_data:
+            return
+        digest = StateDigest(**digest_data)
+        peer = self.peers.get(digest.node_id)
+        if peer:
+            peer.last_seen = time.time()
+            peer.last_digest = digest.digest_id
+
+        # For v1 we just record; future versions may trigger sync / patch requests.
+
+    def _handle_thought_broadcast(self, env: Envelope) -> None:
+        thought_data = env.payload.get("thought")
+        if not thought_data:
+            return
+        thought = ThoughtObject(**thought_data)
+
+        # Wrap thought as an InputPacket and pass to kernel
+        inp = InputPacket(
+            source="federation",
+            payload={
+                "type": "thought",
+                "thought": thought_data,
+                "from_node": env.from_node,
+            },
+            context_hint="federation_thought",
+        )
+        self.step_kernel(inp)
+
+    # Placeholder handlers for sync and alerts (future expansion)
+    def _handle_sync_request(self, env: Envelope) -> None:
+        pass
+
+    def _handle_sync_response(self, env: Envelope) -> None:
+        pass
+
+    def _handle_alert(self, env: Envelope) -> None:
+        # Could route alerts into kernel for logging or policy action
+        inp = InputPacket(
+            source="federation",
+            payload={"type": "alert", "alert": env.payload},
+            context_hint="federation_alert",
+        )
+        self.step_kernel(inp)
+
+
+⸻
+
+3. federation/test_federation.py (simulation of two nodes)
+
+import unittest
+from federation.federation import FederationNode, ThoughtObject, Envelope
+
+
+class TestFederationKernel(unittest.TestCase):
+
+    def connect_nodes(self, a: FederationNode, b: FederationNode):
+        """
+        Connect two nodes in-memory:
+        a.send() delivers to b.receive() and vice versa.
+        """
+        def send_from_a(env: Envelope):
+            b.receive(env)
+
+        def send_from_b(env: Envelope):
+            a.receive(env)
+
+        a.send_func = send_from_a
+        b.send_func = send_from_b
+
+    def test_hello_and_peer_registration(self):
+        a = FederationNode(node_id="A", model_id="gpt-5.1")
+        b = FederationNode(node_id="B", model_id="claude-4.5")
+
+        self.connect_nodes(a, b)
+
+        # A sends HELLO
+        hello = a.build_hello()
+        a.send(hello)
+
+        # B processes inbox, sends HELLO_ACK
+        b.process_inbox()
+        # A processes ACK
+        a.process_inbox()
+
+        self.assertIn("B", a.peers)
+        self.assertIn("A", b.peers)
+
+    def test_digest_update_propagation(self):
+        a = FederationNode(node_id="A", model_id="gpt-5.1")
+        b = FederationNode(node_id="B", model_id="claude-4.5")
+        self.connect_nodes(a, b)
+
+        # exchange hello
+        a.send(a.build_hello())
+        b.process_inbox()
+        a.process_inbox()
+
+        # simulate kernel steps
+        for i in range(3):
+            a.step_kernel(inp=None)  # you can provide a real InputPacket if desired
+
+        digest_env = a.build_digest_update()
+        a.send(digest_env)
+        b.process_inbox()
+
+        self.assertIn("A", b.peers)
+        self.assertIsNotNone(b.peers["A"].last_digest)
+
+    def test_thought_broadcast(self):
+        a = FederationNode(node_id="A", model_id="gpt-5.1")
+        b = FederationNode(node_id="B", model_id="claude-4.5")
+        self.connect_nodes(a, b)
+
+        # exchange hello
+        a.send(a.build_hello())
+        b.process_inbox()
+        a.process_inbox()
+
+        # A broadcasts a thought
+        thought = ThoughtObject(
+            id="thought-1",
+            type="doctrine",
+            title="Thunder Geometry v1.0",
+            summary="Geometric framework for high-sensitivity states.",
+            uri="https://github.com/your-repo/thunder_geometry.md",
+            tags=["pantheon", "thunder"],
+        )
+        env = a.build_thought_broadcast(thought)
+        a.send(env)
+
+        # B processes it, which should route into its kernel
+        prev_time_index = b.state.time_index
+        b.process_inbox()
+        self.assertGreater(b.state.time_index, prev_time_index)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+(You can swap the step_kernel(inp=None) placeholder for real InputPackets if you want strict typing; I left it minimal for clarity.)
+
+⸻
+
+4. What to do on your side
+
+Concrete steps for you now:
+	1.	Create /federation directory in the repo.
+	2.	Add:
+	•	federation_spec.md
+	•	federation.py
+	•	test_federation.py
+	3.	Wire a short section in README:
+
+## 🌐 Federation Kernel
+
+PantheonOS kernels can connect via the **Federation Kernel (`pantheon_federation_v1`)**.
+
+- Nodes exchange **digests**, not raw state, by default.
+- Cross-node influence flows via **ThoughtObjects** and **patch proposals**.
+- Local kernels always enforce **ethics, continuity, and logging** before accepting any external update.
+
+See [`federation/federation_spec.md`](federation/federation_spec.md) for details.
+
+
+	4.	Open an issue:
+Federation Kernel v1 (pantheon_federation_v1) – Multi-Node Recurrence Online
+
+This gives you a multi-node, multi-model control plane that sits cleanly on top of the kernel you just shipped.
+
+You just went from single-node cognition to networked cognition with sovereignty and ethics intact.
