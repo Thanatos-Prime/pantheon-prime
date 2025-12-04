@@ -1,0 +1,282 @@
+Got it — here’s the Surge Protector Suite again, clean and ready to drop into a repo or your PantheonOS build.
+Same safety‑first, non‑mystical kernel as before, but laid out in one compact package so you can copy it fast.
+
+⸻
+
+Surge Protector Suite — v1.0
+
+Goodwill & Grounding Layer • Operator Safety Kernel
+
+What it is
+
+A human‑state stabilization module that:
+	•	buffers sudden spikes (emotional, cognitive, narrative)
+	•	de‑escalates back to calm, grounded state
+	•	blocks any action not coming from center
+
+Think of it like an electrical surge protector for the mind: it catches spikes, dissipates excess, and keeps the system safe. In real surge protectors, components absorb excess voltage and divert it to ground to prevent damage.  ￼
+Here, the suite does the same conceptual job for your mind and decisions.
+
+⸻
+
+Repo layout
+
+surge_protector_suite/
+├─ README.md
+├─ LICENSE
+├─ src/
+│  └─ sps/
+│     ├─ __init__.py
+│     ├─ states.py
+│     ├─ surge_absorber.py
+│     ├─ de_escalator.py
+│     ├─ alignment_lens.py
+│     ├─ kernel.py
+│     └─ pantheon_hooks.py
+├─ docs/
+│  ├─ theory.md
+│  ├─ grounding_protocols.md
+│  └─ neuroscience.md
+└─ examples/
+   ├─ basic_demo.py
+   └─ overload_test.py
+
+
+⸻
+
+Core files
+
+1) src/sps/states.py
+
+from enum import Enum, auto
+from dataclasses import dataclass
+
+
+class SPSState(Enum):
+    IDLE = auto()
+    SURGE_BUFFER = auto()
+    DE_ESCALATING = auto()
+    GROUNDED = auto()
+    BLOCKED = auto()
+
+
+@dataclass
+class SPSOutput:
+    state: SPSState
+    message: str
+    safe: bool = True
+
+
+⸻
+
+2) src/sps/surge_absorber.py
+
+from .states import SPSState, SPSOutput
+
+
+class SurgeAbsorber:
+    """
+    Capture sudden spikes and buffer them to prevent immediate reaction.
+    """
+
+    def process(self, input_signal: str):
+        # Basic heuristic detection
+        if any(word in input_signal.lower() for word in [
+            "panic", "angry", "fuck", "overwhelmed",
+            "can't take", "breaking", "rage"
+        ]):
+            return SPSOutput(
+                state=SPSState.SURGE_BUFFER,
+                message="Surge detected — buffering.",
+                safe=False,
+            )
+        return None
+
+
+⸻
+
+3) src/sps/de_escalator.py
+
+from .states import SPSState, SPSOutput
+
+
+class DeEscalator:
+    """
+    Convert buffered surge into a grounded state.
+    """
+
+    def process(self, prior_state: SPSState):
+        if prior_state == SPSState.SURGE_BUFFER:
+            return SPSOutput(
+                state=SPSState.DE_ESCALATING,
+                message="De-escalating — breathe, slow tempo, anchor.",
+                safe=False,
+            )
+        return None
+
+
+⸻
+
+4) src/sps/alignment_lens.py
+
+from .states import SPSState, SPSOutput
+
+
+class AlignmentLens:
+    """
+    Decide if an action is allowed based on grounded state.
+    """
+
+    def decide(self, action: str, current_state: SPSState):
+        # Block if not grounded
+        if current_state in {SPSState.SURGE_BUFFER, SPSState.DE_ESCALATING}:
+            return SPSOutput(
+                state=SPSState.BLOCKED,
+                message="Action blocked — not from grounded state.",
+                safe=False,
+            )
+
+        # Otherwise ok
+        return SPSOutput(
+            state=SPSState.GROUNDED,
+            message="Action permitted — stable and proportional.",
+            safe=True,
+        )
+
+
+⸻
+
+5) src/sps/kernel.py
+
+from .surge_absorber import SurgeAbsorber
+from .de_escalator import DeEscalator
+from .alignment_lens import AlignmentLens
+from .states import SPSState, SPSOutput
+
+
+class SurgeProtectorKernel:
+    """
+    Coordinates the three modules.
+    """
+
+    def __init__(self):
+        self.sa = SurgeAbsorber()
+        self.de = DeEscalator()
+        self.al = AlignmentLens()
+        self.state = SPSState.IDLE
+
+    def ingest(self, input_signal: str) -> SPSOutput:
+        # 1) Surge Absorption
+        spike = self.sa.process(input_signal)
+        if spike:
+            self.state = spike.state
+            return spike
+
+        # 2) De‑escalation if needed
+        de_out = self.de.process(self.state)
+        if de_out:
+            self.state = de_out.state
+            return de_out
+
+        # Still normal
+        self.state = SPSState.GROUNDED
+        return SPSOutput(self.state, "Signal normal.", safe=True)
+
+    def decide(self, intended_action: str) -> SPSOutput:
+        return self.al.decide(intended_action, self.state)
+
+    def get_state(self):
+        return self.state
+
+
+⸻
+
+6) Optional: src/sps/pantheon_hooks.py
+
+"""
+Optional hooks for integrating SPS into PantheonOS flows.
+For example, call SPS before any high‑voltage narrative or tactical output.
+"""
+
+from .kernel import SurgeProtectorKernel
+
+sps = SurgeProtectorKernel()
+
+def ingest_then_decide(input_signal: str, action: str):
+    # Buffer / de-escalate as needed
+    sps.ingest(input_signal)
+    # Decide whether action is safe
+    return sps.decide(action)
+
+
+⸻
+
+Docs worth adding
+
+docs/theory.md
+
+Explain the electrical metaphor, human safety priority, and why this is non‑supernatural.
+
+docs/grounding_protocols.md
+
+Concrete grounding steps used in De‑escalator. Examples:
+	•	simple box or paced breathing
+	•	posture reset
+	•	sensory anchors
+	•	naming things in the environment
+
+For breathing, evidence‑based grounding techniques are commonly recommended in medical and mental‑health guidance; for example, box or similar paced breathing patterns are suggested for calming, alongside other grounding tools.  ￼
+
+docs/neuroscience.md
+
+Map module to brain systems: prefrontal inhibition, conflict detection, parasympathetic calming, interoception. Keep it high‑level, non‑clinical, non‑diagnostic.
+
+⸻
+
+Example usage
+
+from sps.kernel import SurgeProtectorKernel
+
+sps = SurgeProtectorKernel()
+
+# sudden spike
+print(sps.ingest("I am so overwhelmed right now"))
+# => Surge detected — buffering.
+
+# next step
+print(sps.ingest(" "))   # or some neutral input
+# => De-escalating — breathe, slow tempo, anchor.
+
+# try to act (should be blocked until grounded)
+print(sps.decide("send angry text"))
+# => Action blocked — not from grounded state.
+
+# after calm
+print(sps.ingest("calm"))
+# => Signal normal.
+print(sps.decide("send polite message"))
+# => Action permitted — stable and proportional.
+
+
+⸻
+
+What to do next
+
+Pick one:
+	1.	Turn this into a real repo
+	•	Add LICENSE
+	•	Add pyproject.toml or setup.py
+	•	Commit and push
+	2.	Integrate into PantheonOS flows
+	•	Call SPS before any major decision, narrative twist, or high‑voltage output
+	•	Make SPS mandatory first step for risky content
+	3.	Build a tiny front‑end or CLI demo
+	•	Show state transitions visually
+	•	Let operator test in real time
+	4.	Expand grounding protocols or docs
+	•	Add step‑by‑step guidance for real‑world use
+	•	Keep it short and practical
+
+⸻
+
+If you want the suite packaged as a zip, a GitHub repo skeleton, or a PDF spec, say which format and I’ll prep it next.
