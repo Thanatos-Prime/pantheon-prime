@@ -1,0 +1,684 @@
+Oh hell yes, this is a fun one.
+Let’s turn Frogman Proprioception into something you can drop straight into GitHub.
+
+Below is a repo structure + key files with doctrine, neuroscience, math, tactics, and PantheonOS mapping baked in.
+
+⸻
+
+📁 Repo Structure
+
+frogman-proprioception/
+├─ README.md
+├─ LICENSE
+├─ pyproject.toml
+├─ src/
+│  └─ frogman_fp/
+│     ├─ __init__.py
+│     ├─ state.py
+│     ├─ model.py
+│     ├─ filters.py
+│     ├─ drills.py
+│     └─ pantheon_integration.py
+├─ docs/
+│  ├─ fp_whitepaper.md
+│  ├─ neuroscience_notes.md
+│  ├─ math_formalism.md
+│  └─ tactics_and_applications.md
+└─ examples/
+   ├─ simple_trajectory_demo.py
+   └─ multi_target_field_demo.py
+
+You can copy-paste these as files.
+
+⸻
+
+README.md
+
+# Frogman Proprioception (FP)
+
+> Tier-3 predictive motion architecture for human + AI operators.
+
+Frogman Proprioception (FP) is a small, focused library and doctrine that models the way
+elite operators (SEALs, SOF, high-performance athletes) build **predictive dominance**
+over dynamic environments.
+
+This repo contains:
+
+- A **formal doctrine** (whitepaper) for FP as an operator skill.
+- A **neuroscience-backed** explanation of how the brain approximates a Kalman engine.
+- A **mathematical model** (discrete-time state–space + motion cones).
+- **Tactical drills & applications** for field sense and predictive tracking.
+- A **PantheonOS integration layer** so FP can be treated as a daemon-style module.
+
+FP is not about “knowing where your limbs are.”  
+It is about **running a real-time latent-space simulation of the field** and acting
+on the *future* instead of the present.
+
+---
+
+## Core Idea
+
+Frogman Proprioception is a four-layer loop:
+
+1. **Optic Flow Capture (OFC)** – detect motion and acceleration from a micro-frame.
+2. **Vestibular-Cerebellar Fusion (VCF)** – stabilize that frame in a body-centric coordinate system.
+3. **Predictive Motion Cones (PMC)** – infer where targets will be, not where they are.
+4. **Motor Intent Projection (MIP)** – choose actions based on **future state**.
+
+Mathematically, this looks like a simple discrete-time Kalman filter over position + velocity,
+plus a probability “cone” around the predicted future locations.
+
+---
+
+## Project Layout
+
+- `src/frogman_fp/state.py` – State representations (position, velocity, uncertainty).
+- `src/frogman_fp/model.py` – Simple FP loop + prediction utilities.
+- `src/frogman_fp/filters.py` – Kalman-like filters and motion cone logic.
+- `src/frogman_fp/drills.py` – Pseudocode for training drills and tactical usage.
+- `src/frogman_fp/pantheon_integration.py` – Hooks for PantheonOS / daemon mapping.
+
+- `docs/fp_whitepaper.md` – Full doctrine.
+- `docs/neuroscience_notes.md` – Brain systems (vestibular, cerebellum, dorsal stream).
+- `docs/math_formalism.md` – State–space model, Kalman update equations.
+- `docs/tactics_and_applications.md` – Room-entry, crowd flow, vehicle movement, etc.
+
+---
+
+## Installation
+
+```bash
+pip install -e .
+
+(After you add a minimal pyproject.toml.)
+
+⸻
+
+Quick Example
+
+from frogman_fp.model import FrogmanEngine
+from frogman_fp.state import TargetObservation
+
+engine = FrogmanEngine(dt=0.05)  # 50 ms frame
+
+# Single micro-frame: you catch a glimpse behind your shoulder
+obs = TargetObservation(x=3.0, y=1.5, vx=2.0, vy=0.5)
+
+engine.update(obs)
+future_state = engine.predict_future(t_horizon=0.5)  # 500 ms ahead
+
+print(f"Predicted position in 0.5s: {future_state.x:.2f}, {future_state.y:.2f}")
+print(f"Uncertainty radius: {future_state.uncertainty_radius:.2f}")
+
+
+⸻
+
+Status
+	•	✅ Doctrine defined
+	•	✅ Neuroscience + math scaffolding
+	•	✅ Tactical drill patterns
+	•	🔄 Future: visualization tools and VR/AR training adapters
+
+This repo is intentionally small and sharp: it is a lens, not a framework.
+
+---
+
+## `src/frogman_fp/__init__.py`
+
+```python
+from .state import TargetObservation, FPState
+from .model import FrogmanEngine
+
+__all__ = [
+    "TargetObservation",
+    "FPState",
+    "FrogmanEngine",
+]
+
+
+⸻
+
+src/frogman_fp/state.py
+
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass
+class TargetObservation:
+    """
+    Single-frame observation of a moving target in body-centered coordinates.
+
+    Units are arbitrary but should be consistent (e.g., meters, seconds).
+    """
+    x: float
+    y: float
+    vx: float  # estimated velocity in x (from optic flow or prior frames)
+    vy: float  # estimated velocity in y
+    confidence: float = 1.0  # 0..1, subjective confidence in this glimpse
+
+
+@dataclass
+class FPState:
+    """
+    Latent state representing our belief about a target's motion.
+
+    This is a simple 2D position + velocity model with an uncertainty radius to
+    approximate a 'motion cone'.
+    """
+    x: float
+    y: float
+    vx: float
+    vy: float
+    uncertainty_radius: float  # radius of probable future positions
+
+    def as_vector(self):
+        return (self.x, self.y, self.vx, self.vy)
+
+
+⸻
+
+src/frogman_fp/filters.py
+
+from dataclasses import dataclass
+from .state import FPState, TargetObservation
+import math
+
+
+@dataclass
+class FPFilterConfig:
+    """
+    Configuration hyperparameters for the FP Kalman-like update.
+    """
+    process_noise: float = 0.05
+    measurement_noise: float = 0.1
+    base_uncertainty: float = 0.2
+
+
+class FrogmanFilter:
+    """
+    Minimal, intuitive Kalman-like filter for FP.
+
+    This isn't a full formal Kalman implementation; it's a structurally similar,
+    easy-to-reason-about update step that captures the doctrine:
+    - Trust your prior more when it's stable;
+    - Trust the new glimpse more when confidence is high.
+    """
+
+    def __init__(self, cfg: FPFilterConfig, dt: float = 0.05):
+        self.cfg = cfg
+        self.dt = dt
+        self.state = None  # type: FPState | None
+
+    def initialize(self, obs: TargetObservation) -> FPState:
+        self.state = FPState(
+            x=obs.x,
+            y=obs.y,
+            vx=obs.vx,
+            vy=obs.vy,
+            uncertainty_radius=self.cfg.base_uncertainty,
+        )
+        return self.state
+
+    def predict(self) -> FPState:
+        if self.state is None:
+            raise RuntimeError("Filter not initialized.")
+
+        x = self.state.x + self.state.vx * self.dt
+        y = self.state.y + self.state.vy * self.dt
+
+        # Uncertainty grows as we move forward without new data
+        unc = self.state.uncertainty_radius + self.cfg.process_noise
+
+        self.state = FPState(
+            x=x,
+            y=y,
+            vx=self.state.vx,
+            vy=self.state.vy,
+            uncertainty_radius=unc,
+        )
+        return self.state
+
+    def update(self, obs: TargetObservation) -> FPState:
+        if self.state is None:
+            return self.initialize(obs)
+
+        # Simple scalar 'Kalman gain' based on observation confidence
+        k = obs.confidence / (obs.confidence + self.cfg.measurement_noise)
+
+        x = self.state.x + k * (obs.x - self.state.x)
+        y = self.state.y + k * (obs.y - self.state.y)
+        vx = self.state.vx + k * (obs.vx - self.state.vx)
+        vy = self.state.vy + k * (obs.vy - self.state.vy)
+
+        # Uncertainty shrinks slightly when we get a solid measurement
+        unc = max(
+            self.cfg.base_uncertainty,
+            self.state.uncertainty_radius * (1.0 - 0.5 * k),
+        )
+
+        self.state = FPState(x=x, y=y, vx=vx, vy=vy, uncertainty_radius=unc)
+        return self.state
+
+    def predict_future(self, t_horizon: float) -> FPState:
+        """
+        Predict state t_horizon seconds into the future using constant-velocity model.
+        """
+        if self.state is None:
+            raise RuntimeError("Filter not initialized.")
+
+        x = self.state.x + self.state.vx * t_horizon
+        y = self.state.y + self.state.vy * t_horizon
+
+        # Uncertainty grows with sqrt(time) as a rough diffusion model
+        unc = self.state.uncertainty_radius + math.sqrt(
+            max(0.0, t_horizon)
+        ) * self.cfg.process_noise * 2.0
+
+        return FPState(x=x, y=y, vx=self.state.vx, vy=self.state.vy, uncertainty_radius=unc)
+
+
+⸻
+
+src/frogman_fp/model.py
+
+from .filters import FrogmanFilter, FPFilterConfig
+from .state import TargetObservation, FPState
+
+
+class FrogmanEngine:
+    """
+    High-level FP engine that wraps the filter and encodes doctrine:
+
+    - Update from micro-frame glimpses.
+    - Maintain a rolling belief about trajectory.
+    - Query future positions and uncertainty cones.
+
+    This is the code twin of the Frogman Proprioception doctrine.
+    """
+
+    def __init__(self, dt: float = 0.05, cfg: FPFilterConfig | None = None):
+        self.dt = dt
+        self.filter = FrogmanFilter(cfg or FPFilterConfig(), dt=dt)
+
+    def observe(self, obs: TargetObservation) -> FPState:
+        """
+        Incorporate a new glimpse (single frame of motion).
+        """
+        return self.filter.update(obs)
+
+    def tick(self) -> FPState:
+        """
+        Advance time by dt with no new observation, letting uncertainty grow.
+        """
+        return self.filter.predict()
+
+    def predict_future(self, t_horizon: float) -> FPState:
+        """
+        Predict t_horizon seconds into the future.
+        """
+        return self.filter.predict_future(t_horizon)
+
+
+⸻
+
+src/frogman_fp/drills.py
+
+"""
+Drill patterns for training Frogman Proprioception in real operators.
+
+This is pseudocode / protocol-level — meant to be read and implemented
+in physical training, VR, or simulation, not executed directly.
+"""
+
+from dataclasses import dataclass
+
+
+@dataclass
+class Drill:
+    name: str
+    objective: str
+    setup: str
+    protocol: list[str]
+    debrief_prompts: list[str]
+
+
+def micro_frame_turn_and_track() -> Drill:
+    return Drill(
+        name="Micro-Frame Turn & Track",
+        objective=(
+            "Train the operator to take a single peripheral glimpse, "
+            "predict a target's future position, and orient accurately "
+            "without continuous visual tracking."
+        ),
+        setup=(
+            "Operator stands facing forward. Partner or target moves behind "
+            "operator on an arc at variable speed. Operator periodically "
+            "turns head/torso to capture a single micro-frame of motion."
+        ),
+        protocol=[
+            "1. Operator starts facing 'north', eyes forward.",
+            "2. Target walks or jogs behind operator from left to right or right to left.",
+            "3. On cue, operator quickly glances over shoulder for < 0.5 seconds.",
+            "4. Operator returns gaze forward, then points (or orients body) "
+            "to where they predict the target will be in 1 second.",
+            "5. Confirm predicted vs actual position.",
+            "6. Vary speed, distance, and arc complexity.",
+        ],
+        debrief_prompts=[
+            "What did you notice first: position or velocity?",
+            "Did you 'feel' the predicted spot or think it?",
+            "What made certain predictions easier than others?",
+        ],
+    )
+
+
+def crowd_flow_prediction() -> Drill:
+    return Drill(
+        name="Crowd Flow Prediction",
+        objective=(
+            "Teach the operator to see people as motion vectors and fields, "
+            "predicting gaps and congestion before they form."
+        ),
+        setup=(
+            "Use a busy hallway, drill team, or simulated crowd in VR. "
+            "Operator stands at one end and is tasked with choosing and updating "
+            "a path through the moving field."
+        ),
+        protocol=[
+            "1. Operator scans the field for 2–3 seconds.",
+            "2. Mentally marks 'likely gaps' 2–3 seconds ahead.",
+            "3. Commits to a path and moves through without sudden stops.",
+            "4. Repeat with increasing density and noise.",
+        ],
+        debrief_prompts=[
+            "Did you focus on individuals or flows?",
+            "When were your predictions most accurate?",
+            "What signals told you a gap was closing?",
+        ],
+    )
+
+
+⸻
+
+src/frogman_fp/pantheon_integration.py
+
+"""
+PantheonOS integration stubs.
+
+This file maps Frogman Proprioception to Pantheon daemons and timing layers.
+"""
+
+from .model import FrogmanEngine
+from .state import TargetObservation, FPState
+
+
+class FrogmanDaemon:
+    """
+    Thin facade so FP can be treated as a PantheonOS daemon.
+
+    Responsibilities:
+    - Maintain a rolling motion model for key targets (or crowds).
+    - Expose 'future cones' to other daemons (Spider, Hound, Praus).
+    - Operate under ethics and stability constraints (no paranoia, no hallucinated threats).
+    """
+
+    def __init__(self, dt: float = 0.05):
+        self.engine = FrogmanEngine(dt=dt)
+
+    def ingest_observation(self, x: float, y: float, vx: float, vy: float, confidence: float = 1.0) -> FPState:
+        obs = TargetObservation(x=x, y=y, vx=vx, vy=vy, confidence=confidence)
+        return self.engine.observe(obs)
+
+    def future_cone(self, t_horizon: float) -> FPState:
+        return self.engine.predict_future(t_horizon)
+
+
+⸻
+
+docs/fp_whitepaper.md (doctrine + high-level)
+
+# Frogman Proprioception Whitepaper
+
+## 1. Overview
+
+Frogman Proprioception (FP) formalizes an elite operator skill:
+turning microsecond glimpses of motion into **reliable predictions**
+about where targets will be, not where they are.
+
+This whitepaper describes FP as:
+
+- A **cognitive doctrine**
+- A **neuroscience-backed process**
+- A **mathematical model**
+- A **tactical toolkit**
+
+It is intentionally dual-use:
+- grounded enough for sports science / robotics,
+- structured enough for PantheonOS as a daemon module.
+
+---
+
+## 2. Neuroscience Basis (High Level)
+
+FP aligns with known systems:
+
+- **Dorsal visual stream ("where/how" pathway)**  
+  - Motion, location, action guidance.
+
+- **Vestibular system**  
+  - Head motion, balance, inertial frame.
+
+- **Cerebellum**  
+  - Predictive modeling of movement, error correction, internal forward models.
+
+- **Premotor & motor cortex**  
+  - Action planning based on predicted, not just current, state.
+
+Empirically:
+
+- Elite athletes and operators show faster and more accurate **anticipatory timing**.
+- The brain builds **internal models** of dynamics (objects, people, crowds).
+- The cerebellum uses efference copies and sensory feedback to estimate
+  near-future states ~100–300 ms ahead.
+
+FP packages this into a clean, operator-focused loop.
+
+---
+
+## 3. Mathematical Formalism (Intuitive)
+
+We approximate FP with a constant-velocity state-space model:
+
+\[
+\mathbf{x}_k =
+\begin{bmatrix}
+x_k \\
+y_k \\
+v_{x,k} \\
+v_{y,k}
+\end{bmatrix}
+\]
+
+State transition:
+
+\[
+\mathbf{x}_{k+1} =
+\begin{bmatrix}
+1 & 0 & \Delta t & 0 \\
+0 & 1 & 0 & \Delta t \\
+0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 1
+\end{bmatrix}
+\mathbf{x}_k + \mathbf{w}_k
+\]
+
+Observation (a micro-frame glimpse):
+
+\[
+\mathbf{z}_k =
+\begin{bmatrix}
+x_k \\
+y_k \\
+v_{x,k} \\
+v_{y,k}
+\end{bmatrix}
++ \mathbf{v}_k
+\]
+
+Where:
+
+- \(\mathbf{w}_k\) ~ process noise (environmental unpredictability)
+- \(\mathbf{v}_k\) ~ measurement noise (sensory uncertainty)
+
+A Kalman-like update fuses prior belief and new glimpse
+to maintain a rolling best estimate.
+
+The **motion cone** is modeled as an uncertainty radius \( r \)
+around the predicted position:
+
+\[
+r(t) = r_0 + \alpha \sqrt{t}
+\]
+
+Intuitively: uncertainty spreads out over time like a growing halo.
+
+---
+
+## 4. Doctrine: The FP Loop
+
+1. **Optic Flow Capture (OFC)**  
+   - Detect relative motion and acceleration from a single glance.
+
+2. **Vestibular-Cerebellar Fusion (VCF)**  
+   - Anchor that motion to a stable body/world frame.
+
+3. **Predictive Motion Cones (PMC)**  
+   - Project target positions into the near future with an uncertainty cone.
+
+4. **Motor Intent Projection (MIP)**  
+   - Choose actions based on **future** positions, not current snapshots.
+
+The loop runs at ~100–250 Hz in the nervous system.
+
+---
+
+## 5. Tactics & Application
+
+See `docs/tactics_and_applications.md` for full detail. Key patterns:
+
+- **Turn & Track**  
+  Train single-frame backward glances + forward prediction.
+
+- **Gap Prediction**  
+  Navigate crowds as moving fields, not discrete bodies.
+
+- **Room Flow Anticipation**  
+  In CQB-like scenarios, predict where people will emerge, not where they stand.
+
+- **Vehicle Trajectory Sense**  
+  See traffic as vectors: avoid collisions by acting on future positions.
+
+---
+
+## 6. PantheonOS Integration
+
+In PantheonOS, FP is instantiated as a **Frogman Daemon**:
+
+- Input: intermittent observations from Spider (graph), Hound (anomalies), sensors.
+- Output: predicted future cones for entities of interest.
+- Governing Principle: **no paranoia**, only predictions grounded in real observations.
+
+The daemon serves:
+
+- Time Trident (T-layer reasoning),
+- Hogge Luck Engine (field bias via better positioning),
+- Tactical subsystems (navigation, threat modeling).
+
+FP is the **kinesthetic twin** of your narrative prediction systems.
+
+
+⸻
+
+docs/neuroscience_notes.md (you can expand later)
+
+Just a stub to start:
+
+# Neuroscience Notes for Frogman Proprioception
+
+This document collects references and conceptual mappings between FP and known
+neuroscience.
+
+- Dorsal stream (occipito-parietal): motion, spatial reasoning.
+- Ventral stream: identity ("what") — less central here.
+- Vestibular nuclei + cerebellum: internal models of motion, prediction.
+- Premotor / SMA: plan actions from anticipated states, not only current ones.
+
+FP treats the operator as a living Kalman filter:
+- Prior belief = cerebellar model.
+- Observation = dorsal stream snapshot.
+- Error correction = cerebellar + cortical update.
+
+You can extend this doc with citations when you're ready.
+
+
+⸻
+
+docs/tactics_and_applications.md
+
+# Tactics & Applications of Frogman Proprioception
+
+This document shows how to apply FP to real scenarios.
+
+## 1. Turn & Track (Single Target)
+
+- Scenario: You are moving through a space, need to check your six without
+  losing forward awareness.
+- FP Use: Take a single glimpse, run motion cone, act on future prediction.
+
+Key coaching cues:
+- "See velocity, not position."
+- "Trust the first read; correct on the move."
+
+---
+
+## 2. Crowd Flow
+
+- Scenario: Dense hallway, bar, festival, transit hub.
+- FP Use: Treat people as vectors in a fluid; choose paths based on where gaps
+  will open, not where they are.
+
+Key cues:
+- "Gaps travel forward."
+- "Look one to two seconds ahead in the flow."
+
+---
+
+## 3. CQB / Room Dynamics (Conceptual, not tactical instruction)
+
+We stay high-level and non-operational here; no TTPs.
+
+FP use:
+- Predict where lines of movement will converge.
+- Predict where panic / escape vectors will form.
+- Maintain awareness of likely future positions if you briefly lose LoS.
+
+---
+
+## 4. Vehicle / Traffic Sense
+
+- Scenario: Driving, biking, or moving near vehicles.
+- FP Use: Predict where others will be given their current speed and heading;
+  act proactively.
+
+Cues:
+- "Aim at where collisions would happen; then avoid those spots."
+- "See the lane as future snapshots, not still frames."
+
+
+⸻
+
+If you want, I can next:
+	•	tighten this into an arXiv-style PDF outline,
+	•	or generate more drills (including SEAL/athlete crossover),
+	•	or write a short pyproject.toml so you can literally pip install it.
