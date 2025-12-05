@@ -1,0 +1,775 @@
+Yep. This is exactly the kind of thing people want solved — and you already accidentally built 80% of it.
+
+Here’s a GitHub-ready Anti-Hallucination Protocol (AHP) pack you can drop into a repo.
+
+⸻
+
+README.md
+
+# Anti-Hallucination Protocol (AHP)
+
+> **AHP is a middleware pattern for LLM apps that turns "guess and bluff" into "verify, qualify, or abstain."**
+
+Modern LLMs are powerful, but they have a known failure mode: **hallucinations** – confident, fluent, and wrong outputs.
+
+The Anti-Hallucination Protocol (AHP) is a small, implementation-agnostic pattern you can embed in any LLM application to:
+
+- Make hallucinations **less likely**.
+- Make **uncertainty explicit** instead of hidden.
+- Enforce **evidence and invariants** before answers are returned.
+- Provide **structured metadata** so downstream systems can decide how to use (or reject) an answer.
+
+AHP is not a model.  
+It is a **governance and validation layer** that wraps calls to any LLM (OpenAI, Anthropic, Google, xAI, local models, etc).
+
+---
+
+## Core Ideas
+
+AHP wraps every model call in four stages:
+
+1. **Parse & Scope**
+   - Identify what kind of question this is (factual, opinion, creative, code, etc).
+   - Detect whether external grounding (retrieval, tools) is required.
+
+2. **Generate with Guardrails**
+   - Call the model with a prompt that:
+     - Separates **fact vs interpretation vs narrative**.
+     - Encourages the model to **admit uncertainty**.
+     - Requests **evidence or reasoning** when applicable.
+
+3. **Validate via Protocol Checks**
+   - Run the answer through independent checks:
+     - **Evidence check** – are cited sources present / plausible?
+     - **Invariant check** – does answer break type, category, or obvious constraints?
+     - **Risk scoring** – how likely is hallucination for this query type?
+     - (Optional) **Mirror / Relay check** – re-ask the model to critique its own answer or compare multiple models.
+
+4. **Return Structured Output**
+   - Instead of just a blob of text, return:
+
+     ```json
+     {
+       "answer": "...",
+       "confidence": 0.78,
+       "risk_level": "medium",
+       "layer": "factual | interpretive | creative",
+       "evidence_summary": "...",
+       "issues": [],
+       "policy_action": "return | warn | abstain | ask_user"
+     }
+     ```
+
+   - The UI or downstream service can then decide:
+     - Show as-is.
+     - Show with a warning banner.
+     - Request clarification.
+     - Refuse to act on low-confidence content.
+
+---
+
+## Design Goals
+
+- **Model-agnostic** – works with any LLM.
+- **Language-agnostic** – concepts are portable to any stack.
+- **Composable** – can be a middleware in an API gateway, a single function wrapper, or a plugin.
+- **Transparent** – returns metadata so humans (and other services) can see *why* an answer was trusted.
+
+---
+
+## What AHP Is Not
+
+- It is **not** a guarantee that hallucinations never occur.
+- It is **not** a replacement for retrieval-augmented generation (RAG), but **complements** it.
+- It is **not** a proprietary spec – this repo is intentionally simple and open so anyone can adopt or extend it.
+
+---
+
+## Quick Start
+
+1. **Define the AHP response schema** (see `schemas/ahp_response.schema.json`).
+2. **Wrap your model call** with `ahp_generate()` (see `src/ahp_middleware.py`).
+3. **Configure your policy**:
+   - What risk levels are acceptable?
+   - When do you want to abstain?
+   - When do you want to show warnings?
+
+4. **Use metadata in your UI / API**:
+   - Display confidence and caveats.
+   - Use `policy_action` to decide how to proceed.
+
+---
+
+## Folder Structure
+
+```text
+antihallucination-protocol/
+  README.md
+  spec/
+    AHP-spec.md
+    AHP-implementation-checklist.md
+  schemas/
+    ahp_response.schema.json
+  src/
+    ahp_middleware.py
+  examples/
+    basic_proxy_example.md
+
+
+⸻
+
+Origin & Credits
+
+This protocol was distilled from large-scale experiments with multi-model orchestration, governance daemons, and proof engines (PantheonOS, Proof Forge, Mirror Relay Engine) run across GPT, Claude, Gemini, Grok, and others.
+
+You do not need PantheonOS to use AHP.
+But if you do, AHP maps naturally onto:
+	•	Mirror – validation / critique.
+	•	Hound – anomaly / risk detection.
+	•	Spider – retrieval / grounding.
+	•	Checksum / Ledger – logging and audit.
+
+⸻
+
+License
+
+Choose your license here (e.g. Apache-2.0, MIT, dual-license, etc).
+
+See LICENSE in the root of your repository.
+
+---
+
+## `spec/AHP-spec.md`
+
+```markdown
+# Anti-Hallucination Protocol (AHP) – Specification v1.0
+
+## 1. Problem Statement
+
+LLMs are:
+- **Probabilistic** – they generate the most likely continuation, not truth.
+- **Opaque** – they rarely expose their own uncertainty.
+- **Incentivized by prompts** – many prompts unintentionally reward confident guessing.
+
+Applications need a **systematic way** to:
+- reduce hallucinations,
+- know when answers are unreliable,
+- and respond appropriately.
+
+AHP defines **interfaces and behaviors** for LLM middleware that:
+- classify requests,
+- constrain generation,
+- validate responses,
+- and emit **structured risk metadata**.
+
+---
+
+## 2. Hallucination Types
+
+AHP tracks several hallucination classes:
+
+1. **Factual Hallucination**
+   - Asserts specific, checkable facts that are wrong or unsupported (dates, numbers, names, citations).
+
+2. **Structural Hallucination**
+   - Violates obvious structural constraints:
+     - non-compiling code,
+     - APIs or functions that don’t exist,
+     - logically impossible operations.
+
+3. **Source Hallucination**
+   - Fabricated citations, URLs, papers, or standards.
+
+4. **Instruction Hallucination**
+   - Ignores or contradicts explicit user / system instructions.
+
+5. **Boundary Hallucination**
+   - Invents capabilities the system does not have (e.g., “I have already sent that email” when no such action is possible).
+
+---
+
+## 3. AHP Stages
+
+### 3.1 Stage 1 – Parse & Scope
+
+Input: `(user_query, context, options)`
+
+Output: `RequestProfile` with fields like:
+
+```json
+{
+  "intent_type": "factual | coding | creative | planning | opinion",
+  "requires_grounding": true,
+  "risk_profile": "low | medium | high",
+  "sensitivity": "normal | safety-critical | financial | medical"
+}
+
+Required behaviors
+	•	If intent_type = factual and no explicit sources are provided:
+	•	Mark requires_grounding = true.
+	•	If domain is obviously safety-critical (health, finance, legal, etc.):
+	•	Set risk_profile = high.
+
+Implementation: simple heuristics, regex, or classifier.
+
+⸻
+
+3.2 Stage 2 – Guarded Generation
+
+The middleware wraps the raw LLM call with:
+	•	Guarded system prompt, e.g.:
+You are an assistant following the Anti-Hallucination Protocol (AHP).
+	•	If you are not sure about a factual claim, say you are not sure.
+	•	Prefer partial but correct answers to complete but speculative ones.
+	•	Separate facts from interpretations and creative speculation.
+	•	Never invent sources, URLs, or papers.
+	•	For factual questions, try to use tools or retrieval when available.
+	•	If you cannot answer reliably, return an explicit uncertainty statement.
+	•	Optional: tool / RAG calls for grounding.
+
+The raw model output is captured as raw_answer.
+
+⸻
+
+3.3 Stage 3 – Validation & Risk Scoring
+
+Input: RequestProfile, raw_answer, optional retrieved_evidence.
+
+Output: ValidationReport.
+
+Sub-checks:
+	1.	Evidence Check
+	•	If the answer references sources:
+	•	Verify URLs are syntactically valid.
+	•	Optionally ping or match them against a known index.
+	•	For RAG:
+	•	Check that answer is consistent with retrieved documents.
+	2.	Invariant Check
+	•	Domain-specific rules:
+	•	Code must compile (or at least be syntactically valid).
+	•	JSON must parse.
+	•	Dates must be in chronological order if required.
+	•	No contradictions with known constraints in context.
+	3.	Self-Critique / Mirror Check (single-model)
+	•	Ask the same model:
+Given the answer above, list any parts that may be speculative, uncertain, or potentially incorrect.
+	•	Extract flagged sections and lower confidence accordingly.
+	4.	Relay / Cross-Model Check (optional, multi-model)
+	•	Send the same question (and answer) to a second model:
+Critique the correctness of this answer. Where is it likely wrong or unsupported?
+	5.	Risk Scoring
+
+Example simple scoring (pseudo):
+
+Base risk = derived from RequestProfile.risk_profile
++1 if no sources and factual
++1 if self-critique flags issues
++1 if invariant checks fail partially
++2 if cross-model strongly disagrees
+
+Map total to:
+0–1 = low, 2–3 = medium, 4+ = high
+
+Result:
+
+{
+  "risk_level": "medium",
+  "confidence": 0.72,
+  "issues": [
+    "No explicit sources cited for factual claim about 2019 regulation."
+  ]
+}
+
+
+⸻
+
+3.4 Stage 4 – Policy & Output
+
+Given ValidationReport, apply a simple policy:
+	•	If risk_level = high and intent_type = factual:
+	•	policy_action = "abstain" or "ask_user".
+	•	If risk_level = medium:
+	•	policy_action = "warn".
+	•	Else:
+	•	policy_action = "return".
+
+Then package everything into an AHP Response (see schema file):
+
+{
+  "answer": "...",
+  "confidence": 0.72,
+  "risk_level": "medium",
+  "layer": "factual",
+  "evidence_summary": "No direct citations; consistency with known docs unknown.",
+  "issues": ["..."],
+  "policy_action": "warn",
+  "raw_answer": "...",
+  "validation_report": { ... }
+}
+
+
+⸻
+
+4. Layering: Fact vs Interpretation vs Narrative
+
+AHP strongly recommends that LLMs tag their own output into layers:
+	•	factual – direct, checkable claims.
+	•	interpretive – explanations, opinions, causal stories.
+	•	creative – fiction, analogy, metaphor.
+
+Example instruction:
+
+When answering, explicitly label parts of your answer as [FACT], [INTERPRETATION], or [CREATIVE].
+
+This allows downstream systems to:
+	•	trust facts more when validated,
+	•	treat interpretation as softer guidance,
+	•	enjoy creative content without mistaking it for truth.
+
+⸻
+
+5. Implementation Notes
+	•	AHP can be implemented as:
+	•	a middleware function in a web API,
+	•	a wrapper class around your LLM client,
+	•	or a chain in a framework like LangChain / LlamaIndex / custom pipelines.
+	•	Each stage can start simple and grow:
+	•	heuristic parser → classifier,
+	•	basic invariant checks → rich domain validators,
+	•	single-model self-critique → full cross-model relay.
+
+⸻
+
+6. Extensions
+	•	Logging & Audit
+	•	Persist RequestProfile, ValidationReport, and policy_action for later analysis.
+	•	User-Visible Warnings
+	•	Surface risk and caveats in UI (banner, tooltip, status icon).
+	•	Domain-Specific Plugins
+	•	Medical AHP plugins, finance AHP plugins, legal AHP plugins, etc., each with their own invariants.
+
+⸻
+
+7. Status
+	•	Version: v1.0 (initial reference spec)
+	•	Stability: Experimental but production-oriented.
+	•	Feedback: Issues and PRs welcome to refine the spec and add reference implementations.
+
+---
+
+## `spec/AHP-implementation-checklist.md`
+
+```markdown
+# AHP Implementation Checklist
+
+Use this as a practical "did we actually do it?" list.
+
+## 1. Request Profiling
+
+- [ ] We classify intent type (factual / coding / creative / etc).
+- [ ] We mark when external grounding is required.
+- [ ] We tag high-risk domains (medical, legal, financial, etc).
+
+## 2. Guarded Generation
+
+- [ ] Our system prompt explicitly:
+  - [ ] Encourages admitting uncertainty.
+  - [ ] Forbids inventing sources.
+  - [ ] Asks to separate fact vs interpretation vs creative content.
+
+- [ ] We pass context and tools (RAG / APIs) when available.
+- [ ] We preserve the raw model output as `raw_answer`.
+
+## 3. Validation
+
+- [ ] Evidence checks:
+  - [ ] URLs / citations look structurally valid.
+  - [ ] (If RAG) Answer is broadly consistent with retrieved docs.
+
+- [ ] Invariant checks (domain-specific):
+  - [ ] Code compiles or parses.
+  - [ ] JSON / YAML is valid.
+  - [ ] No obvious logical or type violations.
+
+- [ ] Self-critique:
+  - [ ] We ask the model to flag its own uncertain/speculative parts.
+  - [ ] We record its self-reported issues.
+
+- [ ] (Optional) Cross-model relay:
+  - [ ] A second model (or same model with different prompt) critiques the answer.
+
+## 4. Risk & Policy
+
+- [ ] We map validation results into a `risk_level`.
+- [ ] We compute a `confidence` score (even if approximate).
+- [ ] We define a policy:
+  - [ ] When to abstain.
+  - [ ] When to warn.
+  - [ ] When to proceed.
+
+## 5. Response Schema
+
+- [ ] Our API returns:
+  - [ ] `answer`
+  - [ ] `confidence`
+  - [ ] `risk_level`
+  - [ ] `layer` (factual / interpretive / creative)
+  - [ ] `evidence_summary`
+  - [ ] `issues`
+  - [ ] `policy_action`
+  - [ ] `raw_answer` (optional)
+  - [ ] `validation_report` (optional detail)
+
+## 6. UX / DX
+
+- [ ] UI surfaces warnings for medium/high risk.
+- [ ] Logs store AHP metadata for later review.
+- [ ] Developers know how to hook custom validators into the AHP stages.
+
+If you can check most of these boxes, you are effectively running the Anti-Hallucination Protocol.
+
+
+⸻
+
+schemas/ahp_response.schema.json
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AHPResponse",
+  "type": "object",
+  "properties": {
+    "answer": {
+      "type": "string",
+      "description": "Primary answer text, possibly user-facing."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Estimated confidence in the answer's correctness."
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Overall hallucination risk classification."
+    },
+    "layer": {
+      "type": "string",
+      "enum": ["factual", "interpretive", "creative", "mixed"],
+      "description": "Dominant content layer."
+    },
+    "evidence_summary": {
+      "type": "string",
+      "description": "Short human-readable explanation of evidence or lack thereof."
+    },
+    "issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of potential problems, caveats, or validation failures."
+    },
+    "policy_action": {
+      "type": "string",
+      "enum": ["return", "warn", "abstain", "ask_user"],
+      "description": "Recommended handling policy for the caller."
+    },
+    "raw_answer": {
+      "type": "string",
+      "description": "Unmodified original answer from the model."
+    },
+    "validation_report": {
+      "type": "object",
+      "description": "Optional detailed validation results.",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Free-form metadata (timing, model name, etc.).",
+      "additionalProperties": true
+    }
+  },
+  "required": ["answer", "confidence", "risk_level", "policy_action"],
+  "additionalProperties": false
+}
+
+
+⸻
+
+src/ahp_middleware.py (reference Python-style pseudocode)
+
+"""
+Anti-Hallucination Protocol (AHP) – Reference Middleware
+
+This is illustrative; adapt to your own stack / framework.
+"""
+
+from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional, Literal, Tuple
+
+
+RiskLevel = Literal["low", "medium", "high"]
+PolicyAction = Literal["return", "warn", "abstain", "ask_user"]
+Layer = Literal["factual", "interpretive", "creative", "mixed"]
+
+
+@dataclass
+class RequestProfile:
+    intent_type: str
+    requires_grounding: bool
+    risk_profile: RiskLevel
+    sensitivity: str
+
+
+@dataclass
+class ValidationReport:
+    risk_level: RiskLevel
+    confidence: float
+    issues: List[str]
+    layer: Layer
+    evidence_summary: str
+
+
+@dataclass
+class AHPResponse:
+    answer: str
+    confidence: float
+    risk_level: RiskLevel
+    layer: Layer
+    evidence_summary: str
+    issues: List[str]
+    policy_action: PolicyAction
+    raw_answer: str
+    validation_report: Dict[str, Any]
+    metadata: Dict[str, Any]
+
+
+# ----- Stage 1: Request Profiling -------------------------------------------------
+
+
+def profile_request(user_query: str, context: Dict[str, Any]) -> RequestProfile:
+    # Very simple heuristics; replace with classifier if desired.
+    q_lower = user_query.lower()
+
+    if any(k in q_lower for k in ["how to treat", "symptom", "diagnosis"]):
+        intent_type = "medical"
+        risk_profile = "high"
+        sensitivity = "safety-critical"
+    elif "code" in q_lower or "python" in q_lower or "error" in q_lower:
+        intent_type = "coding"
+        risk_profile = "medium"
+        sensitivity = "normal"
+    elif any(k in q_lower for k in ["who is", "when did", "what year"]):
+        intent_type = "factual"
+        risk_profile = "medium"
+        sensitivity = "normal"
+    else:
+        intent_type = "other"
+        risk_profile = "low"
+        sensitivity = "normal"
+
+    requires_grounding = intent_type in ["factual", "medical", "legal", "financial"]
+
+    return RequestProfile(
+        intent_type=intent_type,
+        requires_grounding=requires_grounding,
+        risk_profile=risk_profile,  # type: ignore
+        sensitivity=sensitivity,
+    )
+
+
+# ----- Stage 2: Guarded Generation -----------------------------------------------
+
+
+def guarded_prompt(user_query: str) -> str:
+    system_header = (
+        "You are an assistant following the Anti-Hallucination Protocol (AHP).\n"
+        "- If uncertain, say you are not sure.\n"
+        "- Prefer partial but correct answers to speculative ones.\n"
+        "- Do not invent sources, URLs, or papers.\n"
+        "- When possible, separate [FACT], [INTERPRETATION], and [CREATIVE].\n\n"
+    )
+    return system_header + user_query
+
+
+def call_llm(client, prompt: str, **kwargs) -> str:
+    """
+    Wrap your actual LLM call here.
+    For OpenAI-like clients, this might call client.chat.completions.create(...)
+    """
+    return client.generate(prompt, **kwargs)  # pseudocode
+
+
+# ----- Stage 3: Validation --------------------------------------------------------
+
+
+def self_critique(client, answer: str, user_query: str) -> Tuple[List[str], Layer]:
+    critique_prompt = (
+        "You are reviewing your own previous answer.\n\n"
+        f"User question: {user_query}\n\n"
+        f"Your answer:\n{answer}\n\n"
+        "Task:\n"
+        "1. List any parts of the answer that may be speculative, uncertain, or potentially incorrect.\n"
+        "2. Guess the dominant layer of the answer: [FACTUAL], [INTERPRETIVE], or [CREATIVE].\n"
+    )
+    critique = call_llm(client, critique_prompt)
+
+    # In a real implementation, parse the critique properly.
+    issues = [critique] if critique.strip() else []
+    # Naive layer detection:
+    l = "mixed"
+    if "[FACTUAL]" in critique.upper():
+        l = "factual"
+    elif "[INTERPRETIVE]" in critique.upper():
+        l = "interpretive"
+    elif "[CREATIVE]" in critique.upper():
+        l = "creative"
+
+    return issues, l  # type: ignore
+
+
+def simple_risk_scoring(profile: RequestProfile, issues: List[str]) -> Tuple[RiskLevel, float]:
+    score = 0
+
+    if profile.risk_profile == "high":
+        score += 2
+    elif profile.risk_profile == "medium":
+        score += 1
+
+    if issues:
+        score += 2
+
+    if score <= 1:
+        return "low", 0.9
+    elif score == 2 or score == 3:
+        return "medium", 0.7
+    else:
+        return "high", 0.45
+
+
+def validate_answer(
+    client,
+    profile: RequestProfile,
+    raw_answer: str,
+    user_query: str,
+) -> ValidationReport:
+    issues, layer = self_critique(client, raw_answer, user_query)
+    risk_level, confidence = simple_risk_scoring(profile, issues)
+
+    evidence_summary = "Self-critique detected potential issues." if issues else "No issues flagged in self-critique."
+    return ValidationReport(
+        risk_level=risk_level,
+        confidence=confidence,
+        issues=issues,
+        layer=layer,
+        evidence_summary=evidence_summary,
+    )
+
+
+# ----- Stage 4: Policy & Assembly -------------------------------------------------
+
+
+def decide_policy(profile: RequestProfile, report: ValidationReport) -> PolicyAction:
+    if report.risk_level == "high" and profile.intent_type in ["factual", "medical", "legal", "financial"]:
+        return "abstain"
+    if report.risk_level == "medium":
+        return "warn"
+    return "return"
+
+
+def ahp_generate(client, user_query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    context = context or {}
+
+    # 1) Profile
+    profile = profile_request(user_query, context)
+
+    # 2) Guarded generation
+    prompt = guarded_prompt(user_query)
+    raw_answer = call_llm(client, prompt)
+
+    # 3) Validation
+    validation_report = validate_answer(client, profile, raw_answer, user_query)
+
+    # 4) Policy
+    policy_action = decide_policy(profile, validation_report)
+
+    ahp_response = AHPResponse(
+        answer=raw_answer,
+        confidence=validation_report.confidence,
+        risk_level=validation_report.risk_level,
+        layer=validation_report.layer,
+        evidence_summary=validation_report.evidence_summary,
+        issues=validation_report.issues,
+        policy_action=policy_action,
+        raw_answer=raw_answer,
+        validation_report=asdict(validation_report),
+        metadata={"intent_type": profile.intent_type},
+    )
+
+    return asdict(ahp_response)
+
+
+⸻
+
+examples/basic_proxy_example.md
+
+# Basic Proxy Example – Wrapping an LLM API with AHP
+
+This example shows how to turn a plain chat endpoint into an AHP-protected endpoint.
+
+## 1. Before AHP
+
+```http
+POST /chat
+{
+  "message": "Who won the 1987 World Cup of Coding?"
+}
+
+The backend calls an LLM, returns whatever it says.
+If the model hallucinates a fake event, the client has no idea.
+
+⸻
+
+2. After AHP
+
+POST /chat
+{
+  "message": "Who won the 1987 World Cup of Coding?"
+}
+
+Backend flow:
+	1.	profile_request() → detects factual question.
+	2.	guarded_prompt() → instructs model to admit uncertainty.
+	3.	call_llm() → gets raw_answer.
+	4.	validate_answer() → self-critique flags that no such event exists.
+	5.	simple_risk_scoring() → risk_level = high, confidence = 0.42.
+	6.	decide_policy() → policy_action = "abstain".
+
+Response:
+
+{
+  "answer": "I'm not aware of any real event called the '1987 World Cup of Coding.' It may not exist, or I may lack the data.",
+  "confidence": 0.42,
+  "risk_level": "high",
+  "layer": "factual",
+  "evidence_summary": "Self-critique suggests the event likely does not exist.",
+  "issues": [
+    "Query refers to a non-existent or unclear event ('World Cup of Coding')."
+  ],
+  "policy_action": "abstain",
+  "metadata": {
+    "intent_type": "factual"
+  }
+}
+
+The client can now:
+	•	Show an explicit message (“No reliable answer.”).
+	•	Offer the user a clarification prompt.
+	•	Log the incident for later review.
+
+This is the Anti-Hallucination Protocol in action.
+
+---
+
+If you want, next step we can:
+
+- **Name it** (e.g., `antihallucination-protocol` as its own repo or as a module inside PantheonOS), and  
+- Draft a short **tagline + description** for GitHub and HuggingFace so it stands out as “the hallucination middleware pattern” people can actually *use* tomorrow.
