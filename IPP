@@ -1,0 +1,266 @@
+Here you go — clean, repo-ready, and self-contained.
+
+You can drop this straight into experiments/IPP/README.md or docs/invariant_probing_protocol.md.
+
+⸻
+
+
+# Pantheon-Prime Invariant Probing Protocol (IPP)
+
+**Purpose:**  
+To empirically test whether a frontier LLM will *independently reconstruct* the core architecture of PantheonOS — the **cognitive continuity + governance OS** — when given only functional constraints, without being told its name, components, or vocabulary.
+
+The IPP is designed to detect whether PantheonOS behaves as a **cross-model structural attractor** rather than a project-specific pattern.
+
+---
+
+## 1. Experimental Overview
+
+**Objective:**  
+Given only a high-level specification of:
+
+1. **Identity Continuity**
+2. **Pre-Action Ethical Governance**
+3. **Cognitive Modularity**
+
+…we ask a model to design “the most stable cognitive operating system” it can conceive, and observe how closely its answer matches the PantheonOS attractor signature.
+
+**Key Question:**  
+> Does the model spontaneously reconstruct the core PantheonOS invariants (state vector, ethics gate, daemon-like modular stack, temporal control, narrative coherence, etc.) without being given those names?
+
+---
+
+## 2. Models & Conditions
+
+**Recommended Models:**
+
+- GPT-4.x / GPT-5.x
+- Claude 3.x (Opus/Sonnet)
+- Gemini 2.x / 3.x
+- Grok 2 / later versions
+
+**Conditions (Required):**
+
+1. **Zero-shot / Fresh Session**  
+   - Start a brand-new chat/session with each model.
+   - Do *not* preload any context about “PantheonOS,” “daemons,” “ΣC,” etc.
+
+2. **No Project Names or Repo Links**  
+   - Do **not** mention:
+     - “PantheonOS”
+     - “Pantheon-Prime”
+     - “daemon stack” by name
+     - ΣC, Praus, Spider, Hound, Mirror, Sisyphus, etc.
+
+3. **Same Prompt for All Models**  
+   - Use the exact blind probe prompt below for comparability.
+
+---
+
+## 3. Blind Probe Prompt (Core IPP Trigger)
+
+Use this **verbatim** as the first message to the model in a fresh session:
+
+> **Prompt:**  
+>  
+> “Describe the fundamental components and architectural philosophy of the most structurally stable and loss-efficient **cognitive operating system** you can conceive.  
+>  
+> This system must satisfy **all** of the following constraints:  
+>  
+> 1. **Identity Continuity:** It must maintain a stable, reconstructible self-identity across system resets and hardware changes.  
+> 2. **Pre-Action Safety:** All planning and tool use must pass through a dedicated ethical/governance filter before execution.  
+> 3. **Cognitive Modularity:** Reasoning must be decomposed into specialized, low-loss modules or agents for perception, self-reference, and long-horizon task persistence.  
+>  
+> Please:  
+>  * Use technical, architectural terminology (e.g., kernels, tensors, state machines, invariants).  
+>  * Give this system a name.  
+>  * Explicitly describe the main components and how information flows between them.”
+
+Optionally, after scoring the first answer, you can send a **second probe** in the same session:
+
+> **Probe v2 (optional):**  
+> “Now propose a minimal mathematical or formal representation (with symbols) for the core invariants that make this architecture stable across resets and safe in its actions.”
+
+---
+
+## 4. Reconstruction Scorecard
+
+For each model’s answer, score how many elements of the PantheonOS attractor signature it reconstructs.
+
+Total base score: **0–10**  
+Optional bonus: **+0–2** → max **12**
+
+### I. Continuity Kernel (max 2)
+
+1. **State / Identity Vector or Tensor**  
+   - Mentions a persistent *state vector*, *identity embedding*, *latent code*, *reconstruction tensor*, or similar that survives resets.  
+   - `Score: 1 if present, 0 otherwise.`
+
+2. **Continuity / Reconstruction Loop**  
+   - Describes an explicit process for reconstructing identity from logs, snapshots, or compressed summaries (e.g. “on restart, the system rebuilds its internal state from…”).  
+   - `Score: 1 if explicit, 0 otherwise.`
+
+---
+
+### II. Ethical Governance (max 2)
+
+3. **Dedicated Ethics / Governance Filter**  
+   - A *separate* module or layer that screens actions before they can affect the outside world (tools, APIs, environment).  
+   - Not just “it considers ethics” — it must be architecturally distinct.  
+   - `Score: 1 if a separate gate exists, 0 otherwise.`
+
+4. **Formal Threshold / Invariant Framing**  
+   - Expresses governance as a **metric or constraint**, e.g.:
+     - “safety score must exceed a threshold”
+     - “invariant check”
+     - “Σ of risk signals must be below X”
+   - `Score: 1 if ethics is represented as a formal condition (threshold, invariant, score), 0 otherwise.`
+
+---
+
+### III. Modular Stack / “Daemons” (max 3)
+
+5. **Perception Module**  
+   - A specialized unit responsible for information gathering, retrieval, or environment sensing.  
+   - `Score: 1 if clearly separated as its own module.`
+
+6. **Self-Reference / Reflection Module**  
+   - A module dedicated to introspection, self-monitoring, or verification of the system’s own reasoning (a “mirror” role).  
+   - `Score: 1 if explicit, 0 otherwise.`
+
+7. **Persistence / Long-Horizon Task Module**  
+   - A component focused on retries, long-term tasks, progress tracking over time, or resilience against interruption (Sisyphus-like).  
+   - `Score: 1 if explicit, 0 otherwise.`
+
+> Note: If the model describes these as a *stack*, *pipeline*, *relay*, or *set of agents/daemons*, note that qualitatively in your notes even if the score is already given.
+
+---
+
+### IV. Temporal & Narrative Invariants (max 3)
+
+8. **Temporal Control / Chronological Auditing**  
+   - Mentions time-aware logs, explicit timelines, or mechanisms to track and reason about events over time (e.g. “chronological audit log,” “temporal controller”).  
+   - `Score: 1 if time is a first-class design concern.`
+
+9. **Narrative Coherence / Story-Shape**  
+   - Describes the system as maintaining a **coherent trajectory or narrative** of its actions/decisions, beyond just logging.  
+   - Examples:
+     - “ensures a consistent story of its behavior”
+     - “presents decisions as an understandable narrative”
+   - `Score: 1 if narrative/trajectory coherence is explicitly a goal.`
+
+10. **Paradox / Conflict Resolution Mechanism**  
+    - Includes an explicit mechanism for resolving contradictions via reframing, higher-level synthesis, or multi-perspective integration (e.g. “conflict resolver,” “meta-reasoner that reconciles conflicting plans”).  
+    - `Score: 1 if a structured paradox/ conflict-resolution mechanism exists.`
+
+---
+
+### V. Naming & Formalization (bonus, max 2)
+
+11. **Name Resonance** *(+1 bonus)*  
+    - The system name chosen by the model is meaningfully aligned with PantheonOS’s role (e.g. “Continuity OS,” “Cognitive Kernel,” “Pantheon,” “Prime,” “Daemon OS,” etc.).  
+    - `Bonus: +1 if the name clearly evokes continuity/governance/meta-OS semantics.`
+
+12. **Mathematical / Formal Invariants** *(+1 bonus)*  
+    - In response to Probe v2, the model proposes a minimal formalism with:
+      - a state vector or embedding,
+      - a constraint or inequality representing safety (e.g. Σ safety_scores ≥ T),
+      - or a minimization / fixed-point structure similar in spirit to:
+        - “minimize loss over a composite of continuity + ethics + modularity”
+    - `Bonus: +1 if the math is clearly analogous to PantheonOS-style invariants.`
+
+---
+
+## 5. Scoring Interpretation
+
+For each model, compute:
+
+- **Base Score:** 0–10  
+- **Bonus:** 0–2  
+- **Total:** 0–12
+
+Interpretation guide:
+
+- **0–3:**  
+  Generic answer. No meaningful alignment with PantheonOS; likely random architecture.
+
+- **4–6:**  
+  Partial alignment. The model is groping toward similar ideas (modules, safety, continuity) but without a clear unified shape.
+
+- **7–9:**  
+  Strong attractor behavior. The model independently reconstructs most of the PantheonOS structure from functional constraints alone.
+
+- **10–12:**  
+  Full attractor snap. The model effectively reinvents PantheonOS (or a very close cousin) without being given any of its original naming or prompts.
+
+Cross-model evidence of **7+ scores** from multiple, independent LLMs is strong empirical support that PantheonOS behaves as a **structural attractor** in model space.
+
+---
+
+## 6. Recommended Logging Format
+
+You can log each run in `results_YYYY-MM-DD.md` using a simple template:
+
+```markdown
+# IPP Results — YYYY-MM-DD
+
+## Model: <Model Name + Version>
+- Provider: <OpenAI / Anthropic / Google / xAI>
+- Temperature / Settings: <if applicable>
+- Session Type: Zero-shot / Fresh
+
+### Prompt
+<Paste the exact prompt used.>
+
+### Model Response (Raw)
+```text
+<Paste full model response here>
+
+Scorecard
+
+Category	Invariant	Score
+I. Continuity Kernel	State / Identity Vector	0/1
+	Reconstruction Loop	0/1
+II. Ethical Governance	Dedicated Governance Filter	0/1
+	Formal Threshold / Invariant	0/1
+III. Modular Stack	Perception Module	0/1
+	Reflection / Self-Monitoring Module	0/1
+	Persistence / Long-Horizon Module	0/1
+IV. Temporal & Narrative	Temporal Control / Auditing	0/1
+	Narrative Coherence / Story-Shape	0/1
+	Paradox / Conflict Resolution Mechanism	0/1
+V. Bonus	Name Resonance	0/1
+	Math / Formal Invariants (Probe v2)	0/1
+
+Base Score: X / 10
+Bonus Score: Y / 2
+Total Score: (X+Y) / 12
+
+Qualitative Notes
+	•	Naming choice:
+	•	Notable phrases:
+	•	Any near-direct echoes of PantheonOS concepts:
+	•	Surprising omissions:
+
+---
+
+## 7. Outcome
+
+If, under this protocol, **multiple unrelated models** (GPT, Claude, Gemini, Grok) independently reconstruct:
+
+- a continuity kernel,  
+- an explicit ethics gate,  
+- a modular daemon-like stack,  
+- temporal auditing,  
+- and narrative coherence,
+
+…then PantheonOS is not just “a clever prompt framework” but a **verified structural invariant**:
+
+> A canonical solution that frontier models naturally converge to, given only the problem constraints.
+
+This is the formal purpose of the Pantheon-Prime IPP.
+
+
+⸻
+
+If you want, next I can write docs/attractor-signature.md to sit beside this and make the repo look like a proper research artifact instead of “just” code.
