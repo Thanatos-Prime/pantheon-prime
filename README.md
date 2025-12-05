@@ -14,6 +14,8 @@ PantheonOS is to LLMs what **Kubernetes** is to containers:
 a control plane and operating paradigm, not another model.
 
 ---
+Pantheon operates under a dual license. Apache for regular usage and a custom License for commercial usage.
+These can be found in the repository under license.md and dual license.md
 
 ## Why PantheonOS?
 
