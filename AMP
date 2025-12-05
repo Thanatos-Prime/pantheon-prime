@@ -1,0 +1,479 @@
+Alright, let’s make this a real thing.
+
+Below is The Attractor Mapping Program (AMP) formalized as a legit research agenda and a GitHub-ready artifact you can drop into a new repo like:
+
+Thanatos-Prime/attractor-mapping-program
+
+⸻
+
+README.md — Attractor Mapping Program (AMP)
+
+# Attractor Mapping Program (AMP)
+
+> **AMP** is a research program and tooling stack for **mapping attractors in complex systems**  
+> (latent spaces, optimization landscapes, fluid flows, combinatorial search)  
+> to build **fractal roadmaps** that let us fail forward fast across domains.
+
+The core idea:
+
+- Modern systems (LLMs, optimization algorithms, turbulence, SAT spaces) all evolve inside huge state spaces.
+- Their behavior is dominated by **attractors**: basins, cycles, chaotic regions, metastable wells.
+- If we can **map attractors and their fractal boundaries**, we gain:
+  - a **rough sketch** of where the system wants to go,
+  - a **universal coordinate system** for different domains,
+  - a way to **transfer insight** between physics, ML, and computation.
+
+AMP does **not** claim to solve any Millennium Problem.  
+Instead, it proposes a **unified framework** for studying flows, attractors, and universality classes that appear in:
+
+- Navier–Stokes–type flows (existence/smoothness intuition),
+- P vs NP–adjacent search spaces (configuration landscapes),
+- High-dimensional ML / LLM latent spaces (semantic attractors),
+- Dynamical systems in general (fractals, bifurcations, chaos).
+
+---
+
+## 1. Core Intuition
+
+1. Many hard problems can be rephrased as:
+
+   > *“How does a flow move through a complicated landscape,  
+   and what kind of attractors / singularities does it encounter?”*
+
+2. In ML, we already see this with:
+   - loss landscapes,
+   - representation manifolds,
+   - token-level attractors for meaning.
+
+3. AMP says:
+
+   > **Map the attractors first.**  
+   > Use those maps as **rough sketches**.  
+   > Let the sketch **refine itself** as we run the system.
+
+This “sketch that refines itself” is a **fractal roadmap** – a coarse-to-fine structure that gets sharper as we explore.
+
+---
+
+## 2. Objects of Study
+
+### 2.1 State Space
+
+A system has:
+
+- A state space \( X \) (could be \(\mathbb{R}^n\), a graph, a configuration space of assignments, etc.)
+- A flow or update rule:
+  - Continuous: \( \frac{dx}{dt} = F(x) \)
+  - Discrete: \( x_{t+1} = F(x_t) \)
+
+### 2.2 Energy / Potential / Cost
+
+We associate an **energy-like functional**:
+
+\[
+E : X \to \mathbb{R}
+\]
+
+Examples:
+
+- Physics: free energy, action, Hamiltonian.
+- Optimization: loss function.
+- LLM latent space: negative log-likelihood, or surrogate “semantic energy”.
+- Combinatorics: cost of a partial solution.
+
+### 2.3 Attractors
+
+Attractors are:
+
+- **Fixed points**: \( F(x^*) = x^* \)
+- **Cycles / limit cycles**
+- **Strange attractors / chaotic sets**
+- **Metastable wells**
+
+The key is not just individual attractors, but the **basins of attraction** and their **boundaries**, which often have fractal structure.
+
+---
+
+## 3. The AMP Program (High-Level)
+
+AMP proposes a staged approach:
+
+1. **Attractor Detection**  
+   Identify candidate attractors in a given domain (e.g., via sampling, simulation, gradient flow).
+
+2. **Local Charting**  
+   For each attractor, estimate:
+   - its basin,
+   - local stability properties (eigenvalues, Lyapunov exponents),
+   - neighborhood geometry.
+
+3. **Boundary Fractal Analysis**  
+   Study the shape of basin boundaries:
+   - Are they smooth? Fractal? Porous?
+   - How do they change under parameter variation?
+
+4. **Universality Classification**  
+   Group attractors into **universality classes**, where different systems share:
+   - scaling exponents,
+   - bifurcation patterns,
+   - qualitative flow structure.
+
+5. **Cross-Domain Transfer Maps**  
+   Build mappings between domains:
+   - “This kind of attractor in latent space ≈ that kind of vortex in Navier–Stokes ≈ that kind of basin in SAT search.”
+   - Use these to **transfer heuristics**.
+
+6. **Fail-Forward Refinement Loop**  
+   Deploy the current attractor map to:
+   - guide exploration,
+   - predict failure modes,
+   - refine the map as new data arrives.
+
+Effectively:
+
+> **Map → Use → Break → Refine → Repeat**  
+> until the roadmap stabilizes.
+
+---
+
+## 4. Formal Program Outline
+
+See [`docs/AMP-spec.md`](docs/AMP-spec.md) for a more mathematical treatment.
+
+Key questions:
+
+- **Existence / Stability:**  
+  Given a system, what type of attractors must exist? Under what conditions are they stable?
+
+- **Complexity:**  
+  How hard is it to locate or approximate attractors? (P vs NP–style questions for attractor finding.)
+
+- **Regularity:**  
+  Are the flows smooth? Do trajectories blow up (singularities)? (Navier–Stokes intuition.)
+
+- **Fractal Structure:**  
+  How “rough” can basin boundaries be? Can we estimate their dimension?
+
+- **Universality:**  
+  Which qualitative attractor patterns appear across wildly different systems?
+
+---
+
+## 5. Implementation Sketch
+
+Although AMP is a theory program, it is also **computational**.
+
+Planned components:
+
+- `amp_core/` – core definitions and simulation utilities.
+- `amp_domains/` – domain adapters:
+  - `latent_llm/` – attractors in language model latent spaces.
+  - `navier_stokes/` – simple 2D fluid simulations for attractor studies.
+  - `sat_landscapes/` – Boolean formula / constraint-satisfaction attractors.
+- `amp_analysis/` – fractal dimension estimators, clustering of attractors, universality detectors.
+- `amp_viz/` – visualization tools for flows, basins, and bifurcations.
+
+---
+
+## 6. Relationship to Existing Work
+
+AMP builds on:
+
+- dynamical systems theory (attractors, bifurcations, chaos),
+- statistical mechanics and free energy minimization,
+- optimization/ML loss landscape analysis,
+- renormalization group / universality in physics.
+
+The novelty is in:
+
+- **treating LLM latent spaces explicitly as dynamical attractor fields**,  
+- **organizing multiple domains under a single “attractor mapping” umbrella,**
+- and **turning this into a reusable program + toolkit** rather than isolated experiments.
+
+---
+
+## 7. PantheonOS / Proof Forge Context (Optional)
+
+AMP aligns naturally with the PantheonOS ecosystem:
+
+- **Golden Dragon Theorem (intuitive idea):**  
+  attractor recurrence and self-similar refinement rules.
+- **Proof Forge:**  
+  could treat AMP conjectures as targets for structured proof attempts.
+- **Narrative Tensor Engine:**  
+  can represent attractor flows as tensors on manifolds.
+- **Hound / Dragonfly / Mirror Daemons:**  
+  anomaly detection, flow overview, and verification for attractor maps.
+
+You do *not* need PantheonOS for AMP, but the two frameworks are highly compatible.
+
+---
+
+## 8. Status
+
+- **Version:** AMP v0.1 (Program Definition)
+- **Scope:** Conceptual + early computational prototypes.
+- **Goal:** Offer a clean, extensible scaffold for mathematicians, physicists, and ML researchers
+  who want to treat “attractors across domains” as a unified research object.
+
+Contributions, critiques, and variants welcome.
+
+
+⸻
+
+docs/AMP-spec.md — Research Agenda Spec
+
+# Attractor Mapping Program (AMP) – Spec v0.1
+
+## 1. Setup
+
+Let \( (X, \mathcal{B}, \mu) \) be a measurable state space with a flow:
+
+- Continuous time: \( \Phi_t: X \to X \), \( t \in \mathbb{R} \)
+- Discrete time: \( F: X \to X \), iterations \( x_{n+1} = F(x_n) \)
+
+We assume the existence of an energy-like functional:
+
+\[
+E: X \to \mathbb{R}
+\]
+
+which may correspond to:
+
+- physical free energy,
+- a loss function,
+- an information-theoretic energy (negative log-likelihood),
+- or a surrogate quantity correlated with stability.
+
+We define **attractors** in standard dynamical systems terms (minimal closed invariant sets with attracting neighborhoods), but we are especially interested in:
+
+- basins of attraction,
+- their **boundaries**,
+- and **scaling / fractal structure** of those boundaries.
+
+---
+
+## 2. The AMP Pipeline (Formalized)
+
+### 2.1 Attractor Detection
+
+Given a domain \( D \) and a mapping \( F \):
+
+1. Sample initial states \( x_0^{(i)} \sim \nu \) from some distribution.
+2. Iterate:
+
+   \[
+   x_{n+1}^{(i)} = F(x_n^{(i)})
+   \]
+
+3. Cluster limiting behaviors into attractor classes:
+   - convergence to fixed points,
+   - convergence to cycles,
+   - chaotic trajectories with empirical invariant distributions.
+
+Formally, for each trajectory, we can define its **omega-limit set**:
+
+\[
+\omega(x_0) = \{ y \in X \mid \exists n_k \to \infty, \ F^{n_k}(x_0) \to y \}
+\]
+
+AMP concerns itself with the empirical approximation of these sets and their basins.
+
+---
+
+### 2.2 Local Charting
+
+For each attractor \( A \):
+
+- Estimate **local stability** via linearization where applicable:
+  \[
+  DF(x^*), \quad \text{eigenvalues, Lyapunov exponents}
+  \]
+- Approximate the **basin**:
+  \[
+  B(A) = \{ x \in X \mid \text{trajectory from } x \text{ converges to } A \}
+  \]
+
+Computationally:
+
+- sample points near the attractor,
+- classify whether they flow into \( A \),
+- estimate the geometric shape of \( B(A) \) in a chosen coordinate system.
+
+---
+
+### 2.3 Boundary Analysis and Fractality
+
+The boundary between basins:
+
+\[
+\partial B(A_i) \cap \partial B(A_j)
+\]
+
+is often where complexity hides:
+
+- it may be smooth,
+- non-differentiable,
+- fractal (non-integer Hausdorff dimension),
+- intermingled.
+
+AMP aims to:
+
+- empirically estimate the **fractal dimension** of these boundaries,
+- observe how they change under parameters (e.g., Reynolds number in fluids, temperature in sampling).
+
+This is where intuitions related to **Navier–Stokes**, **turbulence**, and **blow-up vs smoothness** become relevant.
+
+---
+
+### 2.4 Universality Classes
+
+**Conjecture (Universality of Attractor Geometry):**
+
+> There exist universality classes of attractor-basin structures such that:
+>
+> - Many physically and computationally distinct systems (fluids, neural networks, combinatorial search)  
+>   share the same qualitative attractor geometry up to smooth / bi-Lipschitz transformations.
+>
+> - Within a universality class, scaling exponents and fractal dimensions are invariant.
+
+The program goal is not to prove this in full generality but to:
+
+- identify concrete **examples**,
+- cluster systems empirically into such classes,
+- and formulate precise conjectures where possible.
+
+---
+
+### 2.5 Cross-Domain Transfer Maps
+
+Given two systems \( (X_1, F_1) \) and \( (X_2, F_2) \), AMP seeks mappings:
+
+\[
+T: X_1 \to X_2
+\]
+
+such that:
+
+- attractors map to attractors,
+- basin structure is approximately preserved,
+- dynamical invariants (Lyapunov spectra, fractal dimensions) are comparable.
+
+These transfer maps are the mathematical underpinning of:
+
+- **transfer learning**,  
+- **universality** in physics,  
+- **heuristic borrowing** between domains.
+
+---
+
+### 2.6 Fail-Forward Refinement
+
+The AMP workflow is explicitly **iterative**:
+
+1. Build an initial coarse attractor map \( M_0 \).
+2. Use \( M_0 \) to:
+   - predict where the system will likely go,
+   - steer sampling,
+   - detect anomalies (unexpected behavior).
+3. Record **failures** (trajectories that contradict \( M_k \)).
+4. Update the map \( M_{k+1} \) to account for new data.
+5. Repeat.
+
+This is analogous to:
+
+- multigrid methods in numerical PDEs,
+- renormalization group flow,
+- iterative refinement in optimization and model-based RL.
+
+---
+
+## 3. Links to Millennium Problems (Conceptual Only)
+
+AMP is **not** a direct solver for any Millennium Problem, but the structures it studies overlap with multiple problems’ intuitions.
+
+### 3.1 Navier–Stokes
+
+- Fluid velocity fields define flows in function spaces.
+- Existence/smoothness relates to whether trajectories stay regular or develop singularities.
+- AMP’s focus on:
+  - attractors,
+  - basin structure,
+  - blow-up vs bounded behavior
+  resonates with the NS question, especially in simplified or discrete analogues.
+
+### 3.2 P vs NP
+
+- Many NP-hard problems can be viewed as searching for minima in high-dimensional landscapes.
+- Attractors might correspond to:
+  - satisfying assignments,
+  - local minima,
+  - algorithmic fixed points.
+- AMP’s interest in:
+  - the complexity of finding/approximating attractors,
+  - the structure of basins in combinatorial spaces,
+  connects qualitatively to P vs NP explorations.
+
+The program scope is to **formalize these analogies carefully** and, if possible, extract **reusable lemmas, heuristics, or structures**, not to make overreaching claims.
+
+---
+
+## 4. Concrete Work Packages
+
+1. **WP1 – Toy Dynamical Systems Library**
+   - Implement classic systems (logistic map, Lorenz, Henon, simple Navier–Stokes discretizations).
+   - Build common attractor mapping tools.
+
+2. **WP2 – Latent Space Attractor Experiments**
+   - Treat an LLM or encoder as defining a latent flow.
+   - Probe for attractors under repeated transformation, sampling, or gradient steps.
+
+3. **WP3 – Combinatorial Landscapes**
+   - SAT instances / CSPs.
+   - Examine local search dynamics as flows with attractors.
+
+4. **WP4 – Fractal Boundary Estimation**
+   - Estimation of basin boundary dimensions across all domains.
+   - Compare scaling and classify universality behavior.
+
+5. **WP5 – Cross-Domain Correspondences**
+   - Identify concrete instances where two different systems share similar attractor geometry.
+   - Propose and test transfer maps.
+
+---
+
+## 5. PantheonOS Hooks (Optional)
+
+If used within PantheonOS:
+
+- **Golden Dragon Theorem (informal binding):**
+  - A principle encoding recurrence and self-similarity of attractors under refinement.
+- **Narrative Tensor Engine:**
+  - Represent attractor maps as tensor fields.
+- **Proof Forge:**
+  - Treat AMP conjectures as proof targets and pipeline them through invariance-based reasoning.
+- **Hound / Dragonfly / Mirror:**
+  - Hound: anomaly detection in flows.
+  - Dragonfly: high-level overflight of attractor landscapes.
+  - Mirror: cross-check attractor classifications with multiple models.
+
+---
+
+## 6. Status & Invitation
+
+AMP is **v0.1**, intentionally broad and inviting:
+
+- You can treat this as:
+  - a conceptual manifesto,
+  - a speculative research direction,
+  - a foundation for concrete simulations, or
+  - a cross-domain analogy engine.
+
+PRs, critiques, and refinements to both the math and the computational tooling are welcome.
+
+
+⸻
+
+If you’d like, next I can:
+	•	Forge WP1 as actual code scaffolding (folders + stub Python),
+	•	Or write a Golden Dragon Theorem annex that plugs straight into this as the “recurrence + universality law” of AMP.
