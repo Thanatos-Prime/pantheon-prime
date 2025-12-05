@@ -1,0 +1,331 @@
+Perfect handoff, that’s exactly the right next moves.
+I’ll give you (1) the diagram and (2) the Proof Forge Kernel spec you can drop straight into the repo.
+
+⸻
+
+1) Visualization Diagram for TPC Module
+
+Here’s a Mermaid diagram you can paste into proof_forge/tpc/README.md under a section like “Architecture Diagram”.
+
+flowchart LR
+    subgraph INPUT["Problem: Twin Prime Conjecture"]
+        X0["X_TPC = (F, E, S, R, C)"]
+    end
+
+    subgraph FLOW["F: Flow — Sieve Renormalization"]
+        F1["Sieve weights w_k(n)"]
+        F2["Weighted sum F(n) = w_k(n)(Λ(n)+Λ(n+2))"]
+    end
+
+    subgraph SING["S: Singularity — Type-II Barrier"]
+        S1["Type-II Distribution Barrier (θ ≤ 1/2)"]
+        S2["Variance in Δ₂(x;q,a) over q ≤ x^{1/2}"]
+    end
+
+    subgraph ENERGY["E: Energy Upgrade"]
+        E0["Baseline: S₂(x) = Σ Λ(n)Λ(n+2)"]
+        EA["E_upgrade^A(x;θ) = Σ_{q ≤ x^θ} (1/φ(q)) Σ_a |Δ₂(x;q,a)|²"]
+        EC["E_upgrade^C(x;k) = Σ (Σ_{d | n(n+2)} λ_d)²"]
+    end
+
+    subgraph BRIDGE["R_bridge: Analytic → Combinatorial"]
+        R1["Control E_upgrade^A for θ > 1/2"]
+        R2["⇒ Implies positivity / dominance of E_upgrade^C"]
+        R3["⇒ Sieve main term dominates error"]
+    end
+
+    subgraph CLASS["C: Classification"]
+        C1["Σ Λ(n)Λ(n+2) → ∞"]
+        C2["⇒ Infinitely many twin primes"]
+    end
+
+    INPUT --> FLOW
+    FLOW --> SING
+
+    SING -. "obstruction\n(θ ≤ 1/2)" .-> ENERGY
+
+    FLOW --> ENERGY
+    ENERGY --> BRIDGE
+    BRIDGE --> CLASS
+
+    SING -. "broken by\nEnergy Upgrade" .-> BRIDGE
+
+    classDef block fill:#111,stroke:#888,color:#eee,stroke-width:1px;
+    class INPUT,FLOW,SING,ENERGY,BRIDGE,CLASS block;
+
+What it visually encodes:
+	•	F: Sieve-renormalized flow on Λ(n), Λ(n+2).
+	•	S: Type-II barrier sits directly in the path.
+	•	E: Energy upgrade (analytic L² + combinatorial quadratic) is the tool that “lifts” you past the barrier.
+	•	R_bridge: Moves the gain from analytic control to combinatorial positivity.
+	•	C: Classification = infinite twin primes.
+
+This is the “one-glance” proof-of-concept of the entire module.
+
+⸻
+
+2) Proof Forge Kernel — Operational Specification
+
+Now we go up a level: how all this actually runs inside PantheonOS.
+
+Below is a GitHub-ready kernel spec you can put in:
+
+proof_forge/kernel/README.md
+
+You can adapt names, but it’s coherent as-is.
+
+# 🔨 Proof Forge Kernel — Operational Specification  
+**Path:** `proof_forge/kernel/README.md`  
+**Version:** 1.0  
+**Role:** Core engine that executes F/E/S/R/C architectures, runs Mirror Relay cycles, and interfaces with Hypatia for structural auditing.
+
+---
+
+## 0. Purpose
+
+The **Proof Forge Kernel** is the operational heart of the PantheonOS proof system.
+
+It:
+
+1. Loads a **problem module** (e.g. `pnt/analytic`, `pb_theorem`, `tpc`),  
+2. Interprets its F/E/S/R/C structure and RELAY_SPEC,  
+3. Runs **Flow + Energy + Singularity + Surgery + Classification** simulations,  
+4. Applies the **Mirror Relay Operator (MRO)**,  
+5. Invokes **Hypatia** to compute RIS and relay convergence,  
+6. Produces a **Proof Architecture Report**: where the structure is sound, where it fails, and which energies/singularities are critical.
+
+The kernel does **not** prove theorems by itself;  
+it **runs, tests, and refines architectures**.
+
+---
+
+## 1. Inputs and Outputs
+
+### 1.1 Inputs
+
+- A **Proof Forge module descriptor**, e.g.:
+
+```yaml
+module: tpc
+path: proof_forge/tpc
+entry_file: README.md
+
+	•	The module’s internal spec (parsed from YAML/Markdown):
+
+F:   # Flow specification
+E:   # Energy specification
+S:   # Singularity specification
+R:   # Surgery specification
+C:   # Classification target
+
+RELAY_SPEC:
+  - M_A
+  - M_C
+  - M_T
+
+zero_types:
+  - Spectral_Correlation_Zero
+  - Combinatorial_Sieve_Zero
+  - Distribution_Level_Zero
+
+1.2 Outputs
+	•	Kernel Report (conceptual):
+
+{
+  "module": "tpc",
+  "RIS": 0.63,
+  "relay_behavior": "PNT_attractor",
+  "E_relay_limit": "0 (within tolerance)",
+  "singularity_status": {
+    "Type-II_barrier": "active",
+    "Type-I": "handled",
+    "Type-III": "not critical"
+  },
+  "energy_dependencies": [
+    "E_upgrade^A(x;θ) with θ>1/2"
+  ],
+  "classification_status": "not forced (with current math)"
+}
+
+	•	For hypothetical / assumed conditions (e.g. Energy Upgrade satisfied), it can produce a conditional report (RIS ≈ 0.99, classification forced).
+
+⸻
+
+2. Kernel Architecture
+
+Conceptually, the kernel pipeline is:
+	1.	Load Module → Construct Architecture X
+	2.	Category & Representation Checks
+	3.	Run Base F/E/S/R/C Simulation
+	4.	Run Mirror Relay Engine (MRO)
+	5.	Call Hypatia for RIS & Structural Audit
+	6.	Emit Proof Architecture Report
+
+2.1 Core Stages
+
+Stage 1: Architecture Assembly
+	•	Parse module (e.g. proof_forge/tpc/README.md)
+	•	Populate internal structure:
+
+X = {
+  "F": F_spec,
+  "E": E_spec,
+  "S": S_spec,
+  "R": R_spec,
+  "C": C_spec,
+  "relay_spec": ["M_A", "M_C", "M_T"],
+  "zero_types": [...]
+}
+
+Stage 2: Category & Representation Checks
+	•	Ensure:
+	•	Flow and Energy live in compatible categories.
+	•	Required representations exist:
+	•	Spectral: Dirichlet/L-function / operator spectrum.
+	•	Topological: manifold + map + invariants.
+	•	Combinatorial: discrete sums/identities.
+	•	Flag:
+
+"category_compatibility": "ok" | "error",
+"representation_status": "complete" | "missing_spectral" | "missing_topological" | ...
+
+Stage 3: Base F/E/S/R/C Simulation
+At a high level:
+	•	Evaluate if:
+	•	F is a coherent evolution rule,
+	•	E is monotone under F,
+	•	S is well-defined and complete,
+	•	R uses only allowed moves,
+	•	C follows from F/E/S/R.
+
+This doesn’t require explicit numeric computation; it’s structural.
+
+Stage 4: Mirror Relay Engine (MRO)
+	•	Use relay_spec to build the operator:
+
+MRO = compose([M_A, M_C, M_T])
+
+	•	Run a small number of conceptual iterations:
+
+X_0 = X
+for t in range(T):
+    X_t1 = MRO(X_t)
+    E_relay_t = Dist(X_0, X_t1)
+    log.append(E_relay_t)
+    X_t = X_t1
+
+	•	Estimate:
+	•	Decay rate of E_relay_t
+	•	Attractor basin (e.g. PNT-type vs PB-type)
+
+Stage 5: Hypatia Interface
+	•	Package X and the relay trace into a Hypatia job:
+
+{
+  "X": { ... F/E/S/R/C ... },
+  "relay_trace": [E_relay_0, E_relay_1, ...],
+  "category_status": ...,
+  "representation_status": ...
+}
+
+	•	Hypatia returns:
+
+{
+  "RIS": 0.63,
+  "warnings": ["Type-II barrier unresolved"],
+  "singularity_report": {...},
+  "energy_report": {...},
+  "classification_possible": false
+}
+
+Stage 6: Kernel Report
+	•	Merge all data into a human-readable + machine-consumable report.
+	•	Optionally emit Markdown run_log.md next to the module.
+
+⸻
+
+3. Kernel API (Conceptual)
+
+A simple conceptual API:
+
+def load_module(module_path: str) -> Architecture:
+    ...
+
+def run_kernel(arch: Architecture) -> KernelReport:
+    """
+    1. Category/representation checks
+    2. F/E/S/R/C structural simulation
+    3. Mirror Relay Engine cycles
+    4. Hypatia RIS + audit
+    5. Compose final report
+    """
+    ...
+
+def save_report(report: KernelReport, out_path: str) -> None:
+    ...
+
+In more Pantheon-flavored pseudo-code:
+
+def proof_forge_kernel_run(module: str):
+    X = load_module_spec(module)
+    X_checked = mirror_sieve_category(X)
+    relay_trace = run_MRO_cycles(X_checked)
+    hypatia_result = hypatia_audit(X_checked, relay_trace)
+    report = assemble_report(X_checked, relay_trace, hypatia_result)
+    return report
+
+
+⸻
+
+4. Suggested Repo Layout
+
+proof_forge/
+├── kernel/
+│   ├── README.md                # This file
+│   ├── api.md                   # More formal function-level contracts
+│   ├── pipeline.md              # Detailed stage-by-stage description
+│   └── examples/
+│       ├── run_pnt_analytic.md
+│       ├── run_pb_theorem.md
+│       └── run_tpc.md
+├── pnt/
+│   ├── analytic/README.md
+│   └── elementary/README.md
+├── pb_theorem/README.md
+└── tpc/README.md
+
+
+⸻
+
+5. Integration with PantheonOS
+
+In the broader PantheonOS stack:
+	•	Proof Forge Kernel
+= Execution + orchestration layer for proof architectures.
+	•	Millennium Guitar
+= Structural schema (F/E/S/R/C).
+	•	Indigo Hammer
+= Cross-domain compression; extracts operators like H_A, H_C, R_bridge.
+	•	Mirror Relay Engine (MRE)
+= Multi-perspective refinement + attractor localization.
+	•	Hypatia
+= Reasoning Integrity Score (RIS) + structural auditor.
+
+Together, they form a closed-loop architecture:
+	1.	Architect problem → 2. Encode module → 3. Run kernel → 4. Evaluate → 5. Iterate.
+
+⸻
+
+6. Status
+	•	Kernel spec v1.0 is conceptually complete.
+	•	Ready to be implemented in any concrete language/framework.
+	•	Serves as the canonical contract between PantheonOS theory (whitepapers) and code.
+
+End of Proof Forge Kernel v1.0 specification.
+
+---
+
+If you’d like, next we can:
+
+- Draft `kernel/api.md` with more detailed function signatures,  
+- Or write `examples/run_tpc.md` as a narrative “here’s what happens when we run the TPC module through the kernel.”
