@@ -1,0 +1,255 @@
+Perfect — Hybrid Whitepaper Style (D) it is.
+What follows is a fully polished, two-page, director-ready whitepaper layout that integrates the diagrams, executive framing, and technical rigor.
+
+You can paste this directly into Google Docs, export to PDF, or include in an internal RFC thread.
+
+⸻
+
+───────────────────────────────────────────────
+
+WHITEPAPER — Narrative Tensor Architecture (NTA) for Multi-Frame Coherent Image Generation
+
+A Hybrid Research + Product Executive Brief
+
+───────────────────────────────────────────────
+
+Page 1 — Executive Summary & System Architecture
+
+⸻
+
+Executive Summary
+
+Modern generative image models—including Gemini Imagine—excel at producing high-fidelity single images but lack narrative continuity across frame sequences. Users requesting multi-frame stories (e.g., comics, animations, scene progression) frequently experience:
+	•	Identity drift (faces, clothing, anatomy inconsistent)
+	•	World drift (lighting/style resets between frames)
+	•	Symbol disappearance (motifs inconsistently represented)
+	•	Temporal incoherence (scenes ignore earlier events)
+
+These limitations stem from a structural gap: the image model operates statelessly, treating each prompt as independent.
+
+This whitepaper proposes the Narrative Tensor Architecture (NTA):
+a lightweight, modular, inference-layer enhancement that introduces:
+	•	Narrative State (NS) — persistent story memory
+	•	Narrative Tensor Engine (NTE) — structured conditioning tensor
+	•	Coherence Daemon Layer — identity, logic, and world consistency enforcers
+	•	EchoFrame — state updating mechanism
+
+The approach does not require retraining the core Gemini image model.
+It augments the orchestration layer, enabling cinematic-grade narrative coherence.
+
+⸻
+
+System Architecture Overview
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│                               USER PROMPT                                  │
+└───────────────┬───────────────────────────────────────────────────────────┘
+                │
+                ▼
+     ┌──────────────────┐
+     │ Narrative State  │  (NS: characters, world, rules, history)
+     │     Manager      │
+     └───────┬──────────┘
+             │  (NS injected into fusion process)
+             ▼
+     ┌──────────────────┐
+     │ Narrative Tensor │  (NTE: fθ(prompt, NS) → NT)
+     │     Engine       │
+     └───────┬──────────┘
+             │  (NT conditions model)
+             ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                       COHERENCE DAEMON LAYER                             │
+│                                                                           │
+│   ┌──────────┐   ┌──────────┐   ┌────────────┐   ┌─────────────┐         │
+│   │ Ganglion │→→│  Spider   │→→│ Dragonfly φ │→→│ Mirror/Chk   │         │
+│   │ (triage) │   │(relations)│  │ (persp.)   │   │ (audit)     │         │
+│   └──────────┘   └──────────┘   └────────────┘   └─────────────┘         │
+└───────────────┬──────────────────────────────────────────────────────────┘
+                │
+                ▼
+      ┌───────────────────────┐
+      │   Render Spec (R_s)   │  (clean, coherent conditioning packet)
+      └──────────┬────────────┘
+                 │
+                 ▼
+        ┌──────────────────┐
+        │ Gemini Image     │
+        │  Generator       │
+        └──────────┬───────┘
+                   │
+                   ▼
+         ┌─────────────────┐
+         │    Output       │
+         │    Image        │
+         └────────┬────────┘
+                  │
+                  ▼
+       ┌──────────────────────┐
+       │   EchoFrame Update   │
+       │ (state distillation) │
+       └──────────┬───────────┘
+                  │
+                  ▼
+   ┌──────────────────────────────────────────────────────────────────┐
+   │     Updated Narrative State (NS') → supports next generation     │
+   └──────────────────────────────────────────────────────────────────┘
+
+
+⸻
+
+Key Product Benefits
+
+For Users
+	•	Consistent characters across frames
+	•	True story progression
+	•	Comic, storyboard, and animation workflows become viable
+
+For Gemini
+	•	Differentiation vs OpenAI/Anthropic models
+	•	New product verticals (visual storytelling, animation, film pre-vis)
+	•	Higher retention on Imagine
+
+⸻
+
+Page 2 — Technical Mechanisms & Tensor/Flow Diagrams
+
+⸻
+
+Narrative Tensor Composition (NT)
+
+The mathematical core enabling narrative-aware image synthesis.
+
+The Narrative Tensor is a structured representation:
+
+NT \in \mathbb{R}^{d_h \times d_c \times d_t}
+
+Where:
+	•	d_h — Hierarchical layers (character/world/symbol/emotion)
+	•	d_c — Continuity constraints (identity, spatial locks, rules)
+	•	d_t — Temporal features (story beat, Δtime, tension)
+
+⸻
+
+Diagram: Rank-3 Narrative Tensor
+
+                       Narrative Tensor (NT)
+                  Rank-3:  NT ∈ ℝ^{d_h × d_c × d_t}
+
+                           d_h  (Hierarchical Layers)
+                           ┌────────────────────────────────┐
+                           │  Character Layer               │
+                           │  World Layer                   │
+                           │  Symbolic Layer                │
+                           │  Emotional/Tonal Layer         │
+                           └────────────────────────────────┘
+                                    │
+                                    ▼
+                 ┌────────────────────────────────────────────┐
+                 │                                            │
+        d_c  →   │   Continuity Constraints                   │
+                 │   (identity lock, spatial lock,            │
+                 │    visual signature, rule constraints)     │
+                 └────────────────────────────────────────────┘
+                                    │
+                                    ▼
+                 ┌────────────────────────────────────────────┐
+                 │                                            │
+        d_t  →   │   Temporal Dimension                       │
+                 │   (story beat, Δtime, tension,             │
+                 │    causal dependencies, foreshadowing)     │
+                 └────────────────────────────────────────────┘
+
+
+⸻
+
+Coherence Loop Flowchart
+
+Mirror + Checksum enforce self-correcting narrative consistency.
+
+                      ┌───────────────────────┐
+                      │  Draft Image Output   │
+                      └───────────┬───────────┘
+                                  │
+                                  ▼
+                    ┌──────────────────────────┐
+                    │ Mirror Coherence Audit   │
+                    │ Checks: identity, logic, │
+                    │ world consistency        │
+                    └───────────┬──────────────┘
+                                │
+                     Pass?  ────┤────  Fail?
+                                │
+                                ▼
+                         ┌──────────────┐
+                         │  Checksum    │
+                         │  Rule Set    │
+                         │  Validation  │
+                         └─────┬────────┘
+                               │
+                    All rules  │  Any rule
+                     satisfied │  violated
+                               │
+                               ▼
+                  ┌───────────────────────┐
+                  │   ACCEPTED IMAGE      │
+                  │(emit to user + update │
+                  │      EchoFrame)       │
+                  └───────────────────────┘
+                               ▲
+                               │
+                               │  FAIL PATH
+                               │
+                     ┌──────────────────────────┐
+                     │  Adjust Constraints       │
+                     │  - tighten identity lock  │
+                     │  - reinforce continuity   │
+                     │  - emphasize temporal beat│
+                     └───────────┬──────────────┘
+                                 │
+                                 ▼
+                      ┌──────────────────────────┐
+                      │ Re-generate with updated │
+                      │    RenderSpec + NT       │
+                      └───────────┬──────────────┘
+                                  │
+                                  └───→ back to Mirror Audit
+
+
+⸻
+
+Implementation Notes
+
+No retraining required
+
+NT and Daemon layers operate at inference-time, augmenting the orchestration layer.
+
+Fast to prototype
+	•	NTE can be built on a lightweight transformer
+	•	Mirror/Checksum can use CLIP-like embeddings
+	•	EchoFrame uses simple delta extraction
+
+Compatible with Gemini’s architecture
+
+Conditioning can be injected through existing cross-attention mechanisms.
+
+⸻
+
+Conclusion
+
+The Narrative Tensor Architecture enables Gemini to move beyond single-frame artistry into story-consistent, cinematic-grade visual generation, unlocking entire new product categories.
+
+This approach is modular, aligned with existing infrastructure, and grounded in mature research patterns (memory-augmented models, cross-attention conditioning, recurrent state machines).
+
+A prototype could be built in 4–8 weeks, with full productization in a quarter.
+
+⸻
+
+If you want, I can now generate:
+	•	SVG diagram files
+	•	Google Slides template with diagrams embedded
+	•	A GitHub-ready PDF version
+	•	A full 10–12 page research paper version
+	•	A narrated version for pitching to a PM or director
+
+Just say the word.
