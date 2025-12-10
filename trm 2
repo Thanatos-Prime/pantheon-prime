@@ -1,0 +1,90 @@
+1.7 StateFlow Architecture (PantheonOS Command Cycle)
+
+This section defines the canonical command cycle for PantheonOS: the ordered phases every raw user prompt traverses from ingress to final emission. The goal is to ensure deterministic governance, bounded drift, and auditable transformation at each step.
+
+PantheonOS uses four Primary Phases:
+
+⸻
+
+Phase 1: Ingress & Validation
+Purpose
+Receive raw user input and perform first-pass safety, integrity, and coherence checks before it is allowed to influence system state.
+
+Core Functions
+	•	Classify the prompt (informational, creative, critical, adversarial, system-level, etc.).
+	•	Detect obvious policy violations, adversarial patterns, and malformed structure.
+	•	Attach a Request ID and initial metadata (timestamp, source, session, risk level).
+	•	Compute initial integrity hashes for logging and replay/debug.
+
+Core Daemons Active
+	•	Hound – Performs anomaly detection, threat scanning, and salience tagging. Flags adversarial content, high-variance instructions, or suspicious patterns.
+	•	Checksum – Computes a content hash of the raw input and stamps it as the Ingress Hash for integrity and later comparison.
+	•	Mirror – Applies baseline ethical and coherence screens; rejects or reframes inputs that violate the minimum ethics threshold (≥0.7), and annotates the prompt with required constraints.
+
+⸻
+
+Phase 2: Framing & Decomposition
+Purpose
+Transform a validated raw prompt into a well-posed internal task graph: identify intent, decompose subproblems, and select appropriate daemons and model modes.
+
+Core Functions
+	•	Infer the user’s underlying objective (ask, build, decide, simulate, design, diagnose, etc.).
+	•	Decompose the request into smaller operations (sub-tasks, passes, or stages).
+	•	Choose reasoning mode (fast vs deep, symbolic vs narrative, etc.).
+	•	Select relevant daemons and invariants for this command (e.g., Kintsugi, Proof Forge, NTE).
+
+Core Daemons Active
+	•	Spider – Builds the conceptual web: maps entities, relationships, and domains; identifies orthogonal strands of reasoning; constructs the internal problem graph.
+	•	Dragonfly – Provides parallax and foresight: suggests alternative framings, highlights edge conditions and long-horizon implications, and recommends reasoning depth.
+	•	Mirror – Ensures the framed task respects system doctrine, ethics, and prior commitments; rejects framings that would violate invariants.
+	•	Hound (supporting) – Validates that the decomposition does not introduce hidden attack surfaces or covert prompt injection.
+
+⸻
+
+Phase 3: Synthesis & Resolution
+Purpose
+Execute the internal task graph through the foundation model(s), guided by daemonic constraints, to produce a candidate response and intermediate artifacts.
+
+Core Functions
+	•	Run one or more reasoning passes (symbolic, narrative, mathematical, or mixed).
+	•	Integrate cross-domain inputs (prior state, ledger entries, user history, doctrine).
+	•	Apply invariants (logical, ethical, narrative, temporal) during generation.
+	•	Generate both the user-facing response and optional internal byproducts (notes, deltas, metrics).
+
+Core Daemons Active
+	•	Spider – Coordinates the reasoning traversal over the problem graph; merges strands, resolves conflicts, and maintains structural consistency.
+	•	Dragonfly – Maintains multi-angle reasoning; probes counterfactuals, anticipates failure modes, and nudges toward high-value solution branches.
+	•	Mirror – Continuously checks the candidate output against ethics, coherence, and doctrine; can trigger re-rolls or constrained rewrites if violations occur.
+	•	Hound – Monitors for hallucination signatures, unstable chains of thought, or inconsistency with previously established facts; emits corrective pressure.
+	•	Checksum – Derives intermediate hashes for key reasoning artifacts where needed (e.g., proof sketches, configuration changes) for auditability.
+
+⸻
+
+Phase 4: Emission & Ledger Commit
+Purpose
+Finalize the output to the user and update PantheonOS internal state so that future commands can rely on a coherent, cryptographically traceable history.
+
+Core Functions
+	•	Format and polish the user-facing answer (structure, clarity, tone).
+	•	Record any state updates (new invariants, doctrines, decisions, summaries).
+	•	Store hashes and metadata for the full command cycle for replay and audit.
+	•	Optionally distill long reasoning traces into compact “EchoFrame” summaries.
+
+Core Daemons Active
+	•	Mother Duck – Writes the command’s lifecycle (input hash, framed task, key reasoning artifacts, final output hash, metadata) into the ledger as an append-only record.
+	•	Checksum – Computes the Output Hash and binds it to the Ingress Hash plus internal checkpoints, forming a verifiable chain-of-custody for the response.
+	•	Mirror – Performs a final sanity and ethics pass before emission; can enforce last-second corrections or refusals if late-breaking issues are detected.
+
+⸻
+
+These four phases define the PantheonOS Command Cycle.
+
+Every prompt, no matter how small, is treated as a packet that must:
+	1.	Enter cleanly (Phase 1),
+	2.	Be framed correctly (Phase 2),
+	3.	Be solved coherently (Phase 3), and
+	4.	Be recorded and released under governance (Phase 4).
+
+If you’d like, next we can:
+	•	Drill into 1.8 Daemon Interaction Patterns (what happens when Spider and Hound disagree, etc.), or
+	•	Start a formal sequence diagram for this StateFlow that you can drop into the TRM as an image.
