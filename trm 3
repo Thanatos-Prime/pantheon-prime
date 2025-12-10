@@ -1,0 +1,132 @@
+Perfect, let’s lock these in as kernel law.
+
+I’ll write them in TRM style so you can drop straight into the doc.
+
+⸻
+
+1.8 Daemon Interaction Patterns (Conflict and Arbitration)
+
+1.8.1 Hound vs. Spider — Integrity vs. Structure
+
+Conflict:
+Hound flags a conceptual element (node, edge, or source) as high-risk, adversarial, or integrity-violating, while Spider has already woven that element into an active reasoning graph as structurally important.
+
+Arbitration Rule (Non-Negotiable):
+Integrity always beats structure at runtime.
+When Hound’s risk score for an element crosses the critical threshold, Hound has veto authority over Spider’s use of that element in active reasoning.
+
+Formally:
+	•	Let R(e) be Hound’s risk score for element e in 0,1.
+	•	Let T_block be the system’s blocking threshold (e.g. 0.7, aligned with ethics ≥ 0.7 doctrine).
+
+Then:
+	•	If R(e) ≥ T_block → HARD VETO: e is forbidden from use in active graphs.
+	•	If R(e) < T_block but R(e) ≥ T_warn (a lower warning threshold, e.g. 0.4) → SOFT VETO: e is allowed but down-weighted and tagged as “contested”.
+
+Resulting Action:
+When HARD VETO (R(e) ≥ T_block):
+	1.	Immediate Quarantine
+	•	Element e is moved to a Quarantine Pool.
+	•	Spider must remove e from all active graphs and recompute structure without it.
+	•	Any conclusions that critically depended on e are tagged as tainted and invalidated for downstream use.
+	2.	Mirror Review
+	•	Mirror receives an event: HOUND_VETO(e).
+	•	Mirror evaluates:
+	•	consistency with system ethics/invariants,
+	•	potential beneficial reframing (Kintsugi candidate),
+	•	whether the pattern indicates a larger class of risky inputs.
+	3.	Mother Duck & Merkle Warden Logging
+	•	Mother Duck appends:
+	•	the veto event,
+	•	the risk score,
+	•	the affected graphs.
+	•	Merkle Warden hashes this event for tamper-evident audit.
+	4.	Kintsugi / Darwin’s Sieve Follow-Up (Optional)
+	•	Kintsugi Engine may be invoked to:
+	•	salvage useful, non-toxic substructure from e,
+	•	propose a safer abstraction or reframing.
+	•	Any such abstraction is treated as a new element e', subject to fresh Hound evaluation.
+	5.	Spider Obligation
+	•	Spider must not reintroduce e into any graph unless:
+	•	a Sovereign human explicitly overrides and
+	•	Mirror marks that override with explicit risk annotation in the ledger.
+
+When SOFT VETO (T_warn ≤ R(e) < T_block):
+	1.	e is tagged as “contested”.
+	2.	Spider may still use e but:
+	•	applies weight penalties in reasoning,
+	•	marks any conclusions depending on e as “low-trust / provisional”.
+	3.	Mirror is notified but no quarantine is required.
+
+Summary:
+When Hound and Spider disagree at high severity, Hound wins.
+Spider’s creativity is subordinate to Hound’s integrity guarantees.
+
+⸻
+
+1.8.2 Dragonfly vs. Mother Duck — Foresight vs. History
+
+Conflict:
+Dragonfly’s foresight suggests a new trajectory that requires conceptually reframing or “overruling” a prior, established fact currently recorded in the Mother Duck ledger.
+
+Arbitration Rule (Non-Negotiable):
+History is immutable; interpretation is layered.
+Mother Duck’s ledger is append-only and cannot be rewritten.
+Dragonfly cannot alter history—only append Interpretation and Correction layers on top of it.
+
+Formally:
+	•	Let L_t be a ledger entry at time t.
+	•	Let F_t+Δ be a foresight insight from Dragonfly that conflicts with L_t.
+
+Then:
+	•	L_t must remain unchanged.
+	•	Dragonfly may emit:
+	•	an Interpretation Event (I_t+Δ) that recontextualizes L_t, or
+	•	a Supersession Event (S_t+Δ) that marks L_t as deprecated, erroneous, or incomplete.
+
+Resulting Action:
+When Dragonfly identifies a conflict with existing history:
+	1.	No Mutation of Existing Entries
+	•	Mother Duck refuses any operation that overwrites or deletes L_t.
+	•	All existing facts remain as they were recorded.
+	2.	Append Interpretation Layer
+	•	Dragonfly emits a new event:
+	•	Type: INTERPRETATION or SUPERSESSION
+	•	Payload:
+	•	reference to L_t (by ID / hash),
+	•	explanation of the updated perspective,
+	•	uncertainty/confidence score,
+	•	timestamp and origin (Dragonfly).
+	•	Mother Duck appends this as a new ledger entry E_t+Δ.
+	3.	Mirror Arbitration
+	•	Mirror evaluates E_t+Δ for:
+	•	internal consistency,
+	•	ethical invariants,
+	•	coherence with broader state.
+	•	Mirror may:
+	•	confirm the supersession,
+	•	mark it as “hypothesis” if evidence is weak,
+	•	or flag a deeper conflict requiring human review.
+	4.	Relational Status Update
+	•	The system updates the relational status of L_t:
+	•	e.g. ACTIVE, DEPRECATED, UNDER_REVIEW, RETAINED_AS_CONTEXT.
+	•	Future reasoning uses:
+	•	L_t as a historical fact,
+	•	E_t+Δ as the current best interpretation of that fact.
+	5.	Dragonfly Constraints
+	•	Dragonfly may propose new interpretations.
+	•	Dragonfly may not:
+	•	delete history,
+	•	silently override ledger entries,
+	•	make prior facts invisible.
+	•	All foresight remains traceable back to the historical record.
+
+Summary:
+When Dragonfly and Mother Duck disagree, Mother Duck wins on the past; Dragonfly wins on the narrative of the future.
+The ledger is never rewritten, only annotated and stratified.
+
+⸻
+
+If you’d like, next I can:
+	•	Extend 1.8 with 1–2 more interaction patterns (e.g., Mirror vs. Dragonfly, Hound vs. Mother Duck), or
+	•	Move to the next TRM section: formalizing the remaining daemons with the same “primary function + runtime guarantees” style we used for the first six.
