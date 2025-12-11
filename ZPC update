@@ -1,0 +1,437 @@
+Perfect, let’s forge the ZPC pair. 🧠⚙️
+
+Below are drop-in files you can add under something like:
+
+demo/thinking-cap-arc/
+  doctrine/
+    zpc.md
+  daemons/
+    zpc.py
+
+
+⸻
+
+doctrine/zpc.md
+
+# ZPC – Zero-Sum Positive Converter  
+PantheonOS Doctrine • Thinking Cap Edition
+
+## 1. Purpose
+
+ZPC (Zero-Sum Positive Converter) is a **meta-operator** that sits above all PantheonOS loops and enforces a single law:
+
+> **No step is wasted. Every failure must be converted into positive structure.**
+
+In the context of the Thinking Cap / ARC reasoning stack, ZPC ensures that each incorrect hypothesis, dead-end program, or costly search branch yields at least one of:
+
+- A new **constraint** (what cannot work),
+- A new **heuristic** (what tends to work),
+- A refined **strategy schema**,
+- Or a distilled **axiom**.
+
+This converts a superficially zero-sum or negative-sum event (cost spent, solution not found) into **information-positive** progress.
+
+---
+
+## 2. Formal Definition
+
+Let an episode of reasoning or search be:
+
+- A current state \( S_t \) (knowledge, strategies, parameters),
+- An action or hypothesis \( h \),
+- A cost \( C(h) \ge 0 \),
+- An outcome loss \( L(h) \ge 0 \) (e.g. demo mismatch, evaluation error).
+
+Naïve systems treat failure as pure loss:
+- Cost is paid, state is unchanged or discarded.
+
+ZPC introduces a transform:
+
+\[
+\mathcal{Z} : (S_t, h, L(h), C(h)) \rightarrow (S_{t+1}, \Delta \mathcal{I}(h))
+\]
+
+Subject to the doctrine:
+
+1. **Information Gain Constraint**  
+   \[
+   \Delta \mathcal{I}(h) \ge 0
+   \]
+   where \(\Delta \mathcal{I}(h)\) is the amount of *reusable structure* extracted from the episode (e.g. a new invariant, a Kintsugi patch, a rule refinement).
+
+2. **State Dominance Constraint**  
+   \[
+   S_{t+1} \succ S_t
+   \]
+   meaning the post-state strictly dominates the pre-state in terms of useful structure:
+   - better constraints,
+   - sharper priors,
+   - pruned hypothesis space,
+   - or enriched strategy library.
+
+In other words:
+
+> Any episode with non-zero cost must yield non-zero structural gain.
+
+---
+
+## 3. Integration with Thinking Cap
+
+Thinking Cap’s search over ARC programs uses a score of the form:
+
+\[
+\text{Score}(P) = -\mathcal{L}(P; T) - \lambda C(P)
+\]
+
+where:
+- \(\mathcal{L}(P; T)\) = loss on demo pairs,
+- \(C(P)\) = cost (compute, complexity).
+
+ZPC augments this to:
+
+\[
+\text{Value}(P) = \text{Score}(P) + \gamma \, \mathcal{I}(P)
+\]
+
+with:
+- \(\mathcal{I}(P)\) = information extracted from \(P\)’s performance (especially failures),
+- \(\gamma > 0\) = conversion rate from information to value.
+
+**Key rule:**  
+We must never allow \(\mathcal{I}(P) = 0\) when \(P\) has incurred non-zero cost and non-zero loss.
+
+Concretely, each failed or sub-optimal program:
+
+1. Passes through **Mirror**:  
+   - natural-language explanation of *why* it failed and *where*.
+
+2. Passes through **Darwin’s Sieve**:  
+   - characterization of failure patterns (e.g. “fails when there are multiple smallest objects,” “breaks under color permutations,” etc.).
+
+3. Passes through **Kintsugi Engine**:  
+   - updates or patches a strategy schema to account for the failure pattern.
+
+4. Optionally passes through **Axiom Forge**:  
+   - candidate elevation of a recurring pattern into a new axiom that constrains future search.
+
+ZPC is satisfied when at least one of these produces a durable update to \( S_t \).
+
+---
+
+## 4. Behavioral Axioms
+
+1. **No Blind Retries**  
+   The system must not simply “try again” without modifying its internal structure. Every retry must be informed by at least one new constraint or heuristic.
+
+2. **Failure as Boundary Discovery**  
+   Each failure is interpreted as new information about the boundary of the solution manifold. “Here be dragons” becomes “here be constraints.”
+
+3. **Monotonic Structural Growth**  
+   While solutions may fail, the internal **structure** of the system (strategy schemas, constraints, axioms) must grow monotonically in richness and sharpness.
+
+4. **Narrative Consistency**  
+   In the broader Pantheon narrative, ZPC enforces the story that:
+   - Losses become scars,  
+   - Scars become maps,  
+   - Maps become advantage.
+
+---
+
+## 5. Implementation Contract
+
+In code, ZPC is realized as:
+
+- A **wrapper** around evaluation calls that:
+  - Logs input, output, loss, cost.
+  - Triggers Kintsugi / Axiom Forge callbacks when failures occur.
+  - Ensures \(\Delta \mathcal{I}(h)\) is non-zero for any costly failure.
+
+- A **schema** for recording:
+  - `constraints`: “This pattern does not work under conditions X.”
+  - `heuristics`: “This pattern is promising under conditions Y.”
+  - `patches`: strategy rewrites that fix previously observed fractures.
+  - `axioms`: distilled, cross-task invariants.
+
+The minimal implementation requirement:
+
+> Any module claiming ZPC compliance must not execute a failed or costly search step without attempting to:
+> 1. Explain the failure, and  
+> 2. Update at least one element of constraints, heuristics, patches, or axioms.
+
+---
+
+## 6. Relation to Luck Engine
+
+- **Luck Engine** biases *which* paths are explored (probability-weighted search over promising regions).
+- **ZPC** guarantees that even unlucky paths are mined for structural gain.
+
+Together they enforce:
+
+- Short-term opportunism (Luck Engine)  
+- Long-term inevitability (ZPC)
+
+This is the rational, technical formulation of “we can’t lose”:
+- Not that every step succeeds,
+- But that **every step tightens the noose** around the solution space.
+
+---
+
+## 7. Summary
+
+ZPC is the **thermodynamic law** of PantheonOS reasoning loops:
+
+- Energy (cost) must not dissipate without increasing structure (information).
+- All failures are subject to structural alchemy.
+- The system’s internal landscape of strategies and constraints grows sharper with every move.
+
+In the context of ARC and the Thinking Cap, ZPC is what turns a raw search procedure into a **one-way ratchet toward mastery**.
+
+
+⸻
+
+daemons/zpc.py
+
+Below is a small helper module that you can adapt. It’s designed to:
+	•	Wrap program evaluations,
+	•	Compute loss & cost,
+	•	Call user-supplied hooks for Kintsugi/Axiom Forge,
+	•	Return a ZPCResult that includes both raw metrics and extracted info.
+
+"""
+zpc.py — Zero-Sum Positive Converter helper for PantheonOS / Thinking Cap
+
+This module implements a thin ZPC wrapper that:
+- Measures loss and cost of an evaluation step.
+- Ensures failures are passed through "information extraction" hooks
+  (e.g. Kintsugi Engine, Axiom Forge).
+- Returns a rich result object including structural info.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
+
+
+# ---- Protocols for callbacks -------------------------------------------------
+
+class FailureAnalyzer(Protocol):
+    """
+    Analyzes a failed hypothesis and returns a structured description
+    of the failure pattern.
+
+    Example outputs:
+    - {"type": "object_selection", "note": "picked smallest instead of leftmost"}
+    - {"type": "color_invariance", "note": "breaks under color permutation"}
+    """
+    def __call__(
+        self,
+        program: Any,
+        demos: List[Tuple[Any, Any]],
+        outputs: List[Any],
+        loss: float
+    ) -> Dict[str, Any]:
+        ...
+
+
+class StructureUpdater(Protocol):
+    """
+    Consumes a failure description and updates internal structures:
+    - constraints
+    - strategy schemas
+    - axioms
+
+    Should return a short summary of what changed, if anything.
+    """
+    def __call__(self, failure_info: Dict[str, Any]) -> Dict[str, Any]:
+        ...
+
+
+# ---- Data structures ---------------------------------------------------------
+
+
+@dataclass
+class ZPCResult:
+    """
+    Result of a ZPC-wrapped evaluation.
+    """
+    program: Any
+    loss: float
+    cost: float
+    raw_outputs: List[Any]
+    info_gain: float = 0.0
+    failure_info: Optional[Dict[str, Any]] = None
+    updates: List[Dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def score(self) -> float:
+        """
+        Basic score ignoring info_gain. Useful for debugging.
+        """
+        return -self.loss - self.cost
+
+    @property
+    def value(self) -> float:
+        """
+        ZPC-augmented value: Score + info_gain.
+        """
+        return self.score + self.info_gain
+
+
+# ---- ZPC Context -------------------------------------------------------------
+
+
+@dataclass
+class ZPCContext:
+    """
+    ZPC execution context.
+
+    Wraps evaluation of a candidate program and ensures that failures
+    (loss > 0) result in positive information gain via provided callbacks.
+
+    Attributes:
+    - gamma: conversion rate from extracted information to value contribution.
+    - failure_analyzer: maps raw failure into structured failure_info.
+    - structure_updaters: list of callbacks that update constraints/axioms/etc.
+    - min_info_gain: minimum info_gain to count a failure as "ZPC-compliant".
+    """
+    gamma: float = 1.0
+    failure_analyzer: Optional[FailureAnalyzer] = None
+    structure_updaters: List[StructureUpdater] = field(default_factory=list)
+    min_info_gain: float = 1e-6
+
+    def evaluate(
+        self,
+        program: Any,
+        demos: List[Tuple[Any, Any]],
+        eval_fn: Callable[[Any, Any], Any],
+        loss_fn: Callable[[Any, Any], float],
+        cost_fn: Callable[[Any], float],
+    ) -> ZPCResult:
+        """
+        Evaluate a program on demos under ZPC.
+
+        Args:
+            program: the candidate program (e.g. DSL AST, callable, etc.).
+            demos: list of (X, Y) input-output pairs.
+            eval_fn: function(program, X) -> Y_hat
+            loss_fn: function(Y_hat, Y_true) -> float
+            cost_fn: function(program) -> float
+
+        Returns:
+            ZPCResult with loss, cost, info_gain, and any structural updates.
+        """
+        # --- Raw evaluation ---
+        outputs: List[Any] = []
+        total_loss = 0.0
+
+        for X, Y_true in demos:
+            Y_hat = eval_fn(program, X)
+            outputs.append(Y_hat)
+            total_loss += loss_fn(Y_hat, Y_true)
+
+        cost = cost_fn(program)
+        result = ZPCResult(
+            program=program,
+            loss=total_loss,
+            cost=cost,
+            raw_outputs=outputs,
+        )
+
+        # --- If perfect, nothing to convert ---
+        if total_loss <= 0.0:
+            # No failure = no ZPC requirement here.
+            return result
+
+        # --- Otherwise: apply ZPC ---
+        failure_info: Dict[str, Any] = {}
+        updates: List[Dict[str, Any]] = []
+
+        # 1) Analyze failure pattern
+        if self.failure_analyzer is not None:
+            failure_info = self.failure_analyzer(program, demos, outputs, total_loss)
+            result.failure_info = failure_info
+
+        # 2) Update internal structures (constraints, schemas, axioms)
+        for updater in self.structure_updaters:
+            update_summary = updater(failure_info)
+            if update_summary:
+                updates.append(update_summary)
+
+        result.updates = updates
+
+        # 3) Compute info_gain as a function of updates + analysis richness
+        #    This can be as simple or complex as you like.
+        info_gain = self._estimate_info_gain(failure_info, updates)
+        result.info_gain = info_gain
+
+        # 4) Enforce minimal info_gain for ZPC compliance
+        if total_loss > 0.0 and cost > 0.0 and result.info_gain < self.min_info_gain:
+            # In strict mode, you might raise an error or log this as a violation.
+            # Here we just flag it in failure_info.
+            if result.failure_info is None:
+                result.failure_info = {}
+            result.failure_info.setdefault("zpc_warning", "Insufficient info gain from failure")
+
+        return result
+
+    # ---- Internals -----------------------------------------------------------
+
+    def _estimate_info_gain(
+        self,
+        failure_info: Dict[str, Any],
+        updates: List[Dict[str, Any]],
+    ) -> float:
+        """
+        Heuristic estimate of information gain.
+
+        You can replace this with a more principled measure
+        (e.g. change in entropy of strategy distribution, size of pruned space, etc.).
+        """
+        if not failure_info and not updates:
+            return 0.0
+
+        # Simple heuristic:
+        # - base gain from having any structured failure_info
+        # - additional gain per non-empty update
+        base_gain = 1.0 if failure_info else 0.5
+        update_gain = 0.5 * len([u for u in updates if u])
+
+        return self.gamma * (base_gain + update_gain)
+
+
+⸻
+
+How to Wire This In (Quick Sketch)
+
+In your Thinking Cap engine, you might do:
+
+from daemons.zpc import ZPCContext
+from daemons.kintsugi import kintsugi_update
+from daemons.axiom_forge import axiom_update
+from daemons.mirror_checksum import analyze_failure  # maps to FailureAnalyzer
+
+zpc = ZPCContext(
+    gamma=1.0,
+    failure_analyzer=analyze_failure,
+    structure_updaters=[kintsugi_update, axiom_update],
+)
+
+result = zpc.evaluate(
+    program=candidate_program,
+    demos=train_pairs,
+    eval_fn=run_program_on_grid,
+    loss_fn=grid_loss,
+    cost_fn=program_cost,
+)
+
+# Now you can use:
+# result.value  (ZPC-augmented score)
+# result.failure_info
+# result.updates
+
+This way, ZPC is literally a module in the loop, not just a metaphor:
+	•	Every failed program gets analyzed.
+	•	Every failure attempts to update constraints / schemas / axioms.
+	•	Every episode contributes info_gain, so the system’s internal structure is always moving forward.
+
+If you’d like, I can next draft stub versions of analyze_failure, kintsugi_update, and axiom_update so the whole chain is ready to drop into your demo.
