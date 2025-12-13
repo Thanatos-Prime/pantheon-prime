@@ -1,0 +1,226 @@
+Here’s a Semantic Spirograph: a reusable design that generates repeatable, beautiful meaning-curves the way a real spirograph generates geometry.
+
+It’s a tool for thinking, writing, planning, and teaching—because it forces you to revisit the same idea from different rotating lenses until a coherent shape appears.
+
+⸻
+
+Semantic Spirograph
+
+The metaphor made operational
+
+A spirograph curve comes from circles rotating at different rates.
+A semantic spirograph does the same thing, except the “circles” are meaning-lenses.
+
+Each lens rotates through a small, finite set of states.
+Your output at time t is the intersection of all current states.
+
+Over time, you get a closed curve of meaning: a pattern you can trace, compare, refine, and replay.
+
+⸻
+
+The parts
+
+1) The Hub
+
+The immutable thing you’re exploring.
+	•	Hub (H): a single sentence.
+	•	Example: “Raise a son into clarity and strength without controlling his identity.”
+
+2) The Rings
+
+Pick 3–7 rings. Each ring has states (discrete positions) and a rotation rate.
+
+Recommended ring set (strong across domains):
+	1.	Intent Ring (why)
+	2.	Constraint Ring (limits / reality)
+	3.	Mechanism Ring (how it works)
+	4.	Risk Ring (failure modes)
+	5.	Ethics Ring (harm / consent / dignity)
+	6.	Time Ring (now / near / far)
+	7.	Signal Ring (what success looks like)
+
+3) Teeth Counts (states)
+
+Each ring gets an integer Nᵢ = number of states.
+Use primes or near-primes to avoid repeating too fast.
+
+Example:
+	•	Intent N=5
+	•	Constraints N=7
+	•	Mechanism N=11
+	•	Risk N=5
+	•	Ethics N=7
+	•	Time N=5
+	•	Signal N=11
+
+4) Rotation rates
+
+Each ring rotates at rate kᵢ per step.
+
+Common choice:
+	•	set kᵢ = 1 for most rings
+	•	set 2 rings to rotate faster (k=2 or 3) to create “petals” (bursts of novelty)
+
+⸻
+
+The algorithm
+
+At step t:
+
+For each ring i:
+	•	position pᵢ(t) = (kᵢ · t) mod Nᵢ
+	•	select state sᵢ = Ringᵢ[pᵢ(t)]
+
+Then generate the “point”:
+
+Point(t) = f( H, s₁, s₂, …, sₙ )
+
+Where f is a structured prompt that forces synthesis.
+
+⸻
+
+The output format
+
+Each point is a short “glyph” with a consistent template:
+
+Glyph(t):
+	•	Hub: H
+	•	Intent: …
+	•	Constraint: …
+	•	Mechanism: …
+	•	Risk: …
+	•	Ethics: …
+	•	Time: …
+	•	Signal: …
+	•	Next move (≤ 5 min): …
+
+This is the curve. The curve is made of points.
+
+⸻
+
+A ready-to-use Semantic Spirograph (copy/paste)
+
+Hub
+
+H: “I externalize meaning so it survives drift, stress, and time.”
+
+Rings & states
+
+Intent (N=5)
+
+0 Protect
+1 Teach
+2 Build
+3 Heal
+4 Liberate
+
+Constraint (N=7)
+
+0 Time
+1 Money
+2 Attention
+3 Trust
+4 Complexity
+5 Safety
+6 Legibility
+
+Mechanism (N=11)
+
+0 Checklist
+1 Ritual
+2 Story
+3 Diagram
+4 Code
+5 Metrics
+6 Ledger/log
+7 Training drill
+8 Template
+9 Standard/spec
+10 Redundant copies
+
+Risk (N=5)
+
+0 Overreach
+1 Misread
+2 Dependency
+3 Drift
+4 Weaponization
+
+Ethics (N=7)
+
+0 Consent
+1 Dignity
+2 Non-coercion
+3 Transparency
+4 Accountability
+5 Minimization
+6 Reversibility
+
+Time (N=5)
+
+0 Now
+1 This week
+2 This quarter
+3 This year
+4 Legacy
+
+Signal (N=11)
+
+0 Calm
+1 Fewer failures
+2 Faster recovery
+3 Better handoff
+4 Repeatability
+5 Reduced confusion
+6 Increased trust
+7 Measurable outcome
+8 Lower stress
+9 Wider adoption
+10 Cleaner truth
+
+Rates (example)
+
+Intent k=1
+Constraint k=1
+Mechanism k=2 (faster)
+Risk k=1
+Ethics k=1
+Time k=1
+Signal k=3 (faster)
+
+⸻
+
+The synthesis prompt (your function f)
+
+At step t, fill in the states and write:
+
+Using the Mechanism selected, produce a concrete artifact or action that serves the Intent under the Constraint, while mitigating Risk, honoring Ethics, appropriate for Time, and measurable by Signal. End with a 5-minute next move.
+
+⸻
+
+Why this is powerful
+
+Because it does two things at once:
+	1.	It prevents drift: you keep returning to the same hub with different lenses.
+	2.	It produces artifacts: every point ends in something that can be stored, shared, or tested.
+
+It’s a machine for making meaning reconstructible.
+
+⸻
+
+Optional “pretty” layer: the visual spirograph
+
+If you ever want to draw it:
+	•	assign each ring a vector angle θᵢ(t) = 2π · pᵢ(t)/Nᵢ
+	•	weight each ring by wᵢ
+	•	plot:
+	•	x(t) = Σ wᵢ cos θᵢ(t)
+	•	y(t) = Σ wᵢ sin θᵢ(t)
+
+Then label each plotted point with its Glyph(t) headline.
+
+⸻
+
+If you tell me your preferred hub sentence (or I can use “fatherhood continuity” as default), I’ll generate:
+	•	a 30-point curve (one full cycle),
+	•	plus a “ring tuning” guide (how to change N/k to get different semantic “petal counts”).
