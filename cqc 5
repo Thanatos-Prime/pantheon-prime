@@ -1,0 +1,101 @@
+Yep — here’s the Pantheon-v2 fracture-response pipeline as a clean, recoverable wiring diagram (Watcher + Shadow + Repair), laid directly on top of your “daemon pool + judge + state” spine.
+
+Architecture diagram (Mermaid)
+
+flowchart LR
+  %% ====== Core Surfaces ======
+  U[User / Operator] -->|Task| K[Kernel / Orchestrator]
+  K --> BB[(Blackboard / Shared Task State)]
+  K --> BUS[[Event Bus / Message Bus]]
+  K --> J[d_judge (Decision Protocol)]
+  J --> K
+
+  %% ====== Role Pools ======
+  subgraph RP[Role Pool (per role)]
+    direction TB
+    P[Primary Daemon (active)]
+    S[Shadow Daemon (hot-standby)]
+    W[Watcher (health + fracture detector)]
+  end
+
+  %% ====== Checkpointing ======
+  P -->|progress + checkpoints| BB
+  S -->|mirror checkpoints (read-only)| BB
+
+  %% ====== Heartbeats ======
+  P -->|heartbeat| W
+  S -->|heartbeat| W
+
+  %% ====== Fracture detection + dispatch ======
+  W -->|fracture_event(role, task_id, reason)| BUS
+  BUS -->|subscribe(role)| S
+  S -->|claim task token + resume from last checkpoint| K
+
+  %% ====== Repair lane ======
+  W -->|quarantine if persistent| RQ[Repair Queue]
+  P -->|on fracture -> diagnostics packet| RQ
+  RQ --> D[Diagnostics / Renewal Module]
+  D -->|recycle as standby if healed| RP
+  D -->|alert human if needed| U
+
+  %% ====== Observability / Ledger ======
+  subgraph L[Ledger / Traceability]
+    LOG[(Fracture Log)]
+    MET[(Metrics: confidence_curve, heartbeat_age, MTTR)]
+  end
+  W --> LOG
+  S --> LOG
+  P --> LOG
+  W --> MET
+
+“Instant replacement” event flow (sequence)
+
+sequenceDiagram
+  participant K as Kernel
+  participant P as Primary
+  participant W as Watcher
+  participant BB as Blackboard
+  participant BUS as EventBus
+  participant S as Shadow
+  participant RQ as RepairQueue
+
+  K->>P: assign(task_id)
+  loop work iterations
+    P->>BB: checkpoint(step, partial, confidence)
+    P->>W: heartbeat(confidence)
+  end
+
+  alt fracture detected
+    W->>BUS: fracture_event(task_id, role, reason)
+    W->>RQ: enqueue(diagnostics snapshot)
+    BUS->>S: notify(fracture_event)
+    S->>BB: read latest checkpoint
+    S->>S: zero_point_check()
+    S->>K: claim_token_and_resume(task_id)
+  else normal completion
+    P->>K: report_success(result)
+  end
+
+Minimal state + event contracts (so it stays transparent & recoverable)
+
+Blackboard (per task)
+	•	task_id
+	•	role
+	•	checkpoint_seq
+	•	last_checkpoint_at
+	•	partial_result
+	•	confidence
+	•	status = running | stalled | fractured | completed
+	•	owner_daemon_id (current token holder)
+
+fracture_event
+	•	task_id
+	•	role
+	•	fractured_daemon_id
+	•	reason = heartbeat_timeout | low_confidence | exception | unhandled
+	•	heartbeat_age_ms
+	•	confidence
+	•	checkpoint_seq
+	•	timestamp
+
+If you want, I can also drop this into a single “Pantheon-v2 diagram page” layout (same nodes, but grouped into: Control Plane / Data Plane / Healing Plane / Ledger Plane) so it reads like a real system blueprint.
