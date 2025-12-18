@@ -1,0 +1,216 @@
+Perfect. Here’s a README.md–ready skeleton you can drop straight into a repository. It’s structured using the Spec Surface Map, already compressed for mixed audiences, and aligned with everything we hardened in Days 1–4.
+
+You can copy-paste this verbatim.
+
+⸻
+
+
+# Pantheon Multi-Daemon Coordination Protocol v1.0
+
+> Centralized task coordination for daemon fleets with lease-based claiming,
+> idempotent completion, and production-grade failure handling.
+
+---
+
+## 0. Document Surface Map
+
+This document is structured to separate requirements, explanation, verification, and operations.
+
+- **Normative (Requirements):** Sections 2–5  
+- **Informative (Context):** Section 1  
+- **Verification (Testing):** Section 6 + Appendix A  
+- **Operational (Production):** Section 7 + Appendix B  
+- **Out-of-Scope (Non-Guarantees):** Section 8  
+
+Only RFC 2119 keywords (`MUST`, `SHOULD`, `MAY`, `MUST NOT`) are binding.
+
+---
+
+## 1. Overview (Informative)
+
+Pantheon Coordination v1.0 is a centralized **control-plane protocol** for distributing work across multiple daemons.
+
+Key properties:
+- Central **Coordinator** assigns tasks via **exclusive leases**
+- Daemons execute tasks independently (data plane)
+- **At-least-once execution** with idempotency guarantees
+- Safe degradation on coordinator, daemon, or network failure
+- No distributed consensus required (shippable in <2 weeks)
+
+---
+
+## 2. Architecture
+
+             ┌───────────────────────────────┐
+             │          Coordinator           │
+             │  - Task Queue API              │
+             │  - Lease Manager               │
+             │  - Health Monitor              │
+             │  - Singleton DB Lock           │
+             └───────────────┬───────────────┘
+                             │
+                             ▼
+                    ┌───────────────────┐
+                    │ Durable Database  │
+                    │ tasks + leases    │
+                    │ completion cache  │
+                    └───────────────────┘
+   ┌───────────────────────┬───────────────────────┐
+   ▼                       ▼                       ▼
+
+┌─────────┐             ┌─────────┐             ┌─────────┐
+│ Daemon A│             │ Daemon B│             │ Daemon C│
+│ claim   │             │ claim   │             │ claim   │
+│ lease   │             │ lease   │             │ lease   │
+│ work    │             │ work    │             │ work    │
+│ complete│             │ complete│             │ complete│
+└─────────┘             └─────────┘             └─────────┘
+
+---
+
+## 3. Core Guarantees (Normative)
+
+### 3.1 Task Claiming
+
+- The Coordinator MUST ensure **at most one active lease per task**.
+- A task MAY be executed multiple times across its lifecycle if leases expire.
+- The system guarantees **at-least-once execution**; tasks SHOULD be idempotent.
+
+### 3.2 Claim Receipts (Ghost-Claim Guard)
+
+- Each successful task claim MUST return a `claim_receipt_id`.
+- Daemons MUST include `claim_receipt_id` when renewing, completing, or failing a task.
+- If the receipt does not match the active lease, the Coordinator MUST return `409 Conflict`.
+
+### 3.3 Completion Idempotency
+
+- `POST /tasks/:id/complete` MUST accept an `idempotency_key`.
+- The Coordinator MUST cache the first successful completion result per key.
+- Replays with the same key MUST return the original response without re-processing.
+
+### 3.4 Durability Boundaries
+
+- Task submission MAY return `201 Created` **only after** durable commit.
+- Claim and completion responses MAY return `200 OK` **only after** lease/state commit.
+
+### 3.5 Coordinator Singleton Enforcement
+
+- The Coordinator MUST acquire a database advisory lock on startup.
+- If the lock cannot be acquired within 5 seconds, the Coordinator MUST exit.
+
+---
+
+## 4. Operating Conditions (Normative)
+
+### Message Acknowledgment Latency
+
+**Claim:**  
+The Coordinator MUST respond to claim, complete, or fail requests within **100ms**.
+
+**Operating Conditions:**
+- Load ≤ 1000 req/sec
+- ≥4 CPU cores, ≥8GB RAM
+- Local SSD-backed database
+- Handler execution ≤50ms
+
+**Violation Behavior:**
+- MUST return timeout or 429 (never hang)
+- SHOULD emit latency metrics and alerts
+
+---
+
+## 5. Security & Observability (Normative)
+
+### Security
+- All daemon requests MUST be authenticated.
+- Daemons MUST NOT complete or fail tasks they did not claim.
+- Per-daemon rate limits MUST be enforced.
+
+### Observability
+- Coordinator MUST emit metrics for:
+  - tasks_pending / claimed / completed / failed
+  - lease_expirations_total
+  - daemons_healthy
+- Coordinator MUST log all lease lifecycle events.
+
+---
+
+## 6. Test Harness (Verification)
+
+### Happy Path
+- `test_task_submit_claim_complete_flow`
+- `test_lease_renewal_prevents_expiry`
+
+### Edge Cases
+- `test_coordinator_restart_task_persistence`
+- `test_lease_expiry_task_reclaim`
+- `test_network_partition_graceful_degradation`
+
+### Audit-Ready Precision Tests
+- `test_complete_idempotency_key_replay`
+- `test_claim_receipt_mismatch_rejected`
+- `test_singleton_startup_db_lock_enforced`
+
+---
+
+## 7. Operations (Production)
+
+### Deployment Checklist
+- [ ] Database configured with SERIALIZABLE isolation
+- [ ] Singleton advisory lock verified
+- [ ] NTP clock skew <1s
+- [ ] Per-daemon rate limits enabled
+- [ ] Alerts configured:
+  - coordinator_unavailable
+  - duplicate_task_execution
+  - clock_skew_detected
+
+### Failure Playbook
+- **Coordinator crash:** Restart → DB restores leases/tasks
+- **Daemon crash:** Lease expiry → task reclaimed
+- **DB unavailable:** Coordinator returns 503, daemons pause claims
+
+---
+
+## 8. Limitations & Non-Guarantees (Out-of-Scope)
+
+- No distributed consensus or multi-coordinator safety
+- No exactly-once execution guarantee
+- No protection against Byzantine daemons
+- No bounded task completion time
+
+---
+
+## Appendix A — Claim-to-Test Traceability
+
+| Guarantee | Test | Coverage |
+|---------|------|----------|
+| Exclusive lease | test_concurrent_claim_conflict_resolution | Full |
+| Idempotent completion | test_complete_idempotency_key_replay | Full |
+| Singleton coordinator | test_singleton_startup_db_lock_enforced | Full |
+| Lease expiry reclaim | test_lease_expiry_task_reclaim | Full |
+
+---
+
+## Appendix B — Versioning & Roadmap
+
+- **v1.0:** Centralized coordinator (this spec)
+- **v1.1:** Load-tested operating envelopes
+- **v2.0:** Optional leader election / HA coordinator
+
+
+⸻
+
+What you now have
+	•	A repo-ready README
+	•	Clear separation of requirements vs explanation
+	•	Audit-proof language
+	•	Implementer-friendly structure
+	•	A natural on-ramp for contributors
+
+If you want next:
+	•	Convert this into a GitHub RFC template
+	•	Generate OpenAPI stubs for the Coordinator
+	•	Or jump to Module 5 (Persuasion Without Manipulation) and apply this rigor to the Richard Star Act campaign
+
+Just say the word.
