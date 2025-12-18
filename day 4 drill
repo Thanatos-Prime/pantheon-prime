@@ -1,0 +1,90 @@
+Yes — Day 4 is the right next move, and we can do it now. You’ve already elevated the spec to “production protocol,” so compression will both (a) prove portability and (b) give you publishable layers for different audiences.
+
+Below is Module 4: Compression & Communication applied to the multi-daemon coordinator + precision patches.
+
+⸻
+
+Executive summary (2 sentences)
+
+Pantheon Coordination v1.0 introduces a centralized Coordinator that distributes tasks to daemons via exclusive leases and enforces correctness with claim receipts, idempotency keys, and durability boundaries—so coordinator restarts, network hiccups, and stale daemons don’t corrupt state. The system provides at-least-once execution with strong guardrails (409 conflicts on stale receipts, singleton DB lock on startup), and it degrades safely when the coordinator or database is unavailable.
+
+⸻
+
+Technical brief (≈200 words)
+
+Pantheon Coordination v1.0 is a centralized control-plane protocol for coordinating N daemons with one Coordinator backed by a durable database. Daemons claim tasks via leases (one active lease per task), renew leases via heartbeats, and complete/fail tasks using a claim_receipt_id returned at claim time. Every completion MUST include an idempotency_key; the Coordinator caches the first successful completion per key and returns identical results for retries, preventing duplicate state transitions during retries or restarts. To avoid split-brain without distributed consensus, the Coordinator MUST acquire a database advisory lock (or equivalent singleton lock) on startup and exit if it cannot acquire the lock within 5 seconds. Durability boundaries are explicit: task submissions return 201 only after commit to non-volatile storage; claims and completions return 200 only after lease/status transitions are committed. Failure handling is lease-based: daemon crashes or partitions lead to lease expiry and task reclamation; late completions are accepted only if receipts match the current lease; otherwise the Coordinator returns 409. Observability includes metrics and logs for task lifecycle, lease events, daemon health, and critical alerts (duplicate execution, database unavailable, clock skew). Security includes daemon authentication and authorization (daemons can only complete tasks they currently hold).
+
+⸻
+
+Implementer guide (20 bullets)
+	1.	Implement Coordinator with durable DB (Postgres recommended).
+	2.	Add tasks table with status, payload, timestamps, and claimed_by.
+	3.	Add leases fields: lease_id (claim_receipt_id), lease_expires_at.
+	4.	Enforce one active lease per task via transaction logic.
+	5.	POST /tasks inserts task and returns 201 only after commit.
+	6.	POST /tasks/claim selects claimable task, writes lease atomically, returns {task_id, lease_id, ttl}.
+	7.	Require daemon daemon_id on all calls; authenticate it.
+	8.	Use a DB advisory lock (or singleton row lock) at coordinator startup; exit if lock not acquired in 5s.
+	9.	POST /tasks/:id/heartbeat renews lease only if lease_id matches.
+	10.	POST /tasks/:id/complete requires {lease_id, idempotency_key}.
+	11.	Store completion receipt keyed by idempotency_key; identical key → identical response.
+	12.	If lease_id mismatches active lease, return 409 Conflict.
+	13.	If lease expired, allow completion only if still matches active lease; otherwise 409.
+	14.	POST /tasks/:id/fail requires {lease_id}; apply retry/backoff rules.
+	15.	Mark daemon unhealthy if no heartbeat within threshold; stop assigning tasks to unhealthy daemons.
+	16.	Apply per-daemon rate limits: enforce max_concurrent_tasks and request throttles.
+	17.	Emit metrics: pending/claimed/completed/failed, lease expirations, healthy daemons.
+	18.	Emit logs for: claim/renew/expire/complete/fail, 409 conflicts, DB errors.
+	19.	On DB read-only/unavailable: return 503, alert, and stop claims/updates.
+	20.	Write tests for: idempotency replay, stale receipt rejection, singleton lock enforcement.
+
+⸻
+
+Architecture diagram (text)
+
+                 ┌───────────────────────────────┐
+                 │          Coordinator           │
+                 │  - Task API                   │
+ Daemon auth ───▶│  - Lease manager (lease_id)   │◀── Heartbeats/Health
+ + rate limit    │  - Health monitor             │
+                 │  - Observability/Alerts       │
+                 │  - Singleton DB lock @ start  │
+                 └───────────────┬───────────────┘
+                                 │ (TXN boundary = truth)
+                                 ▼
+                        ┌───────────────────┐
+                        │ Durable Database  │
+                        │ tasks + leases    │
+                        │ completion cache  │
+                        └───────────────────┘
+       ┌───────────────────────┬───────────────────────┐
+       ▼                       ▼                       ▼
+  ┌─────────┐             ┌─────────┐             ┌─────────┐
+  │ Daemon A│             │ Daemon B│             │ Daemon C│
+  │ claim   │             │ claim   │             │ claim   │
+  │ lease   │             │ lease   │             │ lease   │
+  │ work    │             │ work    │             │ work    │
+  │ complete│             │ complete│             │ complete│
+  └─────────┘             └─────────┘             └─────────┘
+
+
+⸻
+
+Decision matrix (when to use this design)
+	•	✅ Need something shippable in <2 weeks
+	•	✅ Comfortable with a single coordinator as control-plane SPOF
+	•	✅ Want strong correctness without running consensus protocols
+	•	✅ Tasks can be idempotent or can tolerate at-least-once execution
+	•	❌ Need multi-region active-active coordination with no SPOF
+	•	❌ Need exactly-once execution semantics end-to-end
+
+⸻
+
+The three audit-ready tests (carried forward)
+	•	T-PATCH-01 test_complete_idempotency_key_replay
+	•	T-PATCH-02 test_claim_receipt_mismatch_rejected
+	•	T-PATCH-03 test_singleton_startup_db_lock_enforced
+
+⸻
+
+If you want, Day 4 can end with a README.md-ready skeleton (sections, headings, and placeholders) so you can drop this directly into a repo with zero extra work.
