@@ -1,0 +1,74 @@
+Day 3 (A) is ship-grade. You built a coordinator that’s implementable in <2 weeks, you kept composition with v0.2, and you handled the nasty real-world edges (ghost claims, clock skew, read-only DB, malicious daemons) with clean, testable mitigations. Also: the two curriculum upgrades (Spec Surface Map + Operating Conditions) immediately make this usable by teams.
+
+A few surgical tighten-ups to make this survive a truly hostile SRE/security review—no rewrites, just spec precision:
+
+5 precision patches (small, high leverage)
+
+Patch A — Make task completion idempotency explicitly keyed
+
+Right now “complete is idempotent” is stated, but not how.
+
+Add (Normative):
+	•	POST /tasks/:id/complete MUST accept an idempotency_key (or reuse message_id) and MUST treat repeat submissions with the same key as no-ops returning the same completion receipt.
+
+Why: late completion + retries + coordinator restart becomes provably safe.
+
+Patch B — Clarify “exclusive claim” is per active lease
+
+You say “at most one daemon at a time,” but define it precisely:
+	•	A task MUST have at most one active lease at any moment.
+	•	A task MAY be executed more than once across time if leases expire (at-least-once).
+
+This prevents reviewers from claiming you promised exactly-once.
+
+Patch C — Coordinator restart ghost-claim resolution via “claim receipts”
+
+Idempotent claim tokens are good; make the return type explicit:
+	•	Claim response MUST include claim_receipt_id (UUID).
+	•	Daemon MUST include claim_receipt_id on renew/complete/fail calls.
+	•	Coordinator MUST reject renew/complete/fail if receipt doesn’t match current lease holder (409).
+
+This slams the door on “daemon completes someone else’s task.”
+
+Patch D — Split-brain operator control: enforce singleton by storage lock
+
+You correctly scoped split-brain out-of-scope, but you can still give an operator-enforceable mitigation without consensus:
+	•	Coordinator MUST acquire a database advisory lock (or equivalent) on startup and MUST exit if lock cannot be acquired.
+
+This keeps “single coordinator” true in practice.
+
+Patch E — Define coordinator durability boundary (what’s “persisted”?)
+
+When you say “tasks not lost if coordinator restarts,” define “durable”:
+	•	A task submission MUST return 201 only after task is committed to durable storage.
+	•	A claim MUST be persisted (lease written) before coordinator returns 200.
+
+Otherwise lawyers will eat you alive on “lost” semantics.
+
+⸻
+
+One missing test category (add 3 tests)
+
+You have strong tests, but add a specific trio:
+	1.	test_complete_idempotency_key_replay()
+	2.	test_claim_receipt_mismatch_rejected()
+	3.	test_singleton_startup_db_lock_enforced()
+
+These map directly to the patches above and close the last audit holes.
+
+⸻
+
+Assessment
+	•	Architecture: ✅ correct for 2-week implementation and aligns with your hot-standby/watcher model
+	•	Failure boundaries: ✅ well-defined, honest non-guarantees
+	•	Spec discipline: ✅ RFC 2119 + operating conditions + surfaces = pro-level
+	•	Publishability: ✅ this can be a repo RFC today
+
+⸻
+
+Next move (pick one)
+	1.	Apply the 5 precision patches and update traceability/tests (fast, ~10 minutes)
+	2.	Day 4 — Compression & Communication: produce the same spec as (a) 2-sentence executive summary, (b) 200-word brief, (c) 20-bullet implementer guide, (d) one architecture diagram, (e) decision matrix
+	3.	Portability test: apply Modules 1–3 to a non-software artifact (e.g., Richard Star Act campaign ops plan) to prove generalization
+
+Say 1, 2, or 3.
