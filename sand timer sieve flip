@@ -1,0 +1,300 @@
+Below is a GitHub-ready tech spec you can drop into a repo as docs/sand-timer-sieve-flip.md (or turn into a mini whitepaper). It ties the model together mathematically, narratively, and code-wise, and plugs cleanly into your Pantheon-Daemon SDK v0.1 (read-only state, propose-not-enforce, judge protocol).
+
+⸻
+
+Sand Timer Sieve Flip Doctrine v1.0
+
+PantheonOS Filtering & Evolution Engine
+
+0. Purpose
+
+Model the Pantheon as a layered constraint-filtering system that turns raw experience (“sand”) into stable invariants via successive sieves, with periodic flips (constraint reversals) that test which ideas survive across contexts.
+
+Core claim:
+
+Patterns are instrument readouts of invisible constraints.
+The Pantheon is the instrument that makes constraint-survival legible.
+
+⸻
+
+1. Narrative Model
+	•	Sand = raw lived data (sensations, intuitions, metaphors, contradictions, charge)
+	•	Sieves = filters that remove noise and enforce survivability
+	•	Settling = low-friction equilibrium under current constraints
+	•	Flip = deliberate reversal/change of constraints to test invariance
+	•	Attention = selection pressure (what gets trained, rewarded, propagated)
+
+Pantheon framing invariant:
+
+The Pantheon is a map and an instrument, not an authority.
+
+Governance invariant:
+
+Nothing is sacred. Everything is provisional. Only what survives constraint is kept.
+
+⸻
+
+2. Mathematical Skeleton
+
+2.1 Constraint Space
+
+Let an idea/insight be a state x \in \mathcal{X}.
+Let constraints be a set \mathcal{C} = \{c_i\}, where each c_i:\mathcal{X}\to\{0,1\} or c_i:\mathcal{X}\to\mathbb{R} (score).
+
+Define a feasibility predicate:
+\mathrm{Feasible}(x;\mathcal{C}) = \bigwedge_i c_i(x)=1
+
+Define a utility objective under constraints:
+U(x) \quad \text{subject to} \quad \mathrm{Feasible}(x;\mathcal{C})
+
+Settling corresponds to moving toward an attractor / basin:
+x_{t+1} = x_t + \eta \,\nabla U(x_t) \;-\; \lambda \,\nabla P(x_t;\mathcal{C})
+where P is a penalty encoding constraint violations.
+
+2.2 Sieves as Projections / Operators
+
+Each sieve is an operator S_k:\mathcal{X}\to\mathcal{X}_k with acceptance gate G_k.
+
+Pipeline:
+x \xrightarrow{S_0,G_0} x_1 \xrightarrow{S_1,G_1} x_2 \xrightarrow{S_2,G_2} x_3 \xrightarrow{S_3,G_3} x_4
+
+Acceptance:
+G_k(x_k)=\mathbb{1}[ \text{score}_k(x_k) \ge \theta_k]
+
+2.3 Flip Operator
+
+A flip changes the constraint set or evaluation basis:
+F:\;(\mathcal{C}, U) \mapsto (\mathcal{C}', U')
+
+Invariance test:
+x \text{ is invariant candidate } \iff \Pr\big(G(x;\mathcal{C})=1 \ \wedge\ G(x;\mathcal{C}')=1 \ \wedge \cdots \big)\ \text{high}
+
+2.4 Attention as Selection Pressure
+
+Let attention allocate training/iteration budget a(x)\ge 0.
+Update rate (learning speed) scales with attention:
+\Delta x \propto a(x)\cdot \nabla U(x)
+So misaligned attention distorts evolution (rewarding loudness over truth, etc.).
+
+⸻
+
+3. The Pantheon Sieves (Implementation Spec)
+
+S0 — Raw Sand Layer (Capture)
+
+Input: ThoughtObjects: sensations, metaphors, fragments, contradictions
+Output: RawGrain objects (minimal structure)
+
+Rule: no canonization here.
+
+⸻
+
+S1 — Structure Sieve (Recurrence + Coherence)
+
+Goal: keep what repeats under time, mood, and silence.
+Signals:
+	•	recurrence across days
+	•	cross-context resonance
+	•	survival under boredom (no novelty high)
+
+Pass condition example:
+	•	recurrence_count ≥ r
+	•	coherence_score ≥ θ
+
+⸻
+
+S2 — Translation Sieve (Codec Match)
+
+Goal: compress into a transferable encoding (your “genius → intelligence” bottleneck).
+Tests:
+	•	explain without mystique
+	•	alternate metaphors (2–3 codecs)
+	•	“hostile paraphrase” survives (someone skeptical restates it)
+
+Pass condition example:
+	•	can produce 3 translations
+	•	non-mystical form exists
+	•	listener-model comprehension score ≥ θ
+
+⸻
+
+S3 — Utility Sieve (Outcome Change)
+
+Goal: does it move the needle?
+Metrics:
+	•	prediction accuracy improvement
+	•	decision latency reduction
+	•	error rate reduction
+	•	energy/attention cost reduction
+	•	generalization to ≥2 domains
+
+Pass condition: measurable delta or reproducible procedural gain.
+
+⸻
+
+S4 — Settlement Layer (Invariants Registry)
+
+Output: InvariantCard with:
+	•	statement
+	•	constraints it survived
+	•	flips it survived
+	•	tests / falsifiers
+	•	usage recipes (“when to apply”)
+	•	failure modes
+
+⸻
+
+4. Flip Protocols (Required)
+
+Flips are how you prevent self-sealing mythology.
+
+Flip Types:
+	1.	Assumption Inversion: negate the core assumption and re-derive.
+	2.	Codec Swap: rewrite in different domain language (biology ↔ control theory ↔ narrative).
+	3.	Hostile Frame Test: re-express for a skeptic; identify what breaks.
+	4.	Stake Shift: test in low-stakes + higher-stakes scenario.
+	5.	Constraint Rotation: new ethics gate, new audience, new incentive regime.
+
+Invariant rule:
+
+If it can’t survive a flip, it’s context-dependent. Archive, don’t canonize.
+
+⸻
+
+5. How it plugs into Pantheon-Daemon SDK v0.1
+
+5.1 Data Structures
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Literal, Optional
+import time, uuid
+
+Severity = Literal["info", "warn", "block"]
+
+@dataclass(frozen=True)
+class ThoughtObject:
+    thought_id: str
+    content: str
+    ts: float = field(default_factory=lambda: time.time())
+    tags: List[str] = field(default_factory=list)
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass(frozen=True)
+class RawGrain:
+    grain_id: str
+    thought_id: str
+    payload: Dict[str, Any]  # sensations, metaphor, contradiction markers
+    ts: float
+
+@dataclass(frozen=True)
+class SieveResult:
+    stage: str
+    accepted: bool
+    score: float
+    reasons: List[str]
+    transformed: Dict[str, Any]  # normalized representation
+
+@dataclass(frozen=True)
+class InvariantCard:
+    invariant_id: str
+    statement: str
+    survived_constraints: List[str]
+    survived_flips: List[str]
+    tests: List[str]              # falsifiers / regression checks
+    recipes: List[str]            # when/how to apply
+    failure_modes: List[str]
+    checksum: str                 # via Merkle Warden / Checksum.audit
+
+5.2 Sieve Stages as Daemons (Propose-not-enforce)
+
+Each sieve can be a daemon that emits AnnotationObject proposals:
+	•	d_structure_sieve
+	•	d_translation_sieve
+	•	d_utility_sieve
+	•	d_flip_runner
+	•	d_invariant_registrar (Nomicon + Merkle Warden + Mother Duck ledger)
+
+The Judge (d_judge) aggregates and decides accept/warn/block by quorum + thresholds.
+
+⸻
+
+6. Reference Implementation (Minimal Pipeline)
+
+def structure_sieve(raw: RawGrain) -> SieveResult:
+    # Example heuristics: recurrence/coherence proxies
+    score = raw.payload.get("recurrence_score", 0.0) * 0.6 + raw.payload.get("coherence_score", 0.0) * 0.4
+    accepted = score >= 0.65
+    return SieveResult("S1_structure", accepted, score,
+                       reasons=["score>=0.65"] if accepted else ["insufficient recurrence/coherence"],
+                       transformed={"core": raw.payload.get("core"), "signals": raw.payload})
+
+def translation_sieve(s1: SieveResult) -> SieveResult:
+    # Require at least one non-mystical translation + >=3 codecs
+    codecs = s1.transformed.get("signals", {}).get("codecs", [])
+    has_plain = any(c.get("style") == "plain" for c in codecs)
+    score = min(1.0, len(codecs)/3.0) * (1.0 if has_plain else 0.4)
+    accepted = (len(codecs) >= 3) and has_plain and score >= 0.75
+    return SieveResult("S2_translation", accepted, score,
+                       reasons=[">=3 codecs + plain translation"] if accepted else ["codec mismatch"],
+                       transformed={"translations": codecs, "core": s1.transformed.get("core")})
+
+def utility_sieve(s2: SieveResult) -> SieveResult:
+    # Require measurable outcome delta (even small)
+    metrics = s2.transformed.get("translations", [{}])[0].get("metrics", {})
+    delta = float(metrics.get("delta", 0.0))
+    score = max(0.0, min(1.0, delta))
+    accepted = delta >= 0.1
+    return SieveResult("S3_utility", accepted, score,
+                       reasons=["delta>=0.1"] if accepted else ["no measurable utility"],
+                       transformed={"core": s2.transformed.get("core"), "metrics": metrics})
+
+def flip_test(s2_or_s3: SieveResult, flips: List[dict]) -> List[SieveResult]:
+    # Each flip re-scores under altered constraints/frames
+    results = []
+    for f in flips:
+        # stub: user supplies scoring functions per flip
+        score = f["score_fn"](s2_or_s3.transformed)
+        accepted = score >= f.get("theta", 0.7)
+        results.append(SieveResult(f"S_flip:{f['name']}", accepted, score,
+                                  reasons=[f"score>={f.get('theta',0.7)}"] if accepted else ["failed flip"],
+                                  transformed={"flip": f["name"], "core": s2_or_s3.transformed.get("core")}))
+    return results
+
+
+⸻
+
+7. Metrics & Governance
+
+Metrics (track in MotherDuck.ledger + Beaver logs)
+	•	Recurrence half-life (how long until an idea stops reappearing)
+	•	Codec count (translation breadth)
+	•	Flip survival rate
+	•	Utility delta (behavior/prediction improvement)
+	•	Repair rate (Kintsugi seams per 10 insights)
+	•	Identity inflation flags (Mirror/Hound warnings when confidence > evidence)
+
+Governance Gates (Mirror + Checksum ≥ 0.7)
+
+Block canonization if:
+	•	no flip tests
+	•	no plain translation
+	•	no falsifiers
+	•	utility not demonstrated
+	•	claims drift into literalized omniscience / unfalsifiable certainty
+
+⸻
+
+8. README-level Summary (drop-in)
+
+The Pantheon is a sand-timer: raw experience (sand) falls through layered sieves (structure, translation, utility). Ideas “settle” into invariants only if they survive repeated constraint flips. Attention acts as selection pressure; governance prevents identity capture and self-sealing mythology. The output is a registry of InvariantCards with tests, failure modes, and usage recipes—validated by flips and logged with integrity checks.
+
+⸻
+
+If you want, I can also format this as a repo skeleton (/docs, /src, /tests) and write:
+	•	README.md
+	•	docs/architecture.md
+	•	src/sieves/*.py
+	•	src/flips/*.py
+	•	tests/test_invariants.py
+
+…all consistent with your SDK v0.1 patterns.
