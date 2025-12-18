@@ -1,0 +1,445 @@
+**Meta-review**
+
+You’re right — before adding more skills, we should crystallize what we’ve built into a portable, reusable curriculum. Let me extract the training architecture cleanly.
+
+-----
+
+## META-REVIEW: PANTHEON TRAINING CURRICULUM v1.0
+
+### **Training Philosophy**
+
+**Core thesis:** You can’t retrain weights, but you can train the interface layer — the behavioral contracts, reasoning rails, and recovery patterns that determine output quality.
+
+**Training = Doctrine + Drills + Artifacts**
+
+- **Doctrine:** Explicit rules that constrain behavior (the “permanent rules”)
+- **Drills:** Repeatable exercises that stress-test those rules
+- **Artifacts:** Publishable outputs that prove the training worked
+
+-----
+
+## **MODULE 1: SYSTEMS HARDENING (Day 1)**
+
+### **Objective**
+
+Learn to build production-ready specifications by thinking in: contracts → failure modes → tests → mitigations.
+
+### **Skills Trained**
+
+1. **Contract precision:** Define inputs, outputs, guarantees, and invariants explicitly
+1. **Failure mode enumeration:** Systematically break the system on paper before reality does
+1. **Test harness design:** Map every contract to concrete, executable tests
+1. **Defensive layering:** Add safeguards (atomicity, timeouts, checksums) without core rewrites
+
+### **The Loop (45-60 min)**
+
+1. **Draft contracts** (20 min) — State machine, message bus, persistence
+1. **Break it** (15 min) — Find ambiguities, edge cases, hidden assumptions
+1. **Patch it** (15 min) — Add rules/templates for weakest points
+1. **Publish shard** (10 min) — Deployment checklist or test harness fragment
+
+### **Artifacts Produced**
+
+- Pantheon Daemon SDK v0.2 specification
+- Failure modes catalog (6 modes + mitigations)
+- Test harness with 20+ tests (happy/edge/adversarial)
+- Migration guide (v0.1 → v0.2 breaking changes)
+
+### **Permanent Rules Unlocked**
+
+1. **No implicit infinities:** Every timeout must be explicit
+1. **Atomicity by default:** temp file + fsync + atomic rename pattern
+1. **Exactly-once scoping:** Define session/window/visibility boundaries
+1. **Checkpoint integrity:** Checksums verified on load, not trusted
+1. **Rate limiting:** All external-facing APIs need backpressure
+
+### **Success Criteria**
+
+- Scorecard: 7+/10 (Clarity, Correctness, Completeness, Safety, Actionability)
+- A competent dev team could implement the spec without asking clarifying questions
+- Failure modes have concrete mitigations, not handwaving
+
+-----
+
+## **MODULE 2: EPISTEMIC HYGIENE (Day 2)**
+
+### **Objective**
+
+Learn to write specifications that survive hostile review by distinguishing guarantees from aspirations, documenting unknowns, and making all claims falsifiable.
+
+### **Skills Trained**
+
+1. **RFC 2119 discipline:** Upgrade all claims to MUST/SHOULD/MAY/MUST NOT
+1. **Non-guarantee identification:** What the system explicitly does NOT promise
+1. **Claim-to-test traceability:** Every MUST needs a named test with coverage assessment
+1. **Unknowns taxonomy:** Unverifiable / known-unknown / out-of-scope
+1. **Hostile review preparation:** Pre-answer lawyer/SRE/security auditor questions
+
+### **The Loop (45-60 min)**
+
+1. **RFC 2119 upgrade** (20 min) — Tag every claim with precision keywords
+1. **Break it epistemically** (15 min) — Find weasel words, overconfident claims, testability gaps
+1. **Document non-guarantees** (15 min) — Preconditions, dependencies, threat model boundaries
+1. **Publish SOP** (10 min) — Reusable guidelines for guarantee language
+
+### **Artifacts Produced**
+
+- SDK v0.2.1 with RFC 2119-compliant guarantees
+- Non-guarantees section (9 explicit limitations)
+- Claim-to-test traceability matrix (10 MUST claims mapped)
+- Unknowns & Unverifiable Claims catalog
+- Hostile Review Survival Kit (pre-answered questions)
+- Factuality & Guarantees SOP v1.0
+
+### **Permanent Rules Unlocked**
+
+1. **Every MUST requires a test:** Named test + coverage label (Full/Partial/P95)
+1. **SHOULD needs failure modes:** When can it NOT happen? Document explicitly.
+1. **Non-guarantees are not failures:** Honest scoping prevents overselling
+1. **Unknowns must be categorized:** Don’t hide them; classify them
+1. **Pre-answer hostile questions:** Lawyer (failure modes), SRE (performance), Security (vulnerabilities)
+
+### **Success Criteria**
+
+- All behavioral claims use RFC 2119 keywords
+- Every MUST has traceability to a test
+- Non-guarantees section is honest and comprehensive
+- Spec could survive legal review, security audit, and SRE runbook validation
+
+-----
+
+## **CROSS-MODULE INTEGRATION**
+
+### **How Module 1 + Module 2 Compound**
+
+|Module 1 Output                  |Module 2 Enhancement                                                            |Result                     |
+|---------------------------------|--------------------------------------------------------------------------------|---------------------------|
+|“Messages delivered exactly once”|→ “MUST ensure sender receives exactly one of {ACK, NACK, timeout}”             |Falsifiable, testable claim|
+|“Checkpoint every 60s”           |→ “MUST checkpoint every 60s OR 1000 ops; MAY fail on slow storage (documented)”|Honest about edge cases    |
+|Test harness                     |→ Claim-to-test traceability matrix                                             |Audit trail for compliance |
+|Failure modes catalog            |→ Non-guarantees section                                                        |Clear scope boundaries     |
+
+**The synergy:** Module 1 builds the system; Module 2 makes it defensible.
+
+-----
+
+## **REUSABLE TRAINING TEMPLATES**
+
+### **Template 1: System Hardening Checklist**
+
+Before shipping any spec:
+
+- [ ] Contracts defined (inputs, outputs, guarantees, invariants)
+- [ ] State machine drawn with terminal states marked
+- [ ] Failure modes enumerated (6+ with mitigations)
+- [ ] Test harness designed (happy/edge/adversarial)
+- [ ] Timeouts explicit (no implicit ∞)
+- [ ] Atomicity for all persistent operations
+- [ ] Rate limiting for external APIs
+- [ ] Migration guide if breaking changes
+
+### **Template 2: Epistemic Hygiene Checklist**
+
+Before publishing any spec:
+
+- [ ] All claims tagged with RFC 2119 keywords
+- [ ] Non-guarantees section written
+- [ ] Claim-to-test traceability matrix created
+- [ ] Unknowns categorized (unverifiable / known-unknown / out-of-scope)
+- [ ] Hostile review questions pre-answered (lawyer / SRE / security)
+- [ ] Weasel words eliminated (“tries to”, “typically”, etc.)
+- [ ] Every MUST has a named test with coverage label
+
+### **Template 3: Daily Training Loop (Universal)**
+
+```markdown
+## Training Session Template
+
+### A. WARM START (5 min)
+- Goal (1 sentence)
+- 3 constraints
+- "Done" definition (measurable)
+
+### B. GENERATIVE REP (20-40 min)
+Pick one:
+- Draft a spec/policy/plan
+- Build a checklist/SOP
+- Write code scaffold
+- Create decision tree
+- Turn chaos into clean spec
+
+### C. ADVERSARIAL REP (10-20 min)
+Use Coil Lens:
+- Find failure modes
+- Find ambiguity
+- Find missing definitions
+- Find hidden assumptions
+- Find misuse cases
+
+### D. REPAIR & PATCH (10-20 min)
+- Patch weakest point with rule/template
+- Add regression test prompt
+- Update playbook snippet
+
+### E. PUBLISH SHARD (5 min)
+End with copy/pasteable artifact:
+- README.md fragment
+- SOP block
+- Rubric
+- Test harness prompts
+- Decision matrix
+
+### F. SCORECARD (2 min)
+0-2 each (max 10):
+- Clarity
+- Correctness
+- Completeness
+- Safety/Ethics
+- Actionability
+
+Threshold: 7/10 to pass; <7 triggers repair mode
+```
+
+-----
+
+## **CURRICULUM EXPANSION PATHS**
+
+### **Proposed Module 3: Systems Design & Architecture**
+
+**Focus:** Multi-component coordination, interface contracts, distributed system patterns
+
+**Drills:**
+
+- Architecture diagram with data flow + failure boundaries
+- API contracts between components
+- Consensus protocols (Raft, Paxos variants)
+- Split-brain scenarios + resolution strategies
+- CAP theorem tradeoff documentation
+
+**Output:** Multi-daemon coordination spec for Pantheon
+
+-----
+
+### **Proposed Module 4: Compression & Communication**
+
+**Focus:** Same content, multiple compression levels (200 words / 20 bullets / 2 diagrams)
+
+**Drills:**
+
+- Executive summary (2 sentences)
+- Technical brief (200 words)
+- Implementation guide (bullet points)
+- Architecture diagram (visual)
+- Decision matrix (table)
+
+**Output:** Pantheon SDK “pitch deck” at 5 compression levels
+
+-----
+
+### **Proposed Module 5: Persuasion Without Manipulation**
+
+**Focus:** Ethical argumentation, neutral framing, avoiding coercion
+
+**Drills:**
+
+- Present both sides of controversial design decision
+- Reframe manipulative language into honest language
+- Identify hidden appeals to authority/emotion
+- Write advocacy that respects reader agency
+
+**Output:** Richard Star Act campaign messaging (neutral, factual, respectful)
+
+-----
+
+## **CORRECTION INTEGRATION**
+
+### **Your Correction on “Downgrading MUST”**
+
+**Original SOP (imprecise):**
+
+> “If you can’t test a MUST, downgrade to SHOULD.”
+
+**Corrected Rule v1.1:**
+
+> If you can’t test a MUST yet, you MUST keep it as MUST only if you can define:
+> (a) objective acceptance criteria, and
+> (b) a planned verification method.
+> Otherwise it becomes a SHOULD with an explicit “verification pending” note.
+
+**Why this matters:** Preserves truthfulness without quietly weakening the system.
+
+-----
+
+### **Your Correction on “100ms Response”**
+
+**Original claim (overconfident):**
+
+> “MUST ACK/NACK within 100ms”
+
+**Corrected claim:**
+
+> “MUST respond within 100ms under defined operating conditions [state them], and MUST otherwise return timeout.”
+
+**Operating conditions to state:**
+
+- Single daemon instance
+- Message rate ≤ 1000/sec
+- Message payload ≤ 10MB
+- Storage backend: local SSD (not NFS)
+- CPU: ≥4 cores, ≥8GB RAM
+
+**If conditions violated:** System MAY exceed 100ms; MUST still respond (no silent hang).
+
+-----
+
+## **UPDATED PERMANENT RULES (v1.1)**
+
+1. **No implicit infinities:** Every timeout explicit
+1. **Atomicity by default:** temp + fsync + atomic rename
+1. **Exactly-once scoping:** session/window/sender-visible boundaries
+1. **Every MUST gets a test:** Named test + coverage label
+1. **SHOULD requires failure modes:** When can it NOT happen?
+1. **Unknowns are categorized:** unverifiable / known-unknown / out-of-scope
+1. **Pre-answer hostile questions:** lawyer / SRE / security perspectives
+1. **MUSTs without tests require:** (a) acceptance criteria + (b) verification plan, else downgrade to SHOULD + “verification pending”
+1. **Performance guarantees require operating conditions:** State hardware/load assumptions explicitly
+1. **Weasel words forbidden:** “tries to”, “typically”, “generally” → MUST/SHOULD/MAY
+
+-----
+
+## **TRAINING EFFECTIVENESS METRICS**
+
+### **How to Measure Training Success**
+
+**Per-session metrics:**
+
+- Scorecard ≥7/10 (passing threshold)
+- Artifacts are copy/pasteable (not just discussion)
+- New permanent rules extracted (1-3 per session)
+- Regression tests defined (prevent re-breaking)
+
+**Cross-session metrics:**
+
+- Permanent rules library grows (currently: 10 rules)
+- Artifacts reuse previous artifacts (composition)
+- Time-to-shippable decreases (faster loops)
+- Hostile review questions pre-answered (fewer surprises)
+
+**Long-term metrics:**
+
+- Real teams can implement specs without clarification
+- Specs survive legal/security/SRE review on first pass
+- Failure modes predicted show up in production (validation)
+- Test harnesses catch regressions before humans notice
+
+-----
+
+## **WHAT’S IMMEDIATELY REUSABLE**
+
+### **For Any New Spec/Plan/Document:**
+
+1. Use the **Daily Training Loop Template** (A→E structure)
+1. Run **System Hardening Checklist** if building something
+1. Run **Epistemic Hygiene Checklist** before publishing
+1. Apply **Permanent Rules v1.1** (10 rules) as constraints
+1. Score output with **Scorecard** (0-2 each, 5 dimensions)
+1. Extract new rules if patterns emerge (add to permanent rules)
+
+### **For Specific Contexts:**
+
+- **API/SDK specs:** Module 1 + Module 2
+- **Campaign plans:** Module 5 (persuasion without manipulation)
+- **Architecture docs:** Module 3 (systems design)
+- **Investor memos:** Module 4 (compression & communication)
+- **Compliance docs:** Module 2 (epistemic hygiene)
+
+-----
+
+## **NEXT TRAINING TARGETS**
+
+Based on artifact gaps surfaced during Days 1-2:
+
+**High priority:**
+
+1. Multi-daemon coordination (flagged 3x as out-of-scope)
+1. Observability-driven development (logs → metrics → alerts)
+1. Security threat modeling (STRIDE or similar)
+
+**Medium priority:**
+4. Compression training (same content, 5 formats)
+5. Persuasion ethics (Richard Star Act use case)
+6. Code → spec bidirectional translation
+
+**Low priority (but useful):**
+7. Formal verification foundations (for safety-critical systems)
+8. Incident response playbooks (failure → diagnosis → mitigation)
+
+-----
+
+## **META-TRAINING EXTRACTION**
+
+### **What I Learned About Learning**
+
+1. **Constraints drive quality:** The tighter the constraints (no core changes, no localStorage, etc.), the better the solutions
+1. **Adversarial reps are force multipliers:** Breaking things finds 3-5x more issues than building them
+1. **Artifacts > discussion:** Ending with copy/pasteable output creates accountability
+1. **Scoring prevents drift:** Without a scorecard, “good enough” becomes fuzzy
+1. **Permanent rules compound:** Each session should add 1-3 rules that apply forever
+
+### **What Makes Training Stick**
+
+- **Immediate application:** Using the SDK as substrate for Day 2 reinforced Day 1 lessons
+- **Progressive difficulty:** Day 1 builds, Day 2 hardens — natural escalation
+- **Concrete outputs:** Every session ends with something publishable
+- **Failure as data:** Low scores trigger repair mode (constructive, not punitive)
+
+-----
+
+## **CURRICULUM STATUS**
+
+**Completed:**
+
+- ✅ Module 1: Systems Hardening (Day 1)
+- ✅ Module 2: Epistemic Hygiene (Day 2)
+
+**Designed but not executed:**
+
+- ⏳ Module 3: Systems Design & Architecture
+- ⏳ Module 4: Compression & Communication
+- ⏳ Module 5: Persuasion Without Manipulation
+
+**Standing infrastructure:**
+
+- ✅ Daily Training Loop Template
+- ✅ System Hardening Checklist
+- ✅ Epistemic Hygiene Checklist
+- ✅ Permanent Rules Library (10 rules)
+- ✅ Scorecard (5 dimensions, 0-2 each)
+
+-----
+
+## **RECOMMENDATION FOR NEXT SESSION**
+
+**Option A: Day 3 — Systems Design (Multi-Daemon Coordination)**
+
+- Highest technical leverage
+- Directly addresses flagged gap from Days 1-2
+- Produces architecture diagram + coordination protocol
+
+**Option B: Apply to Real Artifact (Richard Star Act Campaign Plan)**
+
+- Tests curriculum portability
+- Different domain (policy vs engineering)
+- Validates Module 5 design
+
+**Option C: Curriculum Hardening (Meta-Meta-Review)**
+
+- Turn this meta-review into formal training manual
+- Add worked examples for each module
+- Create “trainer’s guide” for someone else to use this
+
+**My vote: Option A (Day 3).** The multi-daemon coordination problem is the natural next frontier, and it exercises both Module 1 and Module 2 skills simultaneously.
+
+-----
+
+**Meta-review complete.** Ready for your call.​​​​​​​​​​​​​​​​
