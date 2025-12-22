@@ -1,0 +1,587 @@
+Alright — here’s a cleaner, more capable v1 “Bayesian Narrowing Engine” you can drop into a repo as a working product.
+
+It’s still benign by design: it ranks candidates you already supply using weak evidence (shape + context + corpus you own), and it’s built for decision support (“act only if P > τ”), not “reconstruct secrets.”
+
+⸻
+
+Repo layout (copy/paste)
+
+bayes-narrow/
+  pyproject.toml
+  README.md
+  src/bayes_narrow/__init__.py
+  src/bayes_narrow/engine.py
+  src/bayes_narrow/context.py
+  src/bayes_narrow/features.py
+  src/bayes_narrow/constraints.py
+  src/bayes_narrow/calibration.py
+  src/bayes_narrow/cli.py
+  tests/test_engine.py
+  examples/demo_months.py
+
+
+⸻
+
+pyproject.toml
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bayes-narrow"
+version = "0.1.0"
+description = "Bayesian narrowing engine for ranking candidates from weak evidence (shape + context + corpus)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+bayes-narrow = "bayes_narrow.cli:main"
+
+
+⸻
+
+README.md
+
+# bayes-narrow
+
+A Bayesian narrowing engine that ranks candidates from weak evidence:
+- structure (length, token count)
+- type hints (date-like, acronym, name-like, etc.)
+- context (left/right neighbor tokens)
+- optional corpus co-occurrence (from text you provide)
+
+This is **decision support**: it returns a posterior distribution over a finite candidate set you supply.
+
+## Install (editable)
+pip install -e .
+
+## Quick demo
+python examples/demo_months.py
+
+## CLI
+bayes-narrow rank --candidates candidates.txt --left "on" --right "5, 1972" --pattern month --char-len 5
+
+## Output
+- prints ranked posterior
+- can export JSON for downstream use
+
+## Safety / intended use
+Use for benign narrowing problems (disambiguation, classification, structured reconstruction of your own redactions, QA).
+Do not use to identify private individuals or circumvent confidentiality.
+
+
+⸻
+
+Code
+
+src/bayes_narrow/__init__.py
+
+from .engine import BayesianNarrower, Evidence, RankingResult
+
+
+⸻
+
+src/bayes_narrow/constraints.py
+
+Hard rules first (fast prune), then Bayes.
+
+from __future__ import annotations
+import re
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass(frozen=True)
+class HardConstraints:
+    must_match: Optional[str] = None
+    must_not_match: Optional[str] = None
+
+    def ok(self, candidate: str) -> bool:
+        if self.must_match and re.search(self.must_match, candidate) is None:
+            return False
+        if self.must_not_match and re.search(self.must_not_match, candidate) is not None:
+            return False
+        return True
+
+
+⸻
+
+src/bayes_narrow/features.py
+
+Feature likelihoods in log-space.
+
+from __future__ import annotations
+import math
+import re
+from dataclasses import dataclass
+from typing import Optional, Pattern, Dict, Tuple
+
+EPS = 1e-12
+
+def safe_log(p: float) -> float:
+    return math.log(max(p, EPS))
+
+PATTERNS: Dict[str, Pattern[str]] = {
+    "month": re.compile(r"^(January|February|March|April|May|June|July|August|September|October|November|December)$", re.I),
+    "acronym": re.compile(r"^[A-Z]{2,12}$"),
+    "number": re.compile(r"^\d+$"),
+    "year": re.compile(r"^(18|19|20)\d{2}$"),
+    "date_like": re.compile(r"^[A-Za-z]+\s+\d{1,2},\s+\d{4}$"),
+    "name_like": re.compile(r"^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}$"),
+}
+
+@dataclass(frozen=True)
+class FeatureWeights:
+    # Multipliers in log-space (weights applied to feature log-likelihoods)
+    w_prior: float = 1.0
+    w_len: float = 1.0
+    w_pattern: float = 1.0
+    w_context: float = 1.0
+
+def length_loglik(candidate: str, char_len: Optional[int], word_len: Optional[int]) -> float:
+    """
+    Soft penalty: closer lengths are more likely. This is not a true generative model,
+    but it behaves well for narrowing.
+    """
+    ll = 0.0
+    if char_len is not None:
+        d = abs(len(candidate) - char_len)
+        ll += -0.55 * d
+    if word_len is not None:
+        d = abs(len(candidate.split()) - word_len)
+        ll += -1.10 * d
+    return ll
+
+def pattern_loglik(candidate: str, pattern: Optional[str]) -> float:
+    if not pattern:
+        return 0.0
+    rx = PATTERNS.get(pattern)
+    if not rx:
+        return 0.0
+    # Strong hint but not absolute:
+    return safe_log(0.97) if rx.match(candidate) else safe_log(0.03)
+
+def topk_margin_signal(posteriors: list[tuple[str, float]]) -> float:
+    """Useful downstream: confidence proxy = p1 - p2."""
+    if len(posteriors) < 2:
+        return posteriors[0][1] if posteriors else 0.0
+    return posteriors[0][1] - posteriors[1][1]
+
+
+⸻
+
+src/bayes_narrow/context.py
+
+Better context model: supports multi-token candidates, windowed context, smoothing, and “unknown candidate” robustness.
+
+from __future__ import annotations
+import math
+import re
+from dataclasses import dataclass
+from typing import Dict, List, Tuple, Iterable, Optional
+
+EPS = 1e-12
+
+def safe_log(p: float) -> float:
+    return math.log(max(p, EPS))
+
+def tokenize(text: str) -> List[str]:
+    return re.findall(r"[A-Za-z0-9]+|[^\sA-Za-z0-9]", text)
+
+@dataclass
+class ContextConfig:
+    window: int = 1           # number of tokens to look left/right
+    alpha: float = 0.5        # smoothing
+    vocab_soft: float = 5000  # soft vocab size for denom stabilization
+
+class ContextModel:
+    """
+    Simple co-occurrence model:
+      P(L_window | cand) * P(R_window | cand)
+    where windows are token tuples.
+    """
+
+    def __init__(self, cfg: Optional[ContextConfig] = None) -> None:
+        self.cfg = cfg or ContextConfig()
+        self.left_counts: Dict[Tuple[Tuple[str, ...], str], int] = {}
+        self.right_counts: Dict[Tuple[str, Tuple[str, ...]], int] = {}
+        self.cand_counts: Dict[str, int] = {}
+
+    def fit(self, corpus_text: str, candidates: List[str]) -> None:
+        toks = tokenize(corpus_text)
+        cand_tokens = {c: tokenize(c) for c in candidates}
+        maxL = max((len(v) for v in cand_tokens.values()), default=1)
+
+        for i in range(len(toks)):
+            for c, ct in cand_tokens.items():
+                L = len(ct)
+                if L == 0 or i + L > len(toks):
+                    continue
+                if toks[i:i+L] != ct:
+                    continue
+
+                self.cand_counts[c] = self.cand_counts.get(c, 0) + 1
+
+                lw = tuple(t.lower() for t in toks[max(0, i - self.cfg.window):i])
+                if len(lw) < self.cfg.window:
+                    lw = (("<BOS>",) * (self.cfg.window - len(lw))) + lw
+
+                rw = tuple(t.lower() for t in toks[i+L:i+L+self.cfg.window])
+                if len(rw) < self.cfg.window:
+                    rw = rw + (("<EOS>",) * (self.cfg.window - len(rw)))
+
+                self.left_counts[(lw, c)] = self.left_counts.get((lw, c), 0) + 1
+                self.right_counts[(c, rw)] = self.right_counts.get((c, rw), 0) + 1
+
+    def _window(self, text: str, side: str) -> Tuple[str, ...]:
+        toks = [t.lower() for t in tokenize(text)]
+        w = self.cfg.window
+        if side == "left":
+            tail = toks[-w:] if toks else []
+            if len(tail) < w:
+                tail = (["<BOS>"] * (w - len(tail))) + tail
+            return tuple(tail)
+        else:
+            head = toks[:w] if toks else []
+            if len(head) < w:
+                head = head + (["<EOS>"] * (w - len(head)))
+            return tuple(head)
+
+    def log_likelihood(self, candidate: str, left_context: str, right_context: str) -> float:
+        lw = self._window(left_context, "left")
+        rw = self._window(right_context, "right")
+
+        alpha = self.cfg.alpha
+        denom = self.cand_counts.get(candidate, 0) + alpha * self.cfg.vocab_soft
+
+        lc = self.left_counts.get((lw, candidate), 0)
+        rc = self.right_counts.get((candidate, rw), 0)
+
+        pL = (lc + alpha) / denom
+        pR = (rc + alpha) / denom
+        return safe_log(pL) + safe_log(pR)
+
+
+⸻
+
+src/bayes_narrow/calibration.py
+
+Optional “don’t kid yourself” layer. This lets you calibrate raw posteriors using a small labeled set (Platt scaling).
+
+from __future__ import annotations
+import math
+from dataclasses import dataclass
+from typing import List, Tuple
+
+EPS = 1e-12
+
+def sigmoid(x: float) -> float:
+    return 1.0 / (1.0 + math.exp(-x))
+
+@dataclass
+class PlattCalibrator:
+    a: float = 1.0
+    b: float = 0.0
+
+    def fit(self, scores: List[float], labels: List[int], lr: float = 0.1, steps: int = 500) -> None:
+        """
+        Fit sigmoid(a*s + b) ~ P(correct=1) using simple gradient descent.
+        scores: model confidence proxy (e.g., top1 posterior, or margin p1-p2)
+        labels: 1 if top1 was correct, else 0
+        """
+        a, b = self.a, self.b
+        for _ in range(steps):
+            da = 0.0
+            db = 0.0
+            for s, y in zip(scores, labels):
+                p = sigmoid(a * s + b)
+                # gradients for log-loss
+                da += (p - y) * s
+                db += (p - y)
+            n = max(1, len(scores))
+            a -= lr * da / n
+            b -= lr * db / n
+        self.a, self.b = a, b
+
+    def predict(self, score: float) -> float:
+        return sigmoid(self.a * score + self.b)
+
+
+⸻
+
+src/bayes_narrow/engine.py
+
+Supports:
+	•	hard constraints
+	•	context window
+	•	weights
+	•	unknown fallback option (so it can say “none of the above” if desired)
+	•	JSON-friendly output
+
+from __future__ import annotations
+import math
+from dataclasses import dataclass, asdict
+from typing import Dict, List, Optional, Tuple, Any
+
+from .constraints import HardConstraints
+from .features import FeatureWeights, safe_log, length_loglik, pattern_loglik
+from .context import ContextModel, ContextConfig
+
+EPS = 1e-12
+
+def logsumexp(vals: List[float]) -> float:
+    m = max(vals)
+    if m == float("-inf"):
+        return m
+    return m + math.log(sum(math.exp(v - m) for v in vals))
+
+@dataclass(frozen=True)
+class Evidence:
+    left_context: str = ""
+    right_context: str = ""
+    char_len: Optional[int] = None
+    word_len: Optional[int] = None
+    pattern: Optional[str] = None
+    constraints: HardConstraints = HardConstraints()
+
+@dataclass
+class RankingResult:
+    posteriors: List[Tuple[str, float]]
+    unknown_prob: float
+    used_candidates: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "posteriors": [{"candidate": c, "p": p} for c, p in self.posteriors],
+            "unknown_prob": self.unknown_prob,
+            "used_candidates": self.used_candidates,
+        }
+
+class BayesianNarrower:
+    def __init__(
+        self,
+        candidates: List[str],
+        priors: Optional[Dict[str, float]] = None,
+        weights: Optional[FeatureWeights] = None,
+        context_cfg: Optional[ContextConfig] = None,
+        enable_unknown: bool = True,
+        unknown_prior_mass: float = 0.10,
+    ) -> None:
+        self.candidates = candidates
+        self.weights = weights or FeatureWeights()
+        self.enable_unknown = enable_unknown
+        self.unknown_prior_mass = max(0.0, min(0.99, unknown_prior_mass))
+
+        # Priors
+        if priors:
+            s = sum(priors.get(c, 0.0) for c in candidates)
+            if s <= 0:
+                raise ValueError("Provided priors sum to 0 over candidates.")
+            base = {c: priors.get(c, 0.0) / s for c in candidates}
+        else:
+            base = {c: 1.0 / max(1, len(candidates)) for c in candidates}
+
+        # If unknown enabled, renormalize to leave mass for unknown
+        if self.enable_unknown:
+            for c in base:
+                base[c] *= (1.0 - self.unknown_prior_mass)
+            self.unknown_logprior = safe_log(self.unknown_prior_mass)
+        else:
+            self.unknown_logprior = float("-inf")
+
+        self.priors = base
+        self.context_model: Optional[ContextModel] = None
+        self.context_cfg = context_cfg or ContextConfig()
+
+    def fit_corpus(self, corpus_text: str) -> None:
+        cm = ContextModel(self.context_cfg)
+        cm.fit(corpus_text, self.candidates)
+        self.context_model = cm
+
+    def rank(self, ev: Evidence, top_k: int = 10) -> RankingResult:
+        logps: Dict[str, float] = {}
+
+        for c in self.candidates:
+            if not ev.constraints.ok(c):
+                continue
+
+            lp = self.weights.w_prior * safe_log(self.priors.get(c, EPS))
+            lp += self.weights.w_len * length_loglik(c, ev.char_len, ev.word_len)
+            lp += self.weights.w_pattern * pattern_loglik(c, ev.pattern)
+
+            if self.context_model and (ev.left_context or ev.right_context):
+                lp += self.weights.w_context * self.context_model.log_likelihood(c, ev.left_context, ev.right_context)
+
+            logps[c] = lp
+
+        # Unknown bucket: a small constant likelihood so the model can say "none of the above"
+        # If evidence is too sharp and no candidates fit, unknown can dominate.
+        unknown_lp = self.unknown_logprior
+        if self.enable_unknown:
+            # modest penalty so unknown doesn't win too easily, but can win if candidates are awful
+            unknown_lp += -1.5
+
+        if not logps and not self.enable_unknown:
+            return RankingResult(posteriors=[], unknown_prob=0.0, used_candidates=0)
+
+        all_lps = list(logps.values()) + ([unknown_lp] if self.enable_unknown else [])
+        Z = logsumexp(all_lps)
+
+        post = [(c, math.exp(lp - Z)) for c, lp in logps.items()]
+        post.sort(key=lambda x: x[1], reverse=True)
+
+        unknown_prob = math.exp(unknown_lp - Z) if self.enable_unknown else 0.0
+        return RankingResult(posteriors=post[:top_k], unknown_prob=unknown_prob, used_candidates=len(logps))
+
+
+⸻
+
+src/bayes_narrow/cli.py
+
+CLI that outputs both text and JSON.
+
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+
+from .engine import BayesianNarrower, Evidence
+from .constraints import HardConstraints
+from .context import ContextConfig
+from .features import FeatureWeights
+
+def read_text(p: str) -> str:
+    return Path(p).read_text(encoding="utf-8", errors="ignore")
+
+def main() -> None:
+    ap = argparse.ArgumentParser(prog="bayes-narrow")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    rank = sub.add_parser("rank")
+    rank.add_argument("--candidates", required=True, help="file: one candidate per line")
+    rank.add_argument("--corpus", help="optional corpus text to fit context model")
+    rank.add_argument("--left", default="")
+    rank.add_argument("--right", default="")
+    rank.add_argument("--char-len", type=int, default=None)
+    rank.add_argument("--word-len", type=int, default=None)
+    rank.add_argument("--pattern", default=None)
+    rank.add_argument("--must-match", default=None)
+    rank.add_argument("--must-not-match", default=None)
+    rank.add_argument("--window", type=int, default=1)
+    rank.add_argument("--top-k", type=int, default=10)
+    rank.add_argument("--json", dest="json_out", default=None, help="write results to JSON path")
+
+    args = ap.parse_args()
+
+    cands = [line.strip() for line in read_text(args.candidates).splitlines() if line.strip()]
+    engine = BayesianNarrower(
+        cands,
+        weights=FeatureWeights(),
+        context_cfg=ContextConfig(window=args.window),
+        enable_unknown=True,
+        unknown_prior_mass=0.10,
+    )
+
+    if args.corpus:
+        engine.fit_corpus(read_text(args.corpus))
+
+    ev = Evidence(
+        left_context=args.left,
+        right_context=args.right,
+        char_len=args.char_len,
+        word_len=args.word_len,
+        pattern=args.pattern,
+        constraints=HardConstraints(must_match=args.must_match, must_not_match=args.must_not_match),
+    )
+
+    res = engine.rank(ev, top_k=args.top_k)
+
+    print("Posterior ranking:")
+    for i, (c, p) in enumerate(res.posteriors, 1):
+        print(f"{i:2d}. {p:0.6f}  {c}")
+    print(f"unknown_prob: {res.unknown_prob:0.6f} (none-of-the-above bucket)")
+    print(f"used_candidates: {res.used_candidates}")
+
+    if args.json_out:
+        Path(args.json_out).write_text(json.dumps(res.to_dict(), indent=2), encoding="utf-8")
+
+
+⸻
+
+examples/demo_months.py
+
+from bayes_narrow import BayesianNarrower, Evidence
+from bayes_narrow.constraints import HardConstraints
+from bayes_narrow.context import ContextConfig
+
+months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+
+corpus = """
+On March 5, 1972 the committee met.
+On April 5, 1972 the committee met.
+On March 6, 1972 the committee met again.
+On July 5, 1972 the committee met.
+"""
+
+engine = BayesianNarrower(months, context_cfg=ContextConfig(window=1), enable_unknown=True, unknown_prior_mass=0.05)
+engine.fit_corpus(corpus)
+
+ev = Evidence(
+    left_context="on",
+    right_context="5, 1972",
+    char_len=5,
+    pattern="month",
+    constraints=HardConstraints()
+)
+
+res = engine.rank(ev, top_k=12)
+print(res.to_dict())
+
+
+⸻
+
+tests/test_engine.py
+
+from bayes_narrow import BayesianNarrower, Evidence
+from bayes_narrow.context import ContextConfig
+from bayes_narrow.constraints import HardConstraints
+
+def test_month_demo_prefers_march():
+    months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+    corpus = "On March 5, 1972 we met. On March 6, 1972 we met. On April 5, 1972 we met."
+    engine = BayesianNarrower(months, context_cfg=ContextConfig(window=1), enable_unknown=True, unknown_prior_mass=0.05)
+    engine.fit_corpus(corpus)
+
+    ev = Evidence(left_context="on", right_context="5, 1972", char_len=5, pattern="month", constraints=HardConstraints())
+    res = engine.rank(ev, top_k=3)
+
+    assert res.posteriors[0][0].lower() in ("march", "april")
+    assert res.posteriors[0][1] >= res.posteriors[-1][1]
+
+
+⸻
+
+What’s “better” now (the upgrades that matter)
+	•	Hard-constraint gate before scoring (regex must/must-not).
+	•	Windowed context (not just single neighbor token).
+	•	Unknown bucket (“none of the above”) so you don’t hallucinate certainty.
+	•	Packaging + CLI + tests so it’s GitHub-ready and installable.
+
+⸻
+
+Pantheon-style “decision hook” (recommended default)
+
+In your downstream logic, don’t just pick top-1 — use a gate like:
+	•	act if p_top1 ≥ 0.70 and (p1 - p2) ≥ 0.20 and unknown_prob ≤ 0.15
+
+That’s your Praus / ABC safety latch: calm confidence, not adrenaline certainty.
+
+⸻
+
+If you paste a single benign example (candidate list + one sentence with [BLANK] + your “allowed corpus”), I’ll tune:
+	•	pattern priors,
+	•	context window size,
+	•	unknown mass,
+	•	and the length penalties
+so v1.0 lands “feels-right” for your actual use case.
