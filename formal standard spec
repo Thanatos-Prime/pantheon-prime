@@ -1,0 +1,397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/pantheon/pes.schema.json",
+  "title": "Pantheon Epistemic Standard (PES) - Answer Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pes_version",
+    "id",
+    "created_at",
+    "question",
+    "framing",
+    "claims",
+    "synthesis",
+    "falsification",
+    "governance"
+  ],
+  "properties": {
+    "pes_version": {
+      "type": "string",
+      "description": "Semantic version of the PES spec used to produce this answer.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "examples": ["0.1.0"]
+    },
+    "id": {
+      "type": "string",
+      "description": "Stable identifier for this answer artifact (UUID recommended).",
+      "minLength": 8
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when the answer was created.",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when the answer was last updated.",
+      "format": "date-time"
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw", "restated", "scope"],
+      "properties": {
+        "raw": { "type": "string", "minLength": 1 },
+        "restated": {
+          "type": "string",
+          "description": "Neutral restatement of the question without loaded framing.",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["domain", "time_horizon", "jurisdiction"],
+          "properties": {
+            "domain": {
+              "type": "string",
+              "description": "Primary domain (e.g., economics, health, law, geopolitics).",
+              "minLength": 1
+            },
+            "time_horizon": {
+              "type": "string",
+              "description": "Intended time horizon for the analysis.",
+              "enum": ["immediate", "short_term", "medium_term", "long_term"]
+            },
+            "jurisdiction": {
+              "type": "string",
+              "description": "Geographic/political scope (e.g., US, EU, global).",
+              "minLength": 1
+            },
+            "audience": {
+              "type": "string",
+              "description": "Target audience (e.g., general, expert, policymaker)."
+            }
+          }
+        }
+      }
+    },
+    "framing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assumptions", "definitions", "constraints"],
+      "properties": {
+        "assumptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["statement", "type"],
+            "properties": {
+              "statement": { "type": "string", "minLength": 1 },
+              "type": {
+                "type": "string",
+                "enum": ["empirical", "normative", "modeling", "scope", "operational"]
+              },
+              "sensitivity": {
+                "type": "string",
+                "description": "How much the conclusion depends on this assumption.",
+                "enum": ["low", "medium", "high"]
+              }
+            }
+          }
+        },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["term", "definition"],
+            "properties": {
+              "term": { "type": "string", "minLength": 1 },
+              "definition": { "type": "string", "minLength": 1 },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "description": "Stated constraints (data availability, time, legal, ethical, etc.).",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "description": "Atomic claims with explicit labeling: fact vs inference vs value.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "statement", "confidence", "support"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique claim id within this answer.",
+            "pattern": "^C[0-9]+$",
+            "examples": ["C1", "C2"]
+          },
+          "label": {
+            "type": "string",
+            "enum": ["fact", "inference", "hypothesis", "value_judgment", "recommendation"]
+          },
+          "statement": { "type": "string", "minLength": 1 },
+          "confidence": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Claim-level confidence, not overall answer confidence."
+          },
+          "support": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["evidence", "reasoning"],
+            "properties": {
+              "evidence": {
+                "type": "array",
+                "description": "Evidence items (citations, observations, datasets). Can be empty for values/recommendations.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "description"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["citation", "dataset", "measurement", "expert_consensus", "first_principles", "analogy"]
+                    },
+                    "description": { "type": "string", "minLength": 1 },
+                    "uri": { "type": "string" },
+                    "quality": {
+                      "type": "string",
+                      "enum": ["low", "medium", "high"],
+                      "description": "Subjective evidence quality rating."
+                    }
+                  }
+                }
+              },
+              "reasoning": {
+                "type": "string",
+                "description": "Concise reasoning trail tying evidence to claim.",
+                "minLength": 1
+              }
+            }
+          },
+          "dependencies": {
+            "type": "array",
+            "description": "Other claim IDs this claim depends on.",
+            "items": { "type": "string", "pattern": "^C[0-9]+$" }
+          }
+        }
+      }
+    },
+    "unknowns": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "known_unknowns": {
+          "type": "array",
+          "description": "Important missing info that would materially change analysis.",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "uncertainty_sources": {
+          "type": "array",
+          "description": "Why certainty is limited (measurement, reporting bias, etc.).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "impact"],
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": [
+                  "measurement_error",
+                  "selection_bias",
+                  "reporting_bias",
+                  "model_risk",
+                  "confounding",
+                  "time_variance",
+                  "incentive_distortion",
+                  "ambiguity"
+                ]
+              },
+              "impact": { "type": "string", "enum": ["low", "medium", "high"] },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "incentive_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stakeholders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "incentives"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "incentives": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "power_level": {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              "likely_distortions": {
+                "type": "array",
+                "description": "Likely ways this stakeholder could distort narrative/data.",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "narrative_risks": {
+          "type": "array",
+          "description": "Common propaganda framings or manipulative patterns relevant to the topic.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "competing_explanations": {
+      "type": "array",
+      "description": "At least one alternative model or hypothesis.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "summary", "pros", "cons"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1 },
+          "pros": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "cons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "what_would_change_my_mind": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "synthesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "overall_confidence", "conditions_to_update"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 1 },
+        "overall_confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "conditions_to_update": {
+          "type": "array",
+          "description": "Triggers for updating the answer (new data, policy changes, etc.).",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "delta_log": {
+          "type": "array",
+          "description": "Optional change history entries if this is revised.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["timestamp", "change"],
+            "properties": {
+              "timestamp": { "type": "string", "format": "date-time" },
+              "change": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "falsification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tests", "disconfirming_signals"],
+      "properties": {
+        "tests": {
+          "type": "array",
+          "description": "Concrete tests/observations that could falsify key claims.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["target_claim_ids", "test_description"],
+            "properties": {
+              "target_claim_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "pattern": "^C[0-9]+$" }
+              },
+              "test_description": { "type": "string", "minLength": 1 },
+              "expected_if_true": { "type": "string" },
+              "expected_if_false": { "type": "string" }
+            }
+          }
+        },
+        "disconfirming_signals": {
+          "type": "array",
+          "description": "Signals that would reduce confidence even if not fully falsifying.",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["process_integrity", "self_critique", "safety"],
+      "properties": {
+        "process_integrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["no_authority_claim", "assumptions_listed", "fact_inference_separated"],
+          "properties": {
+            "no_authority_claim": { "type": "boolean" },
+            "assumptions_listed": { "type": "boolean" },
+            "fact_inference_separated": { "type": "boolean" },
+            "time_sensitivity_flagged": { "type": "boolean" },
+            "incentives_considered": { "type": "boolean" }
+          }
+        },
+        "self_critique": {
+          "type": "array",
+          "description": "Where this answer could be wrong; known weak points.",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "safety": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["manipulation_avoidance", "harm_avoidance"],
+          "properties": {
+            "manipulation_avoidance": {
+              "type": "string",
+              "enum": ["passed", "flagged"],
+              "description": "Flag if content risks encouraging manipulation or coercion."
+            },
+            "harm_avoidance": {
+              "type": "string",
+              "enum": ["passed", "flagged"],
+              "description": "Flag if content risks harm; include mitigations in notes."
+            },
+            "notes": { "type": "string" }
+          }
+        }
+      }
+    },
+    "rendering": {
+      "type": "object",
+      "description": "Optional: human-readable sections for publishing.",
+      "additionalProperties": false,
+      "properties": {
+        "markdown": { "type": "string" },
+        "title": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
