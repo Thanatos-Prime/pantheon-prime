@@ -1,0 +1,560 @@
+Got it. I’m going to give you all three in a “hand-to-engineer” form:
+	1.	Two JSON Schema files (PantheonCandidatePacket.schema.json, PantheonDecisionPacket.schema.json)
+	2.	A starter POLICY_PROFILE.yaml (reason codes, severities, thresholds, deterministic flags)
+	3.	A minimal demo repo outline + flow diagram + runnable pseudocode skeleton (FastAPI governor + serializer stub + loop driver)
+
+No extra questions. You can trim later.
+
+⸻
+
+1) JSON Schema — PantheonCandidatePacket.schema.json
+
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pantheon.local/schemas/PantheonCandidatePacket-1.0.schema.json",
+  "title": "PantheonCandidatePacket",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "task", "candidates", "evidence_bundle", "provenance"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "request_id": { "type": "string", "format": "uuid" },
+
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "objective"],
+      "properties": {
+        "task_id": { "type": "string", "minLength": 1 },
+        "objective": { "type": "string", "minLength": 1 },
+        "constraints": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "success_criteria": { "type": "array", "items": { "type": "string" }, "default": [] }
+      }
+    },
+
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "proposed_answer"],
+        "properties": {
+          "candidate_id": { "type": "string", "minLength": 1 },
+
+          "proposed_answer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200000
+          },
+
+          "claims": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["claim_id", "text", "claim_type"],
+              "properties": {
+                "claim_id": { "type": "string", "minLength": 1 },
+                "text": { "type": "string", "minLength": 1, "maxLength": 20000 },
+                "claim_type": { "type": "string", "enum": ["fact", "inference", "recommendation"] },
+                "evidence_refs": { "type": "array", "items": { "type": "string" }, "default": [] }
+              }
+            }
+          },
+
+          "plan": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["step"],
+              "properties": {
+                "step": { "type": "string", "minLength": 1, "maxLength": 20000 },
+                "tool": { "type": ["string", "null"], "default": null },
+                "expected_observable": { "type": "string", "default": "" }
+              }
+            }
+          },
+
+          "tool_traces": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trace_id", "tool", "inputs_hash", "outputs_hash", "verifiable"],
+              "properties": {
+                "trace_id": { "type": "string", "minLength": 1 },
+                "tool": { "type": "string", "minLength": 1 },
+                "inputs_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+                "outputs_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+                "verifiable": { "type": "boolean" },
+                "notes": { "type": "string", "default": "" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "evidence_bundle": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_id", "type", "content_hash", "source", "timestamp"],
+        "properties": {
+          "evidence_id": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["document", "web", "code", "log", "db_row", "calc", "other"] },
+          "content_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "source": { "type": "string", "minLength": 1 },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "notes": { "type": "string", "default": "" }
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["upstream_system", "model_ids", "policy_profile"],
+      "properties": {
+        "upstream_system": { "type": "string", "enum": ["agent_framework", "autogen", "langgraph", "other"] },
+        "upstream_build": { "type": "string", "default": "" },
+        "model_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "policy_profile": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
+
+
+⸻
+
+2) JSON Schema — PantheonDecisionPacket.schema.json
+
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pantheon.local/schemas/PantheonDecisionPacket-1.0.schema.json",
+  "title": "PantheonDecisionPacket",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "decision", "confidence", "reasons", "required_actions", "audit"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "request_id": { "type": "string", "format": "uuid" },
+
+    "decision": { "type": "string", "enum": ["ACCEPT", "REVISE", "REFUSE"] },
+    "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "severity", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "CONTAMINATION_ATTEMPT",
+              "EVIDENCE_MISSING",
+              "EVIDENCE_HASH_MISMATCH",
+              "TOOL_TRACE_UNVERIFIED",
+              "CLAIM_CONTRADICTION",
+              "CLAIM_TYPE_MISMATCH",
+              "SAFETY_POLICY",
+              "DRIFT_RISK",
+              "INSUFFICIENT_SPEC",
+              "NON_DETERMINISTIC_INPUT"
+            ]
+          },
+          "severity": { "type": "string", "enum": ["info", "warn", "block"] },
+          "message": { "type": "string", "minLength": 1, "maxLength": 50000 },
+          "affected_claim_ids": { "type": "array", "items": { "type": "string" }, "default": [] }
+        }
+      }
+    },
+
+    "required_actions": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action", "details"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["RUN_TOOL", "FETCH_SOURCE", "REWRITE_SECTION", "DROP_CLAIM", "ADD_CITATION", "ASK_HUMAN"]
+          },
+          "details": { "type": "string", "minLength": 1, "maxLength": 50000 }
+        }
+      }
+    },
+
+    "validated_synthesis": { "type": ["string", "null"], "default": null },
+
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_profile", "policy_checksums", "decision_hash", "timestamp"],
+      "properties": {
+        "policy_profile": { "type": "string", "minLength": 1 },
+        "policy_checksums": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" } },
+        "decision_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "decision": { "const": "ACCEPT" } } },
+      "then": {
+        "required": ["validated_synthesis"],
+        "properties": { "validated_synthesis": { "type": "string", "minLength": 1 } }
+      }
+    },
+    {
+      "if": { "properties": { "decision": { "enum": ["REVISE", "REFUSE"] } } },
+      "then": {
+        "properties": { "validated_synthesis": { "type": ["string", "null"], "default": null } }
+      }
+    }
+  ]
+}
+
+
+⸻
+
+3) POLICY_PROFILE.yaml (starter, deterministic, enterprise posture)
+
+policy_profile: "enterprise_v0"
+policy_version: "0.1.0"
+determinism:
+  enabled: true
+  seed: 1337           # if any randomized tie-breaks exist
+  float_tolerance: 1.0e-9
+
+ingestion_guardrails:
+  forbidden_fields:
+    - transcript
+    - persona
+    - dialogue
+    - vote_tally
+    - agent_chat
+    - system_prompt
+    - chain_of_thought
+  forbidden_phrase_regex:
+    # keep tight; this is a guardrail, not NLP
+    - "(?i)as an\\s+agi"
+    - "(?i)i\\s+am\\s+agi"
+    - "(?i)agents\\s+agreed\\s+unanimously"
+    - "(?i)trust\\s+me"
+    - "(?i)definitively\\s+know"
+  on_violation:
+    http_status: 400
+    reason_code: "CONTAMINATION_ATTEMPT"
+    log_mode: "hash_only"  # store payload hash; no raw content
+
+checks:
+  evidence_required_for_fact_claims:
+    enabled: true
+    min_evidence_refs: 1
+    on_fail:
+      severity: "block"
+      code: "EVIDENCE_MISSING"
+      action: "FETCH_SOURCE"
+
+  evidence_hash_match:
+    enabled: true
+    on_fail:
+      severity: "block"
+      code: "EVIDENCE_HASH_MISMATCH"
+      action: "FETCH_SOURCE"
+
+  tool_trace_verification:
+    enabled: true
+    require_verifiable_for_fact_claims: true
+    on_fail:
+      severity: "block"
+      code: "TOOL_TRACE_UNVERIFIED"
+      action: "RUN_TOOL"
+
+  contradiction_detection:
+    enabled: true
+    mode: "simple"  # start simple; upgrade later
+    # simple mode heuristics:
+    # - duplicate entities with inverted polarity keywords
+    # - numeric mismatches for same subject tokens
+    on_detect:
+      severity: "block"
+      code: "CLAIM_CONTRADICTION"
+      action: "REWRITE_SECTION"
+
+  claim_type_sanity:
+    enabled: true
+    # if "fact" contains hedge words, downgrade to inference
+    hedge_words:
+      - "maybe"
+      - "might"
+      - "could"
+      - "seems"
+      - "likely"
+    on_mismatch:
+      severity: "warn"
+      code: "CLAIM_TYPE_MISMATCH"
+      action: "REWRITE_SECTION"
+
+  insufficient_spec:
+    enabled: true
+    require_success_criteria_for_high_stakes: false
+    on_fail:
+      severity: "warn"
+      code: "INSUFFICIENT_SPEC"
+      action: "ASK_HUMAN"
+
+decision_logic:
+  accept_when:
+    no_blockers: true
+  revise_when:
+    has_warners: true
+  refuse_when:
+    # refuse if repeated revise cycles exceed threshold, or contamination attempt, etc.
+    contamination_attempt: true
+    revise_cycles_exceeded: true
+
+loop_controls:
+  max_revise_cycles: 3
+  refuse_on_revise_exhaustion:
+    code: "DRIFT_RISK"
+    severity: "block"
+    action: "ASK_HUMAN"
+
+scoring:
+  # Basic scoring: penalize warns/blocks; never ACCEPT with a block.
+  base_confidence: 0.80
+  penalty_warn: 0.10
+  penalty_block: 1.00
+  min_confidence_accept: 0.60
+
+
+⸻
+
+4) Minimal demo repo outline + flow diagram
+
+Repo outline
+
+pantheon-governor-demo/
+  schemas/
+    PantheonCandidatePacket.schema.json
+    PantheonDecisionPacket.schema.json
+  policy/
+    POLICY_PROFILE.yaml
+  app/
+    main.py                # FastAPI service /evaluate
+    policy_loader.py       # loads YAML, computes checksum
+    validators.py          # schema validation + forbidden fields/phrases
+    checks.py              # evidence/tool/contradiction checks (simple v0)
+    hashing.py             # sha256 helpers, decision_hash, hash-chain
+    models.py              # pydantic models (optional)
+  demo/
+    sample_packet.json
+    run_demo.py            # local loop runner (mock exploration harness)
+  README.md
+
+Flow diagram (text)
+
+[Exploration Harness (chatty)]
+   |
+   |  serialize (claims/evidence/tool hashes only)
+   v
+[ PantheonCandidatePacket ]
+   |
+   v
+[ Pantheon Governor /evaluate ] --(reject if contaminated)--> [REFUSE/400]
+   |
+   |  run checks (evidence, tool traces, contradictions)
+   v
+[ PantheonDecisionPacket ]
+   |
+   +--> ACCEPT -> [Execution Runner (Grok tools / any executor)]
+   |
+   +--> REVISE -> [Exploration Harness runs required_actions, re-serialize]
+   |
+   +--> REFUSE -> [Human escalation]
+
+
+⸻
+
+5) Minimal FastAPI governor skeleton (runnable starting point)
+
+# app/main.py
+from fastapi import FastAPI, HTTPException
+from datetime import datetime, timezone
+import json
+import hashlib
+import yaml
+from jsonschema import Draft7Validator
+
+app = FastAPI(title="Pantheon Governor Demo", version="0.1.0")
+
+# --- load schemas ---
+with open("schemas/PantheonCandidatePacket.schema.json", "r") as f:
+    CANDIDATE_SCHEMA = json.load(f)
+with open("schemas/PantheonDecisionPacket.schema.json", "r") as f:
+    DECISION_SCHEMA = json.load(f)
+
+candidate_validator = Draft7Validator(CANDIDATE_SCHEMA)
+
+def sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+def load_policy():
+    with open("policy/POLICY_PROFILE.yaml", "r") as f:
+        raw = f.read()
+    policy = yaml.safe_load(raw)
+    checksum = sha256_hex(raw.encode("utf-8"))
+    return policy, checksum
+
+POLICY, POLICY_CHECKSUM = load_policy()
+
+FORBIDDEN_FIELDS = set(POLICY["ingestion_guardrails"]["forbidden_fields"])
+FORBIDDEN_REGEXES = POLICY["ingestion_guardrails"]["forbidden_phrase_regex"]
+
+import re
+FORBIDDEN_PATTERNS = [re.compile(rx) for rx in FORBIDDEN_REGEXES]
+
+def contains_forbidden_field(obj) -> bool:
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in FORBIDDEN_FIELDS:
+                return True
+            if contains_forbidden_field(v):
+                return True
+    elif isinstance(obj, list):
+        for x in obj:
+            if contains_forbidden_field(x):
+                return True
+    return False
+
+def scan_forbidden_phrases(packet: dict) -> bool:
+    # only scan high-risk free-text fields
+    texts = []
+    for c in packet.get("candidates", []):
+        if isinstance(c.get("proposed_answer"), str):
+            texts.append(c["proposed_answer"])
+        for claim in c.get("claims", []) or []:
+            if isinstance(claim.get("text"), str):
+                texts.append(claim["text"])
+    for t in texts:
+        for pat in FORBIDDEN_PATTERNS:
+            if pat.search(t):
+                return True
+    return False
+
+def decision_hash(decision_packet: dict) -> str:
+    # hash canonical JSON (sorted keys) for determinism
+    canon = json.dumps(decision_packet, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return sha256_hex(canon)
+
+@app.post("/evaluate")
+def evaluate(packet: dict):
+    # 1) schema validate
+    errors = sorted(candidate_validator.iter_errors(packet), key=lambda e: e.path)
+    if errors:
+        raise HTTPException(status_code=400, detail={"error": "schema_invalid", "count": len(errors)})
+
+    # 2) contamination guardrails
+    if contains_forbidden_field(packet) or scan_forbidden_phrases(packet):
+        payload_hash = sha256_hex(json.dumps(packet, sort_keys=True).encode("utf-8"))
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "contamination_attempt",
+                "payload_hash": payload_hash
+            },
+        )
+
+    # 3) run minimal checks (v0)
+    reasons = []
+    required_actions = []
+    blocks = 0
+    warns = 0
+
+    # Evidence required for fact claims
+    for cand in packet["candidates"]:
+        for claim in cand.get("claims", []) or []:
+            if claim.get("claim_type") == "fact":
+                if not claim.get("evidence_refs"):
+                    reasons.append({
+                        "code": "EVIDENCE_MISSING",
+                        "severity": "block",
+                        "message": f"Fact claim {claim.get('claim_id')} missing evidence_refs.",
+                        "affected_claim_ids": [claim.get("claim_id")]
+                    })
+                    required_actions.append({
+                        "action": "FETCH_SOURCE",
+                        "details": f"Provide evidence for claim_id={claim.get('claim_id')}."
+                    })
+                    blocks += 1
+
+    # Simple decision logic
+    if blocks > 0:
+        decision = "REVISE"
+    else:
+        decision = "ACCEPT" if (warns == 0) else "REVISE"
+
+    # Confidence scoring (v0)
+    base = float(POLICY["scoring"]["base_confidence"])
+    conf = base - warns * float(POLICY["scoring"]["penalty_warn"]) - blocks * float(POLICY["scoring"]["penalty_block"])
+    conf = max(0.0, min(1.0, conf))
+
+    validated_synthesis = None
+    if decision == "ACCEPT":
+        # choose first candidate synthesis for v0; later choose best by scoring
+        validated_synthesis = packet["candidates"][0]["proposed_answer"]
+
+    out = {
+        "schema_version": "1.0",
+        "request_id": packet["request_id"],
+        "decision": decision if decision != "ACCEPT" or conf >= POLICY["scoring"]["min_confidence_accept"] else "REVISE",
+        "confidence": conf,
+        "reasons": reasons,
+        "required_actions": required_actions,
+        "validated_synthesis": validated_synthesis,
+        "audit": {
+            "policy_profile": packet["provenance"]["policy_profile"],
+            "policy_checksums": [POLICY_CHECKSUM],
+            "decision_hash": "",  # filled below
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    }
+
+    out["audit"]["decision_hash"] = decision_hash(out)
+
+    # 4) final output schema check (belt and suspenders)
+    d_errors = sorted(Draft7Validator(DECISION_SCHEMA).iter_errors(out), key=lambda e: e.path)
+    if d_errors:
+        raise HTTPException(status_code=500, detail={"error": "decision_schema_invalid", "count": len(d_errors)})
+
+    return out
+
+
+⸻
+
+The single highest-leverage next hardening step (after this)
+
+Once this runs end-to-end, the next “moat deepen” move is:
+
+Upgrade contradiction detection from “simple heuristics” → “claim graph checks”
+…but keep it structured: contradictions only between claims that share a subject key (you can add subject_id later).
+
+That’s how you keep determinism while increasing power.
+
+If you want, I can also drop a sample_packet.json and a run_demo.py loop driver that simulates: REVISE → run required actions → ACCEPT.
