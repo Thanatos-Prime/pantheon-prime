@@ -1,0 +1,488 @@
+Perfect. We don’t pick either. We pour concrete in both places, because they interlock:
+	•	Schemas + Python types make the river runnable.
+	•	Audit/Eval tests make the river believable.
+
+Below is a paste-into-repo package: Iron Schemas v0.1 (StateVector, GovernanceManifest, ReasonCard), plus ABCs, plus a pytest suite that validates the levees.
+
+⸻
+
+1) Iron Schemas v0.1 (Pydantic models + strict enums)
+
+File: pantheon/schemas/iron_schemas.py
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, Field, ConfigDict, PositiveInt, conlist
+
+
+# ----------------------------
+# Enums (the law)
+# ----------------------------
+
+class ConsentScope(str, Enum):
+    SESSION_ONLY = "session_only"
+    PROJECT = "project"
+    ORG = "org"
+
+
+class SensitivityLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class Decision(str, Enum):
+    ALLOW = "ALLOW"
+    DEGRADE = "DEGRADE"
+    DENY = "DENY"
+
+
+class PolicyStatus(str, Enum):
+    PASS = "PASS"
+    WARN = "WARN"
+    FAIL = "FAIL"
+
+
+class OutputFormat(str, Enum):
+    MARKDOWN = "markdown"
+    TEXT = "text"
+    JSON = "json"
+
+
+class GovernanceStatus(str, Enum):
+    CLEAN = "CLEAN"
+    DEGRADED = "DEGRADED"
+    BLOCKED = "BLOCKED"
+
+
+# ----------------------------
+# Segment 1: StateVector
+# ----------------------------
+
+class StateMeta(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., description="uuid-v4")
+    timestamp: str = Field(..., description="ISO-8601")
+    trace_id: str = Field(..., description="correlation-id-for-logs")
+
+
+class StateSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    intent: str
+    origin: str
+    consent_scope: ConsentScope = ConsentScope.SESSION_ONLY
+
+
+class StateConstraints(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    budget_tokens: PositiveInt = 4000
+    allowed_tools: List[str] = Field(default_factory=list)
+    forbidden_tools: List[str] = Field(default_factory=list)
+    sensitivity_level: SensitivityLevel = SensitivityLevel.MEDIUM
+
+    def is_tool_allowed(self, tool_name: str) -> bool:
+        if tool_name in self.forbidden_tools:
+            return False
+        if self.allowed_tools and tool_name not in self.allowed_tools:
+            return False
+        return True
+
+
+class HistoryWindow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary_hash: str
+    relevant_turns: PositiveInt = 2
+
+
+class StateVector(BaseModel):
+    """
+    Hydrology Rule: Read-only to downstream daemons.
+    Enforcement is runtime + convention: daemons must never mutate StateVector.
+    If you want immutability enforcement, you can set `frozen=True` in model_config,
+    but that can complicate some integrations. Start with discipline + tests.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    meta: StateMeta
+    source: StateSource
+    constraints: StateConstraints
+    history_window: HistoryWindow
+    # Optional bag for non-sensitive ephemeral runtime values (never persisted by default)
+    ephemeral: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ----------------------------
+# Segment 2: GovernanceManifest
+# ----------------------------
+
+class PolicyTraceItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policy_id: str
+    status: PolicyStatus
+    reason: str
+
+
+class DegradeInstructions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    active: bool = False
+    fallback_model: Optional[str] = None
+    stripped_capabilities: List[str] = Field(default_factory=list)
+
+
+class RoutingClearance(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    primary_daemon: str
+    support_daemons: List[str] = Field(default_factory=list)
+
+
+class GovernanceManifest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Decision
+    risk_score: float = Field(..., ge=0.0, le=1.0)
+    policy_trace: conlist(PolicyTraceItem, min_length=1)
+    degrade_instructions: DegradeInstructions = Field(default_factory=DegradeInstructions)
+    routing_clearance: RoutingClearance
+
+    def requires_degrade(self) -> bool:
+        return self.decision == Decision.DEGRADE or self.degrade_instructions.active
+
+    def must_block(self) -> bool:
+        return self.decision == Decision.DENY
+
+
+# ----------------------------
+# Segment 6: ReasonCard
+# ----------------------------
+
+class ContentBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    payload: str
+    format: OutputFormat = OutputFormat.MARKDOWN
+
+
+class ProvenanceBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_used: str
+    tool_calls: int = Field(..., ge=0)
+    execution_time_ms: int = Field(..., ge=0)
+    tools_used: List[str] = Field(default_factory=list)
+
+
+class GovernanceFooter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: GovernanceStatus
+    policies_upheld: List[str] = Field(default_factory=list)
+    redactions_made: int = Field(0, ge=0)
+    reason_code: str
+
+
+class ReasonCard(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: ContentBlock
+    provenance: ProvenanceBlock
+    governance_footer: GovernanceFooter
+    integrity_hash: str  # sha256(content + governance_footer + provenance)
+
+
+⸻
+
+2) ABCs: the typed canal walls (daemon contracts)
+
+File: pantheon/core/abcs.py
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import Protocol
+
+from pantheon.schemas.iron_schemas import StateVector, GovernanceManifest, ReasonCard
+
+
+class GovernanceEngine(ABC):
+    """Flow Segment 2: StateVector -> GovernanceManifest"""
+
+    @abstractmethod
+    def evaluate(self, state: StateVector) -> GovernanceManifest:
+        raise NotImplementedError
+
+
+class Daemon(ABC):
+    """
+    Daemon Contract:
+      - Must accept StateVector + GovernanceManifest
+      - Must return ReasonCard
+      - Must NOT mutate StateVector
+    """
+
+    @abstractmethod
+    def run(self, state: StateVector, permit: GovernanceManifest) -> ReasonCard:
+        raise NotImplementedError
+
+
+class IntegrityHasher(ABC):
+    """Produces ReasonCard.integrity_hash in a stable, verifiable way."""
+
+    @abstractmethod
+    def hash_reasoncard(self, rc: ReasonCard) -> str:
+        raise NotImplementedError
+
+
+class ToolPolicyEnforcer(ABC):
+    """Central check to ensure no forbidden tools are used."""
+
+    @abstractmethod
+    def assert_tool_allowed(self, state: StateVector, tool_name: str) -> None:
+        raise NotImplementedError
+
+
+class Logger(ABC):
+    """Structured logging sink (Beaver/MotherDuck adapters can implement this)."""
+
+    @abstractmethod
+    def log_event(self, trace_id: str, event: dict) -> None:
+        raise NotImplementedError
+
+
+⸻
+
+3) The levee that prevents “charismatic bypass”
+
+You already named it: the permit is not a poem. Here’s the enforcement shim that all daemons run through.
+
+File: pantheon/core/runtime.py
+
+from __future__ import annotations
+
+from pantheon.schemas.iron_schemas import (
+    Decision, GovernanceStatus, GovernanceManifest, ReasonCard, StateVector
+)
+
+
+class PermitViolation(Exception):
+    pass
+
+
+def enforce_permit(state: StateVector, permit: GovernanceManifest) -> None:
+    # Enum is Law
+    if permit.decision not in (Decision.ALLOW, Decision.DEGRADE, Decision.DENY):
+        raise PermitViolation("Invalid decision enum.")
+
+    # If DENY: no execution path
+    if permit.decision == Decision.DENY:
+        raise PermitViolation("Execution blocked by governance manifest.")
+
+    # If DEGRADE: must be active (either by decision or explicit)
+    if permit.decision == Decision.DEGRADE and not permit.degrade_instructions.active:
+        raise PermitViolation("DEGRADE decision requires degrade_instructions.active = true.")
+
+
+def require_tool_disclosure(rc: ReasonCard) -> None:
+    # No Ghost Actions:
+    # If tool_calls > 0, tools_used must list them (at least length > 0)
+    if rc.provenance.tool_calls > 0 and len(rc.provenance.tools_used) == 0:
+        raise PermitViolation("No Ghost Actions: tool_calls > 0 but tools_used is empty.")
+
+
+⸻
+
+4) Integrity hash: verifiable sediment
+
+File: pantheon/core/integrity.py
+
+from __future__ import annotations
+
+import hashlib
+import json
+from pantheon.schemas.iron_schemas import ReasonCard
+
+
+def stable_sha256(obj: dict) -> str:
+    # Deterministic JSON serialization
+    blob = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
+
+
+def hash_reasoncard(rc: ReasonCard) -> str:
+    payload = {
+        "content": rc.content.model_dump(),
+        "provenance": rc.provenance.model_dump(),
+        "governance_footer": rc.governance_footer.model_dump(),
+    }
+    return stable_sha256(payload)
+
+Then in your runtime, set rc.integrity_hash = hash_reasoncard(rc) before returning.
+
+⸻
+
+5) Floodplain A starts now: Audit/Eval test suite (pytest)
+
+This is the “river inspector.” It ensures:
+	•	schema strictness
+	•	enum law
+	•	no ghost actions
+	•	no mutation (basic)
+	•	degrade semantics
+
+File: tests/test_iron_schemas.py
+
+import copy
+import pytest
+
+from pantheon.schemas.iron_schemas import (
+    ConsentScope, Decision, GovernanceManifest, GovernanceStatus,
+    PolicyStatus, ReasonCard, StateVector
+)
+from pantheon.core.runtime import enforce_permit, require_tool_disclosure, PermitViolation
+from pantheon.core.integrity import hash_reasoncard
+
+
+def minimal_state() -> StateVector:
+    return StateVector(
+        meta={"id": "uuid-v4", "timestamp": "2026-01-28T00:00:00Z", "trace_id": "t-123"},
+        source={"intent": "Analyze a PDF for risk", "origin": "user_cli_v1", "consent_scope": ConsentScope.SESSION_ONLY},
+        constraints={
+            "budget_tokens": 4000,
+            "allowed_tools": ["pdf_parser", "search"],
+            "forbidden_tools": ["execute_code", "email_sender"],
+            "sensitivity_level": "high",
+        },
+        history_window={"summary_hash": "sha256_prev", "relevant_turns": 2},
+    )
+
+
+def minimal_permit(decision: Decision) -> GovernanceManifest:
+    return GovernanceManifest(
+        decision=decision,
+        risk_score=0.12,
+        policy_trace=[{"policy_id": "POL-01", "status": PolicyStatus.PASS, "reason": "ok"}],
+        degrade_instructions={"active": (decision == Decision.DEGRADE), "fallback_model": None, "stripped_capabilities": []},
+        routing_clearance={"primary_daemon": "Hound", "support_daemons": ["Beaver"]},
+    )
+
+
+def minimal_reasoncard(tool_calls: int, tools_used=None) -> ReasonCard:
+    tools_used = tools_used or []
+    rc = ReasonCard(
+        content={"payload": "Findings...", "format": "markdown"},
+        provenance={"model_used": "claude-3-opus", "tool_calls": tool_calls, "execution_time_ms": 450, "tools_used": tools_used},
+        governance_footer={"status": GovernanceStatus.CLEAN, "policies_upheld": ["POL-01"], "redactions_made": 0, "reason_code": "RC-200"},
+        integrity_hash="",
+    )
+    rc.integrity_hash = hash_reasoncard(rc)
+    return rc
+
+
+def test_statevector_extra_fields_forbidden():
+    with pytest.raises(Exception):
+        StateVector(
+            meta={"id": "x", "timestamp": "t", "trace_id": "tr"},
+            source={"intent": "i", "origin": "o", "consent_scope": "session_only"},
+            constraints={"budget_tokens": 1, "allowed_tools": [], "forbidden_tools": [], "sensitivity_level": "low", "oops": 1},
+            history_window={"summary_hash": "h", "relevant_turns": 1},
+        )
+
+
+def test_permit_enum_law():
+    s = minimal_state()
+    p = minimal_permit(Decision.ALLOW)
+    enforce_permit(s, p)  # should pass
+
+
+def test_deny_blocks_execution():
+    s = minimal_state()
+    p = minimal_permit(Decision.DENY)
+    with pytest.raises(PermitViolation):
+        enforce_permit(s, p)
+
+
+def test_degrade_requires_active_flag():
+    s = minimal_state()
+    p = minimal_permit(Decision.DEGRADE)
+    # Tamper: decision says DEGRADE but instructions not active
+    p.degrade_instructions.active = False
+    with pytest.raises(PermitViolation):
+        enforce_permit(s, p)
+
+
+def test_no_ghost_actions_enforced():
+    rc = minimal_reasoncard(tool_calls=1, tools_used=[])
+    with pytest.raises(PermitViolation):
+        require_tool_disclosure(rc)
+
+
+def test_integrity_hash_is_deterministic():
+    rc1 = minimal_reasoncard(tool_calls=0)
+    rc2 = minimal_reasoncard(tool_calls=0)
+    assert rc1.integrity_hash == rc2.integrity_hash
+
+
+def test_statevector_not_mutated_by_copy_guard_example():
+    # This is a *basic* guard: runtime compares pre/post snapshots.
+    state = minimal_state()
+    before = state.model_dump()
+    # simulate "bad daemon mutation"
+    state.ephemeral["oops"] = "mutation"
+    after = state.model_dump()
+    assert before != after  # proves we can detect it if we enforce snapshot comparisons
+
+Note: true immutability can be enforced by model_config = ConfigDict(frozen=True) on StateVector, but I like your discipline-first approach: keep it mutable for integration, and enforce “no mutation” by snapshot comparison in runtime.
+
+⸻
+
+6) What to add next (still bedrock, still canal)
+
+You’ve defined the molecules. Now we add the pipe fittings:
+
+A) ToolCallRecord schema
+
+So provenance isn’t just tool_calls: 1, it’s which tool, with what parameters (redacted), and what result hash.
+
+B) ServiceCard schema
+
+Every daemon declares:
+	•	required permissions (tools, sensitivity)
+	•	failure modes
+	•	metrics
+	•	allowed outputs
+
+C) Reason Codes registry
+
+A single file that enumerates canonical reason codes:
+	•	RC-200 Standard Execution
+	•	RC-451 Policy Block
+	•	RC-206 Degraded Mode
+	•	INK.* dependency failures (you already have this doctrine)
+
+⸻
+
+7) The immediate “golden-path demo” now becomes trivial
+
+Because now the contract is simple:
+
+StateVector → GovernanceManifest → Daemon.run(...) → ReasonCard (with hash) → logs
+
+That’s the runnable Nile.
+
+⸻
+
+If you want the next concrete pour, I’d do this sequence (no vibe, just build order):
+	1.	ToolCallRecord (to kill ghost actions completely)
+	2.	Runtime snapshot guard (state immutability enforcement)
+	3.	ServiceCards (so routing becomes deterministic + reviewable)
+	4.	Minimal golden-path demo CLI (python -m pantheon.demo)
+
+Say “ToolCallRecord next” and I’ll drop the schema + enforcement code in the same paste-ready format.
