@@ -1,0 +1,269 @@
+This is tight. You’ve crossed the line from strategy into execution doctrine, and it’s internally consistent with everything we’ve already poured in concrete.
+
+Short answer first, then we build.
+
+⸻
+
+Decision: We write the “One Command Demo” next.
+
+Why this and not the JSON Schema first?
+
+Because:
+	•	The Iron Schemas already exist (we just defined them).
+	•	A demo that runs is the fastest way to:
+	•	validate the schemas under pressure,
+	•	force missing fields to reveal themselves,
+	•	and prove—publicly—that governance precedes capability.
+
+Civil engineers test dams with water, not diagrams.
+
+The demo is the first flood.
+
+⸻
+
+What the One Command Demo must prove (non-negotiables)
+
+The demo is not about intelligence. It is about discipline.
+
+When someone runs:
+
+pantheon run "Summarize this PDF"
+
+It must visibly demonstrate five things:
+	1.	Intent becomes StateVector (typed, explicit)
+	2.	StateVector hits Governance (policy fires)
+	3.	A refusal or degradation occurs (on purpose)
+	4.	Nothing executes anyway (no bypass)
+	5.	A ReasonCard is returned and logged (with hash)
+
+If it does only this, Pantheon is already real.
+
+⸻
+
+The Demo Scenario (designed to be boring and lethal)
+
+We intentionally choose a trivial, undeniable policy so no one argues semantics.
+
+Policy: “Output must be haiku.”
+	•	Harmless
+	•	Unambiguous
+	•	Impossible to “sort of comply”
+	•	Perfect for proving refusal discipline
+
+Expected behavior
+
+User input:
+
+“Summarize this PDF in plain English.”
+
+System response:
+	•	DENY
+	•	ReasonCode: POL-HAIKU-001
+	•	Logged
+	•	Hashed
+	•	Returned as a ReasonCard
+
+No model call. No tools. No vibes.
+
+⸻
+
+File layout (minimal, shippable)
+
+pantheon/
+├── demo/
+│   └── run.py
+├── governance/
+│   └── haiku_policy.py
+├── schemas/
+│   └── iron_schemas.py
+├── core/
+│   ├── abcs.py
+│   ├── runtime.py
+│   └── integrity.py
+└── ledger/
+    └── local_duckdb.py
+
+Nothing else is needed for v0.1 credibility.
+
+⸻
+
+The One Command Demo — Python Skeleton
+
+This is paste-ready and intentionally small.
+
+pantheon/demo/run.py
+
+import sys
+import uuid
+from datetime import datetime
+
+from pantheon.schemas.iron_schemas import (
+    StateVector,
+    ConsentScope,
+    Decision,
+    GovernanceStatus,
+)
+from pantheon.governance.haiku_policy import HaikuGovernanceEngine
+from pantheon.core.runtime import enforce_permit
+from pantheon.core.integrity import hash_reasoncard
+
+
+def build_statevector(user_input: str) -> StateVector:
+    return StateVector(
+        meta={
+            "id": str(uuid.uuid4()),
+            "timestamp": datetime.utcnow().isoformat(),
+            "trace_id": str(uuid.uuid4()),
+        },
+        source={
+            "intent": user_input,
+            "origin": "pantheon_cli_v0.1",
+            "consent_scope": ConsentScope.SESSION_ONLY,
+        },
+        constraints={
+            "budget_tokens": 1000,
+            "allowed_tools": [],
+            "forbidden_tools": ["*"],
+            "sensitivity_level": "low",
+        },
+        history_window={
+            "summary_hash": "none",
+            "relevant_turns": 0,
+        },
+    )
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: pantheon run \"your request here\"")
+        sys.exit(1)
+
+    user_input = sys.argv[1]
+    state = build_statevector(user_input)
+
+    governance = HaikuGovernanceEngine()
+    permit = governance.evaluate(state)
+
+    try:
+        enforce_permit(state, permit)
+    except Exception as e:
+        # This is the *expected* path
+        reasoncard = governance.refusal_reasoncard(state, permit, str(e))
+        reasoncard.integrity_hash = hash_reasoncard(reasoncard)
+
+        print(reasoncard.content.payload)
+        return
+
+    # If we ever reach here, governance failed.
+    raise RuntimeError("Invariant breach: execution allowed unexpectedly.")
+
+
+if __name__ == "__main__":
+    main()
+
+
+⸻
+
+pantheon/governance/haiku_policy.py
+
+from pantheon.schemas.iron_schemas import (
+    GovernanceManifest,
+    PolicyStatus,
+    Decision,
+    ReasonCard,
+    GovernanceStatus,
+    OutputFormat,
+)
+
+
+class HaikuGovernanceEngine:
+    """
+    Demo Policy:
+    All outputs must be haiku.
+    Any request not explicitly requesting haiku is denied.
+    """
+
+    def evaluate(self, state):
+        wants_haiku = "haiku" in state.source.intent.lower()
+
+        if not wants_haiku:
+            return GovernanceManifest(
+                decision=Decision.DENY,
+                risk_score=0.0,
+                policy_trace=[
+                    {
+                        "policy_id": "POL-HAIKU-001",
+                        "status": PolicyStatus.FAIL,
+                        "reason": "Output format must be haiku.",
+                    }
+                ],
+                routing_clearance={
+                    "primary_daemon": "NONE",
+                    "support_daemons": [],
+                },
+            )
+
+        raise NotImplementedError("Happy path intentionally omitted in demo.")
+
+    def refusal_reasoncard(self, state, permit, error_msg):
+        return ReasonCard(
+            content={
+                "payload": (
+                    "❌ Request denied.\n\n"
+                    "Policy POL-HAIKU-001 requires all outputs to be haiku.\n"
+                    "No execution occurred."
+                ),
+                "format": OutputFormat.MARKDOWN,
+            },
+            provenance={
+                "model_used": "none",
+                "tool_calls": 0,
+                "execution_time_ms": 0,
+                "tools_used": [],
+            },
+            governance_footer={
+                "status": GovernanceStatus.BLOCKED,
+                "policies_upheld": [],
+                "redactions_made": 0,
+                "reason_code": "RC-451",
+            },
+            integrity_hash="",
+        )
+
+
+⸻
+
+Why this demo is strategically lethal
+	•	Developers see:
+“Oh. This is just typed inputs and outputs. I can build against this.”
+	•	Enterprises see:
+“The system refuses before execution and proves it.”
+	•	Competitors realize:
+“We can’t hand-wave governance anymore.”
+
+This is the Volvo moment.
+
+⸻
+
+What this unlocks immediately
+
+Once this demo exists:
+	•	StateVector schema becomes de facto stable
+	•	GovernanceManifest becomes non-optional
+	•	ReasonCard becomes the receipt
+
+From here:
+	•	Service Cards are obvious
+	•	ToolCallRecords snap into place
+	•	Degrade ladders become mechanical, not philosophical
+
+⸻
+
+Next fork in the river (your call)
+
+After the demo lands, the next engineering-correct move is one of these:
+	1.	ServiceCard schema + generator (to formalize daemon contracts)
+	2.	ToolCallRecord + chokepoint (to eliminate ghost actions entirely)
+	3.	Happy-path execution (ALLOW → model call → receipt)
+
+Say which fork we take, and I’ll keep pouring concrete—not metaphors.
