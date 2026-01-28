@@ -1,0 +1,186 @@
+It combines cleanly because what you just did (Iron Schemas) is the water chemistry + pipe thread standard, and the Aqueduct is the physical distribution network (capture → carry → regulate → deliver → measure).
+
+So: Nile = the canonical flow inside Pantheon, Aqueduct = the engineered transport layer that moves that flow across domains, tools, models, time, and storage without contaminating it.
+
+Here’s the splice.
+
+⸻
+
+1) The simplest mapping
+
+Nile (Golden Path)
+
+StateVector → GovernanceManifest → Daemon → ReasonCard
+
+Aqueduct (Transport + Operations)
+
+Ingress → Channel → Control Gates → Delivery → Ledger/Telemetry
+
+Now map the objects:
+	•	StateVector = Aqueduct’s water packet (what we’re moving)
+	•	GovernanceManifest = Aqueduct’s sluice permit (what’s allowed)
+	•	ReasonCard = Aqueduct’s delivery receipt (what arrived + how + proof)
+
+The Aqueduct doesn’t “think.” It moves + measures + enforces.
+
+⸻
+
+2) Where the schemas live in the Aqueduct
+
+Aqueduct Stage A — Ingress (Capture)
+
+User request / tool trigger / webhook / UI event
+	•	Aqueduct’s job: normalize into a StateVector.
+	•	It also generates: trace_id, timestamps, and origin tags.
+
+✅ Iron Schema effect: Ingress stops being “free-form prompts” and becomes “typed packets.”
+
+⸻
+
+Aqueduct Stage B — Control Gate (Permit)
+
+GovernanceEngine evaluates StateVector
+	•	Aqueduct must call governance before routing or tools.
+	•	Output is the only permit: GovernanceManifest.
+
+✅ This is the “charismatic bypass killer”: the Aqueduct enforces the permit before any daemon wakes up.
+
+⸻
+
+Aqueduct Stage C — Routing (Switchyard)
+
+Permit → routing_clearance
+	•	Aqueduct routes only to whitelisted daemons listed in the permit.
+	•	It can also inject “support daemons” (Beaver logger) as mandated.
+
+✅ Routing becomes deterministic and reviewable.
+
+⸻
+
+Aqueduct Stage D — Execution (Delivery)
+
+Daemon runs, but Aqueduct enforces tool policy
+	•	Every tool call goes through a single chokepoint:
+	•	assert_tool_allowed(state.constraints, tool_name)
+	•	record a ToolCallRecord (next schema)
+
+✅ Aqueduct becomes your tool firewall + metering valve.
+
+⸻
+
+Aqueduct Stage E — Ledger & Telemetry (Reservoir + Gauges)
+
+ReasonCard emitted + hashed + logged
+	•	Beaver logs structured events
+	•	Mother Duck stores receipts (ReasonCards) and manifests
+	•	Checksum stores integrity hashes
+	•	Chronos/retention policies decide what fossilizes
+
+✅ Enterprise trust: every run yields a receipt that can be audited later.
+
+⸻
+
+3) The key design rule: Aqueduct carries immutable packets
+
+The Aqueduct becomes a pure function pipeline:
+	•	Input event → StateVector
+	•	Governance → GovernanceManifest
+	•	Execution → ReasonCard
+
+No hidden side state. Any state change (memory, storage, external actions) is a declared tool call with provenance.
+
+⸻
+
+4) Practical integration points (the splice joints)
+
+Joint 1: Aqueduct Ingress Adapter
+
+Function signature
+	•	build_statevector(event) -> StateVector
+
+This is where your previous Aqueduct input formats (UI, CLI, API, streamlit, etc.) normalize into the same “water molecule.”
+
+⸻
+
+Joint 2: Aqueduct Control Gate
+
+Function signature
+	•	governance.evaluate(state) -> GovernanceManifest
+	•	then enforce_permit(state, permit)
+
+This turns governance from “advice” into “infrastructure.”
+
+⸻
+
+Joint 3: Aqueduct Tool Chokepoint
+
+Every tool call must go through:
+	•	enforcer.assert_tool_allowed(state, tool_name)
+	•	append ToolCallRecord to a run-scoped list
+	•	increment tool_calls
+
+This is what makes “No Ghost Actions” real, not aspirational.
+
+⸻
+
+Joint 4: Aqueduct Ledger Sink
+
+Function signature
+	•	log_run(state, permit, reasoncard) -> None
+
+And now the ledger can answer:
+	•	“show me all DEGRADE runs”
+	•	“show me all runs where risk_score > 0.5”
+	•	“show me all runs that used web.search”
+
+⸻
+
+5) What changes in the Aqueduct you built earlier
+
+Before (typical)
+
+Aqueduct likely moved “prompts” and “outputs” with some metadata.
+
+After (civil engineering)
+
+Aqueduct moves typed artifacts:
+	•	StateVector (input contract)
+	•	GovernanceManifest (permission contract)
+	•	ReasonCard (output contract)
+
+That’s the difference between a ditch and an aqueduct.
+
+⸻
+
+6) The missing piece that fuses them perfectly
+
+To fully weld Iron Schemas into the Aqueduct, add one more schema:
+
+ToolCallRecord (Aqueduct telemetry)
+
+So the ReasonCard provenance can be fully granular:
+	•	tool name
+	•	redacted params hash
+	•	result hash
+	•	elapsed time
+	•	allowed/blocked reason code
+
+This is the “flow meter” and it makes audits effortless.
+
+⸻
+
+7) The combined system in one line
+
+Aqueduct transports; Nile governs.
+Or more precisely:
+
+Aqueduct = deterministic movement + enforcement + measurement
+Golden Path = meaning → permit → action → receipt
+
+⸻
+
+If you want the next concrete pour, I’d deliver a paste-ready pantheon/aqueduct/pipeline.py skeleton that wires:
+
+Ingress -> StateVector -> Governance -> enforce_permit -> route -> tool_chokepoint -> ReasonCard -> hash -> ledger
+
+…and includes the ToolCallRecord schema so the Aqueduct has meters, not vibes.
