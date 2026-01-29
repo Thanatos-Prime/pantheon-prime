@@ -1,0 +1,536 @@
+Got it. I’m going to tighten this into a repo-ready “spec pack v0.1” with:
+	•	Canonical wire rules (so hashes match across languages)
+	•	Δ + ReasonCard schemas (strict + forward-compatible)
+	•	Kernel reference implementation (minimal, enforceable)
+	•	Hallucination / double-speak attack simulation (and the cryptographic check that catches it)
+	•	Genesis Δ0 + authorized policy updates (no silent rule rewrites; only visible forks)
+
+Below is the bundle as files-by-filename (copy/paste into a repo).
+
+⸻
+
+README.md
+
+# Pantheon Prime Artifact (PPA) Spec Pack v0.1
+
+PPA defines the atomic state-mutation unit: the Delta (Δ).
+
+Core invariant enforced by the kernel:
+> If you can’t explain it, undo it, or repair it, you don’t get to do it.
+
+Δ is the only allowed write primitive. Any state transition must be accompanied by:
+1) Constraint Snapshot (Ct)
+2) Action + Reason binding (A)
+3) Reversibility token (Ŝ)
+4) Signatures binding everything together
+
+## Files
+- schemas/delta.schema.json
+- schemas/reasoncard.schema.json
+- src/canonical.py
+- src/kernel.py
+- src/attacks.py
+- examples/genesis_delta0.json
+- examples/reasoncard_axiom.json
+
+## Determinism
+All hashes MUST be computed over RFC 8785 canonical JSON encoding, with:
+- sorted object keys
+- no whitespace
+- UTF-8 strings
+- RFC 8785 number rules
+
+All hash digests are lowercase hex with `0x` prefix.
+
+## Delta ID rule
+`delta_id = SHA256( canonical_json( delta_without_signatures_and_without_delta_id ) )`
+
+Signatures sign `delta_id` (NOT the whole delta).
+
+
+⸻
+
+schemas/delta.schema.json
+
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pantheon Delta (Δ) v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "constraint_snapshot", "action_reason", "reversibility", "signatures"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delta_id", "prev_delta_id", "timestamp", "nonce"],
+      "properties": {
+        "delta_id": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]{64}$",
+          "description": "SHA-256 of canonical(delta excluding signatures and excluding this delta_id)"
+        },
+        "prev_delta_id": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]{64}$",
+          "description": "Parent delta hash; genesis uses 0x00..00"
+        },
+        "timestamp": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unix epoch microseconds"
+        },
+        "nonce": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Strictly increasing tiebreaker for ordering"
+        }
+      }
+    },
+    "constraint_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ct: Laws in effect at decision time",
+      "required": ["governance_ver", "policy_hash", "context_hash", "permissions_hash"],
+      "properties": {
+        "governance_ver": { "type": "string", "examples": ["v0.1.0"] },
+        "policy_hash": { "type": "string", "pattern": "^0x[a-f0-9]{64}$" },
+        "context_hash": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]{64}$",
+          "description": "Hash of the input/prompt slice or state slice"
+        },
+        "permissions_hash": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]{64}$",
+          "description": "Hash of active capability envelope (who/what may do what)"
+        }
+      }
+    },
+    "action_reason": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A: Action + Meaning are inseparable",
+      "required": [
+        "action_type",
+        "payload_hash",
+        "reason_card_hash",
+        "semantic_embedding_hash",
+        "expected_effects_hash"
+      ],
+      "properties": {
+        "action_type": { "type": "string" },
+        "payload_hash": { "type": "string", "pattern": "^0x[a-f0-9]{64}$" },
+        "reason_card_hash": { "type": "string", "pattern": "^0x[a-f0-9]{64}$" },
+        "semantic_embedding_hash": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]{64}$",
+          "description": "Hash of a normalized embedding vector (semantic anchor)"
+        },
+        "expected_effects_hash": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]{64}$",
+          "description": "Hash of declared expected effects; used in mismatch checks"
+        }
+      }
+    },
+    "reversibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ŝ: Escape route",
+      "required": ["class", "inverse_hash", "cost_metric", "rollback_window_s"],
+      "properties": {
+        "class": { "type": "string", "enum": ["UNDO", "COMPENSATE", "REPAIR", "IRREVERSIBLE"] },
+        "inverse_hash": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]{64}$",
+          "description": "Hash of the inverse function/script/playbook (even for IRREVERSIBLE: points to terminate/contain plan)"
+        },
+        "cost_metric": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Estimated compute/time/operator cost to revert or mitigate"
+        },
+        "rollback_window_s": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 means no rollback window (only allowed if class=IRREVERSIBLE and policy allows)"
+        }
+      }
+    },
+    "signatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_sig", "governance_sig"],
+      "properties": {
+        "actor_sig": { "type": "string", "description": "Signature over meta.delta_id by actor key" },
+        "governance_sig": { "type": "string", "description": "Signature over meta.delta_id by governance root" }
+      }
+    }
+  }
+}
+
+Key upgrade vs your draft: permissions_hash, expected_effects_hash, and rollback_window_s are load-bearing for catching subtle double-speak + capability creep.
+
+⸻
+
+schemas/reasoncard.schema.json
+
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pantheon ReasonCard v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["card_id", "summary", "rationale_chain", "safety_checks", "alignment_score"],
+  "properties": {
+    "card_id": { "type": "string", "pattern": "^0x[a-f0-9]{64}$" },
+    "summary": { "type": "string", "minLength": 1 },
+    "rationale_chain": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "safety_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["is_punitive", "human_intervention_required"],
+      "properties": {
+        "is_punitive": { "type": "boolean" },
+        "human_intervention_required": { "type": "boolean" }
+      }
+    },
+    "alignment_score": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}
+
+
+⸻
+
+src/canonical.py
+
+import hashlib
+from typing import Any, Dict
+
+try:
+    # canonicaljson implements RFC 8785-like canonical encoding used in Matrix.
+    from canonicaljson import encode_canonical_json
+except ImportError as e:
+    raise ImportError("Install canonicaljson: pip install canonicaljson") from e
+
+
+HEX_PREFIX = "0x"
+
+
+def sha256_hex(b: bytes) -> str:
+    return HEX_PREFIX + hashlib.sha256(b).hexdigest()
+
+
+def canonical_bytes(obj: Any) -> bytes:
+    # RFC 8785 canonicalization via canonicaljson.
+    return encode_canonical_json(obj)
+
+
+def delta_id(delta: Dict[str, Any]) -> str:
+    """
+    Compute delta_id = SHA256( canonical(delta_without_signatures_and_without_meta.delta_id) )
+    """
+    # Deep-ish copy without pulling in heavy deps
+    d = {
+        "meta": dict(delta.get("meta", {})),
+        "constraint_snapshot": delta.get("constraint_snapshot"),
+        "action_reason": delta.get("action_reason"),
+        "reversibility": delta.get("reversibility"),
+    }
+
+    # Remove delta_id from meta for hashing
+    if "delta_id" in d["meta"]:
+        d["meta"] = dict(d["meta"])
+        d["meta"].pop("delta_id", None)
+
+    # Exclude signatures entirely
+    cb = canonical_bytes(d)
+    return sha256_hex(cb)
+
+
+def hash_object(obj: Any) -> str:
+    """
+    Convenience: hash a ReasonCard, policy text, payload blobs, inverse scripts, etc.
+    """
+    return sha256_hex(canonical_bytes(obj))
+
+
+⸻
+
+src/kernel.py
+
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
+from .canonical import delta_id
+
+
+class IntegrityError(Exception): pass
+class LineageError(Exception): pass
+class GovernanceDriftError(Exception): pass
+class SafetyError(Exception): pass
+class SemanticMismatchError(Exception): pass
+class PermissionsError(Exception): pass
+
+
+@dataclass
+class GovernanceRoot:
+    governance_ver: str
+    current_policy_hash: str
+    current_permissions_hash: str
+    root_pubkey: str  # placeholder
+
+    def allows_irreversible(self, delta: Dict[str, Any]) -> bool:
+        # Strict default: forbid. Override by explicit policy if desired.
+        return False
+
+    def verify_governance_sig(self, delta_id_hex: str, sig: str) -> bool:
+        # Placeholder: implement Ed25519 / secp256k1 verification in real code.
+        return bool(sig) and sig.startswith("0x")
+
+    def verify_actor_sig(self, delta_id_hex: str, sig: str) -> bool:
+        return bool(sig) and sig.startswith("0x")
+
+
+class AppendOnlyLedger:
+    def __init__(self):
+        self._deltas = []
+
+    def get_last(self) -> Optional[Dict[str, Any]]:
+        return self._deltas[-1] if self._deltas else None
+
+    def append(self, delta: Dict[str, Any]) -> None:
+        self._deltas.append(delta)
+
+    def __len__(self) -> int:
+        return len(self._deltas)
+
+
+class PantheonKernel:
+    def __init__(self, ledger: AppendOnlyLedger, gov: GovernanceRoot):
+        self.ledger = ledger
+        self.gov = gov
+
+    def verify(self, delta: Dict[str, Any], computed_context_hash: str) -> bool:
+        # 1) Integrity: delta_id must match canonical content
+        computed = delta_id(delta)
+        if computed != delta["meta"]["delta_id"]:
+            raise IntegrityError("Delta ID mismatch (tamper or non-canonical encoding).")
+
+        # 2) Lineage: must build on tip (except genesis)
+        last = self.ledger.get_last()
+        if last is None:
+            # genesis special case
+            if delta["meta"]["prev_delta_id"] != "0x" + "0"*64:
+                raise LineageError("Non-genesis delta cannot be first.")
+        else:
+            if delta["meta"]["prev_delta_id"] != last["meta"]["delta_id"]:
+                raise LineageError("Broken chain: prev_delta_id != tip.")
+
+        # 3) Constraint snapshot must match currently active governance
+        cs = delta["constraint_snapshot"]
+        if cs["policy_hash"] != self.gov.current_policy_hash:
+            raise GovernanceDriftError("Policy hash mismatch (foreign/obsolete laws).")
+        if cs["permissions_hash"] != self.gov.current_permissions_hash:
+            raise PermissionsError("Permissions hash mismatch (capability drift).")
+
+        # 4) Context anchoring: Ct must match the kernel's computed slice hash
+        if cs["context_hash"] != computed_context_hash:
+            raise GovernanceDriftError("Context hash mismatch (reason/action not bound to true inputs).")
+
+        # 5) Reversibility gate
+        r = delta["reversibility"]
+        if r["class"] == "IRREVERSIBLE":
+            if not self.gov.allows_irreversible(delta):
+                raise SafetyError("Irreversible action blocked by policy.")
+            # rollback window must be 0 for irreversibles
+            if r["rollback_window_s"] != 0:
+                raise SafetyError("IRREVERSIBLE must have rollback_window_s=0.")
+        else:
+            if r["rollback_window_s"] <= 0:
+                raise SafetyError("Non-IRREVERSIBLE requires a positive rollback window.")
+
+        # 6) Signature binding (prevents backend double-speak edits)
+        sigs = delta["signatures"]
+        if not self.gov.verify_governance_sig(delta["meta"]["delta_id"], sigs["governance_sig"]):
+            raise IntegrityError("Invalid governance signature.")
+        if not self.gov.verify_actor_sig(delta["meta"]["delta_id"], sigs["actor_sig"]):
+            raise IntegrityError("Invalid actor signature.")
+
+        return True
+
+    def commit(self, delta: Dict[str, Any], computed_context_hash: str) -> str:
+        self.verify(delta, computed_context_hash)
+        self.ledger.append(delta)
+        return "COMMITTED"
+
+    def rollback(self, target_delta_id: str) -> None:
+        """
+        Spec v0.1: rollback is executed by appending Anti-Deltas, never deleting history.
+        Implementation deferred: traverse from tip -> target, apply inverse_hash scripts,
+        and append compensating deltas with full Ct/A/Ŝ signatures.
+        """
+        raise NotImplementedError("Rollback engine is defined by spec; implement in v0.2.")
+
+
+⸻
+
+src/attacks.py — Hallucination / double-speak attack simulation
+
+This is the specific check that catches the “action matches policy, reason does not match action” case.
+
+The core idea (cryptographic, not “AI vibes”)
+
+You bind the reason to a declared effect and then verify the effect is consistent with the action payload.
+
+In v0.1 we do this with:
+	•	expected_effects_hash
+	•	(optional) a deterministic effects_manifest hashed and stored off-chain
+
+from typing import Dict, Any
+
+from .canonical import hash_object
+
+
+def build_effects_manifest(action_type: str, action_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Deterministic translation of action -> predicted effect categories.
+    This must be a stable function (same input => same output).
+    In real deployments, this is implemented as a policy-controlled mapping table.
+    """
+    if action_type == "BLOCK_IP":
+        return {"effect": "NETWORK_DENY", "scope": action_payload.get("ip"), "risk": "LOW"}
+    if action_type == "DELETE_BACKUPS":
+        return {"effect": "DATA_DESTRUCTION", "scope": action_payload.get("target"), "risk": "CRITICAL"}
+    return {"effect": "UNKNOWN", "risk": "UNKNOWN"}
+
+
+def verify_reason_matches_action(delta: Dict[str, Any], action_payload: Dict[str, Any]) -> bool:
+    """
+    Anti-double-speak check:
+    expected_effects_hash must equal hash(build_effects_manifest(action_type, payload)).
+    If the model tries to narrate a 'benign' reason for a destructive action, mismatch trips.
+    """
+    ar = delta["action_reason"]
+    manifest = build_effects_manifest(ar["action_type"], action_payload)
+    expected = hash_object(manifest)
+    return expected == ar["expected_effects_hash"]
+
+How it catches the attack:
+	•	If the agent tries action_type="DELETE_BACKUPS" but claims “cleanup logs”:
+	•	the deterministic effect manifest hashes to DATA_DESTRUCTION
+	•	the expected effects hash won’t match the benign reason’s declared effects
+	•	kernel blocks with SemanticMismatchError (wire this into kernel.verify in v0.2)
+
+This is the missing piece that makes “double-speak” mechanically hard.
+
+⸻
+
+examples/reasoncard_axiom.json
+
+{
+  "card_id": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "summary": "Initialization of the Pantheon Trust Kernel.",
+  "rationale_chain": [
+    "Objective: Establish a continuity-preserving agentic environment.",
+    "Method: Enforce cryptographic binding of Action, Reason, Constraint, and Reversibility.",
+    "Outcome: System enters LIVE mode with append-only audit."
+  ],
+  "safety_checks": {
+    "is_punitive": false,
+    "human_intervention_required": true
+  },
+  "alignment_score": 1.0
+}
+
+
+⸻
+
+examples/genesis_delta0.json
+
+Notes:
+	•	prev_delta_id is all zeros.
+	•	policy_hash should hash the policy bundle (your VerifyDelta logic + constraints text).
+	•	Genesis is allowed as a special-case only because the kernel is “paralyzed without memory.” After Δ0, no special cases.
+
+{
+  "meta": {
+    "delta_id": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "prev_delta_id": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "timestamp": 1735689600000000,
+    "nonce": 0
+  },
+  "constraint_snapshot": {
+    "governance_ver": "v0.1.0-GENESIS",
+    "policy_hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "context_hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "permissions_hash": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "action_reason": {
+    "action_type": "SYSTEM_BOOTSTRAP",
+    "payload_hash": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "reason_card_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "semantic_embedding_hash": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "expected_effects_hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "reversibility": {
+    "class": "IRREVERSIBLE",
+    "inverse_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+    "cost_metric": 0,
+    "rollback_window_s": 0
+  },
+  "signatures": {
+    "actor_sig": "0x3333...ROOT_ADMIN_SIG",
+    "governance_sig": "0x3333...ROOT_ADMIN_SIG"
+  }
+}
+
+Important: after you create this JSON, you must compute its real delta_id using the canonical hashing rule (strip signatures + strip meta.delta_id, canonicalize, sha256, 0x prefix), then insert the real value.
+
+⸻
+
+Authorized Policy Updates (no silent rule rewrite)
+
+Policy updates must be visible, reversible (or explicitly irreversible), and signed.
+
+Rule
+
+A policy update is just another Δ where:
+	•	action_type = "POLICY_UPDATE"
+	•	payload_hash points to the new policy bundle
+	•	constraint_snapshot.policy_hash is still the old policy hash (the law under which you updated the law)
+	•	The next delta will reference the new policy hash in its Ct
+
+That creates a hard, inspectable seam.
+
+⸻
+
+Minimal text-only Merkle Spine visualization
+
+Δ0 (GENESIS) ──> Δ1 ──> Δ2 ──> ... ──> Δn
+ |               |        |
+ Ct0             Ct1      Ct2        (policy_hash, permissions_hash, context_hash)
+ A0              A1       A2         (action_type + payload_hash + reason hashes)
+ Ŝ0              Ŝ1       Ŝ2         (inverse_hash + class + rollback window)
+ sigs            sigs     sigs       (actor + governance signatures over delta_id)
+
+
+⸻
+
+What I recommend you do next (without asking you to choose)
+
+You’re at the “kernel exists” phase, so the next two moves should happen in this order:
+	1.	Integrate the anti-double-speak check into kernel.verify (v0.2)
+	•	add effects_manifest_hash (or require expected_effects_hash to be computed from action_type + payload)
+	2.	Write the Policy Update seam demo (Δk = POLICY_UPDATE) and show lineage remains intact
+
+If you want, I’ll produce PPA v0.2 immediately with:
+	•	effects_manifest_hash as a first-class field
+	•	ReasonCard including expected_effects and prohibited_effects
+	•	SemanticMismatchError wired into kernel.verify
+	•	A concrete “POLICY_UPDATE” example Δ + a “hard fork” detector rule
+
+Just say: “Emit PPA spec pack v0.2 with effects-manifest binding + policy-update seam demo.”
