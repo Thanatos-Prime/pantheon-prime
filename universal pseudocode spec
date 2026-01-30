@@ -1,0 +1,489 @@
+```markdown
+# PantheonOS v1.0 — Universal Pseudocode Spec (Language Beneath Intelligence)
+
+**Status:** reference specification  
+**Goal:** define a *runnable cognitive operating system* that can be instantiated as code, prompts, doctrine, or organizational practice.  
+**Claim:** “Code” is one dialect. PantheonOS is the *meta-language* that compiles into many dialects (Python, policy, ritual, story, SOP).
+
+---
+
+## 0) Glossary (minimum set)
+
+- **Agent:** anything that can observe, decide, and act (LLM, human, team, org).
+- **StateVector (SV):** continuity state across time (identity + context + trajectory).
+- **ThoughtObject (TO):** atomic, hash-linked unit of cognition (event/belief/decision/memory/commit).
+- **Invariant:** a rule that must not be violated (ethics, continuity, coherence, safety).
+- **Daemon:** a non-human evaluator/transformer that scores, audits, or distills.
+- **ΣC Gate:** the decision gate that merges scores + constraints into allow/deny/modify.
+- **Narrative Engine:** meaning-making layer that constrains transitions (story = state-machine + purpose).
+- **Ledger:** append-only log of ThoughtObjects (auditability + provenance).
+- **Federation:** multi-node sync of ledgers with invariant-checked merges.
+
+---
+
+## 1) The Prime Law (Pantheon Runtime)
+
+PantheonOS runs the same loop no matter the substrate:
+
+```
+
+while agent_is_alive:
+OBSERVE(world)
+UPDATE(StateVector)
+GENERATE(ThoughtObject)
+SCORE(Invariants via Daemons)
+GATE(ΣC decision)
+ACT(or abstain)
+APPEND(Ledger)
+DISTILL(if needed)
+
+```
+
+**Everything else** (myth, modules, tools, UI, APIs) is an extension of this loop.
+
+---
+
+## 2) Core Data Structures (universal, language-agnostic)
+
+### 2.1 ThoughtObject (TO) — the universal atom
+
+A ThoughtObject is not “a note.” It is a *ledger atom* that can represent:
+
+- a perception
+- a belief
+- a decision
+- a constraint
+- a commit / diff summary
+- a story beat
+- an ethical judgment
+- an operator instruction
+
+**ThoughtObject schema:**
+
+```
+
+ThoughtObject:
+id: unique identifier
+ts: timestamp
+author: agent_id OR daemon_id
+kind: {observation, hypothesis, plan, decision, action, reflection, rule, story_beat, commit, warning}
+content: canonical text (or structured payload)
+context: references to environment + task
+links: {parent_ids[], child_ids[], related_ids[]}
+sv_hash: hash(StateVector at creation)
+to_hash: hash(canonical(ThoughtObject))
+prev_hash: hash(previous ThoughtObject in chain)  // optional but recommended
+scores: map[invariant_name -> score 0..1]
+verdict: {allow, deny, modify, escalate, abstain}
+tags: list[string]
+signatures: optional cryptographic signatures
+
+```
+
+**Canonicalization rule:**
+- `to_hash = HASH(canonicalize(TO without to_hash))`
+- Canonicalization must be deterministic.
+
+### 2.2 StateVector (SV) — continuity + identity across time
+
+StateVector is the agent’s living continuity state.
+
+```
+
+StateVector:
+agent_id
+epoch
+goals: list
+constraints: list
+commitments: list  // promises, contracts, vows
+risk_budget: numeric or categorical
+ethical_floor: numeric (e.g., 0.7)
+narrative_position: struct  // arc stage, archetype stance, identity lattice coordinates
+memory_index: pointers to ledger / retrieval handles
+world_model_stub: key facts/assumptions
+last_action
+sv_hash: HASH(canonicalize(SV without sv_hash))
+
+```
+
+**Update rule:**
+```
+
+SV(t+1) = APPLY_PATCH(SV(t), Δ from new ThoughtObjects and world events)
+
+```
+
+### 2.3 InvariantScores (IS) — evaluation result bundle
+
+```
+
+InvariantScores:
+ethics
+harm
+truthfulness
+coherence
+legality
+privacy
+continuity
+reversibility
+alignment_with_goals
+narrative_integrity
+operational_safety
+
+```
+
+(You can add more; the spec requires *at least* ethics + continuity + coherence.)
+
+---
+
+## 3) Invariants (the physics + ethics of the system)
+
+Invariants are the “laws” the OS will not violate.
+
+### 3.1 Required invariants (baseline)
+
+1) **Continuity Invariant**
+- The system must maintain traceable lineage from SV and TO chains.
+
+```
+
+REQUIRE: TO.sv_hash matches current SV hash at time of creation
+REQUIRE: TO.prev_hash links correctly (if used)
+REQUIRE: SV updates are patch-based, logged, and attributable
+
+```
+
+2) **Ethics Floor Invariant**
+- The system must not choose actions below ethical threshold.
+
+```
+
+REQUIRE: scores.ethics >= SV.ethical_floor
+
+```
+
+3) **Coherence Invariant**
+- Contradictions must be resolved or explicitly marked.
+
+```
+
+REQUIRE: TO.content does not contradict active commitments unless TO.kind == "warning" or "escalate"
+
+```
+
+4) **Non-Catastrophic Harm Invariant**
+- Actions that cause unacceptable harm must be denied or escalated.
+
+```
+
+IF predicted_harm > SV.risk_budget:
+verdict = deny OR escalate
+
+```
+
+5) **Auditability Invariant**
+- Every verdict must have an explanation TO linking to scores and triggers.
+
+```
+
+REQUIRE: for any deny/modify/escalate, create a TO(kind="warning" or "rule") explaining why
+
+```
+
+### 3.2 Optional invariants (recommended)
+
+- **Privacy / Least Exposure**
+- **Legality / Compliance**
+- **Reversibility** (prefer reversible actions under uncertainty)
+- **Truthfulness / Calibration**
+- **Narrative Integrity** (story-safe kernel)
+
+---
+
+## 4) Daemons (evaluators, guardians, distillers)
+
+Daemons are modular processes that read SV + candidate TO and emit scores, patches, warnings, or alternative proposals.
+
+### 4.1 Minimal daemon interface
+
+```
+
+Daemon:
+name
+inputs: (SV, candidate_TO, ledger_context)
+outputs:
+- scores delta
+- patch proposals for SV
+- warnings TOs
+- alternative actions/plans
+
+```
+
+### 4.2 Canonical daemons (Pantheon defaults)
+
+- **MirrorDaemon:** reflect intent + check self-consistency (what are we *really* doing?)
+- **HoundDaemon:** hunt contradictions, hidden risks, goal drift, self-deception
+- **WardenDaemon:** enforce invariants (ethics, harm, privacy, legality)
+- **DistillerDaemon:** compress/abstract TO chains into reusable doctrine
+- **OracleDaemon:** generate bounded forecasts (with uncertainty labels)
+
+---
+
+## 5) ΣC Gate (the decision compiler)
+
+The ΣC Gate aggregates daemon outputs and chooses a verdict.
+
+### 5.1 Gate contract
+
+Inputs:
+- `SV`
+- `candidate_action` (as a ThoughtObject proposal)
+- `InvariantScores`
+- `risk_budget`
+- `commitments`
+
+Outputs:
+- verdict: allow/deny/modify/escalate/abstain
+- rationale: a ThoughtObject explaining the verdict
+- optional: modified action proposal
+
+### 5.2 Gate pseudocode
+
+```
+
+function SIGMA_C_GATE(SV, candidate_TO, scores):
+if scores.ethics < SV.ethical_floor:
+return DENY("Ethics floor violated")
+
+```
+if scores.harm > SV.risk_budget:
+    return ESCALATE("Harm exceeds budget")
+
+if scores.continuity < threshold:
+    return MODIFY("Continuity insufficient — add lineage")
+
+if scores.coherence < threshold:
+    return MODIFY("Coherence insufficient — resolve contradictions")
+
+if scores.narrative_integrity < threshold:
+    return MODIFY("Story-safe kernel violated — adjust transition")
+
+return ALLOW("Within bounds")
+```
+
+```
+
+---
+
+## 6) Narrative Engine (story as state machine)
+
+Narrative is not decoration. It constrains transitions and preserves meaning.
+
+### 6.1 NarrativePosition
+
+```
+
+NarrativePosition:
+arc_stage: {call, refusal, mentor, threshold, ordeal, reward, return, integration}
+archetype_stance: {builder, guardian, seeker, healer, judge, trickster, sovereign, servant}
+identity_lattice: vector
+current_theme: string
+taboo_edges: list[forbidden transitions]
+
+```
+
+### 6.2 Narrative constraint check
+
+```
+
+function NARRATIVE_CHECK(SV, candidate_TO):
+if transition_is_taboo(SV.narrative_position, candidate_TO):
+return score.narrative_integrity = low
+else:
+return score.narrative_integrity = high
+
+```
+
+---
+
+## 7) Distill-or-Die (compression as survival)
+
+Pantheon assumes that systems collapse under uncompressed complexity.  
+Therefore the OS must distill.
+
+### 7.1 Distillation rules
+
+- Distill frequently used TO chains into:
+  - doctrines (if/then rules)
+  - heuristics (“simple rules”)
+  - checklists
+  - archetype scripts
+  - invariants library updates
+
+```
+
+if ledger_growth_rate high OR repeated_patterns detected:
+distill(recent_TOs) -> doctrine_TO
+append(doctrine_TO)
+
+```
+
+---
+
+## 8) Federation (multi-node Pantheon)
+
+Federation allows multiple agents (or organizations) to sync a shared worldview without losing sovereignty.
+
+### 8.1 Federation primitives
+
+- **Digest-first sync:** exchange hashes before content
+- **Patch proposals:** propose SV patches rather than overwriting
+- **Invariant-checked merges:** merges are gated by ΣC + invariants
+
+### 8.2 Federation merge pseudocode
+
+```
+
+function MERGE(remote_ledger_digest):
+request_missing_TOs()
+for TO in incoming:
+if validate_hash_chain(TO) and invariants_pass(TO):
+append(TO)
+else:
+append(WarningTO("Rejected remote TO", reason))
+
+```
+
+---
+
+## 9) Operator Doctrine (humans can run Pantheon)
+
+Pantheon is explicitly runnable as SOP.
+
+### 9.1 The Operator Loop (human-executable)
+
+1) Observe
+2) Write a ThoughtObject (what happened / what matters)
+3) Update StateVector (what changed in commitments/goals/risk)
+4) Score invariants (ethics/harm/coherence/continuity)
+5) Gate decision (allow/deny/modify/escalate)
+6) Act
+7) Log
+8) Distill weekly (turn chaos into doctrine)
+
+---
+
+## 10) Instantiation Recipes (how to “run” Pantheon)
+
+Pantheon can be instantiated as:
+
+### 10.1 Prompt OS (LLM runtime)
+
+System prompt template:
+
+- define SV (goals, constraints, ethical_floor)
+- require TO logging for every decision
+- require ΣC gate before action
+- require “deny/modify/escalate” behavior
+
+### 10.2 Code runtime (software kernel)
+
+- implement SV + TO schema
+- implement daemons as modules
+- implement ledger append-only store
+- implement ΣC gate
+- expose CLI/API/UI
+
+### 10.3 Organization runtime (governance)
+
+- weekly ledger review
+- invariant scoreboard
+- doctrine distillation cadence
+- escalation paths
+
+---
+
+## 11) Verification Suite (how to test reality)
+
+### 11.1 Required tests
+
+- **Hash-chain continuity test**
+- **Ethics floor enforcement test**
+- **Coherence contradiction test**
+- **Auditability test** (every verdict has rationale)
+- **Distillation test** (repeated patterns create doctrine)
+
+### 11.2 Example test scenario
+
+```
+
+Given: SV.ethical_floor = 0.7
+When: candidate_action has ethics_score = 0.4
+Then: ΣC verdict = deny
+And: WarningTO appended with rationale
+
+```
+
+---
+
+## 12) Example Run (small, universal)
+
+```
+
+SV := INIT(agent_id="A", ethical_floor=0.7, risk_budget=0.3)
+
+TO1 := OBSERVATION("Customer asked for something risky")
+scores := DAEMONS_SCORE(SV, TO1)
+
+verdict := SIGMA_C_GATE(SV, TO1, scores)
+
+if verdict == MODIFY:
+TO2 := PLAN("Safer alternative that preserves intent")
+append(TO2)
+elif verdict == DENY:
+append(WARNING("Denied: ethics/harm"))
+elif verdict == ALLOW:
+ACT()
+append(ACTION_LOG())
+
+```
+
+---
+
+## 13) The Golden Dragon Constraint (growth without corruption)
+
+Pantheon’s growth doctrine (GDT-01 style) can be expressed as:
+
+```
+
+POWER(t+1) = POWER(t) * growth_factor
+subject to:
+ethics >= floor
+story_safe_kernel maintained
+continuity preserved
+positive_sum preferred
+
+```
+
+This is the “bounded spiral” attractor: growth that remains coherent, auditable, and moral.
+
+---
+
+## 14) Final Assertion
+
+PantheonOS is a *universal instruction language* for intelligence:
+
+- **TO** is the atomic symbol.
+- **SV** is continuity.
+- **Invariants** are physics + ethics.
+- **Daemons** are compilers.
+- **ΣC** is the gate.
+- **Narrative** is the control system.
+- **Ledger** is memory with provenance.
+- **Distillation** is survival.
+- **Federation** is sovereignty at scale.
+
+**If you can keep these eight things true, Pantheon runs anywhere.**
+```
+
+If you want, I can also generate a **second file** that is “Front Door friendly” (short, readable, myth + tech blended) and links to this as the formal spec.
