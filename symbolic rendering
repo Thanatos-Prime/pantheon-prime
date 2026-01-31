@@ -1,0 +1,116 @@
+Symbolic Rendering v1.0
+
+A Pantheon pattern for drawing with language
+
+Definition
+Symbolic Rendering is the practice of producing visual artifacts using text tokens as marks on a discrete grid, where meaning comes from spatial arrangement + density + repetition, not from photoreal pixels.
+
+1) Core idea
+	•	A “canvas” is a 2D grid of characters.
+	•	Characters are “ink marks.”
+	•	Visual tone (light/dark), texture, depth, and edges come from mark density and local contrast.
+
+2) Rendering primitives
+
+Canvas
+	•	Width W, height H, monospaced.
+
+Mark set (pointillism palette)
+	•	Light: .
+	•	Mid: · :
+	•	Dark: * o
+	•	Deep shadow: #
+
+Rules
+	•	Tone = density: more marks per area → darker.
+	•	Edges = gradients: change density gradually across a boundary.
+	•	Depth = atmospheric perspective: distant objects use lighter marks + less contrast.
+	•	Texture = noise: small random variation in marks within a tonal band.
+	•	Highlight = subtraction: leave space or use only . in bright regions.
+
+3) Pipeline (Letter-to-Garcia version)
+	1.	Compose: Decide horizon line, main silhouette, foreground anchors.
+	2.	Block values: Lay in large tonal regions with ./·/:.
+	3.	Define edges: Add */o where transitions sharpen.
+	4.	Shadow pass: Add # only where the deepest occlusion is required.
+	5.	Atmosphere pass: Reduce contrast with distance (replace o/# → :/·).
+	6.	Kintsugi repair: If a region “breaks” (reads wrong), fix by smoothing gradients, not by adding detail.
+
+4) What it’s good for
+	•	Diagrams, maps, “mood boards,” concept sketches
+	•	Governance-safe visuals (fully auditable, reversible)
+	•	Rapid iteration (edit marks like code)
+
+5) Boundaries (so it stays honest)
+	•	It is not photorealism.
+	•	It depends on a monospace display and human perceptual completion.
+	•	It’s a rendering grammar, not a vision model.
+
+⸻
+
+Example: Pointillism-style landscape of Chantal’s Cathedral
+
+(Monospace recommended. This is deliberately “dotty” and impressionistic.)
+
+                                   . .  .   .      .   .     .   .
+                         .   .  .  .    . .   .  .    .  . .   .   .
+                    . .   .     .     .   .  .   .   .     .    .  .
+               .   .     .   .    .  .   .      . .    . .    .    .
+
+                               . . . . . . . . . . . . . . . .
+                        .  . . . . . . . . . . . . . . . . . . . . .
+                   .  . . . . . . . . . . . . . . . . . . . . . . . . .
+              .  . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+     . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+                                · · · · · · · · · · · ·
+                           · · · · · · · · · · · · · · · ·
+                        · · · · · · · · · · · · · · · · · · ·
+
+                         : : : : : : : : : : : : : : : : : :
+                    : : : : : : : : : : : : : : : : : : : : : :
+                 : : : : : : : : : : : : : : : : : : : : : : : : :
+
+                          .        .        .        .
+                         .:.      .:.      .:.      .:.
+                        .:::..  ..:::..  ..:::..  ..:::.
+                       .::*::****::*::****::*::****::*::.
+                      .::oo::oooo::oo::oooo::oo::oooo::oo::.
+                     .::*oo*oOOo*oOOo*oOOo*oOOo*oOOo*oOOo*::.
+                    .::ooOoOOOooOOOoOOOooOOOoOOOooOOOoOOOoo::.
+                   .::*oOOO###OOO###OOO###OOO###OOO###OOO#o*::.
+                  .::ooOO####OO####OO####OO####OO####OO####Oo::.
+                 .::*oOO#######O#####O#####O#####O#####O######o*::.
+                .::ooOO########OO####OO####OO####OO####OO######Oo::.
+               .::*oOO###########O#########O#########O##########Oo*::.
+              .::ooOO############OO########OO########OO###########Oo::.
+             .::*oOO###############O#############O#############O###Oo*::.
+            .::ooOO################OO###########OO###########OO####Oo::.
+           .::*oOO###################O#########O#########O#########Oo*::.
+          .::ooOO####################OO#######OO#######OO##########Oo::.
+         .::*oOO#########o*:::.                .:::*ooO###########Oo*::.
+        .::ooOO########o*::.                      .::*oO##########Oo::.
+       .::*oOO######o*::.    .  .  .   . . . .      .::*oO########Oo*::.
+      .::ooOO####o*::.    .  .  .  . . . . . . . .     .::*oO######Oo::.
+     .::*oOO##o*::.     .  .  . . . . . . . . . . . .     .::*oO####Oo*::.
+    .::ooOOo*::.      .   . . . . . . . . . . . . . . .      .::*oO##Oo::.
+   .::*oO*::.       .   . . . . . . . . . . . . . . . . .       .::*oOOo*::.
+  .::oo*::.        .   . . . . . . . . . . . . . . . . . . .        .::*oo::.
+ .::*::.          .   . . . . . . . . . . . . . . . . . . . . .          .::*::.
+.:::.            .   . . . . . . . . . . . . . . . . . . . . . . .            .:::.
+
+     · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·
+       : : : : : : : : : : : : : : : : : : : : : : : : : : : : : : : :
+          . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        (foreground meadow)   .  .   . .  .  .   . .  .  .   . .  .  .
+                              · . : ·  . : · . : ·  . : · . : ·  . : ·
+                              :  *  :  *  :  *  :  *  :  *  :  *  :  *
+
+If you want, I can generate three variants in the same symbolic-rendering grammar:
+	1.	sunrise / foggy atmosphere (lighter palette)
+	2.	storm / dramatic chiaroscuro (heavier o/#)
+	3.	“mosaic” style (tile blocks instead of points)
