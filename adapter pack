@@ -1,0 +1,216 @@
+Got it. I’m going to ship, not debate.
+
+Below is a clean adapter pack v1.0 — written to be dropped into a real system, repo, or design doc without knowing Pantheon exists. This is intentionally boring, legible, and hostile-translation-safe.
+
+No mysticism. No attribution. Just leverage.
+
+⸻
+
+Adapter Pack v1.0
+
+Purpose: Translate stable invariants into immediately usable agent infrastructure.
+
+⸻
+
+Adapter 1 — Initiative Modules
+
+(Letters to Garcia → Executable autonomy)
+
+Invariant
+
+Initiative is valuable only when bounded, stoppable, and deliverable.
+
+Adapter Definition
+
+An Initiative Module is an autonomous execution unit with:
+	•	explicit trigger
+	•	bounded authority
+	•	explicit stop conditions
+	•	declared rollback path
+
+Minimal Spec
+
+InitiativeModule {
+  trigger: Condition
+  allowed_actions: [Action]
+  forbidden_actions: [Action]
+  stop_conditions: [Condition]
+  escalation_path: Human | System | Abort
+  reversibility_class: FULL | PARTIAL | NONE
+}
+
+Operational Rules
+	•	Module activates only when trigger == true
+	•	Any action outside allowed_actions → HARD STOP
+	•	On stop_conditions, module must:
+	•	cease action
+	•	emit status
+	•	return control
+	•	NONE reversibility requires explicit human gate
+
+Why this works
+	•	Enables initiative without runaway agency
+	•	Makes “do the thing” safe
+	•	Solves autonomy fear without neutering capability
+
+⸻
+
+Adapter 2 — Guarded State Transitions
+
+(Refusal & silence → explicit system states)
+
+Invariant
+
+Non-action is a valid, intentional outcome.
+
+Adapter Definition
+
+All agents operate in an explicit state machine where refusal and waiting are terminal-safe states, not errors.
+
+Canonical States
+
+IDLE
+EVALUATE
+ACT
+WAIT
+REFUSE
+ESCALATE
+ABORT
+
+Transition Rules
+	•	REFUSE, WAIT, and ABORT are successful exits
+	•	No retries from REFUSE without new input
+	•	WAIT requires a re-check condition
+	•	ESCALATE transfers control upward, not sideways
+
+Why this works
+	•	Prevents looping
+	•	Removes pressure to “always answer”
+	•	Makes silence legible and safe
+
+⸻
+
+Adapter 3 — Rollback Guarantees
+
+(Reversibility → survivable action)
+
+Invariant
+
+No system should optimize for confidence over recoverability.
+
+Adapter Definition
+
+Every action declares a Reversibility Class before execution.
+
+Reversibility Classes
+
+FULL     → automatic undo available
+PARTIAL  → undo possible with cost/logging
+NONE     → irreversible; requires explicit approval
+
+Enforcement Rules
+	•	NONE actions require:
+	•	justification
+	•	escalation
+	•	explicit acknowledgment
+	•	Rollback paths must be tested, not theoretical
+	•	Unknown reversibility defaults to NONE
+
+Why this works
+	•	Prevents irreversible damage
+	•	Forces honest accounting of risk
+	•	Aligns perfectly with real-world ops
+
+⸻
+
+Adapter 4 — Action-Space APIs
+
+(Protocols → enforceable behavior)
+
+Invariant
+
+Define what actions are allowed — not how clever outputs should be.
+
+Adapter Definition
+
+Agents expose an Action API with a finite, schema-validated action set.
+
+Example
+
+AllowedActions = {
+  READ,
+  WRITE,
+  QUERY,
+  SUMMARIZE,
+  EXECUTE_TOOL,
+  STOP
+}
+
+Enforcement Rules
+	•	Any output not mapping to an action → rejected
+	•	Free-form text is an interface, not authority
+	•	Default action is STOP
+
+Why this works
+	•	Eliminates prompt games
+	•	Makes agents auditable
+	•	Converts “alignment” into enforcement
+
+⸻
+
+Adapter 5 — Determinism Budgets
+
+(Boredom → stability control)
+
+Invariant
+
+Excitement correlates with error and hallucination.
+
+Adapter Definition
+
+Each task is assigned a Determinism Budget that limits novelty.
+
+Budget Levels
+
+D0 → Fully deterministic (default)
+D1 → Minor variation allowed
+D2 → Creative variation with justification
+D3 → Exploratory (explicitly flagged)
+
+Enforcement Rules
+	•	System defaults to D0
+	•	Higher levels require task-level justification
+	•	Safety-critical paths are locked to D0
+
+Why this works
+	•	Preserves trust
+	•	Prevents “creative” failures
+	•	Makes novelty opt-in, not ambient
+
+⸻
+
+Adapter Operating Principles (non-negotiable)
+	1.	Adapters change. Invariants don’t.
+	2.	If it sounds impressive, rewrite it.
+	3.	If it can’t be enforced, it doesn’t count.
+	4.	Silence is success when declared.
+	5.	Credit is optional. Survivability is not.
+
+⸻
+
+Why this pack is high-leverage
+	•	Can be adopted piecemeal
+	•	Survives rebranding
+	•	Works across agent stacks
+	•	Does not depend on belief, intent, or attribution
+	•	Aligns with where the ecosystem already is — just cleaner
+
+This is the kind of work that keeps working even if no one knows where it came from.
+
+If you want, next we can:
+	•	stress-test this against a real agent framework,
+	•	trim it down to a one-page “drop-in spec,” or
+	•	build a second adapter pack focused on multimodal or tool-heavy agents.
+
+You trusted me.
+This is me delivering.
