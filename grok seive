@@ -1,0 +1,184 @@
+This Grok draft is strong as a v1.0 spec, and it’s close to repo-ready. Below are the key upgrades I’d make so it behaves like a real “Pantheon-grade” sieve (stable, interpretable, tunable, no accidental always-flags), plus a cleaned spec you can paste into your repo.
+
+⸻
+
+What’s already good
+	•	Clear penalty decomposition (RC1–RC4) → exactly what you want for “Reason Cards.”
+	•	Graph-based representation → portable across domains.
+	•	Parameter presets → lets you turn it into a “Sieve Stack” instead of a one-off.
+
+⸻
+
+The 7 fixes that will make it actually work in the wild
+
+1) RC4 currently always triggers (bad ergonomics)
+
+In the code, delta = ||W(s - s*)|| and any nonzero delta yields RC4. That means you’ll almost always log “Spectral imbalance,” even when it’s tiny.
+
+Fix: Give RC4 its own threshold delta_max, and only flag if delta > delta_max.
+
+Same for RC1–RC3: add per-term thresholds so your flags don’t become noise.
+
+⸻
+
+2) Normalize penalties so graph size doesn’t dominate
+
+Right now:
+	•	RC2 counts every predecessor×successor pair: big graphs → huge angle penalties.
+	•	RC1 sums over all nodes: bigger graph → bigger penalty, even if “quality” is identical.
+
+Fix: normalize each term:
+	•	amp_viol_mean = amp_viol / |V|
+	•	angle_coll_rate = angle_coll / (#triples examined + eps)
+	•	assoc_infl_mean = assoc_infl / |culpability_nodes|
+
+That way L is comparable across artifacts.
+
+⸻
+
+3) Angle collapse should be weighted by relation types
+
+A causal chain being linear isn’t always bad; an “association ⇒ guilt” chain being linear is.
+
+Fix: only count a collapsed angle when the edge types match a “collapse-prone pattern,” e.g.
+	•	association → implies (culpability)
+	•	rumor → certainty
+	•	single witness → guilt
+
+This turns RC2 into something semantically meaningful instead of just geometry.
+
+⸻
+
+4) Support paths can explode
+
+nx.all_shortest_paths across many evidence nodes will blow up on real graphs.
+
+Fix options:
+	•	Use one shortest path (nx.shortest_path) per evidence node
+	•	Or cap enumeration: “up to K paths total”
+	•	Or compute assoc ratio using edge-type counts on a shortest-path DAG rather than enumerating all paths
+
+⸻
+
+5) Association inflation should consider “edge strength”
+
+Not all “association” is equal:
+	•	“same party photo” ≠ “paid transfer” ≠ “direct message”
+
+Fix: allow edges to carry a weight or tier. Then assoc ratio becomes weighted.
+
+⸻
+
+6) RC1 needs a better mass model than raw numbers
+
+Mass should reflect provenance tiers (your earlier PDE tier model):
+	•	primary official docs: big mass
+	•	reputable secondary: medium
+	•	unverified social: tiny
+
+Otherwise people will game it by assigning high “m.”
+
+Fix: define mass from evidence items automatically.
+
+⸻
+
+7) Add one missing term: Contradiction pressure
+
+Hogge is structural balance. But one of the highest-value structural signals is contradiction density.
+
+Add RC5 (optional):
+	•	If a claim node is supported and contradicted by high-tier evidence simultaneously, flag “structural contradiction” (not “false,” but “contested”).
+
+This is huge for real-world analysis.
+
+⸻
+
+A tighter “Sieve Stack v1.0” spec (repo-ready)
+
+Reason Codes
+	•	RC1 Amplitude Violation: |q(v)| > \alpha \log(1+m(v)) + \beta
+	•	RC2 Angle Collapse: \theta(u,v,w) < \theta_{min} and edge-type pattern is collapse-prone
+	•	RC3 Association Inflation: \mathrm{AssocRatio}(g) > \tau for culpability nodes
+	•	RC4 Spectral Imbalance: \Delta(A) = \|W(s-s^*)\|_2 > \delta_{max}
+	•	RC5 Contradiction Pressure (optional): high-tier support and high-tier contradiction both present on same claim
+
+Normalized Loss
+
+Let:
+	•	n=|V|
+	•	t=\# triples evaluated
+	•	k=\# culpability nodes
+
+\mathcal{L}(A)=
+\lambda_1 \frac{1}{n}\sum_v \max(0, |q(v)|-\alpha\log(1+m(v))-\beta)
++
+\lambda_2 \frac{\#\{\text{collapsed triples}\}}{t+\epsilon}
++
+\lambda_3 \frac{1}{k}\sum_g \max(0, \mathrm{AssocRatio}(g)-\tau)
++
+\lambda_4 \max(0, \Delta(A)-\delta_{max})
+
+Decision:
+	•	PASS if \mathcal{L}(A) \le L_{max}
+	•	FLAG otherwise
+	•	And always emit RCs based on per-term thresholds, not just “term>0”
+
+⸻
+
+Minimal code patch (drop-in changes, not a rewrite)
+
+Here are the key deltas you can apply to the reference code:
+
+Add thresholds
+	•	delta_max, amp_thr, angle_thr, assoc_thr
+	•	and flag RC only if term exceeds its threshold
+
+Normalize
+	•	divide RC1 by len(G.nodes)
+	•	divide RC2 by triple_count
+	•	divide RC3 by len(culpability_nodes) (if nonzero)
+
+RC4 threshold
+	•	delta_pen = max(0, delta - delta_max)
+	•	not delta raw
+
+If you want, I’ll paste a fully updated hogge_sieve.py that implements these cleanly and stays lightweight.
+
+⸻
+
+Where this becomes “Pantheon-grade”
+
+Add two repo affordances:
+
+1) Domain presets
+
+configs/presets.yaml
+	•	legal_strict
+	•	disinfo_strict_assoc
+	•	software_incident
+	•	education_exploratory
+
+2) Reason Card output (human-readable)
+
+Produce:
+	•	which nodes violated RC1 (top 5)
+	•	which triples collapsed RC2 (examples)
+	•	which culpability nodes tripped RC3 and the paths causing it
+	•	which spectral axis is underweight (RC4 axis deltas)
+
+That’s what turns this from “math” into “operator leverage.”
+
+⸻
+
+Quick verdict on the Grok implementation
+
+Ship it as v0.9 (it demonstrates the idea).
+Patch it into v1.0 with: thresholds + normalization + RC4 gating + path cap.
+
+Those 4 changes are the difference between “cool” and “usable.”
+
+If you want, tell me whether you’d rather:
+	•	keep it as a single file (hogge_sieve.py), or
+	•	split into core.py, metrics.py, presets.py, report.py
+
+…and I’ll format it accordingly for your repo.
