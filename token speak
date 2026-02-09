@@ -1,0 +1,175 @@
+Got you. Here’s a functional seed for a token-based language where meaning lives in combinations, not isolated symbols. Think: compound spells with explicit mechanics, but engineering-clean.
+
+Pantheon Combo Language v0.1 (PCL)
+
+0) Design goal
+
+A small set of primitive tokens + composition operators that generate higher meaning through bundles and chains, with deterministic “compile” rules.
+
+⸻
+
+1) Primitives (the “atoms”)
+
+Each token is a typed primitive with a stable role. Start with 12.
+
+Core types
+	•	A = Agency (who acts, how)
+	•	C = Constraint (what must hold)
+	•	R = Reversibility (exit / undo / rollback)
+	•	T = Time (when / pacing)
+	•	E = Evidence (what counts as proof)
+	•	S = Safety (harm bounds / ethical floor)
+	•	F = Frame (interpretation layer / lens)
+	•	G = Goal (direction, not guarantee)
+	•	M = Mechanism (how it works, causal handle)
+	•	X = Context (what’s assumed true)
+	•	L = Ledger (trace / provenance)
+	•	Z = Zero (reset/home state / optionality anchor)
+
+You can extend later, but don’t yet.
+
+⸻
+
+2) Composition operators (how combos work)
+
+Bundle (unordered intersection)
+
+{A C R} means these constraints co-apply; order doesn’t matter.
+
+Chain (ordered execution)
+
+A → C → R means apply in sequence.
+
+Gate (required precondition)
+
+C ?> G means “only pursue G if C holds.”
+
+Bind (token modifies token)
+
+F::E means “Evidence evaluated through Frame F.”
+
+Negation (prohibited / inverted)
+
+!R means irreversibility; !E means no evidence available.
+
+Weight (soft priority)
+
+R^2 means prioritize reversibility strongly.
+
+⸻
+
+3) Semantics: how a combo “compiles”
+
+Every expression compiles into a Decision Packet with fields:
+	•	intent (what it tries to do)
+	•	invariants (must remain true)
+	•	permissions (allowed actions)
+	•	tests (evidence checks)
+	•	exit (reversibility plan)
+	•	trace (ledger notes)
+
+Rule 1: Safety dominance
+If S is present, it overrides all action tokens on conflicts.
+
+Rule 2: Zero as fallback
+If the chain fails any gate, default to Z (pause/reset) unless explicitly overridden.
+
+Rule 3: Evidence gates claims
+Any strong claim without E gets tagged speculative.
+
+Rule 4: Reversibility gates scale
+If !R and action magnitude is high, require E + S + L.
+
+⸻
+
+4) “Meta-tokens” (combinations that become new tokens)
+
+A meta-token is a named combo that recurs and stays stable across contexts.
+
+Format:
+TOKEN_NAME := <expression>
+
+Examples (seed set):
+	•	SVS := {A C R} + (C ?> G)
+Selective Voluntary Submission = agency chooses constraint, preserves exit, gates goal.
+	•	ATLAS := {X L E} + (F::E)
+Atlas/Concordance mode = context + ledger + evidence evaluated through an explicit frame.
+	•	GARcia := A → C → E → L → R → Z
+Initiative loop = act, constrain, test, log, ensure exit, return home.
+	•	ANTI_CAP := {S R L} + (F::E)
+Anti-capture = safety + reversibility + provenance + explicit framing.
+
+You can keep naming lightweight so it doesn’t become religion.
+
+⸻
+
+5) Syntax (minimal but usable)
+
+Statements
+	•	DEF <Name> := <Expr>
+	•	RUN <Expr> ON <Target>
+	•	CHECK <Expr> (validates gates/requirements)
+	•	LOG <note> (adds to ledger)
+
+Example expressions
+	•	{A C R} ?< {E S} means: action+constraint+reversibility requires evidence+safety.
+	•	F::E → (C ?> G) means: evaluate evidence through frame, then gate goal by constraints.
+
+⸻
+
+6) One “perfect seed” workflow (drop-in daily compound)
+
+The Daily 1% Protocol
+
+DAILY_1 := {A R L} + (E ?> G) + (S ?> A) + Z
+
+Interpretation:
+	•	Act only if reversible.
+	•	Log what you did.
+	•	Evidence gates goals.
+	•	Safety gates action.
+	•	Return to zero daily.
+
+⸻
+
+7) Example: turning a fuzzy idea into a compiled packet
+
+User intent: “Improve repo navigation without centralizing authority.”
+
+Write in PCL:
+RUN ATLAS + ANTI_CAP + (C ?> G) ON REPO
+
+Where:
+	•	C = “index ≠ authority”
+	•	G = “improve discoverability”
+	•	E = “search results + coverage report”
+	•	L = “generated CANON_INDEX + concordance artifacts”
+	•	R = “changes are reversible; no destructive rewrites”
+	•	S = “no coercive governance, no single choke point”
+
+This compiles to:
+	•	invariants: index doesn’t control; provenance preserved; reversible
+	•	tests: can we locate every canon item deterministically?
+	•	outputs: concordance artifacts + canon registry map
+
+⸻
+
+8) Next step (still seed-simple, but powerful)
+
+Add a tiny header format to every canon file so combos become machine-readable:
+
+PCL:
+  canon: "Merkle Warden"
+  tokens: [L, E, S]
+  meta: [ATLAS, ANTI_CAP]
+  invariants: ["tamper-evident", "ethics>=0.7"]
+
+Now your “atlas” isn’t vibes; it’s parseable.
+
+⸻
+
+If you want, I’ll generate a starter PCL_LEXICON.md containing:
+	•	the 12 primitives,
+	•	the operators,
+	•	20 meta-tokens (SVS/GARCIA/ATLAS/ANTI_CAP etc.),
+	•	and 10 example “spells” you can actually use to run repo tasks and governance checks.
