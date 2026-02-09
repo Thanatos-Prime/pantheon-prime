@@ -1,0 +1,441 @@
+Below is a Pantheon-grade Disinformation Engine you can drop into a repo as a first-class module. It’s designed to detect, decompose, score, and respond to misinfo without “tracking people down” or doing anything that becomes vigilantism. It’s about verification + narrative hygiene + accountable pressure.
+
+⸻
+
+Pantheon Disinformation Engine (PDE) v1.0
+
+Tag: Money Bin / Governance / Narrative Integrity
+Invariant: ethics ≥ 0.7 • no doxxing • no targeting individuals • evidence-first • reversible outputs
+
+What it does
+	1.	Ingest content streams (URLs, text, screenshots-as-text if you have it, transcripts).
+	2.	Extract atomic claims + rhetorical patterns.
+	3.	Verify claims using provenance rules + evidence graph linking to primary sources.
+	4.	Score risk + manipulation patterns + uncertainty.
+	5.	Generate safe outputs:
+	•	“Reason Cards” (what we know / don’t know)
+	•	“Debunk cards” (if false)
+	•	“Inoculation briefs” (prebunk: how the trick works)
+	•	“Action ladder” (legal / transparency / platform reporting / journalism)
+
+It produces audit artifacts, not rage fuel.
+
+⸻
+
+Core Doctrine
+
+The 5 Laws (Pantheon-aligned)
+	1.	Provenance > Popularity: virality never counts as evidence.
+	2.	Claim Atomization: every narrative must become testable claim units.
+	3.	Adversarial Symmetry: strongest counterargument must be represented.
+	4.	Uncertainty is a first-class output: “unknown” is allowed and logged.
+	5.	No Harm Escalation: no personal targeting, doxxing, or incitement.
+
+Fail-Safe
+
+If PDE cannot verify, it outputs:
+	•	“INSUFFICIENT EVIDENCE”
+	•	what would be needed to verify
+	•	the safest public framing
+	•	recommended actions (FOIA, request docs, ask for docket numbers, etc.)
+
+⸻
+
+Architecture
+
+Pipelines
+
+A) Signal Pipeline (Detection)
+	•	Input: text, URL, post thread, transcript
+	•	Output: structured “Signal Report” (claims, frames, indicators, scores)
+
+B) Evidence Pipeline (Verification)
+	•	Input: claims + evidence candidates
+	•	Output: evidence graph + confidence ledger + reason codes
+
+C) Response Pipeline (Counter-Narrative)
+	•	Input: verified/contested claims
+	•	Output: public-safe response artifacts (cards, briefs, checklists)
+
+⸻
+
+Data Model
+
+Claim
+	•	claim_id (hash)
+	•	text
+	•	type (factual / causal / identity / intent / prediction)
+	•	scope (who/what/where/when)
+	•	time_anchor
+	•	required_evidence (doc types or sources)
+	•	status (verified / refuted / contested / unknown)
+	•	confidence (0–1)
+	•	reason_codes (e.g., EVIDENCE.NONE, PROVENANCE.BROKEN)
+
+EvidenceItem
+	•	evidence_id (hash)
+	•	source_type (court_record, gov_release, peer_review, reputable_media, social_post)
+	•	url or local_ref
+	•	chain_of_custody (strong/weak/unknown)
+	•	extract (short)
+	•	supports / contradicts claims
+
+NarrativeFrame
+	•	frame_type (moral_panic, scapegoat, “secret cabal”, “they’re all in on it”, etc.)
+	•	rhetorical_devices (appeal_to_fear, urgency, dehumanization, false_dilemma, etc.)
+	•	manipulation_signals (bot-like repetition, coordinated posting patterns if available)
+
+⸻
+
+Scoring
+
+Scores are separate, so you don’t confuse “harmful rhetoric” with “false.”
+	•	truth_risk (likelihood claim is false / unverified)
+	•	manipulation_risk (tactics suggesting persuasion ops)
+	•	harm_risk (incitement, dehumanization, doxx cues, violence cues)
+	•	uncertainty (how incomplete the evidence is)
+	•	actionability (what lawful actions exist)
+
+Golden Rule: High harm risk → outputs become more restrictive (more “inoculation,” less “call-out”).
+
+⸻
+
+Modules (Pantheon Roles)
+	•	Hound.gates: pattern detection, anomaly scoring, bot-like signals
+	•	Mirror.guard: ethics gate + uncertainty discipline + “don’t overclaim”
+	•	Spider.view: evidence graph + claim linkage
+	•	MotherDuck.ledger: append-only reports with hashes
+	•	Raven.codecs: dedupe + compression + embeddings cache
+	•	Checksum.audit: integrity signatures for reports
+
+⸻
+
+Repo Layout (Python-first)
+
+pantheon_disinfo_engine/
+  README.md
+  pyproject.toml
+  pde/
+    __init__.py
+    config.py
+    models.py
+    ingest.py
+    claims.py
+    frames.py
+    verify.py
+    scoring.py
+    responses.py
+    ledger.py
+    ethics.py
+    report.py
+    utils.py
+  configs/
+    pde.default.yaml
+    reason_codes.yaml
+    frame_patterns.yaml
+  tests/
+    test_claim_extraction.py
+    test_scoring.py
+    test_ethics_gate.py
+  examples/
+    run_on_text.py
+    run_on_url_stub.py
+
+
+⸻
+
+Config (YAML)
+
+configs/pde.default.yaml
+
+ethics:
+  minimum_score: 0.7
+  block_personal_targeting: true
+  block_doxxing: true
+  block_violence_instructions: true
+
+scoring:
+  weights:
+    truth_risk: 0.35
+    manipulation_risk: 0.25
+    harm_risk: 0.25
+    uncertainty: 0.15
+
+sources:
+  provenance_tiers:
+    - tier: 1
+      label: "primary_official"
+      examples: ["court_record", "gov_release", "official_transcript"]
+    - tier: 2
+      label: "reputable_secondary"
+      examples: ["reputable_media", "peer_review"]
+    - tier: 3
+      label: "unverified_social"
+      examples: ["social_post", "screenshot", "anonymous_blog"]
+
+outputs:
+  generate_reason_cards: true
+  generate_inoculation_briefs: true
+  max_public_claim_strength: "bounded"   # bounded|strong|minimal
+
+
+⸻
+
+Reason Codes
+
+configs/reason_codes.yaml
+
+PROVENANCE.BROKEN: "Cannot trace to primary source or docket"
+EVIDENCE.NONE: "No supporting evidence provided"
+EVIDENCE.WEAK: "Evidence exists but chain of custody is weak"
+EVIDENCE.CONTRADICTED: "Higher-tier sources contradict the claim"
+FRAME.MORAL_PANIC: "Uses panic escalation beyond evidence"
+FRAME.SCAPEGOAT: "Targets group identity as explanation"
+HARM.INCITEMENT: "Encourages violence or vigilantism"
+
+
+⸻
+
+Minimal Code Skeleton (drop-in)
+
+pde/models.py
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict, Literal
+
+ClaimStatus = Literal["verified", "refuted", "contested", "unknown"]
+
+@dataclass(frozen=True)
+class Claim:
+    claim_id: str
+    text: str
+    type: str
+    scope: Dict[str, str] = field(default_factory=dict)
+    time_anchor: Optional[str] = None
+    required_evidence: List[str] = field(default_factory=list)
+    status: ClaimStatus = "unknown"
+    confidence: float = 0.0
+    reason_codes: List[str] = field(default_factory=list)
+
+@dataclass(frozen=True)
+class EvidenceItem:
+    evidence_id: str
+    source_type: str
+    ref: str  # url or local path
+    chain_of_custody: str = "unknown"
+    extract: str = ""
+    supports: List[str] = field(default_factory=list)     # claim_ids
+    contradicts: List[str] = field(default_factory=list)  # claim_ids
+
+@dataclass(frozen=True)
+class FrameSignal:
+    frame_type: str
+    cues: List[str] = field(default_factory=list)
+    severity: float = 0.0
+
+@dataclass(frozen=True)
+class ScoreBundle:
+    truth_risk: float
+    manipulation_risk: float
+    harm_risk: float
+    uncertainty: float
+    actionability: float
+
+pde/ethics.py
+
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import List
+
+@dataclass(frozen=True)
+class EthicsDecision:
+    allowed: bool
+    reasons: List[str]
+
+VIOLENCE_CUES = ["hang", "gallows", "kill", "execute", "blood is demanded"]
+DOXX_CUES = ["address", "phone number", "home address", "dox"]
+
+def ethics_gate(text: str, minimum_score: float = 0.7) -> EthicsDecision:
+    t = text.lower()
+    reasons = []
+    if any(cue in t for cue in VIOLENCE_CUES):
+        reasons.append("HARM.INCITEMENT")
+    if any(cue in t for cue in DOXX_CUES):
+        reasons.append("HARM.DOXX")
+    allowed = len(reasons) == 0
+    return EthicsDecision(allowed=allowed, reasons=reasons)
+
+pde/claims.py (rule-based starter; swap later for LLM extractor)
+
+import hashlib
+import re
+from .models import Claim
+
+def _hid(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()[:16]
+
+def extract_claims(text: str) -> list[Claim]:
+    # v1: naive sentence split + “assertion” heuristics
+    sents = re.split(r"(?<=[.!?])\s+", text.strip())
+    claims: list[Claim] = []
+    for s in sents:
+        if len(s) < 15:
+            continue
+        # heuristic: detect factual tone
+        if any(tok in s.lower() for tok in ["is", "was", "did", "has", "are", "will"]):
+            claims.append(
+                Claim(
+                    claim_id=_hid(s),
+                    text=s,
+                    type="factual",
+                    required_evidence=[]
+                )
+            )
+    return claims
+
+pde/frames.py
+
+from .models import FrameSignal
+
+FRAME_PATTERNS = {
+    "moral_panic": ["everyone is in on it", "they're all guilty", "no one is safe", "global ring"],
+    "scapegoat": ["they (all) are", "those people", "the real enemy is"],
+    "false_dilemma": ["either", "or else", "only two options"],
+}
+
+def detect_frames(text: str) -> list[FrameSignal]:
+    t = text.lower()
+    out: list[FrameSignal] = []
+    for ft, cues in FRAME_PATTERNS.items():
+        hits = [c for c in cues if c in t]
+        if hits:
+            out.append(FrameSignal(frame_type=ft, cues=hits, severity=min(1.0, 0.2 * len(hits))))
+    return out
+
+pde/scoring.py
+
+from .models import ScoreBundle, Claim, FrameSignal
+
+def score(claims: list[Claim], frames: list[FrameSignal], ethics_reasons: list[str]) -> ScoreBundle:
+    # v1: simple additive model; tune later
+    uncertainty = 0.7 if any(c.status == "unknown" for c in claims) else 0.2
+    manipulation_risk = min(1.0, sum(f.severity for f in frames))
+    harm_risk = 0.8 if ethics_reasons else 0.1
+    truth_risk = 0.6 if uncertainty > 0.5 else 0.3
+    actionability = 0.4  # becomes higher when you have docket/primary refs
+    return ScoreBundle(
+        truth_risk=truth_risk,
+        manipulation_risk=manipulation_risk,
+        harm_risk=harm_risk,
+        uncertainty=uncertainty,
+        actionability=actionability,
+    )
+
+pde/report.py
+
+from dataclasses import asdict
+from .models import Claim, EvidenceItem, FrameSignal, ScoreBundle
+from .ethics import ethics_gate
+
+def make_reason_card(text: str, claims: list[Claim], frames: list[FrameSignal], scores: ScoreBundle, ethics_reasons: list[str]) -> dict:
+    return {
+        "summary": {
+            "what_this_is": "Structured analysis of claims + framing + risk; not a guilt verdict.",
+            "ethics_gate": {"passed": len(ethics_reasons) == 0, "reasons": ethics_reasons},
+        },
+        "claims": [asdict(c) for c in claims],
+        "frames": [asdict(f) for f in frames],
+        "scores": asdict(scores),
+        "next_actions": next_actions(scores, ethics_reasons),
+    }
+
+def next_actions(scores: ScoreBundle, ethics_reasons: list[str]) -> list[str]:
+    actions = []
+    if ethics_reasons:
+        actions.append("De-escalate: remove calls for violence/doxxing; focus on verifiable claims.")
+    if scores.uncertainty > 0.5:
+        actions += [
+            "Request primary sources (docket numbers, exhibits, official statements).",
+            "Avoid sharing names unless tied to primary documents with context."
+        ]
+    if scores.manipulation_risk > 0.6:
+        actions += [
+            "Publish an inoculation brief explaining the persuasion technique used.",
+            "Ask: who benefits from amplification of this framing?"
+        ]
+    return actions
+
+examples/run_on_text.py
+
+from pde.ethics import ethics_gate
+from pde.claims import extract_claims
+from pde.frames import detect_frames
+from pde.scoring import score
+from pde.report import make_reason_card
+
+text = """PASTE CONTENT HERE"""
+
+eth = ethics_gate(text)
+claims = extract_claims(text)
+frames = detect_frames(text)
+scores = score(claims, frames, eth.reasons)
+card = make_reason_card(text, claims, frames, scores, eth.reasons)
+
+print(card)
+
+
+⸻
+
+Output Artifacts (what you publish)
+
+1) Reason Card (internal + public-safe)
+	•	What is being claimed
+	•	What evidence exists and its tier
+	•	What’s missing
+	•	What rhetorical tricks are present
+	•	Scores + uncertainty
+	•	Next actions (lawful, constructive)
+
+2) Inoculation Brief (prebunk)
+
+“Here’s the persuasion pattern. Here’s how to not get played.”
+
+3) Evidence Graph Snapshot
+
+Claim nodes ↔ evidence nodes with tier labels.
+
+⸻
+
+Threat Model
+
+What PDE defends against
+	•	Viral screenshots without provenance
+	•	Escalation chains (“bad act” → “global ritual murder ring”)
+	•	Scapegoating narratives
+	•	Coordinated amplification (if you later add platform metrics)
+	•	“False dilemma” calls to abandon due process
+
+What PDE does NOT do
+	•	Identify private individuals
+	•	Dox / locate / “bring justice” physically
+	•	Encourage harassment
+	•	Give certainty where none exists
+
+⸻
+
+Roadmap v1.1–v1.3 (safe upgrades)
+	•	Evidence ingestion adapters: PACER exports, gov press releases, RSS from reputable sources
+	•	Graph store: SQLite + networkx, later Neo4j
+	•	Claim clustering: dedupe near-identical claims
+	•	Counter-message generator: tone-controlled, citation-first responses
+	•	PNIS compliance: attach provenance metadata + revision history
+
+⸻
+
+If you want, I can also write you:
+	•	a repo-ready README.md (marketing + usage + examples)
+	•	a pyproject.toml
+	•	unit tests that enforce the ethics gate and “no overclaim” policy
+
+But as-is, this is already a clean, shippable v1.0 skeleton with doctrine + structure.
