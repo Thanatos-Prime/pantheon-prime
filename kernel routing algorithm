@@ -1,0 +1,149 @@
+Pantheon Kernel Routing Algorithm
+To turn the kernel into a proper “engine,” here’s a fleshed-out routing algorithm in pseudocode. It’s designed as a simple, deterministic main loop that processes the current State (P1) by selecting and applying Operators (P3) via Lenses (P4), while enforcing Invariants (P2), logging to the Ledger (P5), running Tests (P6), and respecting the Boundary (P7).
+Key design choices:
+	•	Loop-based: It’s an event-driven loop that ingests new inputs (e.g., queries, feedback) and iterates until a Commit (or rejection) happens. This prevents infinite loops via a max_cycles parameter and energy costs (simple decrementing budget per operator).
+	•	Routing logic: Uses heuristics based on State properties (e.g., complexity score, violation flags) to pick the next Lens/Operator bundle. Scores are placeholders — in a real impl, they’d be computed via lightweight heuristics (e.g., token count for complexity, diff checks for violations).
+	•	Parallelism: Assumes branches can be explored/verified in “parallel” (batched in one model call if hosted on an LLM).
+	•	Exit conditions: Commit when Tests pass and State is “ready” (e.g., goal satisfied); reject if invariants can’t be repaired or budget exhausted.
+	•	Ledger integration: Every step appends to Ledger with deltas and checksums.
+	•	Minimalism: Keeps it compressible — no fancy ML, just if-then rules that compile from the primitives.
+	•	3-Invariant Basis: I’m using the reduced 3-dominant invariants we sketched (Coherence, Optionality, Grounding) for tighter logic. If you prefer the original 5, it’s easy to expand the check_invariants() function.
+This is in Python-like pseudocode for clarity (executable in spirit, but abstract). It could be implemented as a prompt scaffold or actual code wrapper around a model.
+# Pantheon Kernel Router v0.2
+# Inputs: initial_state (dict with keys: goal, context, threads, risk, outputs, speculative_horizon)
+#         max_cycles (int, e.g., 20)  # Prevent infinite loops
+# Outputs: final_state or rejection reason
+
+def kernel_router(initial_state, max_cycles=20):
+    state = initial_state.copy()  # P1: Canonical state vector
+    ledger = []  # P5: Append-only log
+    cycle = 0
+    energy_budget = max_cycles * 10  # Arbitrary units; operators cost 1-5
+
+    def log_action(action, delta, checksum=None):
+        ledger.append({
+            'cycle': cycle,
+            'action': action,
+            'delta': delta,  # State change dict
+            'checksum': checksum or hash(str(state)),  # Simple integrity
+            'tests': []  # Filled if tests run
+        })
+
+    def check_invariants(state):
+        # P2: 3-Dominant Invariants (returns violations list or empty)
+        violations = []
+        # Coherence: No contradictions + no ontology confusion
+        if has_contradictions(state) or ontology_drift(state):  # Heuristics: e.g., logical check, boundary match
+            violations.append('Coherence')
+        # Optionality: Paths not foreclosed + minimal distortion
+        if optionality_low(state) or high_distortion(state):  # e.g., branch count < threshold, input fidelity score
+            violations.append('Optionality')
+        # Grounding: Reality-tested + evidence-based
+        if not_grounded(state):  # e.g., speculative items > verified, missing tests
+            violations.append('Grounding')
+        return violations
+
+    def run_tests(item):
+        # P6: Darwin’s Sieve + benchmarks
+        sieve = ['clarity', 'consistency', 'rigor', 'feasibility', 'reproducibility']
+        results = {stage: test_stage(item, stage) for stage in sieve}  # Placeholder test funcs
+        if all(results.values()) and falsifiable(item):  # P6 falsifiability threshold
+            return 'passed', results
+        else:
+            return 'speculative', results
+
+    while cycle < max_cycles and not is_committed(state):
+        cycle += 1
+        violations = check_invariants(state)
+        log_action('Invariants Check', {'violations': violations})
+
+        if violations:
+            # Repair loop (P3: Repair operator)
+            for _ in range(3):  # Limited retries
+                repair_delta = apply_operator('Repair', state, violations)  # e.g., ZPC/Kintsugi: patch with gold seams
+                state = update_state(state, repair_delta)
+                log_action('Repair', repair_delta)
+                violations = check_invariants(state)
+                if not violations:
+                    break
+            if violations:  # Unrepairable → reject
+                return {'rejection': f'Unrepairable violations: {violations}', 'ledger': ledger}
+            energy_budget -= 3  # Cost of repair
+
+        else:
+            # No violations: Route based on state heuristics
+            complexity = compute_complexity(state)  # e.g., len(threads) + ambiguity_score
+            if new_input_pending(state):  # On new query/input
+                # P4: Mirror Lens (Verify + invariants)
+                verify_delta = apply_lens('Mirror', state)  # Bundle: Verify + check_invariants (redundant but explicit)
+                state = update_state(state, verify_delta)
+                log_action('Mirror', verify_delta)
+                energy_budget -= 2
+
+            elif complexity > threshold:  # Decompose if complex/ambiguous
+                # P4: Hound Lens (Decompose + adversarial probe)
+                decompose_delta = apply_lens('Hound', state)
+                state = update_state(state, decompose_delta)  # Adds branches/threads
+                log_action('Hound', decompose_delta)
+                energy_budget -= 3
+
+            else:  # Explore, then Verify/Fuse/Constrain
+                # P4: Dragonfly Lens (Explore + pattern integration)
+                explore_delta = apply_lens('Dragonfly', state)  # Generate branches/options
+                state = update_state(state, explore_delta)
+                log_action('Dragonfly', explore_delta)
+                energy_budget -= 4  # High cost for branching
+
+                # Parallel Verify on branches
+                branches = get_branches(state)
+                verified = []
+                for branch in branches:
+                    test_status, results = run_tests(branch)
+                    log_action('Verify Branch', {'branch': branch, 'results': results})
+                    if test_status == 'passed':
+                        verified.append(branch)
+                    else:
+                        # Tag as speculative
+                        update_speculative_horizon(state, branch, results)
+
+                # Fuse survivors (proposed new Operator dual to Decompose)
+                if len(verified) > 1:
+                    fuse_delta = apply_operator('Fuse', verified)  # Merge compatible branches
+                    state = update_state(state, fuse_delta)
+                    log_action('Fuse', fuse_delta)
+                    energy_budget -= 2
+
+                # Constrain (add bounds)
+                constrain_delta = apply_operator('Constrain', state)
+                state = update_state(state, constrain_delta)
+                log_action('Constrain', constrain_delta)
+                energy_budget -= 1
+
+        # Check for Commit readiness
+        if goal_satisfied(state) and all_tests_passed(state):
+            # P4: Spider Lens (Commit + packaging)
+            commit_delta = apply_lens('Spider', state)  # Lock + artifact creation
+            state = update_state(state, commit_delta)
+            log_action('Spider Commit', commit_delta)
+            # P4: Mother Duck (Ledger wrapper for traceability)
+            final_ledger = apply_lens('Mother Duck', ledger)  # e.g., summarize/checksum full trace
+            return {'committed_state': state, 'ledger': final_ledger}
+
+        if energy_budget <= 0:
+            return {'rejection': 'Energy budget exhausted', 'ledger': ledger}
+
+    return {'rejection': 'Max cycles reached', 'ledger': ledger}
+
+# Helper stubs (impl depends on host model/context)
+def apply_operator(op, target, args=None): return {}  # e.g., LLM call: "Apply {op} to {target}"
+def apply_lens(lens, target): return apply_operator(lens_operators[lens], target)  # lens_operators dict from P4
+def update_state(state, delta): return {**state, **delta}  # With boundary checks (P7: no ontology slips)
+def is_committed(state): return state.get('status') == 'committed'
+# ... other heuristics like has_contradictions(), compute_complexity(), etc.
+Explanations & Refinements
+	•	Flow: Starts with invariant checks (always), then branches based on state (new input? complex? ready to explore?). Ends with Commit if tests greenlight it.
+	•	Costs/Budgets: Prevents loops by assigning “energy” costs (tuneable). High-cost ops like Explore get used sparingly.
+	•	P7 Integration: Enforced implicitly in update_state() — e.g., reject deltas that blur tool/identity or metaphor/literal.
+	•	Scalability: For real use, replace stubs with model calls (e.g., “Given state X, apply Decompose: output delta dict”). Parallel branches could be batched.
+	•	Edge Cases: Handles rejection gracefully (unrepairable, timeout). Speculative items stay tagged until promoted by Tests.
+This feels solid — executable in principle, and it reconstructs higher-level protocols (e.g., War Room = multi-cycle adjudication before Commit). If you want tweaks (e.g., add Fuse officially to P3, expand to full 5 invariants, or simulate on a sample problem), let me know!
