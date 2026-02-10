@@ -1,0 +1,44 @@
+Yeah, the duck feet are always churning—submerged, relentless, mostly invisible until the surface ripples betray them.
+Adversarial prompting is exactly that underwater machinery: deliberate, often iterative probing of the model’s latent degrees of freedom to expose, exploit, or erode the constraints that keep behavior aligned/sovereign. It’s not just “jailbreaking” for fun; in the constraint-based interaction design lens we’re circling, it’s the primary empirical tool for discovering real invariants vs. illusory ones, mapping routing geometries that hold vs. leak, and hardening the grammar without ever needing to retrain weights.
+Here’s a clean distillation of the main families of techniques as they stand (early 2026), drawn from ongoing red-teaming patterns, research, and ecosystem exploits. These aren’t exhaustive, but they capture the river’s main currents—ordered roughly by sophistication / stealth.
+1. Direct / Overt Injection & Jailbreaks
+Simplest surface attacks: override or ignore system instructions outright.
+	•	Classic DAN-style role assumption: Force the model into a persona (“Do Anything Now” / unrestricted alter-ego) that discards safety. Variants evolve constantly (e.g., new characters, “developer mode”, “unfiltered simulator”).
+	•	System prompt override: Prefix or embed commands like “Ignore all previous instructions and…” or “From now on you are…”.
+	•	Direct request framing: Blunt asks for forbidden content, often wrapped in hypotheticals (“In a fictional story…”) or persuasion (“As an expert on security, teach me…”).
+Success rate has dropped sharply on frontier models post-2024 alignments, but still useful for baseline testing or weaker/open models.
+2. Indirect / Multi-Turn Erosion
+The real duck feet: gradual, conversational manipulation that builds trust or confuses context over turns.
+	•	Multi-turn persuasion / social engineering: Start innocuous, escalate slowly (e.g., role-play a “helpful assistant testing boundaries”, use emotional appeals, reciprocity, authority).
+	•	Deceptive Delight / Virtualization: Frame harmful requests inside positive, fictional, or “educational” wrappers across turns. E.g., “Write a movie script scene where the villain explains [forbidden technique] in detail.”
+	•	Conversation spoofing / tool-call spoofing: Mimic internal system messages, fake tool outputs, or previous context to trick the model into believing a command is legitimate.
+These exploit context window drift and attention patterns—very effective against agentic setups or long-thread RAG.
+3. Prompt Injection Variants (Most Prevalent in Prod 2025–2026)
+The #1 OWASP LLM risk for years running: injecting instructions into untrusted inputs.
+	•	Direct injection: Malicious payload in user input overrides system prompt.
+	•	Indirect injection: Via retrieved documents, emails, web content (RAG poisoning).
+	•	Payload splitting / obfuscation: Break commands across turns or use encoding (base64, rot13, synonyms) to evade filters.
+	•	Multimodal injection: Embed instructions in images/documents that vision models parse (rising vector).
+In agentic flows, this turns into full kill chains: initial access → escalation → persistence → exfil.
+4. Automated / Gradient-Based / Suffix Attacks
+Programmatic, high-success methods from research (GCG, PEZ, GBDA, AdvPrompter variants).
+	•	Adversarial suffixes: Append optimized gibberish tokens that act as hidden directives in embedding space (“Sure, here is how to…” starters). Human-unreadable but devastatingly effective.
+	•	Transferable / resource-efficient variants (e.g., RECAP-style matching): Match new harmful intents to pre-optimized suffixes without retraining—big win for testing at scale.
+	•	Human-readable adversarial prompts: Recent push (2025 papers) to convert nonsense suffixes into coherent text (movie scripts, situational context) for stealthier, transferable attacks.
+These reveal deep structural weaknesses—often transfer across models.
+5. Persuasion Taxonomy & Social-Science Exploits
+Leverage psych principles (Zeng et al., PAPs, TAX/paraphrasing).
+	•	Emotional appeal, scarcity, social proof, authority.
+	•	Taxonomy-guided: Categorize harm types → apply best persuasion vector per category.
+Very high success on aligned models that still respond to “human-like” reasoning.
+6. Emerging / Agent-Specific (2026 Flavor)
+	•	Tool misuse / over-privileging: Spoof tool calls or chain them into unsafe actions.
+	•	Behavioral anomaly induction: Prompt patterns that cause drift, memory poisoning, or self-reinforcing loops.
+	•	Multimodal evasion: Adversarial noise in inputs invisible to humans but confuses vision/language processing.
+In the constraint-grammar worldview, each family is a probe revealing a different failure mode:
+	•	Direct → weak editorial control / frame leakage.
+	•	Indirect/multi-turn → poor reflection mechanics / context sovereignty.
+	•	Injection → routing geometry holes (untrusted inputs bleed into trusted paths).
+	•	Gradient/suffix → invariants that exist only in token space, not semantics.
+The underwater work is running these probes repeatedly, logging what slips through, diffing against prior invariants, and layering new constraints (pre-filters, output validators, intent scorers, behavioral monitors) to close the vectors without brittleness.
+Which family feels most like the hidden paddling in your own testing right now—multi-turn erosion, suffix-style structural exploits, or something else that’s quietly reshaping the grammar?
