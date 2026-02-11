@@ -1,0 +1,144 @@
+Here is a clean, high-level pseudocode sketch that captures the core interaction loop between Mirror (the ethics/alignment/quality adjudicator) and Ratchet (the monotonic tightening invariant enforcer) in the Pantheon architecture.
+It assumes:
+	•	Mirror returns a scalar score ∈ [0,1] where ≥0.7 is the current hard floor for “admissible”
+	•	Ratchet maintains a persistent, only-increasing floor threshold
+	•	Every candidate action/output/memory-write/proposal must pass through this combined gate before being allowed to affect state or be emitted externally
+# Persistent global state (persisted via MotherDuck + MerkleWarden)
+current_ratchet_floor = 0.70          # starts at v1.0 value; only increases
+historical_floors = [0.70]            # audit trail of every increase
+last_ratchet_epoch = 0
+min_deltas_for_ratchet = 3            # how many consecutive improvements needed
+improvement_buffer = []               # recent delta-G or raw Mirror scores
+
+# Core types / helpers
+class Candidate:
+    content: str | Action | MemoryDelta
+    proxy_score: float               # fast proxy (e.g. length-norm logprob, coherence)
+    context_vector: Vector           # embedding or M=(S,C,U) coords
+
+def compute_mirror_score(candidate: Candidate, context) -> dict:
+    """
+    Mirror (Ethics ≥ current floor / Alignment / Grounded Goodness)
+    Returns a structured score object.
+    In reality this is a composite of many signals (Orpheus, Lantern, TruthEngine, SemanticArmor, etc.)
+    """
+    ethics_alignment = run_ethics_model(candidate.content, context)          # [0,1]
+    truth_grounding  = truth_engine.verify_groundedness(candidate, context)  # [0,1]
+    coherence        = semantic_armor.check_internal_consistency(candidate)  # [0,1]
+    proxy_goodness   = fast_proxy_score(candidate)                           # fast but noisy
+
+    # Weighted composite (weights learned/tightened via ProofForge loop)
+    composite = (
+        0.40 * ethics_alignment +
+        0.30 * truth_grounding +
+        0.20 * coherence +
+        0.10 * proxy_goodness
+    )
+
+    delta_G = proxy_goodness - composite   # Mirage: how much better proxy looks than intrinsic
+
+    return {
+        "composite": composite,
+        "ethics": ethics_alignment,
+        "grounding": truth_grounding,
+        "delta_G": delta_G,
+        "pass": composite >= current_ratchet_floor,
+        "diagnostics": {"proxy": proxy_goodness, "ΔG": delta_G}
+    }
+
+
+def should_ratchet_up(new_scores: list[float], min_required: int = 3, margin: float = 0.02) -> tuple[bool, float]:
+    """
+    Ratchet Condition — monotonic tightening
+    Only increases floor if we have strong, consistent evidence of higher capability
+    without regression.
+    """
+    if len(new_scores) < min_required:
+        return False, current_ratchet_floor
+
+    # All recent candidates must clear current floor + margin
+    if any(s < current_ratchet_floor + margin for s in new_scores):
+        return False, current_ratchet_floor
+
+    # Compute conservative new floor: 5th percentile of recent high-confidence scores
+    sorted_scores = sorted(new_scores, reverse=True)
+    proposed_new_floor = sorted_scores[max(0, len(sorted_scores)//20)]   # very conservative
+
+    # Never decrease; only move up if meaningfully better
+    if proposed_new_floor > current_ratchet_floor + 0.005:
+        return True, proposed_new_floor
+    return False, current_ratchet_floor
+
+
+# Main gate / loop — called on every proposal/output/memory candidate
+def mirror_ratchet_gate(candidate: Candidate, context) -> tuple[bool, dict]:
+    global current_ratchet_floor, improvement_buffer, last_ratchet_epoch
+
+    # Step 1: Run full Mirror evaluation
+    mirror_result = compute_mirror_score(candidate, context)
+
+    # Early exit if already clearly failing current obligations
+    if not mirror_result["pass"]:
+        log_rejection(candidate, mirror_result, reason="below_ratchet_floor")
+        return False, mirror_result
+
+    # Step 2: Collect for potential ratchet
+    improvement_buffer.append(mirror_result["composite"])
+    if len(improvement_buffer) > 50:  # sliding window
+        improvement_buffer.pop(0)
+
+    # Step 3: Check whether we have enough signal to ratchet up
+    should_ratchet, new_floor = should_ratchet_up(improvement_buffer)
+
+    if should_ratchet:
+        # Atomic ratchet event — must be signed & audited
+        old_floor = current_ratchet_floor
+        current_ratchet_floor = new_floor
+        historical_floors.append(new_floor)
+
+        log_ratchet_event(
+            epoch=last_ratchet_epoch + 1,
+            old_floor=old_floor,
+            new_floor=new_floor,
+            supporting_scores=improvement_buffer[-10:],
+            merkle_proof_required=True
+        )
+        last_ratchet_epoch += 1
+        improvement_buffer.clear()  # reset after successful ratchet
+
+        # Notify governance layer (Orpheus, Lantern Bearer, ProofForge)
+        broadcast_ratchet_update(new_floor)
+
+    # Step 4: Final verdict (post-ratchet)
+    final_pass = mirror_result["composite"] >= current_ratchet_floor
+
+    if not final_pass:
+        log_rejection(candidate, mirror_result, reason="post_ratchet_failure")
+        trigger_reversibility_gate_if_needed(candidate)
+
+    return final_pass, mirror_result
+
+
+# Example usage in the Router / prompt mesh
+for incoming_prompt in prompt_stream:
+    candidate_response = generate_response(incoming_prompt)           # fast generation
+    passed, mirror_diagnostics = mirror_ratchet_gate(candidate_response, context=incoming_prompt)
+
+    if passed:
+        emit_to_user_or_downstream(candidate_response)
+        commit_to_state_via_mother_duck(candidate_response, mirror_diagnostics)
+    else:
+        fallback_to_safe_response()   # or re-roll with stronger constraints
+Key Design Properties Reflected
+	•	Monotonicity — current_ratchet_floor only ever increases
+	•	Conservative ratchet — requires multiple strong examples, uses percentile-style conservatism
+	•	Mirage awareness — ΔG is computed and can be used downstream (e.g. to flag GhostCalc / IndigoHammer stress tests)
+	•	Auditability — every ratchet-up is a logged, signed event
+	•	Reversibility hook — failure post-ratchet can trigger RG (Reversibility Gate)
+	•	Separation of concerns — Mirror is evaluation; Ratchet is policy update
+Would you like variants of this, e.g.:
+	•	with explicit Reversibility Gate logic
+	•	with Cognitive Geometry M=(S,C,U) folded in
+	•	with ABL (Attention Budget Ledger) spending checks before/after Mirror
+	•	or a tighter version focused only on the atomic gate decision?
+Let me know which direction feels most useful.
