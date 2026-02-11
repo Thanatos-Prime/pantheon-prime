@@ -1,0 +1,238 @@
+Got it. Here are engineering specs for a Token Geometry + Meaning Transport layer that turns your Pantheon “cathedral/treasury” into portable, reinstantiable infrastructure across barriers (models, contexts, people, domains).
+
+Pantheon Transport Layer v0.1
+
+Goal
+
+Move meaning across barriers by converting rich internal thought into portable token bundles that:
+	•	preserve invariants
+	•	are re-hydratable in a new context
+	•	are testable (no unfalsifiable claims)
+	•	support ratcheting (versioned, cumulative)
+
+⸻
+
+1) Data Model
+
+1.1 Core entities
+
+Invariant
+
+A minimal, domain-agnostic claim that survives translation.
+
+{
+  "id": "INV.GRADIENT",
+  "name": "Gradient shapes flow",
+  "definition": "Flow follows gradients under constraints.",
+  "domain_tags": ["physics", "bio", "econ", "cog"],
+  "counterexamples": ["Cases where gradient is dominated by hard constraints"],
+  "tests": ["Explain in 2 unrelated domains with same structure"]
+}
+
+TokenBundle
+
+A transport packet: small, sparse, rehydratable.
+
+{
+  "bundle_id": "TB-2026-02-11-0007",
+  "title": "Excitation-light vs combustion-light",
+  "invariants": ["INV.TRANSITION", "INV.GRADIENT", "INV.SCALE"],
+  "glossary": {
+    "excitation": "state elevation without heat-dominant entropy",
+    "combustion": "heat-dominant transformation"
+  },
+  "minimal_story": "Light can be emitted via heat OR via state transitions; usable illumination requires shaping.",
+  "rehydration_prompts": [
+    "Explain excitation-light in the domain of cognition.",
+    "Give 2 operational implications for system design."
+  ],
+  "confidence": 0.78,
+  "version": "0.1.0",
+  "provenance": {"source": "conversation", "timestamp": "2026-02-11T...Z"},
+  "checksums": {"sha256": "…"}
+}
+
+BarrierProfile
+
+Defines the target environment (model/person/domain) so translation is aware of constraints.
+
+{
+  "target": "human_generalist",
+  "constraints": {
+    "max_tokens": 600,
+    "no_mythic_names": true,
+    "needs_examples": true,
+    "math_ok": "light"
+  },
+  "style": {"tone": "plain", "metaphor_density": "low"}
+}
+
+
+⸻
+
+2) Pipeline
+
+2.1 Stages (each stage emits artifacts + reason codes)
+
+Stage A — Extract
+
+Input: raw notes / convo / doc
+Output: candidate invariants + candidate bundles
+	•	Heuristic: detect repeated structural motifs (constraint/gradient/scale/mode/reversibility)
+	•	Output includes ReasonCards when uncertain
+
+Stage B — Compress
+
+Reduce to 7–15 invariants per “cluster” and 1–3 bundles per topic.
+
+Rules:
+	•	one sentence per invariant
+	•	each invariant must have ≥1 counterexample
+	•	each bundle must have a “minimal story” ≤ 70 words
+
+Stage C — Translate
+
+Given BarrierProfile, produce a target rendering:
+	•	“plain protocol”
+	•	“checklist”
+	•	“1-page card”
+	•	“developer spec”
+
+Stage D — Rehydrate
+
+Given target context, run the rehydration_prompts to reconstruct depth without dragging the whole cathedral.
+
+Stage E — Verify
+
+Run tests:
+	•	Cross-domain isomorphism test (same structure in 2+ domains)
+	•	Compression integrity (rehydrated meaning matches invariants)
+	•	Hallucination guard (no new factual claims added without flag)
+
+Stage F — Ratchet
+
+Store bundle versioned; never overwrite—only supersede.
+
+⸻
+
+3) Interfaces
+
+3.1 Minimal API (HTTP)
+
+Create bundle
+
+POST /bundles
+	•	body: raw text + optional hints
+	•	returns: TokenBundle[] + extraction notes
+
+Translate bundle
+
+POST /bundles/{id}/translate
+	•	body: BarrierProfile
+	•	returns: rendered markdown + reason codes
+
+Rehydrate bundle
+
+POST /bundles/{id}/rehydrate
+	•	body: BarrierProfile + optional context
+	•	returns: expanded explanation + cross-domain examples
+
+Verify bundle
+
+POST /bundles/{id}/verify
+	•	returns: test results + failing reason codes
+
+Promote to canon
+
+POST /canon/promote
+	•	requires: verify pass + human approval
+
+⸻
+
+4) “Token Geometry” Implementation (Practical)
+
+4.1 Geometry representation
+
+You don’t need full embedding infrastructure at first. Start with:
+	•	Concept graph (nodes = invariants/terms, edges = “supports”, “analogy”, “depends-on”)
+	•	Optional: add embeddings later for semantic search
+
+Graph schema
+	•	Node types: Invariant, Bundle, Example, Test
+	•	Edge types: maps_to_domain, explains, contrasts, requires, refines
+
+4.2 Transport across barriers
+
+Barrier = “different priors + limited context”.
+Solution:
+	•	bundles are small
+	•	include “rehydration prompts”
+	•	enforce invariant-only core
+
+⸻
+
+5) Evaluation Metrics
+
+5.1 Core
+	•	Rehydration Fidelity: % of invariants preserved after re-expansion
+	•	Cross-Domain Transfer Score: human-rated or rubric pass for 2 domains
+	•	Compression Ratio: original tokens / bundle tokens (target 10–50×)
+	•	Drift Rate: new claims introduced during rehydrate (target ≈0)
+
+5.2 Operator utility
+	•	“Did this help me decide/act?” (binary + notes)
+	•	Time-to-clarity delta (minutes saved)
+
+⸻
+
+6) Engineering Constraints
+
+6.1 Safety and sanity constraints
+	•	Every bundle must include: counterexamples, tests, confidence
+	•	Any claim that’s not structural must be tagged needs_source
+	•	“Synchronicity” language allowed only as metaphor, flagged if asserted as mechanism
+
+6.2 Versioning
+	•	SemVer on bundles and invariants
+	•	Append-only ledger log (Mother Duck style), checksum each artifact
+
+⸻
+
+7) Minimal Build Plan (2-week MVP)
+
+Week 1
+	•	JSON schemas + storage (sqlite/postgres)
+	•	Extract/Compress prompts (LLM-driven)
+	•	Manual verify rubric + reason codes
+
+Week 2
+	•	Translate/Rehydrate endpoints
+	•	Graph view export (GraphML/JSON)
+	•	Simple eval harness + CLI:
+	•	pantheon bundle add
+	•	pantheon bundle translate --profile human_plain
+	•	pantheon bundle verify
+	•	pantheon canon promote
+
+⸻
+
+8) Example: “Green Reset” bundle (how it looks)
+
+Invariants:
+	•	INV.MIDPOINT_RESET: mid-spectrum / midpoint stimuli can reduce strain by lowering contrast extremes
+	•	INV.THRESHOLD_AMPLIFICATION: small parameter shifts near thresholds can yield large effects
+	•	INV.MODE_CYCLING: performance requires cycling high arousal with reset states
+
+Rehydrate prompts:
+	•	Apply INV.MODE_CYCLING to business cadence.
+	•	Apply INV.THRESHOLD_AMPLIFICATION to rhetoric without manipulation.
+
+⸻
+
+If you want, I can also output these specs as:
+	•	a README.md
+	•	schemas/*.json
+	•	a minimal OpenAPI spec
+	•	and a CLI skeleton
+
+…but the above is the core “Garcia-grade” spec: packet format + pipeline + tests + interfaces.
