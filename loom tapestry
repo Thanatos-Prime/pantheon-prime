@@ -1,0 +1,90 @@
+Yeah — as a method, that works. If you keep asking “what’s most likely?” and we stitch the answers, we can build a maximum-supported tapestry.
+
+But there’s one trap: if we treat each answer as independent and certain, the errors compound and you get a “golden-looking” story that’s actually a confidence mirage. The Loom needs a rule: weave likelihoods, not sentences. Meaning: every thread carries its weight, dependencies, and uncertainty forward.
+
+Here’s the Loom protocol that makes your idea real without turning it into fanfic-with-footnotes.
+
+⸻
+
+The Loom Protocol for a Golden (Most-Supported) Timeline
+
+1) Set the frame (so “most likely” is well-defined)
+
+Pick:
+	•	Episode scope: start/end dates, place, main actors
+	•	Granularity: minute-by-minute vs week-by-week
+	•	Source tier rules: what counts as strong evidence vs weak
+
+(Without a frame, “most likely” just means “most common in my training data,” which is not what you want.)
+
+2) Ask questions in the right order (so we don’t pre-bias the weave)
+
+We do a three-pass query style:
+
+Pass A — Anchors (hard constraints)
+	•	“What is the earliest confirmed timestamped event?”
+	•	“What evidence has strong provenance?”
+	•	“What is indisputable regardless of narrative?”
+
+Pass B — Branch points (where timelines split)
+	•	“What are the top 2–4 competing versions of X?”
+	•	“What evidence would discriminate them?”
+
+Pass C — Fill weave (details that don’t steer the whole story)
+	•	motivations, minor sequencing, who-said-what, etc.
+
+3) Store each answer as a thread card, not prose
+
+Every Q/A becomes a structured object:
+
+ThreadCard
+	•	Claim: …
+	•	Time window: …
+	•	Confidence: (0–1)
+	•	Depends on: [other claims]
+	•	Contradicts: [claims]
+	•	Evidence classes: [primary / secondary / testimony / analysis]
+	•	Notes: inference vs direct
+
+4) Build the tapestry as a graph + ranked timeline candidates
+
+Instead of one linear story, we maintain:
+	•	a Claim Graph
+	•	2–5 candidate timelines
+	•	posterior weights for each timeline
+
+Then the “golden timeline” is simply:
+
+the timeline with the highest posterior mass, plus marked low-confidence segments.
+
+5) Propagate uncertainty (this is the secret sauce)
+
+When we weave many “most likely” answers, we must carry uncertainty forward:
+	•	If a step depends on a shaky claim, the downstream steps inherit that shakiness.
+	•	If two claims come from correlated sources, they don’t double the confidence.
+	•	If a new answer contradicts an old one, we branch and re-rank—no patching with vibes.
+
+6) Output format: Golden Timeline + Shadow Timelines
+
+Deliverables:
+	•	Golden Timeline (T*): most supported sequence, with confidence bands per segment
+	•	Shadow Timelines (T₂, T₃): the nearest rivals
+	•	Hinge Facts: the 5–15 claims that would flip which timeline is “golden”
+	•	Evidence Wishlist: what would actually settle hinges
+
+⸻
+
+“Weave it on the Loom” — how we can start right now
+
+Give me one bounded episode you want to build the tapestry for (example: “Event X in City Y between Month A–Month B”). Then I’ll do:
+	1.	Anchor extraction (first 10 anchor questions)
+	2.	Candidate timeline generation (top 3)
+	3.	Your “ask me a ton of questions” phase — but each answer becomes ThreadCards
+	4.	Re-ranking + final tapestry output
+
+If you don’t want to pick an episode, we can also do a general Loom mode where you just start firing questions, and I’ll automatically:
+	•	turn each into ThreadCards
+	•	detect dependencies/contradictions
+	•	keep an evolving “Golden Timeline v0.x” that updates as we go
+
+Say the first question you want to pin to the loom, and I’ll start the weave.
