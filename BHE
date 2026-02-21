@@ -1,0 +1,176 @@
+Locked. Here’s a formalized Bayesian Historian Engine (BHE) v1.0 you can drop straight into the Pantheon library as a protocol-spec. It’s built to produce the most supported timeline (not “perfect truth”), with explicit uncertainty, hinge facts, and audit trails.
+
+⸻
+
+Bayesian Historian Engine (BHE) v1.0
+
+Purpose: Reconstruct a most-supported historical timeline from conflicting accounts by treating “what happened” as a set of competing hypotheses and updating belief as evidence accumulates.
+
+Core Principle: Truth is not crowned; truth is audited.
+Output is a ranked set of plausible timelines with calibrated confidence, not a single sacred narrative.
+
+⸻
+
+1) Objects and Definitions
+
+1.1 Event Universe
+	•	Let E be a target episode (bounded by scope: time window, geography, actors, event type).
+	•	Let C = {c₁…cₙ} be extracted claims about E (atomic, testable statements).
+
+1.2 Timeline Hypotheses
+	•	A timeline hypothesis is an ordered structure:
+	•	Tᵢ = (Sᵢ, Oᵢ, Mᵢ)
+	•	Sᵢ: sequence of states (who/what/where)
+	•	Oᵢ: ordering constraints (timestamps, precedence)
+	•	Mᵢ: mechanisms/causal links (how one state produces the next)
+
+Timelines compete; we assign and update probabilities over them:
+	•	P(Tᵢ | Evidence)
+
+1.3 Evidence Packets
+
+Each datum is an evidence packet:
+	•	eⱼ = (content, source, metadata, provenance, modality)
+Examples: document, video, dataset, testimony, ledger entry, physical trace report.
+
+⸻
+
+2) Evidence Quality Model
+
+Each packet gets a Reliability Weight:
+	•	w(eⱼ) = f(Provenance, Independence, Precision, Replicability, Incentives, TamperRisk)
+
+Recommended sub-scores (0–1):
+	•	Prov(e): chain-of-custody / authenticity strength
+	•	Ind(e): independence from other sources (anti-collusion)
+	•	Prec(e): specificity & falsifiability (vs vague narrative)
+	•	Rep(e): reproducibility / cross-check feasibility
+	•	Inc(e): incentive risk (who benefits if false?)
+	•	Tmp(e): tamper/forgery susceptibility
+
+A simple aggregator:
+	•	w(e) = Prov·Ind·Prec·Rep·(1–IncRisk)·(1–TmpRisk)
+
+This is where Checksum (provenance) and Mirror/Hypatia (integrity audits) sit in the stack.
+
+⸻
+
+3) Bayesian Update Core
+
+3.1 Priors (Explicit, Declared)
+
+We choose P(Tᵢ) using declared prior rules:
+	•	physical plausibility constraints
+	•	known baselines (typical rates, capabilities, access)
+	•	institutional constraints (procedures, logistics)
+	•	never “vibes” without labeling
+
+3.2 Likelihood Model
+
+For each evidence packet:
+	•	P(eⱼ | Tᵢ) = how likely we’d observe eⱼ if Tᵢ were true
+
+Incorporate weight:
+	•	P*(eⱼ | Tᵢ) = (P(eⱼ | Tᵢ))^(w(eⱼ))
+	•	Strong evidence behaves like strong likelihood.
+	•	Weak evidence barely moves the needle.
+
+3.3 Posterior
+
+Update over all evidence:
+	•	P(Tᵢ | e₁…e_k) ∝ P(Tᵢ) · ∏ⱼ P*(eⱼ | Tᵢ)
+
+⸻
+
+4) Claim Graph and Contradiction Handling
+
+4.1 Claim Graph
+
+Build a graph:
+	•	Nodes: claims cᵢ
+	•	Edges:
+	•	supports (A ⇒ B)
+	•	contradicts (A ⟂ B)
+	•	depends-on (A needs B)
+	•	same-source (correlated risk)
+
+4.2 Contradiction Resolver
+
+When two claims conflict:
+	•	don’t “choose” immediately
+	•	create branching timelines where each branch commits to one side
+	•	let evidence weights + independence decide posterior mass
+
+This prevents premature narrative lock-in.
+
+⸻
+
+5) Outputs (What BHE Produces)
+
+5.1 Ranked Timeline Set
+	•	Top timelines T₁…T_m with posterior probabilities
+	•	Each timeline includes:
+	•	ordered events (with time ranges, not fake precision)
+	•	key actors/locations
+	•	causal links tagged as inference vs direct evidence
+
+5.2 Confidence Bands
+
+For each major step, attach:
+	•	Confidence: High / Medium / Low
+	•	Why: top evidence packets + their weights
+
+5.3 Hinge Facts (Flip Points)
+
+List the smallest set of uncertain claims that would reorder the ranking if resolved:
+	•	“If claim c₇ is true, T₂ becomes most likely.”
+
+5.4 Evidence Requests
+
+Recommend the best next evidence to settle hinge facts:
+	•	“Need: authenticated timestamped record / independent camera angle / ledger export / raw log”
+
+⸻
+
+6) Governance and Guardrails (Pantheon-grade)
+
+BHE Safety Invariants
+	1.	Truth-as-process, not authority: never claim omniscience.
+	2.	Uncertainty labeling mandatory: every inference is tagged.
+	3.	Provenance-first: low provenance = low impact.
+	4.	Independence penalty: correlated sources don’t stack linearly.
+	5.	Anti-deception stance: assume adversarial fabrication is possible.
+	6.	Reversibility: timelines are revision-friendly; no sacred canon.
+	7.	Ethics ≥ 0.7: no coercive framing, no doxxing, no harm-forward outputs.
+
+⸻
+
+7) Minimal Implementation Checklist
+
+Inputs
+	•	Scope definition (E)
+	•	Corpus of sources (eⱼ)
+	•	Prior rules (declared)
+	•	Evidence scoring rubric
+
+Pipeline
+	1.	Ingest → segment → extract claims
+	2.	Build claim graph + correlation map
+	3.	Generate candidate timelines (branches)
+	4.	Score evidence (w)
+	5.	Bayesian update → posterior ranking
+	6.	Emit timelines + hinge facts + evidence requests
+	7.	Log everything (provenance + reasoning trail)
+
+⸻
+
+8) Pantheon Integration Map
+	•	Mirror / Hypatia: contradiction audit, fallacy detection, inference labeling
+	•	Checksum: provenance ledger, tamper-evidence, chain-of-custody strength
+	•	Badger (CAO): throttle salience, prevent obsession loops, enforce reversibility
+	•	Darwin’s Sieve: feasibility + reproducibility gate on strong claims
+	•	Truth Engine Doctrine: safe framing of contested history; no false certainty
+
+⸻
+
+If you want to “field test” it right now, give me any episode (tight scope: “one week, one place, one incident”), and I’ll run a full BHE-style reconstruction: top 3 timelines + hinge facts + what evidence would settle it.
