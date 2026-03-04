@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PARALLAX ATLAS v0.3 — Tier-1 Sky Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+:root {
+–bg: #05070e;
+–bg2: #080b14;
+–bg3: #0b0f1c;
+–panel: #0d1222;
+–amber: #d4961a;
+–amber-d: rgba(212,150,26,0.25);
+–amber-dd: rgba(212,150,26,0.07);
+–amber-glow: rgba(212,150,26,0.45);
+–green: #3dba6e;
+–green-d: rgba(61,186,110,0.2);
+–green-dd: rgba(61,186,110,0.06);
+–phosphor: #c8e870;
+–phosphor-d: rgba(200,232,112,0.15);
+–red: #e85030;
+–red-d: rgba(232,80,48,0.2);
+–ice: #7ab4e0;
+–ice-d: rgba(122,180,224,0.15);
+–text: #9eacc8;
+–text-b: #ccd8ec;
+–text-d: rgba(158,172,200,0.4);
+–rule: rgba(100,120,180,0.12);
+–rule-hi: rgba(160,180,220,0.2);
+–myth: #c080ff;
+–tab-h: 38px;
+–hdr-h: 52px;
+–ft-h: 46px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:var(–bg);}
+body{color:var(–text);font-family:‘IBM Plex Mono’,monospace;font-size:11px;position:relative;}
+
+/* ── SCAN-LINE OVERLAY ── */
+body::after{
+content:’’;position:fixed;inset:0;pointer-events:none;z-index:9999;
+background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);
+}
+
+/* ── STARFIELD ── */
+#sf{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+.root{position:relative;z-index:1;height:100vh;display:grid;grid-template-rows:var(–hdr-h) var(–tab-h) 1fr var(–ft-h);}
+
+/* ══ HEADER ══ */
+.hdr{
+display:flex;align-items:center;padding:0 24px;gap:28px;
+border-bottom:1px solid var(–rule-hi);
+background:linear-gradient(90deg,rgba(13,18,34,.98),rgba(8,11,20,.98));
+}
+.logo{
+font-family:‘Playfair Display’,serif;font-size:16px;font-weight:400;
+color:var(–text-b);letter-spacing:.18em;white-space:nowrap;
+display:flex;flex-direction:column;gap:2px;
+}
+.logo-sub{font-family:‘IBM Plex Mono’,monospace;font-size:7px;letter-spacing:.4em;color:var(–amber);text-transform:uppercase;}
+.vr{width:1px;height:30px;background:var(–rule-hi);}
+.ctl{display:flex;flex-direction:column;gap:3px;}
+.ctl-lbl{font-size:7px;letter-spacing:.35em;color:var(–text-d);text-transform:uppercase;}
+select{
+background:rgba(8,11,20,.9);border:1px solid var(–rule-hi);
+color:var(–text-b);font-family:‘IBM Plex Mono’,monospace;font-size:10px;
+padding:3px 8px;cursor:pointer;outline:none;-webkit-appearance:none;
+transition:border-color .15s;
+}
+select:hover,select:focus{border-color:var(–amber);}
+option{background:#080b14;}
+
+.hdr-right{margin-left:auto;display:flex;gap:20px;align-items:center;}
+.stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
+.stat-v{font-size:14px;color:var(–amber);letter-spacing:.04em;font-variant-numeric:tabular-nums;}
+.stat-k{font-size:7px;letter-spacing:.3em;color:var(–text-d);text-transform:uppercase;}
+
+.tier-badge{
+font-size:7px;letter-spacing:.3em;color:var(–green);
+border:1px solid var(–green-d);padding:3px 8px;background:var(–green-dd);
+text-transform:uppercase;white-space:nowrap;
+}
+
+/* ══ TABS ══ */
+.tabs{
+display:flex;align-items:flex-end;padding:0 18px;gap:0;
+border-bottom:1px solid var(–rule-hi);background:var(–bg2);
+}
+.tab{
+font-family:‘IBM Plex Mono’,monospace;font-size:8px;letter-spacing:.3em;
+text-transform:uppercase;color:var(–text-d);
+padding:0 18px;height:36px;display:flex;align-items:center;
+cursor:pointer;border-bottom:2px solid transparent;
+transition:all .15s;white-space:nowrap;user-select:none;
+}
+.tab:hover{color:var(–text-b);}
+.tab.active{color:var(–amber);border-bottom-color:var(–amber);}
+
+/* ══ CONTENT ══ */
+.content{overflow:hidden;}
+.pane{display:none;height:100%;overflow:hidden;}
+.pane.active{display:block;}
+
+/* ── shared sidebar layout ── */
+.tri-grid{display:grid;height:100%;grid-template-columns:290px 1fr 290px;overflow:hidden;}
+.duo-grid{display:grid;height:100%;grid-template-columns:1fr 380px;overflow:hidden;}
+
+.col{
+overflow-y:auto;padding:14px;
+display:flex;flex-direction:column;gap:10px;
+}
+.col-border-r{border-right:1px solid var(–rule);}
+.col-border-l{border-left:1px solid var(–rule);}
+
+.col-hd{
+font-size:7px;letter-spacing:.4em;color:var(–text-d);text-transform:uppercase;
+padding-bottom:8px;border-bottom:1px solid var(–rule);margin-bottom:2px;
+}
+
+/* ── planet cards ── */
+.pc{
+border:1px solid var(–rule);padding:10px;cursor:pointer;
+transition:all .15s;position:relative;
+}
+.pc:hover{border-color:var(–rule-hi);}
+.pc.sel{border-color:var(–amber-d);background:var(–amber-dd);}
+.pc-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.pc-name{font-family:‘Playfair Display’,serif;font-size:14px;color:var(–text-b);}
+.pdot{width:7px;height:7px;border-radius:50%;}
+.mr{display:flex;justify-content:space-between;align-items:center;padding:1.5px 0;border-top:1px solid rgba(100,120,180,.05);}
+.mk{font-size:7px;letter-spacing:.12em;color:var(–text-d);}
+.mv{font-size:9px;color:var(–text-b);font-variant-numeric:tabular-nums;}
+.vbar{height:1.5px;background:rgba(100,120,180,.1);margin-top:5px;position:relative;}
+.vfill{position:absolute;left:0;top:0;height:100%;transition:width .4s;}
+.badge{
+display:inline-block;font-size:6px;letter-spacing:.2em;
+padding:1px 5px;border:1px solid;margin-top:4px;text-transform:uppercase;
+}
+.badge.int{color:var(–red);border-color:var(–red-d);background:rgba(232,80,48,.05);}
+.badge.ext{color:var(–green);border-color:var(–green-d);background:var(–green-dd);}
+.badge.mid{color:var(–phosphor);border-color:var(–phosphor-d);background:rgba(200,232,112,.05);}
+
+/* ── central canvas area ── */
+.canvas-center{
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+position:relative;overflow:hidden;
+}
+canvas.main{display:block;}
+.c-label{
+position:absolute;font-size:7px;letter-spacing:.35em;color:var(–text-d);
+text-transform:uppercase;pointer-events:none;
+}
+.c-label.top{top:10px;left:50%;transform:translateX(-50%);}
+.c-label.bot{bottom:10px;left:50%;transform:translateX(-50%);}
+
+/* ══ DELTA TAB ══ */
+#pane-delta{overflow-y:auto;}
+.delta-layout{
+display:grid;grid-template-columns:1fr 420px;
+height:100%;overflow:hidden;
+}
+.delta-chart-col{
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+padding:20px;border-right:1px solid var(–rule);
+gap:16px;
+}
+.delta-info-col{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}
+
+.sim-bar-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(–rule);}
+.sim-name{font-family:‘Playfair Display’,serif;font-size:13px;color:var(–text-b);width:80px;flex-shrink:0;}
+.sim-track{flex:1;height:2px;background:rgba(100,120,180,.12);position:relative;}
+.sim-fill{position:absolute;left:0;top:0;height:100%;transition:width .5s;}
+.sim-val{font-size:9px;color:var(–amber);width:42px;text-align:right;font-variant-numeric:tabular-nums;}
+.sim-note{font-size:8px;color:var(–text-d);font-style:italic;}
+
+/* ══ CULTURE TAB ══ */
+#pane-culture{overflow-y:auto;}
+.culture-doc{max-width:860px;margin:0 auto;padding:28px 32px;}
+.doc-title{
+font-family:‘Playfair Display’,serif;font-size:26px;font-weight:400;
+color:var(–text-b);letter-spacing:.06em;
+border-bottom:1px solid var(–rule-hi);padding-bottom:14px;margin-bottom:20px;
+}
+.doc-section{margin-bottom:36px;}
+.doc-h2{
+font-family:‘Playfair Display’,serif;font-size:14px;font-weight:400;
+color:var(–amber);letter-spacing:.08em;margin-bottom:8px;margin-top:18px;
+font-style:italic;
+}
+.doc-body{
+font-family:‘IBM Plex Mono’,monospace;font-size:11px;line-height:1.9;
+color:var(–text);max-width:740px;
+}
+.doc-body em{color:var(–myth);font-style:italic;}
+.doc-body strong{color:var(–text-b);}
+.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;}
+.doc-card{
+border:1px solid var(–rule);padding:12px;
+background:rgba(13,18,34,.5);
+}
+.doc-card-title{font-family:‘Playfair Display’,serif;font-size:11px;color:var(–amber);margin-bottom:6px;font-style:italic;}
+.doc-card-body{font-size:10px;line-height:1.75;color:var(–text-d);}
+
+.field-report{
+border:1px solid var(–amber-d);padding:14px 16px;
+background:var(–amber-dd);margin:14px 0;
+}
+.field-report-lbl{font-size:7px;letter-spacing:.35em;color:var(–amber);text-transform:uppercase;margin-bottom:6px;}
+.field-report-body{font-size:10px;line-height:1.8;color:var(–text);font-style:italic;}
+
+.data-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:9px;}
+.data-table th{text-align:left;padding:4px 8px;font-size:7px;letter-spacing:.25em;color:var(–text-d);border-bottom:1px solid var(–rule-hi);}
+.data-table td{padding:4px 8px;border-bottom:1px solid var(–rule);color:var(–text-b);font-variant-numeric:tabular-nums;}
+.data-table tr:last-child td{border-bottom:none;}
+
+/* ══ PANTHEON TAB ══ */
+#pane-pantheon{overflow-y:auto;}
+.pantheon-grid{
+display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+gap:14px;padding:16px;
+}
+.deity{
+border:1px solid var(–rule);padding:16px;
+background:var(–bg3);transition:all .2s;
+position:relative;overflow:hidden;
+}
+.deity::before{
+content:’’;position:absolute;top:0;left:0;right:0;height:1px;
+transition:opacity .2s;opacity:0;
+}
+.deity:hover{border-color:var(–rule-hi);}
+.deity:hover::before{opacity:1;}
+.deity-sym{font-size:28px;line-height:1;margin-bottom:8px;display:block;}
+.deity-name{font-family:‘Playfair Display’,serif;font-size:17px;font-weight:400;color:var(–text-b);margin-bottom:2px;}
+.deity-pl{font-size:7px;letter-spacing:.35em;color:var(–myth);text-transform:uppercase;margin-bottom:8px;opacity:.7;}
+.deity-title{font-family:‘Playfair Display’,serif;font-style:italic;font-size:11px;color:var(–amber);margin-bottom:8px;}
+.deity-lore{font-size:10px;line-height:1.75;color:var(–text-d);border-top:1px solid var(–rule);padding-top:8px;margin-top:6px;}
+.deity-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
+.dtag{font-size:7px;letter-spacing:.18em;border:1px solid var(–amber-d);color:var(–amber);padding:1px 5px;background:var(–amber-dd);}
+.deity-fests{margin-top:8px;border-top:1px solid var(–rule);padding-top:6px;}
+.feast-item{font-size:9px;color:var(–text-d);padding:1px 0;}
+
+/* ══ TIMELINE TAB ══ */
+#pane-timeline{overflow:hidden;display:none;flex-direction:column;}
+#pane-timeline.active{display:flex;}
+.tl-wrap{flex:1;overflow:auto;}
+#tlCanvas{display:block;}
+.tl-legend{
+display:flex;flex-wrap:wrap;gap:14px;padding:8px 16px;
+border-top:1px solid var(–rule);flex-shrink:0;
+}
+.tll{display:flex;align-items:center;gap:5px;font-size:8px;letter-spacing:.12em;}
+.tld{width:8px;height:8px;border-radius:50%;}
+
+/* ══ FOOTER ══ */
+.ft{
+border-top:1px solid var(–rule-hi);display:flex;align-items:center;
+gap:14px;padding:0 18px;background:var(–panel);
+}
+.ft-lbl{font-size:7px;letter-spacing:.3em;color:var(–text-d);text-transform:uppercase;white-space:nowrap;}
+input[type=range]{
+flex:1;height:2px;cursor:pointer;accent-color:var(–amber);
+background:rgba(100,120,180,.15);border:none;outline:none;-webkit-appearance:none;padding:0;
+}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:0;background:var(–amber);cursor:pointer;}
+.ft-t{font-size:11px;color:var(–amber);letter-spacing:.06em;min-width:260px;font-variant-numeric:tabular-nums;}
+.spd-grp{display:flex;gap:3px;}
+.spd{
+background:none;border:1px solid var(–rule);color:var(–text-d);
+font-family:‘IBM Plex Mono’,monospace;font-size:8px;padding:4px 8px;
+cursor:pointer;transition:all .15s;letter-spacing:.15em;
+}
+.spd:hover{border-color:var(–rule-hi);color:var(–text-b);}
+.spd.on{border-color:var(–amber-d);color:var(–amber);background:var(–amber-dd);}
+.ft-btn{
+background:none;border:1px solid var(–rule-hi);color:var(–text-b);
+font-family:‘IBM Plex Mono’,monospace;font-size:8px;letter-spacing:.2em;
+padding:6px 14px;cursor:pointer;transition:all .15s;white-space:nowrap;text-transform:uppercase;
+}
+.ft-btn:hover{border-color:var(–amber);color:var(–amber);}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:var(–bg);}
+::-webkit-scrollbar-thumb{background:var(–rule-hi);}
+</style>
+
+</head>
+<body>
+<canvas id="sf"></canvas>
+<div class="root">
+
+  <!-- HEADER -->
+
+  <div class="hdr">
+    <div class="logo">
+      PARALLAX ATLAS
+      <span class="logo-sub">v0.3 · Tier-1 Keplerian Engine</span>
+    </div>
+    <div class="vr"></div>
+    <div class="ctl">
+      <div class="ctl-lbl">Observer</div>
+      <select id="selObs">
+        <option value="Mercury">Mercury</option>
+        <option value="Venus">Venus</option>
+        <option value="Earth" selected>Earth</option>
+        <option value="Mars">Mars</option>
+        <option value="Jupiter">Jupiter</option>
+        <option value="Saturn">Saturn</option>
+        <option value="Uranus">Uranus</option>
+        <option value="Neptune">Neptune</option>
+        <option value="Pluto">Pluto</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <div class="ctl-lbl">Simulation Span</div>
+      <select id="selSpan">
+        <option value="2190">6 yr</option>
+        <option value="10957" selected>30 yr</option>
+        <option value="36525">100 yr</option>
+        <option value="90520">248 yr (Pluto cycle)</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <div class="ctl-lbl">Sample Step</div>
+      <select id="selStep">
+        <option value="5" selected>5 days</option>
+        <option value="10">10 days</option>
+        <option value="30">30 days</option>
+      </select>
+    </div>
+    <div class="vr"></div>
+    <div class="tier-badge">Keplerian · 3D Orbits · Elliptical</div>
+    <div class="hdr-right">
+      <div class="stat"><div class="stat-v" id="stObs">Earth</div><div class="stat-k">Observer</div></div>
+      <div class="stat"><div class="stat-v" id="stVis">—</div><div class="stat-k">Visible Now</div></div>
+      <div class="stat"><div class="stat-v" id="stMid">—</div><div class="stat-k">Midnight-Capable</div></div>
+      <div class="stat"><div class="stat-v" id="stT">0 d</div><div class="stat-k">Elapsed</div></div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+
+  <div class="tabs">
+    <div class="tab active" data-tab="sky">[ Sky View ]</div>
+    <div class="tab" data-tab="zodiac">[ Zodiac ]</div>
+    <div class="tab" data-tab="delta">[ Δ Delta Tracker ]</div>
+    <div class="tab" data-tab="culture">[ Culture Seeds ]</div>
+    <div class="tab" data-tab="pantheon">[ Pantheon ]</div>
+    <div class="tab" data-tab="timeline">[ Great Timeline ]</div>
+  </div>
+
+  <!-- CONTENT -->
+
+  <div class="content">
+
+```
+<!-- ══ SKY ══ -->
+<div class="pane active" id="pane-sky">
+  <div class="tri-grid">
+    <div class="col col-border-r">
+      <div class="col-hd">Sky Presence · <span id="obsLbl">Earth</span></div>
+      <div id="cardList"></div>
+    </div>
+    <div class="canvas-center">
+      <div class="c-label top" id="skyTopLbl">Heliocentric · Keplerian Orbits · Observer Ringed</div>
+      <canvas id="skyC" class="main"></canvas>
+      <div class="c-label bot" id="skyBotLbl">—</div>
+    </div>
+    <div class="col col-border-l">
+      <div class="col-hd">Live Frame</div>
+      <div id="livePanel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ZODIAC ══ -->
+<div class="pane" id="pane-zodiac">
+  <div class="duo-grid">
+    <div class="canvas-center">
+      <canvas id="zodC" class="main"></canvas>
+    </div>
+    <div class="col col-border-l">
+      <div class="col-hd">Zodiac Houses · <span id="zodLbl">Earth</span></div>
+      <div id="houseList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DELTA ══ -->
+<div class="pane" id="pane-delta">
+  <div class="delta-layout">
+    <div class="delta-chart-col">
+      <div style="font-size:7px;letter-spacing:.4em;color:var(--text-d);text-transform:uppercase;align-self:flex-start">Sky Signature · Radar Chart vs Earth</div>
+      <canvas id="radarC" width="460" height="460"></canvas>
+      <div style="font-size:7px;letter-spacing:.4em;color:var(--text-d);text-transform:uppercase;align-self:flex-start">Cosine Similarity to Earth</div>
+      <div id="simBars" style="width:100%;max-width:460px"></div>
+    </div>
+    <div class="delta-info-col">
+      <div class="col-hd">Delta Analysis</div>
+      <div id="deltaInfo"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CULTURE ══ -->
+<div class="pane" id="pane-culture">
+  <div class="culture-doc" id="cultureDoc"></div>
+</div>
+
+<!-- ══ PANTHEON ══ -->
+<div class="pane" id="pane-pantheon">
+  <div class="pantheon-grid" id="pantheonGrid"></div>
+</div>
+
+<!-- ══ TIMELINE ══ -->
+<div class="pane" id="pane-timeline">
+  <div class="tl-wrap"><canvas id="tlC"></canvas></div>
+  <div class="tl-legend" id="tlLeg"></div>
+</div>
+```
+
+  </div>
+
+  <!-- FOOTER -->
+
+  <div class="ft">
+    <div class="ft-lbl">T</div>
+    <input type="range" id="slider" min="0" max="10957" value="0" step="5">
+    <div class="ft-t" id="ftT">T+0 d · Year 0.00</div>
+    <div class="spd-grp">
+      <button class="spd on" data-s="1">1×</button>
+      <button class="spd" data-s="5">5×</button>
+      <button class="spd" data-s="25">25×</button>
+      <button class="spd" data-s="150">150×</button>
+    </div>
+    <button class="ft-btn" id="playBtn">▶ PLAY</button>
+    <button class="ft-btn" id="epochBtn">⊕ EPOCH</button>
+    <button class="ft-btn" id="computeBtn">↺ RECOMPUTE</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════
+// STAR FIELD
+// ═══════════════════════════════════════════════════════════
+(()=>{
+  const c=document.getElementById('sf'),x=c.getContext('2d');
+  let s=5923;const rng=()=>{s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/4294967296;};
+  function draw(){
+    c.width=innerWidth;c.height=innerHeight;
+    for(let i=0;i<600;i++){
+      const px=rng()*c.width,py=rng()*c.height,r=rng()*1.3;
+      const a=.08+rng()*.5,h=210+rng()*40;
+      x.beginPath();x.arc(px,py,r,0,Math.PI*2);
+      x.fillStyle=`hsla(${h},55%,92%,${a})`;x.fill();
+    }
+  }
+  draw();window.addEventListener('resize',draw);
+})();
+
+// ═══════════════════════════════════════════════════════════
+// ORBITAL ELEMENTS (J2000-ish)
+// ═══════════════════════════════════════════════════════════
+const EL={
+  Mercury:{a:.38709927,e:.20563593,i:7.00497902, L:252.2503235,lp:77.45779628, Om:48.33076593},
+  Venus:  {a:.72333566,e:.00677672,i:3.39467605, L:181.9790995,lp:131.6024672,Om:76.67984255},
+  Earth:  {a:1.00000261,e:.01671123,i:-.00001531,L:100.46457166,lp:102.9376819,Om:0},
+  Mars:   {a:1.52371034,e:.09339410,i:1.84969142,L:355.44656795,lp:336.0563704,Om:49.55953891},
+  Jupiter:{a:5.20288700,e:.04838624,i:1.30439695,L:34.39644051,lp:14.72847983,Om:100.4739091},
+  Saturn: {a:9.53667594,e:.05386179,i:2.48599187,L:49.95424423,lp:92.59887831,Om:113.6624245},
+  Uranus: {a:19.1891646,e:.04725744,i:.77263783, L:313.2381045,lp:170.9542763,Om:74.01692503},
+  Neptune:{a:30.0699228,e:.00859048,i:1.77004347,L:304.8799703,lp:44.96476227,Om:131.7842257},
+  Pluto:  {a:39.4821167,e:.24882730,i:17.1400121,L:238.9290383,lp:224.0689163,Om:110.3039368},
+};
+const PHYS={
+  Mercury:{R:.383, A:.142,col:'#b8a898',sym:'☿'},
+  Venus:  {R:.949, A:.689,col:'#e8c97a',sym:'♀'},
+  Earth:  {R:1.00, A:.367,col:'#5098d8',sym:'⊕'},
+  Mars:   {R:.532, A:.170,col:'#c04828',sym:'♂'},
+  Jupiter:{R:11.21,A:.538,col:'#c8a060',sym:'♃'},
+  Saturn: {R:9.45, A:.499,col:'#dcc870',sym:'♄'},
+  Uranus: {R:4.01, A:.488,col:'#70d8e0',sym:'⛢'},
+  Neptune:{R:3.88, A:.442,col:'#3858c8',sym:'♆'},
+  Pluto:  {R:.186, A:.520,col:'#a89070',sym:'♇'},
+};
+const BODIES=Object.keys(EL);
+const D2R=Math.PI/180;
+
+// ═══════════════════════════════════════════════════════════
+// KEPLER SOLVER
+// ═══════════════════════════════════════════════════════════
+function keplerE(M,e,tol=1e-10){
+  let E=e<.8?M:Math.PI;
+  for(let i=0;i<60;i++){
+    const dE=-(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+    E+=dE;if(Math.abs(dE)<tol)break;
+  }
+  return E;
+}
+
+function helioXYZ(body,t){
+  const el=EL[body];
+  const {a,e}=el;
+  const i=el.i*D2R, Om=el.Om*D2R, lp=el.lp*D2R;
+  const L0=el.L*D2R;
+  const n=2*Math.PI/(365.256*(a**1.5)); // rad/day (Kepler 3)
+  const L=L0+n*t;
+  const M=((L-lp)%(2*Math.PI)+4*Math.PI)%(2*Math.PI);
+  const w=((lp-Om)%(2*Math.PI)+4*Math.PI)%(2*Math.PI);
+  const E=keplerE(M,e);
+  const x=a*(Math.cos(E)-e);
+  const y=a*Math.sqrt(1-e*e)*Math.sin(E);
+  const cw=Math.cos(w),sw=Math.sin(w);
+  const cO=Math.cos(Om),sO=Math.sin(Om);
+  const ci=Math.cos(i),si=Math.sin(i);
+  return[
+    (cO*cw-sO*sw*ci)*x+(-cO*sw-sO*cw*ci)*y,
+    (sO*cw+cO*sw*ci)*x+(-sO*sw+cO*cw*ci)*y,
+    (sw*si)*x+(cw*si)*y
+  ];
+}
+
+// ecliptic longitude (for zodiac)
+function eclipticLon(body,t){
+  const [X,Y,Z]=helioXYZ(body,t);
+  return(((Math.atan2(Y,X)*180/Math.PI)%360)+360)%360;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ZODIAC
+// ═══════════════════════════════════════════════════════════
+const ZOD12=[
+  {name:'Aries',sym:'♈',s:0,e:30,el:'Fire',q:'Cardinal',rul:'Mars'},
+  {name:'Taurus',sym:'♉',s:30,e:60,el:'Earth',q:'Fixed',rul:'Venus'},
+  {name:'Gemini',sym:'♊',s:60,e:90,el:'Air',q:'Mutable',rul:'Mercury'},
+  {name:'Cancer',sym:'♋',s:90,e:120,el:'Water',q:'Cardinal',rul:'Moon'},
+  {name:'Leo',sym:'♌',s:120,e:150,el:'Fire',q:'Fixed',rul:'Sun'},
+  {name:'Virgo',sym:'♍',s:150,e:180,el:'Earth',q:'Mutable',rul:'Mercury'},
+  {name:'Libra',sym:'♎',s:180,e:210,el:'Air',q:'Cardinal',rul:'Venus'},
+  {name:'Scorpio',sym:'♏',s:210,e:240,el:'Water',q:'Fixed',rul:'Mars'},
+  {name:'Sagittarius',sym:'♐',s:240,e:270,el:'Fire',q:'Mutable',rul:'Jupiter'},
+  {name:'Capricorn',sym:'♑',s:270,e:300,el:'Earth',q:'Cardinal',rul:'Saturn'},
+  {name:'Aquarius',sym:'♒',s:300,e:330,el:'Air',q:'Fixed',rul:'Saturn'},
+  {name:'Pisces',sym:'♓',s:330,e:360,el:'Water',q:'Mutable',rul:'Jupiter'},
+];
+function zodHouse(deg){return ZOD12.find(z=>deg>=z.s&&deg<z.e)||ZOD12[11];}
+
+// ═══════════════════════════════════════════════════════════
+// METRICS ENGINE
+// ═══════════════════════════════════════════════════════════
+let MCACHE={};
+
+function computeMetrics(observer,spanDays,stepDays,elongVis=20,elongMid=90){
+  const key=`${observer}_${spanDays}_${stepDays}_${elongVis}`;
+  if(MCACHE[key])return MCACHE[key];
+
+  const T=[];for(let t=0;t<=spanDays;t+=stepDays)T.push(t);
+  const N=T.length;
+
+  // pre-compute observer positions
+  const obsPos=T.map(t=>helioXYZ(observer,t));
+
+  const result=BODIES.filter(b=>b!==observer).map(target=>{
+    let cVis=0,cMid=0,sumBVis=0,maxB=0,minD=1e9,maxD=0,maxEl=0;
+
+    T.forEach((t,i)=>{
+      const op=obsPos[i],tp=helioXYZ(target,t);
+      const rel=[tp[0]-op[0],tp[1]-op[1],tp[2]-op[2]];
+      const dist=Math.hypot(rel[0],rel[1],rel[2]);
+      // sun hat (from observer toward sun = -observer pos)
+      const sLen=Math.hypot(op[0],op[1],op[2]);
+      const sH=[-op[0]/sLen,-op[1]/sLen,-op[2]/sLen];
+      const rH=[rel[0]/dist,rel[1]/dist,rel[2]/dist];
+      const cosE=Math.max(-1,Math.min(1,rH[0]*sH[0]+rH[1]*sH[1]+rH[2]*sH[2]));
+      const elong=Math.acos(cosE)*180/Math.PI;
+
+      // phase: angle at target between sun and observer
+      const tLen=Math.hypot(tp[0],tp[1],tp[2]);
+      const tsH=[-tp[0]/tLen,-tp[1]/tLen,-tp[2]/tLen];
+      const toH=[-rel[0]/dist,-rel[1]/dist,-rel[2]/dist];
+      const cosP=Math.max(-1,Math.min(1,tsH[0]*toH[0]+tsH[1]*toH[1]+tsH[2]*toH[2]));
+      const phase=(1+Math.cos(Math.acos(cosP)))/2;
+
+      const p=PHYS[target];
+      const B=(p.R*p.R*p.A*phase)/(dist*dist);
+
+      const vis=elong>=elongVis,mid=elong>=elongMid;
+      if(vis){cVis++;sumBVis+=B;}
+      if(mid)cMid++;
+      if(B>maxB)maxB=B;
+      if(dist<minD)minD=dist;
+      if(dist>maxD)maxD=dist;
+      if(elong>maxEl)maxEl=elong;
+    });
+
+    return{
+      name:target,
+      visFrac:cVis/N,
+      midFrac:cMid/N,
+      meanBVis:cVis>0?sumBVis/cVis:0,
+      maxB,minDist:minD,maxDist:maxD,maxElong:maxEl,
+      isInterior:EL[target].a<EL[observer].a,
+      synodic:synodicDays(observer,target),
+    };
+  });
+
+  result.sort((a,b)=>b.meanBVis-a.meanBVis);
+  MCACHE[key]=result;
+  return result;
+}
+
+function synodicDays(obs,tgt){
+  const Po=365.256*(EL[obs].a**1.5),Pt=365.256*(EL[tgt].a**1.5);
+  if(Math.abs(Po-Pt)<.1)return 999999;
+  return Math.abs(1/(1/Math.min(Po,Pt)-1/Math.max(Po,Pt)));
+}
+
+// sky signature vector (mean brightness per body slot)
+function skySignature(metrics,observer){
+  const m={};metrics.forEach(x=>m[x.name]=x.meanBVis);
+  return BODIES.map(b=>b===observer?0:(m[b]||0));
+}
+
+function cosine(a,b){
+  let dot=0,na=0,nb=0;
+  for(let i=0;i<a.length;i++){dot+=a[i]*b[i];na+=a[i]*a[i];nb+=b[i]*b[i];}
+  return(na*nb)===0?0:dot/Math.sqrt(na*nb);
+}
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let S={
+  obs:'Earth',t:0,playing:false,speed:1,
+  metrics:[],
+  span:10957,step:5,
+  elongVis:20,elongMid:90,
+  activeTab:'sky',
+};
+let raf=null;
+
+// ═══════════════════════════════════════════════════════════
+// CANVAS: SKY
+// ═══════════════════════════════════════════════════════════
+const skyC=document.getElementById('skyC');
+const skX=skyC.getContext('2d');
+
+function sizeCanvas(el){
+  const par=el.parentElement;
+  const sz=Math.min(par.clientWidth,par.clientHeight)-24;
+  el.width=Math.max(300,sz);el.height=Math.max(300,sz);
+}
+
+function drawSky(){
+  const W=skyC.width,H=skyC.height,cx=W/2,cy=H/2;
+  skX.clearRect(0,0,W,H);
+  const bg=skX.createRadialGradient(cx,cy,0,cx,cy,cx);
+  bg.addColorStop(0,'rgba(11,15,28,.96)');bg.addColorStop(1,'rgba(5,7,14,.98)');
+  skX.fillStyle=bg;skX.fillRect(0,0,W,H);
+
+  const SCALE=cx*.88/39.5;
+
+  // zodiac ring
+  ZOD12.forEach(z=>{
+    const a1=(z.s-90)*D2R,a2=(z.e-90)*D2R;
+    skX.beginPath();skX.moveTo(cx,cy);
+    skX.arc(cx,cy,cx*.93,a1,a2);skX.closePath();
+    const ec={'Fire':'rgba(200,80,30,.06)','Earth':'rgba(60,150,60,.06)','Air':'rgba(60,140,210,.06)','Water':'rgba(40,60,200,.06)'};
+    skX.fillStyle=ec[z.el];skX.fill();
+    skX.strokeStyle='rgba(100,130,200,.07)';skX.lineWidth=.5;skX.stroke();
+    const mid=(z.s+z.e)/2-90;
+    skX.fillStyle='rgba(100,130,180,.35)';skX.font=`${W*.018}px serif`;
+    skX.textAlign='center';skX.textBaseline='middle';
+    skX.fillText(z.sym,cx+(cx*.9)*Math.cos(mid*D2R),cy+(cx*.9)*Math.sin(mid*D2R));
+  });
+
+  // orbits
+  BODIES.forEach(n=>{
+    const p=EL[n];
+    // For elliptical orbits, draw approximated orbit ring at semi-major axis
+    const isObs=n===S.obs;
+    skX.beginPath();skX.arc(cx,cy,p.a*SCALE,0,Math.PI*2);
+    skX.strokeStyle=isObs?'rgba(200,150,26,.28)':'rgba(100,130,200,.07)';
+    skX.lineWidth=isObs?1.2:.5;
+    skX.setLineDash(isObs?[]:([2,4]));skX.stroke();skX.setLineDash([]);
+  });
+
+  // Sun
+  const sg=skX.createRadialGradient(cx,cy,0,cx,cy,16);
+  sg.addColorStop(0,'rgba(255,248,200,.98)');sg.addColorStop(.5,'rgba(255,200,60,.6)');sg.addColorStop(1,'transparent');
+  skX.beginPath();skX.arc(cx,cy,10,0,Math.PI*2);skX.fillStyle=sg;skX.fill();
+  skX.fillStyle='rgba(255,248,180,.85)';skX.font=`${W*.022}px serif`;
+  skX.textAlign='center';skX.textBaseline='middle';skX.fillText('☉',cx,cy);
+
+  const op=helioXYZ(S.obs,S.t);
+  const ox=cx+op[0]*SCALE,oy=cy-op[1]*SCALE;
+
+  // glare cone
+  const sunAng=Math.atan2(op[1],op[0])+Math.PI;
+  const coneR=20*D2R;
+  skX.save();skX.globalAlpha=.05;
+  skX.beginPath();skX.moveTo(ox,oy);
+  skX.arc(ox,oy,cx*.14,-sunAng-coneR,-sunAng+coneR);
+  skX.closePath();skX.fillStyle='#ff7030';skX.fill();
+  skX.globalAlpha=1;skX.restore();
+
+  BODIES.forEach(n=>{
+    const pos=helioXYZ(n,S.t);
+    const px=cx+pos[0]*SCALE,py=cy-pos[1]*SCALE;
+    const ph=PHYS[n];
+    const isObs=n===S.obs;
+    const r=isObs?7:Math.max(2,Math.log(ph.R+1)*2.6);
+
+    if(isObs){
+      const g=skX.createRadialGradient(px,py,0,px,py,22);
+      g.addColorStop(0,ph.col+'66');g.addColorStop(1,'transparent');
+      skX.beginPath();skX.arc(px,py,22,0,Math.PI*2);skX.fillStyle=g;skX.fill();
+    }
+    skX.beginPath();skX.arc(px,py,r,0,Math.PI*2);skX.fillStyle=ph.col;skX.fill();
+
+    if(!isObs){
+      const rel=[pos[0]-op[0],pos[1]-op[1],pos[2]-op[2]];
+      const dist=Math.hypot(rel[0],rel[1],rel[2]);
+      const sLen=Math.hypot(op[0],op[1],op[2]);
+      const cosE=(rel[0]*(-op[0]/sLen)+rel[1]*(-op[1]/sLen)+rel[2]*(-op[2]/sLen))/dist;
+      const elong=Math.acos(Math.max(-1,Math.min(1,cosE)))*180/Math.PI;
+      const vis=elong>=S.elongVis;
+      skX.beginPath();skX.moveTo(ox,oy);skX.lineTo(px,py);
+      skX.strokeStyle=vis?'rgba(61,186,110,.12)':'rgba(232,80,48,.07)';
+      skX.lineWidth=.5;skX.stroke();
+    }
+
+    skX.fillStyle=isObs?'#ccd8ec':'rgba(140,160,200,.5)';
+    skX.font=`${isObs?'bold ':''} ${W*.013}px "IBM Plex Mono"`;
+    skX.textAlign='center';skX.textBaseline='bottom';
+    skX.fillText(n.substring(0,3).toUpperCase(),px,py-r-3);
+
+    if(isObs){
+      skX.beginPath();skX.arc(ox,oy,11,0,Math.PI*2);
+      skX.strokeStyle='rgba(212,150,26,.7)';skX.lineWidth=1.5;skX.stroke();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// CANVAS: ZODIAC
+// ═══════════════════════════════════════════════════════════
+const zodC=document.getElementById('zodC');
+const zdX=zodC.getContext('2d');
+
+function drawZodiac(){
+  const W=zodC.width,H=zodC.height,cx=W/2,cy=H/2;
+  zdX.clearRect(0,0,W,H);
+  const bg=zdX.createRadialGradient(cx,cy,0,cx,cy,cx);
+  bg.addColorStop(0,'rgba(11,15,28,.97)');bg.addColorStop(1,'rgba(5,7,14,.99)');
+  zdX.fillStyle=bg;zdX.fillRect(0,0,W,H);
+
+  const outerR=cx*.88,innerR=cx*.52,lR=cx*.72;
+  const ec={'Fire':'#c84020','Earth':'#608040','Air':'#4088c0','Water':'#2050b0'};
+
+  ZOD12.forEach(z=>{
+    const a1=(z.s-90)*D2R,a2=(z.e-90)*D2R;
+    zdX.beginPath();
+    zdX.arc(cx,cy,outerR,a1,a2);
+    zdX.arc(cx,cy,innerR,a2,a1,true);
+    zdX.closePath();
+    zdX.fillStyle=ec[z.el]+'1a';zdX.fill();
+    zdX.strokeStyle='rgba(100,140,200,.14)';zdX.lineWidth=.7;zdX.stroke();
+    const mid=(z.s+z.e)/2-90;
+    const mx=cx+lR*Math.cos(mid*D2R),my=cy+lR*Math.sin(mid*D2R);
+    zdX.fillStyle='rgba(160,180,220,.65)';zdX.font=`${W*.025}px serif`;
+    zdX.textAlign='center';zdX.textBaseline='middle';zdX.fillText(z.sym,mx,my-7);
+    zdX.font=`${W*.011}px "IBM Plex Mono"`;zdX.fillStyle='rgba(100,130,170,.5)';
+    zdX.fillText(z.name.substring(0,3).toUpperCase(),mx,my+7);
+  });
+
+  // degree ticks
+  for(let d=0;d<360;d+=5){
+    const a=(d-90)*D2R,isBig=d%30===0;
+    const r2=isBig?innerR-14:innerR-5;
+    zdX.beginPath();zdX.moveTo(cx+innerR*Math.cos(a),cy+innerR*Math.sin(a));
+    zdX.lineTo(cx+r2*Math.cos(a),cy+r2*Math.sin(a));
+    zdX.strokeStyle=isBig?'rgba(212,150,26,.3)':'rgba(100,130,200,.12)';
+    zdX.lineWidth=isBig?1:.4;zdX.stroke();
+  }
+
+  // Sun
+  const sg2=zdX.createRadialGradient(cx,cy,0,cx,cy,16);
+  sg2.addColorStop(0,'rgba(255,248,200,.95)');sg2.addColorStop(1,'rgba(255,180,50,.15)');
+  zdX.beginPath();zdX.arc(cx,cy,15,0,Math.PI*2);zdX.fillStyle=sg2;zdX.fill();
+  zdX.fillStyle='rgba(255,248,180,.85)';zdX.font=`${W*.035}px serif`;
+  zdX.textAlign='center';zdX.textBaseline='middle';zdX.fillText('☉',cx,cy);
+
+  // Observer label
+  zdX.font=`bold ${W*.012}px "IBM Plex Mono"`;zdX.fillStyle='rgba(212,150,26,.7)';
+  zdX.textAlign='center';zdX.fillText(S.obs.toUpperCase(),cx,cy+innerR*.25);
+
+  // Planets
+  BODIES.forEach(n=>{
+    if(n===S.obs)return;
+    const deg=eclipticLon(n,S.t);
+    const a=(deg-90)*D2R;
+    const ph=PHYS[n];
+    const r=Math.max(4,Math.log(ph.R+1)*2.4);
+    const pR=innerR*.78;
+    const px=cx+pR*Math.cos(a),py=cy+pR*Math.sin(a);
+    const g=zdX.createRadialGradient(px,py,0,px,py,r*2.5);
+    g.addColorStop(0,ph.col+'99');g.addColorStop(1,'transparent');
+    zdX.beginPath();zdX.arc(px,py,r*2.5,0,Math.PI*2);zdX.fillStyle=g;zdX.fill();
+    zdX.beginPath();zdX.arc(px,py,r,0,Math.PI*2);zdX.fillStyle=ph.col;zdX.fill();
+    zdX.fillStyle='rgba(210,230,255,.7)';zdX.font=`${r*1.5}px serif`;
+    zdX.textAlign='center';zdX.textBaseline='middle';zdX.fillText(ph.sym,px,py);
+    zdX.beginPath();zdX.moveTo(cx+innerR*Math.cos(a),cy+innerR*Math.sin(a));
+    zdX.lineTo(cx+outerR*Math.cos(a),cy+outerR*Math.sin(a));
+    zdX.strokeStyle=ph.col+'55';zdX.lineWidth=.7;zdX.stroke();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// PLANET CARDS
+// ═══════════════════════════════════════════════════════════
+function buildCards(){
+  document.getElementById('obsLbl').textContent=S.obs;
+  const el=document.getElementById('cardList');el.innerHTML='';
+  S.metrics.forEach(m=>{
+    const ph=PHYS[m.name];
+    const d=document.createElement('div');d.className='pc';
+    d.style.borderColor=ph.col+'28';
+    d.innerHTML=`
+      <div class="pc-hd">
+        <div class="pc-name">${ph.sym} ${m.name}</div>
+        <div class="pdot" style="background:${ph.col}"></div>
+      </div>
+      <div class="mr"><span class="mk">VIS FRAC (≥20°)</span><span class="mv">${(m.visFrac*100).toFixed(1)}%</span></div>
+      <div class="mr"><span class="mk">MIDNIGHT (≥90°)</span><span class="mv">${(m.midFrac*100).toFixed(1)}%</span></div>
+      <div class="mr"><span class="mk">MEAN B (VISIBLE)</span><span class="mv">${m.meanBVis.toExponential(3)}</span></div>
+      <div class="mr"><span class="mk">MAX ELONGATION</span><span class="mv">${m.maxElong.toFixed(1)}°</span></div>
+      <div class="mr"><span class="mk">SYNODIC PERIOD</span><span class="mv">${m.synodic>50000?'very long':m.synodic.toFixed(1)+' d'}</span></div>
+      <div class="vbar"><div class="vfill" style="width:${m.visFrac*100}%;background:${ph.col}88"></div></div>
+      <span class="badge ${m.isInterior?'int':'ext'}">${m.isInterior?'INTERIOR':'EXTERIOR'}</span>
+      ${m.midFrac>0.3?`<span class="badge mid" style="margin-left:4px">MIDNIGHT WANDERER</span>`:''}
+    `;
+    el.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// LIVE PANEL
+// ═══════════════════════════════════════════════════════════
+function buildLivePanel(){
+  const el=document.getElementById('livePanel');el.innerHTML='';
+  const op=helioXYZ(S.obs,S.t);
+  const sLen=Math.hypot(op[0],op[1],op[2]);
+
+  // current state per body
+  const div=document.createElement('div');
+  div.innerHTML=`<div class="col-hd" style="margin-bottom:8px">Positions · T+${Math.round(S.t)} d</div>`;
+
+  BODIES.forEach(n=>{
+    if(n===S.obs)return;
+    const tp=helioXYZ(n,S.t);
+    const rel=[tp[0]-op[0],tp[1]-op[1],tp[2]-op[2]];
+    const dist=Math.hypot(rel[0],rel[1],rel[2]);
+    const cosE=(rel[0]*(-op[0]/sLen)+rel[1]*(-op[1]/sLen)+rel[2]*(-op[2]/sLen))/dist;
+    const elong=Math.acos(Math.max(-1,Math.min(1,cosE)))*180/Math.PI;
+    const vis=elong>=S.elongVis,mid=elong>=S.elongMid;
+    const zodH=zodHouse(eclipticLon(n,S.t));
+    const ph=PHYS[n];
+    const row=document.createElement('div');
+    row.className='mr';row.style.padding='3px 0';
+    row.innerHTML=`
+      <span style="color:${ph.col};font-size:9px">${ph.sym} ${n}</span>
+      <span style="font-size:8px;text-align:right">
+        <span style="color:${mid?'var(--phosphor)':vis?'var(--green)':'var(--red)'}">${mid?'MID':vis?'VIS':'—'}</span>
+        &nbsp;<span style="color:var(--text-d)">${elong.toFixed(0)}° ${zodH.sym}${zodH.name.substring(0,3)}</span>
+      </span>
+    `;
+    div.appendChild(row);
+  });
+
+  // Near conjunctions
+  const poses=BODIES.filter(b=>b!==S.obs).map(b=>({name:b,deg:eclipticLon(b,S.t)}));
+  const conjs=[];
+  for(let i=0;i<poses.length;i++)for(let j=i+1;j<poses.length;j++){
+    const diff=Math.abs(poses[i].deg-poses[j].deg);
+    const ang=Math.min(diff,360-diff);
+    if(ang<12)conjs.push({a:poses[i].name,b:poses[j].name,ang});
+  }
+  if(conjs.length){
+    const cDiv=document.createElement('div');
+    cDiv.innerHTML=`<div class="col-hd" style="margin-top:12px;margin-bottom:6px">Conjunctions</div>`;
+    conjs.sort((a,b)=>a.ang-b.ang).forEach(c=>{
+      const r=document.createElement('div');r.className='mr';r.style.padding='3px 0';
+      r.innerHTML=`<span style="font-size:8px">${PHYS[c.a].sym}${c.a.substring(0,3)}–${PHYS[c.b].sym}${c.b.substring(0,3)}</span><span style="color:var(--amber);font-size:9px">${c.ang.toFixed(1)}°</span>`;
+      cDiv.appendChild(r);
+    });
+    div.appendChild(cDiv);
+  }
+
+  el.appendChild(div);
+}
+
+// ═══════════════════════════════════════════════════════════
+// ZODIAC HOUSE LIST
+// ═══════════════════════════════════════════════════════════
+function buildHouseList(){
+  document.getElementById('zodLbl').textContent=S.obs;
+  const el=document.getElementById('houseList');el.innerHTML='';
+  const hp={};ZOD12.forEach(z=>hp[z.name]=[]);
+  BODIES.forEach(n=>{
+    if(n===S.obs)return;
+    const deg=eclipticLon(n,S.t);
+    const h=zodHouse(deg);hp[h.name].push(n);
+  });
+  ZOD12.forEach(z=>{
+    const occ=hp[z.name].length>0;
+    const d=document.createElement('div');
+    d.style.cssText=`border:1px solid ${occ?'rgba(212,150,26,.3)':'var(--rule)'};padding:8px;margin-bottom:6px;background:${occ?'var(--amber-dd)':'transparent'}`;
+    d.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <span style="font-family:'Playfair Display',serif;font-size:12px;color:var(--text-b)">${z.sym} ${z.name}</span>
+        <span style="font-size:7px;color:var(--text-d);letter-spacing:.15em">${z.el} · ${z.q}</span>
+      </div>
+      <div style="font-size:7px;color:var(--text-d);letter-spacing:.15em;margin-bottom:4px">${z.s}°–${z.e}° · Ruler: ${z.rul}</div>
+      ${occ?`<div style="display:flex;flex-wrap:wrap;gap:3px">${hp[z.name].map(n=>`<span style="font-size:8px;padding:1px 5px;border:1px solid ${PHYS[n].col}44;color:${PHYS[n].col}">${PHYS[n].sym} ${n}</span>`).join('')}</div>`:''}
+    `;
+    el.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// DELTA TRACKER
+// ═══════════════════════════════════════════════════════════
+const radarC=document.getElementById('radarC');
+const radX=radarC.getContext('2d');
+
+function buildDelta(){
+  const obs=S.obs;
+  const earthMetrics=computeMetrics('Earth',S.span,S.step,S.elongVis,S.elongMid);
+  const earthSig=skySignature(earthMetrics,'Earth');
+
+  // Compute all
+  const allSigs={};
+  BODIES.forEach(b=>{
+    if(b===obs&&b==='Earth')return;
+    const m=computeMetrics(b,S.span,S.step,S.elongVis,S.elongMid);
+    allSigs[b]=skySignature(m,b);
+  });
+
+  // Radar: show current observer sig vs Earth
+  const obsSig=skySignature(S.metrics,obs);
+  drawRadar(earthSig,obsSig,obs);
+
+  // Similarity bars
+  const container=document.getElementById('simBars');container.innerHTML='';
+  const sims=BODIES.filter(b=>b!=='Earth').map(b=>({
+    name:b,
+    sim:cosine(allSigs[b]||new Array(9).fill(0),earthSig),
+  })).sort((a,b)=>b.sim-a.sim);
+
+  sims.forEach(({name,sim})=>{
+    const ph=PHYS[name];
+    const sel=name===obs;
+    const row=document.createElement('div');
+    row.className='sim-bar-row';
+    if(sel)row.style.background='var(--amber-dd)';
+    const interp=sim>0.95?'virtually identical':sim>0.8?'recognizably Earthlike':sim>0.5?'divergent cast':sim>0.1?'alien pantheon':'different religion entirely';
+    row.innerHTML=`
+      <div class="sim-name" style="color:${sel?'var(--amber)':ph.col}">${ph.sym} ${name}</div>
+      <div class="sim-track"><div class="sim-fill" style="width:${sim*100}%;background:${ph.col}"></div></div>
+      <div class="sim-val">${sim.toFixed(3)}</div>
+      <div class="sim-note" style="width:160px">${interp}</div>
+    `;
+    container.appendChild(row);
+  });
+
+  // Delta info panel
+  const infoEl=document.getElementById('deltaInfo');
+  const myMetrics=computeMetrics(obs,S.span,S.step,S.elongVis,S.elongMid);
+  const myTop3=myMetrics.slice(0,3).map(m=>m.name);
+  const interior=myMetrics.filter(m=>m.isInterior).map(m=>m.name);
+  const exterior=myMetrics.filter(m=>!m.isInterior&&m.midFrac>0.1).map(m=>m.name);
+  const obsSim=obs==='Earth'?1:sims.find(s=>s.name===obs)?.sim??0;
+
+  infoEl.innerHTML=`
+    <div style="margin-bottom:14px">
+      <div class="col-hd" style="margin-bottom:8px">Observer: ${obs}</div>
+      <div class="mr"><span class="mk">SIM TO EARTH</span><span class="mv" style="color:var(--amber)">${obsSim.toFixed(3)}</span></div>
+      <div class="mr"><span class="mk">TOP 3 DOMINANTS</span><span class="mv">${myTop3.join(' · ')}</span></div>
+      <div class="mr"><span class="mk">INTERIOR BODIES</span><span class="mv" style="color:var(--red)">${interior.join(', ')||'none'}</span></div>
+      <div class="mr"><span class="mk">MIDNIGHT WANDERERS</span><span class="mv" style="color:var(--phosphor)">${exterior.join(', ')||'none'}</span></div>
+    </div>
+
+    <div style="font-size:7px;letter-spacing:.3em;color:var(--text-d);text-transform:uppercase;margin-bottom:8px;border-bottom:1px solid var(--rule);padding-bottom:6px">Sky Character Analysis</div>
+
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.85;color:var(--text)">
+      ${getDeltaNarrative(obs,myMetrics,obsSim)}
+    </div>
+
+    <div style="margin-top:16px;border-top:1px solid var(--rule);padding-top:10px">
+      <div style="font-size:7px;letter-spacing:.3em;color:var(--text-d);text-transform:uppercase;margin-bottom:8px">All Observers vs Earth</div>
+      <table class="data-table">
+        <tr><th>Observer</th><th>Sim</th><th>Dominants</th><th>Interior</th></tr>
+        ${BODIES.filter(b=>b!=='Earth').map(b=>{
+          const bm=computeMetrics(b,S.span,S.step,S.elongVis,S.elongMid);
+          const bSim=cosine(skySignature(bm,b),earthSig);
+          const bTop=bm.slice(0,2).map(m=>PHYS[m.name].sym+m.name.substring(0,3)).join(' ');
+          const bInt=bm.filter(m=>m.isInterior).length;
+          return `<tr style="${b===obs?'color:var(--amber)':''}">`+
+            `<td>${PHYS[b].sym} ${b}</td>`+
+            `<td style="color:${bSim>0.8?'var(--green)':bSim>0.3?'var(--amber)':'var(--red)'}">${bSim.toFixed(3)}</td>`+
+            `<td>${bTop}</td><td>${bInt}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>
+  `;
+}
+
+function getDeltaNarrative(obs,metrics,sim){
+  const top=metrics[0]?.name||'Jupiter';
+  const interior=metrics.filter(m=>m.isInterior).map(m=>m.name);
+  const obsP=EL[obs];
+
+  if(obs==='Earth') return `Earth's sky is the reference frame. Jupiter dominates at night, Saturn as boundary-keeper, Venus as the brilliant dawn/dusk herald. This configuration produced classical polytheism with a clear authority hierarchy.`;
+  if(sim>0.95) return `<em>Near-identical sky character to Earth.</em> ${obs} shares the same dominant hierarchy — Jupiter ruling, Saturn as boundary. The cast is the same; only the timing shifts. Interior/exterior structure is preserved. A civilization here would produce a mythology structurally indistinguishable from Earth's classical pantheons. The details differ; the grammar does not.`;
+  if(sim>0.8) return `<em>Recognizably Earthlike.</em> ${obs}'s sky preserves the Jupiter-dominant structure, but the inner system has reorganized. ${interior.length>0?`${interior.join(', ')} ${interior.length===1?'is':'are'} now interior — a dawn/dusk herald instead of a midnight wanderer.`:''} A civilization here would recognize the same gods-as-planets template, but the cast assignments differ enough to generate distinct mythological traditions.`;
+  if(sim>0.3) return `<em>Divergent sky cast.</em> From ${obs}, the inner solar system has collapsed toward the Sun. ${interior.join(', ')} are all interior — appearing only at dawn and dusk, never at midnight. The dominant night presence shifts to ${top}. Mythology here diverges substantially from Earth's: the inner gods form a Solar Court (a cluster of near-sun heralds), while the outer giants become the primary actors in the divine drama.`;
+  if(sim>0.05) return `<em>Alien pantheon structure.</em> From ${obs}, the familiar inner system has almost entirely dissolved into the solar glare. ${top} becomes the primary deity — the nearest massive mover defines meaning. The Sun itself transitions from "god-face blazing overhead" to "distant lawgiver." Religion becomes adjacency-based: whoever is nearest and brightest is king. The concept of a "herald star" trapped near the Sun becomes almost meaningless — everything near the Sun is invisible.`;
+  return `<em>Different religion entirely.</em> From ${obs}, the Sun is a star, not a face. ${top} is the unchallenged sovereign of the sky — no inner planet rivals it. The theological tradition here would be unrecognizable to an Earth culture: there is no blazing sun-god, no Venus-as-morning-star trope, no Mercury-as-messenger. The cosmos is cold, vast, patient. Religious cycles are measured in decades, not months. The nearest massive neighbor — ${top} — defines the calendar, the pantheon, and the concept of divinity itself.`;
+}
+
+function drawRadar(earthSig,obsSig,obsName){
+  const W=radarC.width,H=radarC.height,cx=W/2,cy=H/2;
+  radX.clearRect(0,0,W,H);
+  const bg=radX.createRadialGradient(cx,cy,0,cx,cy,cx);
+  bg.addColorStop(0,'rgba(11,15,28,.97)');bg.addColorStop(1,'rgba(5,7,14,.99)');
+  radX.fillStyle=bg;radX.fillRect(0,0,W,H);
+
+  const labels=BODIES.filter(b=>b!==obsName&&b!=='Sun');
+  const N=labels.length;
+  const R=cx*.75;
+
+  // grid rings
+  [.25,.5,.75,1].forEach(f=>{
+    radX.beginPath();
+    for(let i=0;i<N;i++){
+      const a=(i/N)*2*Math.PI-Math.PI/2;
+      const x=cx+R*f*Math.cos(a),y=cy+R*f*Math.sin(a);
+      i===0?radX.moveTo(x,y):radX.lineTo(x,y);
+    }
+    radX.closePath();
+    radX.strokeStyle=`rgba(100,130,200,${f===1?.12:.06})`;radX.lineWidth=f===1?.7:.4;radX.stroke();
+  });
+
+  // axes
+  for(let i=0;i<N;i++){
+    const a=(i/N)*2*Math.PI-Math.PI/2;
+    radX.beginPath();radX.moveTo(cx,cy);
+    radX.lineTo(cx+R*Math.cos(a),cy+R*Math.sin(a));
+    radX.strokeStyle='rgba(100,130,200,.1)';radX.lineWidth=.5;radX.stroke();
+    const lx=cx+(R+18)*Math.cos(a),ly=cy+(R+18)*Math.sin(a);
+    const nm=labels[i];
+    if(nm){
+      const ph=PHYS[nm];
+      radX.fillStyle=ph?ph.col+'cc':'rgba(160,180,200,.6)';
+      radX.font=`9px "IBM Plex Mono"`;
+      radX.textAlign='center';radX.textBaseline='middle';
+      radX.fillText(ph?ph.sym+nm.substring(0,3):nm.substring(0,3),lx,ly);
+    }
+  }
+
+  // normalize both to max of earth sig
+  const maxE=Math.max(...earthSig,.0001);
+
+  function plotPoly(sig,bodyList,color,fill){
+    radX.beginPath();
+    bodyList.forEach((b,i)=>{
+      const bIdx=BODIES.indexOf(b);
+      const val=bIdx>=0?(sig[bIdx]||0)/maxE:0;
+      const capped=Math.min(1,val);
+      const a=(i/N)*2*Math.PI-Math.PI/2;
+      const x=cx+R*capped*Math.cos(a),y=cy+R*capped*Math.sin(a);
+      i===0?radX.moveTo(x,y):radX.lineTo(x,y);
+    });
+    radX.closePath();
+    if(fill){radX.fillStyle=color.replace(')',',0.1)').replace('rgb','rgba').replace('#','')||color+'18';radX.fill();}
+    radX.strokeStyle=color;radX.lineWidth=1.5;radX.stroke();
+  }
+
+  // Earth in amber
+  plotPoly(earthSig,labels,'rgba(212,150,26,.7)',true);
+  // Observer in teal/green
+  if(obsName!=='Earth') plotPoly(obsSig,labels,'rgba(61,186,110,.8)',true);
+
+  // Legend
+  radX.fillStyle='rgba(212,150,26,.7)';radX.font='8px "IBM Plex Mono"';
+  radX.textAlign='left';radX.fillText('— Earth reference',10,H-22);
+  if(obsName!=='Earth'){
+    radX.fillStyle='rgba(61,186,110,.8)';
+    radX.fillText(`— ${obsName} observer`,10,H-10);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CULTURE SEEDS
+// ═══════════════════════════════════════════════════════════
+function buildCulture(){
+  const obs=S.obs,metrics=S.metrics;
+  const ph=PHYS[obs],el=EL[obs];
+  const yearLen=365.256*(el.a**1.5);
+  const top3=metrics.slice(0,3);
+  const interior=metrics.filter(m=>m.isInterior);
+  const midnight=metrics.filter(m=>m.midFrac>0.3);
+  const sunR=1/el.a; // relative to Earth=1
+  const sunBright=sunR*sunR;
+  const earthMetrics=computeMetrics('Earth',S.span,S.step,S.elongVis,S.elongMid);
+  const earthSig=skySignature(earthMetrics,'Earth');
+  const obsSig=skySignature(metrics,obs);
+  const sim=obs==='Earth'?1:cosine(obsSig,earthSig);
+
+  const sunDesc=el.a<0.5?'a blazing white furnace consuming a third of the sky':el.a<0.9?'a hot brilliant disk, noticeably large':el.a<1.2?'a warm life-giving star, filling the sky as Earth knows':el.a<3?'a bright but noticeably smaller star — still warm, directional':el.a<10?'a brilliant star, clearly the system\'s power source, but no longer a disk to the naked eye':'a hard, cold point of light — indistinguishable from other bright stars without instruments';
+
+  const dominantName=top3[0]?.name||'Jupiter';
+  const dominant=top3[0];
+  const dominantPH=PHYS[dominantName];
+
+  const doc=document.getElementById('cultureDoc');
+  doc.innerHTML=`
+    <div class="doc-title">Field Report: Civilization of ${obs}</div>
+
+    <div class="doc-section">
+      <div class="doc-h2">§1 — The Sky Environment</div>
+      <div class="doc-body">
+        A hypothetical civilization on <strong>${obs}</strong> experiences a year of <em>${yearLen.toFixed(1)} Earth days</em> (${(yearLen/365.25).toFixed(2)} Earth years). Their Sun appears as <em>${sunDesc}</em>, with apparent brightness <em>${sunBright.toFixed(2)}× Earth's</em>.
+      </div>
+      <div class="field-report">
+        <div class="field-report-lbl">Sky Similarity to Earth · ${sim.toFixed(3)}</div>
+        <div class="field-report-body">${getDeltaNarrative(obs,metrics,sim)}</div>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-h2">§2 — The Dominant Cast</div>
+      <div class="doc-body">
+        From <strong>${obs}</strong>, the brightest wandering objects in the night sky — in order — are: <strong>${top3.map(m=>`${PHYS[m.name].sym} ${m.name}`).join(', ')}</strong>.<br><br>
+        <strong>${dominantName}</strong> is the primary deity candidate: ${dominant?.isInterior?'an interior planet, confined to dawn and dusk — generating a theology of liminal beauty, impermanence, and the threshold between worlds':'an exterior planet, roaming the full night sky — generating a theology of authority, abundance, and the long cycle'}. Its mean brightness when visible is <em>${dominant?.meanBVis.toExponential(3)}</em>, and it is midnight-capable <em>${((dominant?.midFrac||0)*100).toFixed(1)}%</em> of the time.<br><br>
+        ${interior.length>0?`<strong>Interior bodies</strong> — confined near the Sun — are: <em>${interior.map(m=>m.name).join(', ')}</em>. These bodies generate the "herald" archetype: messenger gods, threshold deities, the lights at the edge of day. A civilization on ${obs} would discover early that these bodies cannot be seen at midnight. This structural constraint shapes their mythology: these gods <em>cannot stay</em> — they are the embodiment of impermanence.`:'There are no interior planets from this observer. Every wandering star can appear at midnight — no herald gods, no threshold mythology.'}
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-h2">§3 — Calendar Architecture</div>
+      <div class="doc-body">
+        First astronomical civilizations solve the same problem everywhere: how to divide time. The answer follows the visible sky.
+      </div>
+      <table class="data-table">
+        <tr><th>Body</th><th>Vis %</th><th>Mid %</th><th>Synodic (d)</th><th>Calendar Role</th></tr>
+        ${metrics.map(m=>{
+          const role=m.isInterior?'Short-cycle sacred calendar (liminal rite)':m.synodic<400?'Primary annual calendar anchor':m.synodic<1500?'Multi-year cycle (generation marker)':'Great Cycle (world-age marker)';
+          return `<tr><td style="color:${PHYS[m.name].col}">${PHYS[m.name].sym} ${m.name}</td><td>${(m.visFrac*100).toFixed(1)}%</td><td>${(m.midFrac*100).toFixed(1)}%</td><td>${m.synodic>50000?'—':m.synodic.toFixed(1)}</td><td style="color:var(--text-d)">${role}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-h2">§4 — Theological Structure</div>
+      <div class="doc-body">
+        The planetary cast visible from <strong>${obs}</strong> generates a specific divine hierarchy. Key structural features:
+      </div>
+      <div class="doc-grid">
+        <div class="doc-card">
+          <div class="doc-card-title">Creation Myth Template</div>
+          <div class="doc-card-body">The dominant body — ${dominantName} — is the first light after the Sun. Creation myths begin with the primordial dark, the ignition of the Sun, and then the emergence of ${dominantName} as the first divine child. ${interior.length>0?`The interior bodies (${interior.map(m=>m.name).join(', ')}) are born from the threshold between the Sun's fire and the outer dark — creatures of neither world.`:''}</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-card-title">Soul Journey / Afterlife</div>
+          <div class="doc-card-body">The soul departs through the planetary spheres outward: ${metrics.map(m=>m.name).slice(0,6).join(' → ')} → Fixed Stars. Each sphere is a gate requiring a quality or virtue. The outermost visible planet is the final gate to the divine realm of fixed stars.</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-card-title">Personality Astrology</div>
+          <div class="doc-card-body">Each of the ${metrics.length} visible wanderers rules a character type. Birth under ${dominantName} at opposition (closest/brightest) grants authority, abundance, and the long view. ${interior.length>0?`Birth under an interior body at greatest elongation marks the threshold-walker: the liminal soul, comfortable in neither world.`:''} ${midnight.length>0?`The midnight wanderers — ${midnight.map(m=>m.name).join(', ')} — rule those who cannot be confined.`:''}</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-card-title">Political Astrology</div>
+          <div class="doc-card-body">Conjunctions of the top two brightest wanderers are the supreme political omen — interpreted as a divine meeting. The synodic period between ${top3[0]?.name||'—'} and ${top3[1]?.name||'—'} (~${synodicDays(obs,top3[0]?.name||'Jupiter').toFixed(0)} days between their closest approaches) defines the sacred political cycle: the length of a reign, the period between major sacrifices, the gap between "good" election windows.</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-card-title">Sun Theology</div>
+          <div class="doc-card-body">${el.a<0.5?'The Sun is an overwhelming tyrant — the primary religious object, source of both life and death. Theology is solar-centric, with all other objects as servants of the blazing lord.':el.a<1.5?'The Sun is the life-giver and calendar anchor — central but not overwhelming. Polytheism develops naturally as planets compete for secondary authority.':el.a<6?'The Sun is a visible law rather than a blazing face. It does not dominate the sky the way it does from inner worlds. Theology becomes more balanced between solar and planetary authority.':el.a<20?'The Sun is a cold bright star — still clearly the system\'s engine, but no longer warm enough to be a face-of-god. Theology shifts from solar worship toward planetary worship: the nearby giants carry more divine weight than the distant Sun.':'The Sun is a star. It gives no warmth that the body can feel. Religion here is not solar. The great planets — the nearby giants — are the primary divine objects. The Sun is a distant law, a principle rather than a presence.'}</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-card-title">Zodiac Culture</div>
+          <div class="doc-card-body">The 12-house zodiac is valid from any planet — the background stars are the same. But the speed at which planets traverse the houses differs. From ${obs}, ${dominantName} takes ~${(EL[dominantName].a**1.5*365.256/12).toFixed(0)} days per house. The house it occupied at your birth, at a king's coronation, at a battle's beginning — these became the primary astrological event markers, shaping political timing for millennia.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-h2">§5 — The Single Biggest Cultural Consequence</div>
+      <div class="doc-body">
+        ${getCultureKeyInsight(obs,metrics,sim)}
+      </div>
+    </div>
+  `;
+}
+
+function getCultureKeyInsight(obs,metrics,sim){
+  const interior=metrics.filter(m=>m.isInterior).map(m=>m.name);
+  const top=metrics[0]?.name;
+
+  if(obs==='Earth') return `From Earth, the interior/exterior split produces two classes of deity: the bound heralds (Mercury, Venus) who are forever associated with thresholds, impermanence, and the liminal hour — and the free wanderers (Mars, Jupiter, Saturn) who rule the night sky and carry authority. This structural contrast is what generated the classical planetary hierarchy. Change the vantage point, and the contract between gods reshuffles entirely.`;
+
+  if(interior.includes('Earth')) return `<strong>Earth is a Morning Star from ${obs}.</strong> This is the deepest cultural consequence. Any civilization on ${obs} would mythologize Earth the way Earth cultures mythologized Venus: as a near-Sun jewel, brilliant at dawn and dusk, colored unmistakably blue-white, associated with water, origin, promise, and things that cannot be reached. Earth would be the "homeland star" — the deity of longing, of the home you cannot return to, of memory preserved across vast distances. No ${obs} civilization that watches the sky would fail to notice the blue point of light near the Sun, blazing brightest at its elongation, and wonder what world it might be.`;
+
+  if(sim<0.1) return `<strong>The inner solar system is invisible.</strong> From ${obs}, Mercury, Venus, Earth, and Mars are all interior — lost in the solar glare for much of the year, appearing only briefly at dawn or dusk, never reaching midnight. The civilizational consequence is immense: the traditional cast of classical planetary mythology (Mercury the messenger, Venus the lover, Mars the warrior) simply does not exist as night-sky objects. The dominant actors in the ${obs} sky are the outer giants. Religion becomes <em>titan-based</em>: the great patient slow-moving planets are the primary deities, and the inner system appears only as a chorus of faint near-Sun heralds. A civilization here would develop a mythology of cold sovereignty, long oaths, and the patience of geologic time — not the hot drama of inner-system politics.`;
+
+  const night=metrics.filter(m=>m.midFrac>0.5);
+  if(night.length>0) return `<strong>The midnight dominants define everything.</strong> From ${obs}, the bodies that can appear at true midnight — deep in the night sky, hours from the horizon — are: ${night.map(m=>m.name).join(', ')}. These are the unchallenged authorities of ${obs}'s theology. A civilization here develops its primary religious architecture around these bodies because they are the ones that ancient observers could track reliably: visible for hours, rising and setting like the Sun, available for systematic measurement. The authority of the midnight wanderer — something that can be above the horizon for an entire night — becomes the template for divine sovereignty.`;
+
+  return `<strong>Adjacency defines divinity.</strong> From ${obs}, the brightest night presence is ${top} — not because of any special intrinsic quality, but because it is the nearest massive moving object. Myth follows proximity and brightness. The theologies that emerge from any sky are not arbitrary: they are structured by the same mechanical question that determined survival for early astronomers — <em>what is closest, what is brightest, what can be tracked?</em> ${top} passes both tests from ${obs}. The civilization builds its calendar, its royalty, and its afterlife around this one fact.`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PANTHEON
+// ═══════════════════════════════════════════════════════════
+const DEITY_DB={
+  'Earth_Venus':{name:'Phosphora',title:'The Evening Sovereign',domains:['Beauty','Desire','Threshold','Dawn','Dusk'],lore:'She never wanders far from the Sun — the brightest object in the sky that is not the Sun or Moon, yet she never reaches midnight. She governs the liminal hour: neither day nor night, neither arrival nor departure. The ancients found her first after sunset as the first star, and again before dawn under another name, not knowing they were the same. The shock of that unification upended an entire theology.',fests:['Greatest Elongation East (Evening Star)','Greatest Elongation West (Morning Star)','Inferior Conjunction — The Hidden Night']},
+  'Earth_Mars':{name:'Aethos',title:'The Red Wanderer',domains:['War','Ambition','Iron Will','Retrogression','Cycles'],lore:'Crosses the full arc of night. When it blazes at opposition, no other object challenges its dominance except Jupiter. Its retrograde loops confused the first astronomers and were never fully explained until Copernicus. The red color alone was enough — blood, embers, iron, the will that refuses to halt. Every culture that watched the sky made it a warrior.',fests:['Opposition (~26 mo cycle)','The Retrograde Vigil','The Red New Year']},
+  'Earth_Jupiter':{name:'Kronarch',title:'The Kingmaker',domains:['Authority','Justice','Abundance','The Long Cycle','Royalty'],lore:'From Earth, Jupiter dominates the night more than any wanderer except Venus — and unlike Venus, it roams the full sky, opposing the Sun. Its 11.9-year cycle through the zodiac divides time into 12, one house per year. Every civilization that looked up long enough made it the ruler of the sky. Not brightness alone, but the 12-year period: the length of a generation\'s childhood, a king\'s first term, a tree\'s first maturity.',fests:['Annual Opposition — the Kingship Rite','The 12-Year Great Return','The Grand Seal (with Saturn, ~20 yr)']},
+  'Earth_Saturn':{name:'Chronael',title:'The Boundary Walker',domains:['Time','Limits','Old Age','The Known Edge','Patience'],lore:'The slowest naked-eye wanderer, 29 years to complete one circuit. Ancient astronomers placed it at the boundary between the human world and the divine — the last god before the fixed stars, the gatekeeper of eternity. It rules time not because it moves fast but because it moves with inevitability: steadily, without mercy, without haste.',fests:['Saturn Return (age 29 — rite of passage)','Saturnalia (winter solstice inversion)','The Waning Gate']},
+  'Mars_Earth':{name:'Korveth',title:'The Blue Lantern',domains:['Home','Memory','Water','Promise','Origin','Longing'],lore:'From the dust-red plains of Mars, the blue one never rises above 41° from the Sun. A true morning star or evening star — never a midnight companion. When it appears, it hangs as a brilliant blue-white jewel unlike anything else in the sky. Civilizations here associate it with water (the color declares it), with distant origin, with unattainable beauty. The star of memory. The star of longing. The home you cannot return to.',fests:['Greatest Elongation East (Blue Rising)','Greatest Elongation West (Blue Setting)','Inferior Conjunction — Blue Silence']},
+  'Jupiter_Saturn':{name:'Yalgeth',title:'The Slow Companion',domains:['The Long Walk','Patience','Stone','The Near Horizon','Time\'s Elder'],lore:'From the Jovian cloud-tops, Saturn is not the outermost naked-eye wanderer but a neighbor — and its rings become visible, a miracle possessed by no inner-world civilization. It takes 29 years to circle the sky, but from Jupiter the conjunction cycle runs every 19.6 years. The two giants appear together sometimes in the Grand Seal — a once-per-generation event that would mark the most sacred moment in any Jovian calendar.',fests:['Jupiter-Saturn Conjunction (~20 yr) — The Grand Seal','Saturn at Opposition — The Ring-God Rises']},
+};
+
+function getDeity(target,metrics,obs){
+  const key=`${obs}_${target}`;
+  if(DEITY_DB[key])return{...DEITY_DB[key],planet:target};
+
+  const m=metrics.find(x=>x.name===target)||{};
+  const ph=PHYS[target];
+  const isInt=m.isInterior;
+
+  function genName(seed){
+    const C=['K','V','R','Th','Z','N','M','L','S','Gh','Yr','Ax','Or','El'];
+    const V=['a','e','i','o','eth','an','ur','el','os','is'];
+    let h=0;for(let c of seed)h=(h*31+c.charCodeAt(0))>>>0;
+    const r=n=>((h=Math.imul(h^h>>>16,0x45d9f3b)>>>0)%n);
+    return C[r(C.length)]+V[r(V.length)]+C[r(C.length)]+V[r(V.length)];
+  }
+
+  if(isInt&&m.maxElong<50) return {
+    name:genName(target+obs+'herald'),planet:target,
+    title:'The Gate Herald',
+    domains:['Threshold','Messages','Liminal Hour','Speed','Impermanence'],
+    lore:`Bound to the Sun's vicinity from ${obs}, this wanderer never appears in the deep night — only in the liminal zone where day and night negotiate. Civilizations on ${obs} associate it with messengers, with things that cannot be owned for long, with the moment between sleep and waking. Its synodic period of ~${synodicDays(obs,target).toFixed(0)} days governs the short sacred calendar.`,
+    fests:['Greatest Elongation East','Greatest Elongation West','Inferior Conjunction — The Vanishing'],
+  };
+  if(m.midFrac>0.5) return {
+    name:genName(target+obs+'lord'),planet:target,
+    title:`Lord of the ${obs} Night`,
+    domains:['Authority','Navigation','Constancy','The Outer Dark','Sovereignty'],
+    lore:`Visible at midnight more than half the time, this wanderer roams the full night sky from ${obs} — a reliable anchor for any astronomical civilization. Its presence at midnight is the template for divine authority: something that can be directly overhead, hours from the horizon, available for systematic measurement, undeniable. First calendars built around this body; first astrology designed to track it.`,
+    fests:['Annual Opposition — when brightest','The Zenith Crossing','The Midnight Culmination'],
+  };
+  return {
+    name:genName(target+obs+'shadow'),planet:target,
+    title:'The Distant Sovereign',
+    domains:['The Far Shore','Distance','The Limit of Vision','Deep Time','The Unknown'],
+    lore:`Visible but faint, this body hovers at the edge of reliable observation from ${obs}. Ancient astronomers who tracked it were those who feared what they could not see. When it returns from conjunction or from the limits of visibility, it carries intelligence from beyond the edge of the world. Its very rarity grants power — the god you cannot depend on commands the most reverence.`,
+    fests:['Return from Conjunction','The Dim Rising','The Edge Crossing'],
+  };
+}
+
+function buildPantheon(){
+  const grid=document.getElementById('pantheonGrid');grid.innerHTML='';
+  S.metrics.forEach(m=>{
+    const deity=getDeity(m.name,S.metrics,S.obs);
+    const ph=PHYS[m.name];
+    const card=document.createElement('div');
+    card.className='deity';
+    card.style.borderColor=ph.col+'22';
+    card.style.setProperty('--dc',ph.col);
+    card.innerHTML=`
+      <span class="deity-sym" style="color:${ph.col}">${ph.sym}</span>
+      <div class="deity-name">${deity.name}</div>
+      <div class="deity-pl">${m.name} · from ${S.obs}</div>
+      <div class="deity-title">"${deity.title}"</div>
+      <div class="deity-lore">${deity.lore}</div>
+      <div class="deity-tags">${deity.domains.map(d=>`<span class="dtag">${d}</span>`).join('')}</div>
+      <div class="deity-fests">
+        <div style="font-size:7px;letter-spacing:.2em;color:var(--text-d);margin-bottom:3px">SACRED FESTIVALS</div>
+        ${deity.fests.map(f=>`<div class="feast-item">· ${f}</div>`).join('')}
+        <div style="margin-top:6px;font-size:8px;color:var(--text-d)">
+          Synodic: ${m.synodic>50000?'—':m.synodic.toFixed(1)+' d'} ·
+          Vis: ${(m.visFrac*100).toFixed(1)}% ·
+          Mid: ${(m.midFrac*100).toFixed(1)}%
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════════════════════════
+function buildTimeline(){
+  const leg=document.getElementById('tlLeg');leg.innerHTML='';
+  const targets=BODIES.filter(b=>b!==S.obs);
+  targets.forEach(n=>{
+    const ph=PHYS[n];
+    const d=document.createElement('div');d.className='tll';
+    d.innerHTML=`<div class="tld" style="background:${ph.col}"></div>${ph.sym} ${n}`;
+    leg.appendChild(d);
+  });
+  drawTimeline();
+}
+
+function drawTimeline(){
+  const wrap=document.getElementById('tlC').parentElement;
+  const wH=wrap.clientHeight-40;
+  const targets=BODIES.filter(b=>b!==S.obs);
+  const TRACK_H=Math.max(28,Math.floor(wH/targets.length));
+  const CW=Math.max(wrap.clientWidth,3200);
+  const CH=targets.length*TRACK_H;
+  const tlC=document.getElementById('tlC');
+  tlC.width=CW;tlC.height=CH;
+  const tlX=tlC.getContext('2d');
+
+  tlX.fillStyle='rgba(5,7,14,.98)';tlX.fillRect(0,0,CW,CH);
+
+  const pixPerDay=CW/S.span;
+  const STEP=Math.max(S.step,15);
+
+  // Year markers
+  for(let yr=0;yr*365.25<=S.span;yr++){
+    const px=yr*365.25*pixPerDay;
+    const big=yr%10===0;
+    tlX.beginPath();tlX.moveTo(px,0);tlX.lineTo(px,CH);
+    tlX.strokeStyle=big?'rgba(212,150,26,.12)':'rgba(100,130,200,.04)';
+    tlX.lineWidth=big?1:.3;tlX.stroke();
+    if(big&&yr>0){
+      tlX.fillStyle='rgba(212,150,26,.35)';tlX.font='7px "IBM Plex Mono"';
+      tlX.textAlign='center';tlX.fillText(`yr${yr}`,px,9);
+    }
+  }
+
+  targets.forEach((name,ti)=>{
+    const yBase=ti*TRACK_H+TRACK_H*.5;
+    const ph=PHYS[name];
+
+    // track bg
+    tlX.fillStyle=ti%2===0?'rgba(255,255,255,.007)':'transparent';
+    tlX.fillRect(0,ti*TRACK_H,CW,TRACK_H);
+
+    // label
+    tlX.fillStyle=ph.col+'cc';tlX.font=`8px "IBM Plex Mono"`;
+    tlX.textAlign='left';tlX.textBaseline='middle';
+    tlX.fillText(`${ph.sym} ${name}`,3,yBase-TRACK_H*.25);
+
+    const maxBForTrack=S.metrics.find(m=>m.name===name)?.maxB||.01;
+
+    // brightness/visibility line
+    let prevX=0,prevY=yBase,prevVis=false;
+    for(let t=0;t<=S.span;t+=STEP){
+      const op=helioXYZ(S.obs,t),tp=helioXYZ(name,t);
+      const rel=[tp[0]-op[0],tp[1]-op[1],tp[2]-op[2]];
+      const dist=Math.hypot(rel[0],rel[1],rel[2]);
+      const sLen=Math.hypot(op[0],op[1],op[2]);
+      const cosE=(rel[0]*(-op[0]/sLen)+rel[1]*(-op[1]/sLen)+rel[2]*(-op[2]/sLen))/dist;
+      const elong=Math.acos(Math.max(-1,Math.min(1,cosE)))*180/Math.PI;
+      const vis=elong>=S.elongVis,mid=elong>=S.elongMid;
+
+      const tLen=Math.hypot(tp[0],tp[1],tp[2]);
+      const cosP=Math.max(-1,Math.min(1,(-tp[0]/tLen)*(-rel[0]/dist)+(-tp[1]/tLen)*(-rel[1]/dist)+(-tp[2]/tLen)*(-rel[2]/dist)));
+      const phase=(1+Math.cos(Math.acos(cosP)))/2;
+      const B=(ph.R*ph.R*ph.A*phase)/(dist*dist);
+      const bn=Math.min(1,B/maxBForTrack);
+
+      const px=t*pixPerDay;
+      const py=yBase+TRACK_H*.38*(1-bn*1.5);
+      const col=mid?ph.col:vis?ph.col+'88':'transparent';
+
+      if(t>0&&vis){
+        tlX.beginPath();tlX.moveTo(prevX,prevY);tlX.lineTo(px,py);
+        tlX.strokeStyle=mid?ph.col+'cc':ph.col+'55';tlX.lineWidth=mid?1.5:.8;tlX.stroke();
+      }
+      prevX=px;prevY=py;prevVis=vis;
+    }
+
+    tlX.strokeStyle='rgba(100,130,200,.08)';tlX.lineWidth=.4;
+    tlX.beginPath();tlX.moveTo(0,(ti+1)*TRACK_H);tlX.lineTo(CW,(ti+1)*TRACK_H);tlX.stroke();
+  });
+
+  // Current time cursor
+  const tx=S.t*pixPerDay;
+  tlX.beginPath();tlX.moveTo(tx,0);tlX.lineTo(tx,CH);
+  tlX.strokeStyle='rgba(212,150,26,.85)';tlX.lineWidth=1.5;tlX.stroke();
+  wrap.scrollLeft=Math.max(0,tx-wrap.clientWidth/2);
+}
+
+// ═══════════════════════════════════════════════════════════
+// STATS UPDATE
+// ═══════════════════════════════════════════════════════════
+function updateStats(){
+  const op=helioXYZ(S.obs,S.t);
+  const sLen=Math.hypot(op[0],op[1],op[2]);
+  let vis=0,mid=0;
+  BODIES.forEach(n=>{
+    if(n===S.obs)return;
+    const tp=helioXYZ(n,S.t);
+    const rel=[tp[0]-op[0],tp[1]-op[1],tp[2]-op[2]];
+    const dist=Math.hypot(rel[0],rel[1],rel[2]);
+    const cosE=(rel[0]*(-op[0]/sLen)+rel[1]*(-op[1]/sLen)+rel[2]*(-op[2]/sLen))/dist;
+    const elong=Math.acos(Math.max(-1,Math.min(1,cosE)))*180/Math.PI;
+    if(elong>=S.elongVis)vis++;if(elong>=S.elongMid)mid++;
+  });
+  document.getElementById('stObs').textContent=S.obs;
+  document.getElementById('stVis').textContent=`${vis}/${BODIES.length-1}`;
+  document.getElementById('stMid').textContent=`${mid}/${BODIES.length-1}`;
+  const yr=(S.t/365.256).toFixed(2);
+  document.getElementById('stT').textContent=`${Math.round(S.t).toLocaleString()} d`;
+  document.getElementById('ftT').textContent=`T+${Math.round(S.t).toLocaleString()} d  ·  Year ${yr}  ·  ${S.obs}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════════════
+const slider=document.getElementById('slider');
+slider.addEventListener('input',()=>{
+  S.t=+slider.value;
+  lightRefresh();
+});
+
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    const id='pane-'+tab.dataset.tab;
+    document.getElementById(id).classList.add('active');
+    S.activeTab=tab.dataset.tab;
+    setTimeout(()=>{
+      if(S.activeTab==='sky'){sizeCanvas(skyC);drawSky();}
+      if(S.activeTab==='zodiac'){sizeCanvas(zodC);drawZodiac();}
+      if(S.activeTab==='delta')buildDelta();
+      if(S.activeTab==='timeline')buildTimeline();
+    },10);
+  });
+});
+
+document.getElementById('selObs').addEventListener('change',fullRefresh);
+document.getElementById('selSpan').addEventListener('change',()=>{
+  S.span=+document.getElementById('selSpan').value;
+  slider.max=S.span;
+  if(S.t>S.span)S.t=0;
+  MCACHE={};fullRefresh();
+});
+document.getElementById('selStep').addEventListener('change',()=>{
+  S.step=+document.getElementById('selStep').value;
+  MCACHE={};fullRefresh();
+});
+
+document.querySelectorAll('.spd').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.spd').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');S.speed=+btn.dataset.s;
+  });
+});
+
+const playBtn=document.getElementById('playBtn');
+playBtn.addEventListener('click',()=>{
+  S.playing=!S.playing;
+  playBtn.textContent=S.playing?'⏸ PAUSE':'▶ PLAY';
+  if(S.playing){
+    function tick(){
+      if(!S.playing)return;
+      S.t=Math.min(S.span,S.t+S.speed*2);
+      if(S.t>=S.span)S.t=0;
+      slider.value=S.t;
+      lightRefresh();
+      raf=requestAnimationFrame(tick);
+    }tick();
+  } else {if(raf)cancelAnimationFrame(raf);}
+});
+
+const EPOCHS=[0,365,1826,3652,9132,18260,36524,54787,90520];
+let epochI=0;
+document.getElementById('epochBtn').addEventListener('click',()=>{
+  epochI=(epochI+1)%EPOCHS.length;
+  S.t=Math.min(S.span,EPOCHS[epochI]);
+  slider.value=S.t;lightRefresh();
+});
+
+document.getElementById('computeBtn').addEventListener('click',()=>{
+  MCACHE={};fullRefresh();
+});
+
+// ═══════════════════════════════════════════════════════════
+// REFRESH PIPELINE
+// ═══════════════════════════════════════════════════════════
+function fullRefresh(){
+  S.obs=document.getElementById('selObs').value;
+  S.span=+document.getElementById('selSpan').value;
+  S.step=+document.getElementById('selStep').value;
+  slider.max=S.span;
+  document.getElementById('stObs').textContent=S.obs;
+  S.metrics=computeMetrics(S.obs,S.span,S.step,S.elongVis,S.elongMid);
+  buildCards();
+  buildLivePanel();
+  buildHouseList();
+  buildDelta();
+  buildCulture();
+  buildPantheon();
+  buildTimeline();
+  sizeCanvas(skyC);drawSky();
+  sizeCanvas(zodC);drawZodiac();
+  updateStats();
+}
+
+function lightRefresh(){
+  drawSky();drawZodiac();
+  buildLivePanel();
+  buildHouseList();
+  updateStats();
+  if(S.activeTab==='delta')drawRadar(
+    skySignature(computeMetrics('Earth',S.span,S.step),'Earth'),
+    skySignature(S.metrics,S.obs),S.obs
+  );
+  if(S.activeTab==='timeline')drawTimeline();
+}
+
+window.addEventListener('resize',()=>{
+  if(S.activeTab==='sky'){sizeCanvas(skyC);drawSky();}
+  if(S.activeTab==='zodiac'){sizeCanvas(zodC);drawZodiac();}
+  if(S.activeTab==='timeline')drawTimeline();
+});
+
+// ── INIT ──
+fullRefresh();
+</script>
+
+</body>
+</html>
