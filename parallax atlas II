@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PARALLAX ATLAS II — Civilizational Sky Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Share+Tech+Mono&display=swap');
+
+:root {
+–void: #02030a;
+–deep: #060810;
+–panel: #080c18;
+–glass: rgba(10,15,35,0.85);
+–border: rgba(100,130,200,0.1);
+–border-hi: rgba(140,170,255,0.2);
+–gold: #c9a84c;
+–gold-d: rgba(201,168,76,0.35);
+–gold-dd: rgba(201,168,76,0.08);
+–silver: #8899cc;
+–text: #a8b8dc;
+–text-b: #d8e4f8;
+–text-d: rgba(168,184,220,0.45);
+–myth: #b07aff;
+–myth-d: rgba(176,122,255,0.12);
+–ember: #ff7040;
+–ember-d: rgba(255,112,64,0.15);
+–teal: #40d8c8;
+–teal-d: rgba(64,216,200,0.12);
+–accent: #5080ff;
+–accent-d: rgba(80,128,255,0.15);
+–tab-h: 44px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+
+body {
+background: var(–void);
+color: var(–text);
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 11px;
+position: relative;
+}
+
+/* ── STARFIELD ── */
+#sf { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+/* ── ROOT LAYOUT ── */
+.root {
+position: relative;
+z-index: 1;
+height: 100vh;
+display: grid;
+grid-template-rows: 56px var(–tab-h) 1fr 48px;
+}
+
+/* ── HEADER ── */
+.hdr {
+display: flex;
+align-items: center;
+padding: 0 28px;
+border-bottom: 1px solid var(–border);
+gap: 32px;
+background: linear-gradient(90deg, rgba(8,12,24,0.95), rgba(6,8,16,0.95));
+}
+.logo {
+font-family: ‘Cinzel’, serif;
+font-size: 20px;
+font-weight: 300;
+letter-spacing: 0.22em;
+color: var(–text-b);
+white-space: nowrap;
+}
+.logo span { color: var(–gold); }
+.hdr-sep { width:1px; height:28px; background:var(–border); }
+.ctl { display:flex; flex-direction:column; gap:3px; }
+.ctl-label { font-size:7px; letter-spacing:.35em; color:var(–text-d); text-transform:uppercase; }
+select {
+background: rgba(8,12,28,0.9);
+border: 1px solid var(–border-hi);
+color: var(–text-b);
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 10px;
+padding: 3px 8px;
+cursor: pointer;
+outline: none;
+transition: border-color .2s;
+-webkit-appearance: none;
+}
+select:hover { border-color: var(–gold); }
+option { background: #060810; }
+
+.hdr-stat {
+margin-left: auto;
+display: flex;
+gap: 24px;
+align-items: center;
+}
+.stat-item { display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+.stat-val { font-size:13px; color:var(–gold); letter-spacing:.05em; }
+.stat-key { font-size:7px; letter-spacing:.3em; color:var(–text-d); text-transform:uppercase; }
+
+/* ── TABS ── */
+.tabs {
+display: flex;
+border-bottom: 1px solid var(–border);
+background: var(–panel);
+padding: 0 20px;
+gap: 2px;
+align-items: flex-end;
+}
+.tab {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 8px;
+letter-spacing: .3em;
+text-transform: uppercase;
+color: var(–text-d);
+padding: 0 16px;
+height: 38px;
+display: flex;
+align-items: center;
+cursor: pointer;
+border-bottom: 2px solid transparent;
+transition: all .2s;
+white-space: nowrap;
+}
+.tab:hover { color: var(–text-b); }
+.tab.active { color: var(–gold); border-bottom-color: var(–gold); }
+
+/* ── CONTENT AREA ── */
+.content { overflow: hidden; display: grid; }
+.pane { display:none; height:100%; overflow:hidden; }
+.pane.active { display:grid; }
+
+/* ══ PANE 1: SKY VIEW ══ */
+#pane-sky { grid-template-columns: 300px 1fr 300px; }
+
+.sidebar {
+border-right: 1px solid var(–border);
+overflow-y: auto;
+padding: 14px;
+display: flex;
+flex-direction: column;
+gap: 10px;
+background: var(–glass);
+}
+.sidebar-r { border-right:none; border-left:1px solid var(–border); }
+
+.s-title {
+font-size: 7px;
+letter-spacing: .4em;
+color: var(–text-d);
+text-transform: uppercase;
+padding-bottom: 8px;
+border-bottom: 1px solid var(–border);
+margin-bottom: 4px;
+}
+
+.sky-center {
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+position: relative;
+overflow: hidden;
+}
+
+#skyCanvas { display:block; }
+
+.sky-overlay-label {
+position: absolute;
+font-size: 7px;
+letter-spacing: .35em;
+color: var(–text-d);
+text-transform: uppercase;
+pointer-events: none;
+}
+.sky-overlay-label.top { top:12px; left:50%; transform:translateX(-50%); }
+.sky-overlay-label.bot { bottom:12px; left:50%; transform:translateX(-50%); }
+
+/* planet cards */
+.p-card {
+border: 1px solid var(–border);
+padding: 10px;
+cursor: pointer;
+transition: all .2s;
+position: relative;
+overflow: hidden;
+}
+.p-card:hover { border-color: var(–border-hi); background: rgba(255,255,255,.02); }
+.p-card.sel { border-color: var(–gold-d); background: var(–gold-dd); }
+.p-card-hd { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.p-card-name { font-family:‘Cinzel’,serif; font-size:13px; font-weight:300; color:var(–text-b); }
+.p-dot { width:8px; height:8px; border-radius:50%; }
+.mrow { display:flex; justify-content:space-between; padding:2px 0; border-top:1px solid rgba(100,130,200,.06); }
+.mk { font-size:7px; letter-spacing:.12em; color:var(–text-d); }
+.mv { font-size:9px; color:var(–text-b); font-variant-numeric:tabular-nums; }
+.vis-bar { height:2px; background:rgba(100,130,200,.1); margin-top:5px; position:relative; }
+.vis-fill { position:absolute; left:0; top:0; height:100%; transition:width .5s; }
+.int-badge {
+display:inline-block;
+font-size:6px; letter-spacing:.2em;
+padding:1px 5px;
+border:1px solid;
+margin-top:4px;
+}
+.int-badge.interior { color:var(–ember); border-color:rgba(255,112,64,.3); background:var(–ember-d); }
+.int-badge.exterior { color:var(–teal); border-color:rgba(64,216,200,.3); background:var(–teal-d); }
+
+/* ══ PANE 2: ZODIAC ══ */
+#pane-zodiac { grid-template-columns: 1fr 340px; }
+.zodiac-center { display:flex; align-items:center; justify-content:center; overflow:hidden; }
+#zodCanvas { display:block; }
+.zodiac-info {
+border-left:1px solid var(–border);
+padding:16px;
+overflow-y:auto;
+display:flex;
+flex-direction:column;
+gap:14px;
+background:var(–glass);
+}
+
+.zod-house {
+border:1px solid var(–border);
+padding:10px;
+transition: all .2s;
+}
+.zod-house:hover { border-color:var(–border-hi); }
+.zod-house.occupied { border-color:rgba(201,168,76,.3); background:var(–gold-dd); }
+.zh-name { font-family:‘Cinzel’,serif; font-size:12px; color:var(–text-b); margin-bottom:3px; }
+.zh-deg { font-size:8px; color:var(–text-d); letter-spacing:.15em; margin-bottom:5px; }
+.zh-planets { display:flex; flex-wrap:wrap; gap:3px; }
+.zh-planet-tag {
+font-size:7px; letter-spacing:.15em;
+padding:1px 5px;
+border:1px solid;
+background:rgba(0,0,0,.3);
+}
+
+/* ══ PANE 3: CULTURE & MYTH ══ */
+#pane-culture {
+grid-template-columns: 1fr 1fr;
+overflow-y: auto;
+}
+#pane-culture.active { display:block; overflow-y:auto; }
+.culture-scroll { padding:24px 32px; max-width:1200px; margin:0 auto; }
+
+.cult-section { margin-bottom:40px; }
+.cult-h1 {
+font-family:‘Cinzel’,serif; font-size:22px; font-weight:300;
+color:var(–text-b); letter-spacing:.12em;
+border-bottom:1px solid var(–border); padding-bottom:12px;
+margin-bottom:20px;
+}
+.cult-h2 {
+font-family:‘Cinzel’,serif; font-size:15px; font-weight:400;
+color:var(–gold); letter-spacing:.08em;
+margin-bottom:10px; margin-top:18px;
+}
+.cult-body {
+font-family:‘EB Garamond’,serif; font-size:14px;
+line-height:1.85; color:var(–text);
+max-width:680px;
+}
+.cult-body em { color:var(–myth); font-style:italic; }
+.cult-body strong { color:var(–text-b); font-weight:500; }
+
+.cult-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px; }
+.cult-card {
+border:1px solid var(–border);
+padding:14px;
+background:rgba(8,12,28,.6);
+transition: all .2s;
+}
+.cult-card:hover { border-color:var(–border-hi); }
+.cult-card-title { font-family:‘Cinzel’,serif; font-size:12px; color:var(–gold); letter-spacing:.08em; margin-bottom:6px; }
+.cult-card-body { font-family:‘EB Garamond’,serif; font-size:12px; line-height:1.7; color:var(–text); }
+
+.fest-list { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+.fest-item {
+display:grid; grid-template-columns:90px 1fr;
+gap:12px; padding:8px 12px;
+border:1px solid var(–border);
+align-items:start;
+}
+.fest-date { font-size:9px; color:var(–gold); letter-spacing:.1em; }
+.fest-name { font-family:‘Cinzel’,serif; font-size:11px; color:var(–text-b); margin-bottom:3px; }
+.fest-desc { font-family:‘EB Garamond’,serif; font-size:11px; color:var(–text-d); line-height:1.5; }
+
+/* ══ PANE 4: PANTHEON ══ */
+#pane-pantheon { grid-template-columns: repeat(3, 1fr); overflow:hidden; }
+#pane-pantheon.active { display:block; overflow-y:auto; }
+.pantheon-scroll { padding:20px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+
+.deity-card {
+border:1px solid var(–border);
+padding:18px;
+background:var(–glass);
+transition: all .3s;
+position:relative;
+overflow:hidden;
+}
+.deity-card::before {
+content:’’;
+position:absolute; inset:0;
+opacity:0;
+transition: opacity .3s;
+pointer-events:none;
+}
+.deity-card:hover { border-color:var(–border-hi); }
+.deity-card:hover::before { opacity:1; }
+
+.deity-symbol {
+font-size:32px; line-height:1;
+margin-bottom:10px;
+display:block;
+}
+.deity-name {
+font-family:‘Cinzel’,serif;
+font-size:18px; font-weight:300;
+color:var(–text-b);
+letter-spacing:.08em;
+margin-bottom:3px;
+}
+.deity-planet {
+font-size:7px; letter-spacing:.35em;
+color:var(–myth); text-transform:uppercase;
+margin-bottom:10px; opacity:.7;
+}
+.deity-title {
+font-family:‘EB Garamond’,serif; font-style:italic;
+font-size:13px; color:var(–gold);
+margin-bottom:8px;
+}
+.deity-lore {
+font-family:‘EB Garamond’,serif;
+font-size:12px; line-height:1.7;
+color:var(–text-d);
+border-top:1px solid var(–border);
+padding-top:8px; margin-top:8px;
+}
+.deity-domains { display:flex; flex-wrap:wrap; gap:4px; margin-top:10px; }
+.d-tag {
+font-size:7px; letter-spacing:.2em;
+border:1px solid var(–gold-d);
+color:var(–gold); padding:2px 6px;
+background:var(–gold-dd);
+}
+
+/* ══ PANE 5: TIMELINE ══ */
+#pane-timeline { grid-template-columns: 1fr; overflow:hidden; }
+#pane-timeline.active { display:flex; flex-direction:column; }
+.timeline-main { flex:1; overflow-y:auto; padding:16px; }
+.tl-canvas-wrap { overflow-x:auto; }
+#tlCanvas { display:block; }
+.tl-legend { display:flex; flex-wrap:wrap; gap:12px; padding:12px 16px; border-top:1px solid var(–border); }
+.tl-leg-item { display:flex; align-items:center; gap:6px; font-size:8px; letter-spacing:.15em; }
+.tl-leg-dot { width:8px; height:8px; border-radius:50%; }
+
+/* ── FOOTER / TIMELINE SCRUBBER ── */
+.footer {
+border-top:1px solid var(–border);
+display:flex;
+align-items:center;
+gap:16px;
+padding:0 20px;
+background:var(–panel);
+}
+.ft-label { font-size:7px; letter-spacing:.3em; color:var(–text-d); text-transform:uppercase; white-space:nowrap; }
+#masterSlider {
+flex:1; height:2px; cursor:pointer;
+accent-color: var(–gold);
+background: rgba(100,130,200,.15);
+border:none; padding:0; outline:none;
+-webkit-appearance:none;
+}
+#masterSlider::-webkit-slider-thumb { -webkit-appearance:none; width:10px; height:10px; border-radius:50%; background:var(–gold); cursor:pointer; }
+.ft-time { font-size:11px; color:var(–gold); letter-spacing:.08em; min-width:200px; }
+.ft-btn {
+background:none; border:1px solid var(–border-hi);
+color:var(–text-b); font-family:‘Share Tech Mono’,monospace;
+font-size:8px; letter-spacing:.2em; padding:6px 14px;
+cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.ft-btn:hover { border-color:var(–gold); color:var(–gold); }
+.speed-grp { display:flex; gap:4px; }
+.spd-btn {
+background:none; border:1px solid var(–border);
+color:var(–text-d); font-family:‘Share Tech Mono’,monospace;
+font-size:8px; padding:4px 8px; cursor:pointer; transition:all .2s;
+}
+.spd-btn.active { border-color:var(–gold-d); color:var(–gold); background:var(–gold-dd); }
+.spd-btn:hover { border-color:var(–border-hi); color:var(–text-b); }
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:var(–void);}
+::-webkit-scrollbar-thumb{background:var(–border-hi);border-radius:0;}
+</style>
+
+</head>
+<body>
+<canvas id="sf"></canvas>
+<div class="root">
+
+  <!-- HEADER -->
+
+  <div class="hdr">
+    <div class="logo">PARALLAX <span>ATLAS</span> II</div>
+    <div class="hdr-sep"></div>
+    <div class="ctl">
+      <div class="ctl-label">Observer World</div>
+      <select id="selObs">
+        <option value="Mercury">Mercury</option>
+        <option value="Venus">Venus</option>
+        <option value="Earth" selected>Earth</option>
+        <option value="Mars">Mars</option>
+        <option value="Jupiter">Jupiter</option>
+        <option value="Saturn">Saturn</option>
+        <option value="Uranus">Uranus</option>
+        <option value="Neptune">Neptune</option>
+        <option value="Pluto">Pluto</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <div class="ctl-label">Zodiac System</div>
+      <select id="selZod">
+        <option value="12">12-House (Solar)</option>
+        <option value="8">8-House (Octave)</option>
+        <option value="7">7-House (Planetary)</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <div class="ctl-label">Visibility Threshold</div>
+      <select id="selElong">
+        <option value="5">5° (keen-eyed)</option>
+        <option value="10" selected>10° (standard)</option>
+        <option value="15">15° (casual)</option>
+      </select>
+    </div>
+    <div class="hdr-sep"></div>
+    <div class="hdr-stat">
+      <div class="stat-item">
+        <div class="stat-val" id="statYear">—</div>
+        <div class="stat-key">Local Year</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="statDays">—</div>
+        <div class="stat-key">Earth Days</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="statVisible">—</div>
+        <div class="stat-key">Bodies Visible</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+
+  <div class="tabs">
+    <div class="tab active" data-tab="sky">⬡ Sky View</div>
+    <div class="tab" data-tab="zodiac">✦ Zodiac Wheel</div>
+    <div class="tab" data-tab="culture">⊕ Culture & Myth</div>
+    <div class="tab" data-tab="pantheon">☽ Pantheon</div>
+    <div class="tab" data-tab="timeline">∿ Great Timeline</div>
+  </div>
+
+  <!-- CONTENT -->
+
+  <div class="content">
+
+```
+<!-- PANE 1: SKY VIEW -->
+<div class="pane active" id="pane-sky">
+  <div class="sidebar" id="sidebarLeft">
+    <div class="s-title">Sky Presence · <span id="obsLbl">Earth</span></div>
+    <div id="cardList"></div>
+  </div>
+  <div class="sky-center">
+    <div class="sky-overlay-label top">HELIOCENTRIC DIAGRAM · OBSERVER HIGHLIGHTED</div>
+    <canvas id="skyCanvas"></canvas>
+    <div class="sky-overlay-label bot" id="skyNote">Visibility cone shown · orange = lost in glare</div>
+  </div>
+  <div class="sidebar sidebar-r" id="sidebarRight">
+    <div class="s-title">Visibility Analysis</div>
+    <div id="visPanel"></div>
+  </div>
+</div>
+
+<!-- PANE 2: ZODIAC -->
+<div class="pane" id="pane-zodiac">
+  <div class="zodiac-center">
+    <canvas id="zodCanvas"></canvas>
+  </div>
+  <div class="zodiac-info">
+    <div class="s-title">Zodiac Houses · <span id="zodObsLbl">Earth</span></div>
+    <div id="houseList"></div>
+  </div>
+</div>
+
+<!-- PANE 3: CULTURE -->
+<div class="pane" id="pane-culture">
+  <div class="culture-scroll" id="cultureContent"></div>
+</div>
+
+<!-- PANE 4: PANTHEON -->
+<div class="pane" id="pane-pantheon">
+  <div class="pantheon-scroll" id="pantheonGrid"></div>
+</div>
+
+<!-- PANE 5: TIMELINE -->
+<div class="pane" id="pane-timeline">
+  <div class="timeline-main">
+    <div class="s-title" style="margin-bottom:12px;">GREAT CYCLE TIMELINE · Full Pluto Period (~248 Earth Years)</div>
+    <div class="tl-canvas-wrap">
+      <canvas id="tlCanvas"></canvas>
+    </div>
+  </div>
+  <div class="tl-legend" id="tlLegend"></div>
+</div>
+```
+
+  </div>
+
+  <!-- FOOTER -->
+
+  <div class="footer">
+    <div class="ft-label">TIME</div>
+    <input type="range" id="masterSlider" min="0" max="90519" value="0" step="10">
+    <div class="ft-time" id="ftTime">T+0 · Year 0</div>
+    <div class="speed-grp">
+      <button class="spd-btn active" data-spd="1">1×</button>
+      <button class="spd-btn" data-spd="5">5×</button>
+      <button class="spd-btn" data-spd="20">20×</button>
+      <button class="spd-btn" data-spd="100">100×</button>
+    </div>
+    <button class="ft-btn" id="playBtn">▶ PLAY</button>
+    <button class="ft-btn" id="epochBtn">⊕ KEY EPOCHS</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// STAR FIELD
+// ═══════════════════════════════════════════════════════════
+(()=>{
+  const c=document.getElementById('sf'),x=c.getContext('2d');
+  function rng(s){let v=s;return()=>{v=(v^v<<13)>>>0;v=(v^v>>17)>>>0;v=(v^v<<5)>>>0;return v/4294967296;};}
+  function draw(){
+    c.width=innerWidth;c.height=innerHeight;
+    const r=rng(9973);
+    for(let i=0;i<500;i++){
+      const px=r()*c.width,py=r()*c.height,rad=r()*1.4;
+      const a=.1+r()*.55;
+      const hue=210+r()*40;
+      x.beginPath();x.arc(px,py,rad,0,Math.PI*2);
+      x.fillStyle=`hsla(${hue},60%,90%,${a})`;x.fill();
+    }
+    // milky way smear
+    for(let i=0;i<80;i++){
+      const px=r()*c.width,py=r()*(c.height*.6)+c.height*.1,w=r()*40+10,h=r()*6+2;
+      x.fillStyle=`rgba(180,200,255,${r()*.04})`;
+      x.fillRect(px,py,w,h);
+    }
+  }
+  draw();window.addEventListener('resize',draw);
+})();
+
+// ═══════════════════════════════════════════════════════════
+// PLANET DATA
+// ═══════════════════════════════════════════════════════════
+const PLANETS = {
+  Mercury: {a:.387, P:87.969,   R:.383,  albedo:.12, col:'#b0a090', sym:'☿', L0:1.24},
+  Venus:   {a:.723, P:224.701,  R:.949,  albedo:.65, col:'#e8c97a', sym:'♀', L0:2.71},
+  Earth:   {a:1.00, P:365.256,  R:1.00,  albedo:.30, col:'#4a90d9', sym:'⊕', L0:0.52},
+  Mars:    {a:1.524,P:686.980,  R:.532,  albedo:.15, col:'#c1440e', sym:'♂', L0:4.03},
+  Jupiter: {a:5.203,P:4332.589, R:11.21, albedo:.52, col:'#c8a474', sym:'♃', L0:0.93},
+  Saturn:  {a:9.537,P:10759.22, R:9.45,  albedo:.47, col:'#e0c882', sym:'♄', L0:3.14},
+  Uranus:  {a:19.19,P:30685.4,  R:4.01,  albedo:.51, col:'#7de8e8', sym:'⛢', L0:1.77},
+  Neptune: {a:30.07,P:60190.0,  R:3.88,  albedo:.41, col:'#4060d0', sym:'♆', L0:5.02},
+  Pluto:   {a:39.48,P:90560.0,  R:.186,  albedo:.49, col:'#a09080', sym:'♇', L0:2.28},
+};
+const PNAMES = Object.keys(PLANETS);
+const MAX_DAYS = 90560; // full Pluto cycle
+
+function xy(name,t){
+  const p=PLANETS[name],theta=p.L0+2*Math.PI*(t/p.P);
+  return [p.a*Math.cos(theta),p.a*Math.sin(theta)];
+}
+
+// ═══════════════════════════════════════════════════════════
+// ZODIAC DEFINITIONS
+// ═══════════════════════════════════════════════════════════
+const ZODIAC_12 = [
+  {name:'Aries',      sym:'♈', start:0,   end:30,  element:'Fire',  quality:'Cardinal', ruler:'Mars'},
+  {name:'Taurus',     sym:'♉', start:30,  end:60,  element:'Earth', quality:'Fixed',    ruler:'Venus'},
+  {name:'Gemini',     sym:'♊', start:60,  end:90,  element:'Air',   quality:'Mutable',  ruler:'Mercury'},
+  {name:'Cancer',     sym:'♋', start:90,  end:120, element:'Water', quality:'Cardinal', ruler:'Moon'},
+  {name:'Leo',        sym:'♌', start:120, end:150, element:'Fire',  quality:'Fixed',    ruler:'Sun'},
+  {name:'Virgo',      sym:'♍', start:150, end:180, element:'Earth', quality:'Mutable',  ruler:'Mercury'},
+  {name:'Libra',      sym:'♎', start:180, end:210, element:'Air',   quality:'Cardinal', ruler:'Venus'},
+  {name:'Scorpio',    sym:'♏', start:210, end:240, element:'Water', quality:'Fixed',    ruler:'Mars'},
+  {name:'Sagittarius',sym:'♐', start:240, end:270, element:'Fire',  quality:'Mutable',  ruler:'Jupiter'},
+  {name:'Capricorn',  sym:'♑', start:270, end:300, element:'Earth', quality:'Cardinal', ruler:'Saturn'},
+  {name:'Aquarius',   sym:'♒', start:300, end:330, element:'Air',   quality:'Fixed',    ruler:'Saturn'},
+  {name:'Pisces',     sym:'♓', start:330, end:360, element:'Water', quality:'Mutable',  ruler:'Jupiter'},
+];
+
+function getPlanetLongitude(name,t){
+  const p=PLANETS[name];
+  const theta=(p.L0+2*Math.PI*(t/p.P))%(2*Math.PI);
+  return ((theta*180/Math.PI)%360+360)%360;
+}
+
+function getZodiacHouse(deg){
+  return ZODIAC_12.find(z=>deg>=z.start&&deg<z.end)||ZODIAC_12[11];
+}
+
+// ═══════════════════════════════════════════════════════════
+// METRICS ENGINE
+// ═══════════════════════════════════════════════════════════
+let METRICS_CACHE = {};
+
+function computeMetrics(observer, elongThresh=10, sampleStep=30){
+  const key=`${observer}_${elongThresh}_${sampleStep}`;
+  if(METRICS_CACHE[key]) return METRICS_CACHE[key];
+
+  const tArr=[];
+  for(let t=0;t<=MAX_DAYS;t+=sampleStep) tArr.push(t);
+  const N=tArr.length;
+  const results={};
+
+  PNAMES.forEach(target=>{
+    if(target===observer) return;
+    let cntVis=0,sumBVis=0,maxB=0,minD=1e9,maxD=0,maxElong=0;
+
+    tArr.forEach(t=>{
+      const op=xy(observer,t),tp=xy(target,t);
+      const sunV=[-op[0],-op[1]],sL=Math.hypot(sunV[0],sunV[1]);
+      const sH=[sunV[0]/sL,sunV[1]/sL];
+      const rel=[tp[0]-op[0],tp[1]-op[1]];
+      const dist=Math.hypot(rel[0],rel[1]);
+      const rH=[rel[0]/dist,rel[1]/dist];
+      const cosE=Math.max(-1,Math.min(1,rH[0]*sH[0]+rH[1]*sH[1]));
+      const elong=Math.acos(cosE)*180/Math.PI;
+      const stL=Math.hypot(tp[0],tp[1]);
+      const stH=[-tp[0]/stL,-tp[1]/stL];
+      const otH=[-rel[0]/dist,-rel[1]/dist];
+      const cosP=Math.max(-1,Math.min(1,stH[0]*otH[0]+stH[1]*otH[1]));
+      const phase=(1+Math.cos(Math.acos(cosP)))/2;
+      const p=PLANETS[target];
+      const bright=(p.albedo*p.R**2*phase)/(dist**2);
+      if(elong>=elongThresh){cntVis++;sumBVis+=bright;}
+      if(bright>maxB)maxB=bright;
+      if(dist<minD)minD=dist;
+      if(dist>maxD)maxD=dist;
+      if(elong>maxElong)maxElong=elong;
+    });
+
+    results[target]={
+      visFrac:cntVis/N,
+      meanBrightVis:cntVis>0?sumBVis/cntVis:0,
+      maxBright:maxB,minDist:minD,maxDist:maxD,maxElong,
+      isInterior:PLANETS[target].a<PLANETS[observer].a,
+    };
+  });
+
+  const sorted=Object.entries(results)
+    .sort((a,b)=>b[1].meanBrightVis-a[1].meanBrightVis)
+    .map(([name,m])=>({name,...m}));
+  METRICS_CACHE[key]=sorted;
+  return sorted;
+}
+
+// ═══════════════════════════════════════════════════════════
+// MYTH ENGINE — EXTENDED
+// ═══════════════════════════════════════════════════════════
+const DEITY_DATA = {
+  // [observer][target] -> deity info
+};
+
+function getDeityInfo(target, metrics, observer){
+  const {visFrac,meanBrightVis,maxElong,isInterior} = metrics;
+  const obs = PLANETS[observer];
+  const tgt = PLANETS[target];
+
+  // Special-case rich entries
+  const specials = {
+    'Earth_Mars': {
+      name:'Aethos', title:'The Red Wanderer',
+      sym:'♂', domains:['War','Ambition','Iron Will','Cycles'],
+      lore:`From Earth, the Red One crosses the full arc of night—sometimes blazing at opposition, sometimes retreating for months behind the Sun. Its retrograde loops confounded the first astronomers. Every culture that watched the sky long enough named it a warrior or a king who could not hold still. The color alone—red as blood, red as embers—was enough. No other light moves like this one, with such obvious intention.`,
+      festivals:['Night of Opposition (every ~26 mo)','The Retrograde Vigil','The Red New Year'],
+      calendar:'Martian conjunctions mark the 26-month war-calendar; oppositions are sacred days',
+    },
+    'Earth_Venus': {
+      name:'Phosphora', title:'The Evening Sovereign',
+      sym:'♀', domains:['Beauty','Desire','Threshold','Dawn'],
+      lore:`She never wanders far from the Sun. The brightest object in the sky that is not the Sun or Moon, yet she never reaches midnight. She appears after sunset as the first star—then disappears, reappears before dawn as a different name. For centuries the morning and evening star were believed to be two deities until the shock of their unity upended an entire theology. She governs the liminal hour: neither day nor night, neither arrival nor departure.`,
+      festivals:['Greatest Elongation East (Evening Star)','Greatest Elongation West (Morning Star)','Inferior Conjunction (the Hidden Night)'],
+      calendar:'Venus\'s 8-year cycle was used by the Maya to synchronize their calendar; every 8 solar years = 5 Venus cycles exactly',
+    },
+    'Earth_Jupiter': {
+      name:'Kronarch', title:'The Kingmaker',
+      sym:'♃', domains:['Authority','Justice','Abundance','The Long Cycle'],
+      lore:`From Earth, it dominates the night more than any wanderer except Venus—and unlike Venus, it roams the whole sky, appearing at midnight, opposing the Sun. Its 12-year cycle divides the zodiac into 12, one house per year. Every civilization that looked up long enough made it the ruler of the sky. Not because of its brightness alone, but because of its period: 12 years is the length of a generation's childhood, a king's first term, a tree's maturity.`,
+      festivals:['Jupiter Opposition (annual kingship rite)','12-Year Great Return','The Conjunction with Saturn (the Grand Seal)'],
+      calendar:'12-year calendrical cycle; the Chinese zodiac is likely rooted in Jupiter\'s orbital period',
+    },
+    'Earth_Saturn': {
+      name:'Chronael', title:'The Boundary Walker',
+      sym:'♄', domains:['Time','Limits','Old Age','The Known Edge'],
+      lore:`The slowest naked-eye wanderer, taking 29 years to complete one circuit. Its rings are invisible without magnification, but its slow, patient motion was noticed by every ancient astronomer. It marks the outermost circle of the known cosmos. Every culture placed it at the boundary between the human world and the divine—the last god before the fixed stars, the gatekeeper of eternity. It rules time itself because it moves as time does: inevitably, without haste, without mercy.`,
+      festivals:['Saturn Return (age 29: rite of passage)','Saturnalia (winter solstice inversion)','The Waning Gate'],
+      calendar:'29.5-year cycle governs the longest human timekeeping before telescopes; the "Saros" eclipse cycle is related',
+    },
+    'Mars_Earth': {
+      name:'Korveth', title:'The Blue Lantern',
+      sym:'⊕', domains:['Home','Water','Memory','Promise','Origin'],
+      lore:`From the red dust plains of this world, the blue one never rises above 41° from the Sun. It is always a morning star or an evening star—never a midnight companion. When it appears, it hangs in the thin atmosphere as a brilliant blue-white jewel, color unmistakable, unlike anything else in the sky. Civilizations here would associate it with water (they can see its color suggests liquid), with distant origin, with unattainable beauty. It is the home you cannot return to. The star of memory. The star of longing.`,
+      festivals:['Greatest Elongation (the Blue Rising)','Inferior Conjunction (Blue Silence / Mourning)','Opposition visible? Never—Earth is interior'],
+      calendar:'Earth\'s 780-day synodic period from Mars governs a sacred calendar cycle of reunion and loss',
+    },
+    'Mars_Jupiter': {
+      name:'Vorreth', title:'The Iron Giant',
+      sym:'♃', domains:['Overwhelming Power','The Unmoving Sky','Fate'],
+      lore:`From the rust-colored world, Jupiter shines even brighter than from Earth—the gas giant's vast albedo and closeness make it the unchallenged ruler of the sky. From Mars, its opposition cycle is shorter. It moves across the night with the authority of a commander who has never lost a battle. Any civilization here would place this at the apex of their pantheon—not just the king, but the king that the other kings fear.`,
+      festivals:['Martian Jupiter Opposition','The Giant\'s Ingress (entering a new zodiac house, ~1 year apart)'],
+      calendar:'The 12-house zodiac as seen from Mars has slightly different timing than from Earth due to the different orbital period',
+    },
+    'Jupiter_Saturn': {
+      name:'Yalgeth', title:'The Slow Companion',
+      sym:'♄', domains:['The Long Walk','Patience','Stone','The Horizon'],
+      lore:`From the fifth world's storms and bands, Saturn is no longer the outermost naked-eye wanderer—it is a neighbor. Its rings become visible to the naked eye, a miracle of light no inner-world civilization ever possessed. It takes 29 years to circle the sky, but from Jupiter's faster perspective, the synodic period is only 19.6 years. The two giants dominate the night sky together—sometimes in conjunction (the Great Seal), a once-per-generation event that would become the most sacred moment in any Jovian calendar.`,
+      festivals:['Jupiter-Saturn Conjunction (The Great Seal, ~20yr cycle)','Saturn at Opposition (The Ring-God rises)'],
+      calendar:'The Jovian year is 11.86 Earth years; the 20-year Jupiter-Saturn conjunction cycle would be the basis of the most important calendar',
+    },
+  };
+
+  const k=`${observer}_${target}`;
+  if(specials[k]) return {...specials[k], planet:target};
+
+  // generative fallback
+  if(isInterior && maxElong<50){
+    return {
+      name: genName(target+'_herald'),
+      title:'The Gate Herald',
+      sym:PLANETS[target].sym,
+      domains:['Threshold','Messages','Liminal Hour','Speed','Impermanence'],
+      lore:`Bound to the Sun's vicinity, this wanderer never appears in the deep night—only in the liminal zone where day and night negotiate. Civilizations on ${observer} would associate it with messengers, with things that cannot be owned for long, with the moment between sleep and waking.`,
+      festivals:['Greatest Elongation East','Greatest Elongation West'],
+      calendar:`Synodic period of ~${synodic(observer,target).toFixed(0)} local days governs a short-cycle religious calendar`,
+      planet:target,
+    };
+  }
+  if(visFrac>0.75 && meanBrightVis>0.05){
+    return {
+      name:genName(target+'_lord'),
+      title:`Lord of the ${target} Night`,
+      sym:PLANETS[target].sym,
+      domains:['Navigation','Constancy','Authority','The Outer Dark'],
+      lore:`Visible for most of the year, traversing the full night sky without confinement. Its constancy makes it a timekeeper—civilizations on ${observer} built their first astronomical calendars around this wanderer's reliable circuit.`,
+      festivals:['Annual Opposition','The Zenith Crossing'],
+      calendar:`${target}'s orbital period as seen from ${observer}: ~${synodic(observer,target).toFixed(0)} local days`,
+      planet:target,
+    };
+  }
+  return {
+    name:genName(target+'_shadow'),
+    title:'The Hidden Whisperer',
+    sym:PLANETS[target].sym,
+    domains:['Secrecy','Occultation','Fear of Absence','The Far Shore','Discovery'],
+    lore:`Rarely seen, often lost in glare or distance. Yet its very rarity gave it power—civilizations that tracked it were those who feared the unknown. When it returned from conjunction or from the limits of vision, it carried intelligence from beyond the edge of the world.`,
+    festivals:['Return from Conjunction','The Dim Rising'],
+    calendar:`Rarely visible enough to anchor a calendar; instead marks special epochs`,
+    planet:target,
+  };
+}
+
+function synodic(obs,target){
+  const po=PLANETS[obs].P, pt=PLANETS[target].P;
+  if(po===pt) return Infinity;
+  return Math.abs(1/(1/Math.min(po,pt)-1/Math.max(po,pt)));
+}
+
+function genName(seed){
+  const cons=['K','V','R','Th','Z','N','M','L','S','Gh','Yr','Ax'];
+  const vow=['a','e','i','o','eth','an','ur','el'];
+  let h=0; for(let i=0;i<seed.length;i++) h=(h*31+seed.charCodeAt(i))>>>0;
+  const r=n=>((h=Math.imul(h^h>>>16,0x45d9f3b))>>>0)%n;
+  return cons[r(cons.length)]+vow[r(vow.length)]+cons[r(cons.length)]+vow[r(vow.length)];
+}
+
+// ═══════════════════════════════════════════════════════════
+// CULTURE ENGINE
+// ═══════════════════════════════════════════════════════════
+function generateCulture(observer, metrics){
+  const obs=PLANETS[observer];
+  const top=metrics.slice(0,5);
+  const brightestRaw=metrics[0];
+  const slowest=metrics.slice().sort((a,b)=>PLANETS[b.name].P-PLANETS[a.name].P)[0];
+  const interior=metrics.filter(m=>m.isInterior);
+  const exterior=metrics.filter(m=>!m.isInterior);
+  const yearLen=obs.P.toFixed(1);
+
+  // Local year name
+  const yearNames={Mercury:'Hermaean',Venus:'Cytherean',Earth:'Solar',Mars:'Martian',Jupiter:'Jovian',Saturn:'Cronian',Uranus:'Uranian',Neptune:'Neptunian',Pluto:'Plutonian'};
+  const yn=yearNames[observer]||observer+'an';
+
+  // Dominant deity
+  const dom=getDeityInfo(brightestRaw.name,brightestRaw,observer);
+
+  const sunFeel = obs.a<0.8?'a blazing white tyrant filling a third of the sky':obs.a<1.5?'a warm golden disk, familiar and life-giving':obs.a<6?'a bright star, still warm but visibly smaller than Earth knows':obs.a<20?'a distant bright star, the cold engine of the outer dark':'a hard point of light, indistinguishable from a star without careful observation';
+
+  return {observer,yn,yearLen,top,brightestRaw,slowest,interior,exterior,dom,sunFeel,obs};
+}
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let STATE = {
+  observer:'Earth',
+  t:0,
+  playing:false,
+  speed:1,
+  metrics:[],
+  elongThresh:10,
+  zodHouses:12,
+  activeTab:'sky',
+};
+let playTimer=null;
+
+// ═══════════════════════════════════════════════════════════
+// SKY CANVAS
+// ═══════════════════════════════════════════════════════════
+const skyC=document.getElementById('skyCanvas');
+const skyX=skyC.getContext('2d');
+const MAX_ORBITAL_RADIUS=39.48; // Pluto
+
+function resizeSky(){
+  const cont=skyC.parentElement;
+  const sz=Math.min(cont.clientWidth,cont.clientHeight)-20;
+  skyC.width=sz; skyC.height=sz;
+  drawSky();
+}
+
+function drawSky(){
+  const W=skyC.width,H=skyC.height,cx=W/2,cy=H/2;
+  skyX.clearRect(0,0,W,H);
+
+  // background
+  const bg=skyX.createRadialGradient(cx,cy,0,cx,cy,cx);
+  bg.addColorStop(0,'rgba(12,16,40,.95)');
+  bg.addColorStop(1,'rgba(2,3,10,.98)');
+  skyX.fillStyle=bg;skyX.fillRect(0,0,W,H);
+
+  // scale: Pluto fits at 0.92*cx
+  const SCALE=cx*.92/MAX_ORBITAL_RADIUS;
+
+  // Zodiac band (outermost ring)
+  const zodR=cx*.92;
+  ZODIAC_12.forEach((z,i)=>{
+    const a1=(z.start-90)*Math.PI/180;
+    const a2=(z.end-90)*Math.PI/180;
+    skyX.beginPath();
+    skyX.moveTo(cx,cy);
+    skyX.arc(cx,cy,zodR,a1,a2);
+    skyX.closePath();
+    const elCols={Fire:'rgba(200,80,40,.07)',Earth:'rgba(80,160,80,.07)',Air:'rgba(80,160,220,.07)',Water:'rgba(60,80,200,.07)'};
+    skyX.fillStyle=elCols[z.element];
+    skyX.fill();
+    skyX.strokeStyle='rgba(100,130,200,.08)';
+    skyX.lineWidth=.5;
+    skyX.stroke();
+    // sign symbol
+    const mid=(z.start+z.end)/2;
+    const mx=cx+(zodR-.015*cx)*Math.cos((mid-90)*Math.PI/180);
+    const my=cy+(zodR-.015*cx)*Math.sin((mid-90)*Math.PI/180);
+    skyX.fillStyle='rgba(100,130,200,.4)';
+    skyX.font=`${Math.max(8,W*.018)}px serif`;
+    skyX.textAlign='center';skyX.textBaseline='middle';
+    skyX.fillText(z.sym,mx,my);
+  });
+
+  // Orbit circles
+  PNAMES.forEach(n=>{
+    const a=PLANETS[n].a,hi=(n===STATE.observer);
+    skyX.beginPath();
+    skyX.arc(cx,cy,a*SCALE,0,Math.PI*2);
+    skyX.strokeStyle=hi?'rgba(80,128,255,.3)':'rgba(100,130,200,.07)';
+    skyX.lineWidth=hi?1.2:.5;
+    if(!hi) skyX.setLineDash([2,5]);
+    else skyX.setLineDash([]);
+    skyX.stroke();skyX.setLineDash([]);
+  });
+
+  // Sun
+  const sg=skyX.createRadialGradient(cx,cy,0,cx,cy,18);
+  sg.addColorStop(0,'rgba(255,248,200,1)');
+  sg.addColorStop(.5,'rgba(255,200,80,.7)');
+  sg.addColorStop(1,'rgba(255,140,20,0)');
+  skyX.beginPath();skyX.arc(cx,cy,11,0,Math.PI*2);skyX.fillStyle=sg;skyX.fill();
+  skyX.fillStyle='rgba(255,248,200,.9)';skyX.font='10px serif';
+  skyX.textAlign='center';skyX.textBaseline='middle';
+  skyX.fillText('☉',cx,cy);
+
+  const obsPos=xy(STATE.observer,STATE.t);
+  const ox=cx+obsPos[0]*SCALE, oy=cy-obsPos[1]*SCALE;
+
+  // Visibility cone
+  const sunAngle=Math.atan2(obsPos[1],obsPos[0])+Math.PI;
+  const elongRadians=STATE.elongThresh*Math.PI/180;
+  skyX.save();
+  skyX.globalAlpha=.05;
+  skyX.beginPath();
+  skyX.moveTo(ox,oy);
+  skyX.arc(ox,oy,cx*.15,-sunAngle-elongRadians,-sunAngle+elongRadians);
+  skyX.closePath();
+  skyX.fillStyle='#ff6030';skyX.fill();
+  skyX.globalAlpha=1;
+  skyX.restore();
+
+  // Planets
+  PNAMES.forEach(n=>{
+    const pos=xy(n,STATE.t);
+    const px=cx+pos[0]*SCALE,py=cy-pos[1]*SCALE;
+    const isObs=(n===STATE.observer);
+    const p=PLANETS[n];
+    const pr=isObs?8:Math.max(2,Math.log(p.R+1)*2.8);
+
+    if(isObs){
+      const g=skyX.createRadialGradient(px,py,0,px,py,22);
+      g.addColorStop(0,p.col+'66');g.addColorStop(1,'transparent');
+      skyX.beginPath();skyX.arc(px,py,22,0,Math.PI*2);
+      skyX.fillStyle=g;skyX.fill();
+    }
+    skyX.beginPath();skyX.arc(px,py,pr,0,Math.PI*2);
+    skyX.fillStyle=p.col;skyX.fill();
+
+    // elong line
+    if(!isObs){
+      const rel=[pos[0]-obsPos[0],pos[1]-obsPos[1]];
+      const dist=Math.hypot(rel[0],rel[1]);
+      const sunV=[-obsPos[0],-obsPos[1]],sL=Math.hypot(sunV[0],sunV[1]);
+      const cosE=(rel[0]*sunV[0]+rel[1]*sunV[1])/(dist*sL);
+      const elong=Math.acos(Math.max(-1,Math.min(1,cosE)))*180/Math.PI;
+      const vis=elong>=STATE.elongThresh;
+      skyX.beginPath();skyX.moveTo(ox,oy);skyX.lineTo(px,py);
+      skyX.strokeStyle=vis?'rgba(80,128,255,.15)':'rgba(255,80,30,.08)';
+      skyX.lineWidth=.5;skyX.stroke();
+    }
+
+    // label
+    skyX.fillStyle=isObs?'#e8f0ff':'rgba(160,180,220,.55)';
+    skyX.font=isObs?`bold ${W*.018}px "Share Tech Mono"`:` ${W*.015}px "Share Tech Mono"`;
+    skyX.textAlign='center';skyX.textBaseline='bottom';
+    skyX.fillText(n.substring(0,3).toUpperCase(),px,py-pr-3);
+
+    // observer ring
+    if(isObs){
+      skyX.beginPath();skyX.arc(ox,oy,12,0,Math.PI*2);
+      skyX.strokeStyle='rgba(80,128,255,.7)';skyX.lineWidth=1.5;skyX.stroke();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ZODIAC CANVAS
+// ═══════════════════════════════════════════════════════════
+const zodC=document.getElementById('zodCanvas');
+const zodX=zodC.getContext('2d');
+
+function resizeZod(){
+  const cont=zodC.parentElement;
+  const sz=Math.min(cont.clientWidth,cont.clientHeight)-20;
+  zodC.width=sz;zodC.height=sz;
+  drawZodiac();
+}
+
+function drawZodiac(){
+  const W=zodC.width,H=zodC.height,cx=W/2,cy=H/2;
+  zodX.clearRect(0,0,W,H);
+
+  const bg=zodX.createRadialGradient(cx,cy,0,cx,cy,cx);
+  bg.addColorStop(0,'rgba(12,16,40,.97)');
+  bg.addColorStop(1,'rgba(2,3,10,.99)');
+  zodX.fillStyle=bg;zodX.fillRect(0,0,W,H);
+
+  const outerR=cx*.88, innerR=cx*.55, labelR=cx*.73;
+
+  // Zodiac sectors
+  const elCols={Fire:'#c84020',Earth:'#608040',Air:'#4080c0',Water:'#2060b0'};
+  ZODIAC_12.forEach((z,i)=>{
+    const a1=(z.start-90)*Math.PI/180;
+    const a2=(z.end-90)*Math.PI/180;
+    zodX.beginPath();
+    zodX.moveTo(cx+innerR*Math.cos(a1),cy+innerR*Math.sin(a1));
+    zodX.arc(cx,cy,outerR,a1,a2);
+    zodX.arc(cx,cy,innerR,a2,a1,true);
+    zodX.closePath();
+    zodX.fillStyle=elCols[z.element]+'18';zodX.fill();
+    zodX.strokeStyle='rgba(100,140,220,.15)';zodX.lineWidth=.7;zodX.stroke();
+
+    // sign symbol + name
+    const mid=(z.start+z.end)/2-90;
+    const mx=cx+labelR*Math.cos(mid*Math.PI/180);
+    const my=cy+labelR*Math.sin(mid*Math.PI/180);
+    zodX.fillStyle='rgba(160,180,220,.7)';
+    zodX.font=`${W*.025}px serif`;
+    zodX.textAlign='center';zodX.textBaseline='middle';
+    zodX.fillText(z.sym,mx,my-8);
+    zodX.font=`${W*.012}px "Share Tech Mono"`;
+    zodX.fillStyle='rgba(120,140,180,.5)';
+    zodX.fillText(z.name.substring(0,3).toUpperCase(),mx,my+8);
+  });
+
+  // Inner ring ticks (every 10°)
+  for(let deg=0;deg<360;deg+=10){
+    const a=(deg-90)*Math.PI/180;
+    const r1=innerR,r2=deg%30===0?innerR-14:innerR-6;
+    zodX.beginPath();
+    zodX.moveTo(cx+r1*Math.cos(a),cy+r1*Math.sin(a));
+    zodX.lineTo(cx+r2*Math.cos(a),cy+r2*Math.sin(a));
+    zodX.strokeStyle=deg%30===0?'rgba(200,168,76,.3)':'rgba(100,130,200,.15)';
+    zodX.lineWidth=deg%30===0?1:.5;
+    zodX.stroke();
+  }
+
+  // Sun in center
+  zodX.beginPath();zodX.arc(cx,cy,18,0,Math.PI*2);
+  const sg2=zodX.createRadialGradient(cx,cy,0,cx,cy,18);
+  sg2.addColorStop(0,'rgba(255,248,200,.95)');
+  sg2.addColorStop(1,'rgba(255,180,50,.2)');
+  zodX.fillStyle=sg2;zodX.fill();
+  zodX.fillStyle='rgba(255,248,180,.9)';
+  zodX.font=`${W*.04}px serif`;
+  zodX.textAlign='center';zodX.textBaseline='middle';
+  zodX.fillText('☉',cx,cy);
+
+  // Observer label
+  zodX.fillStyle='rgba(80,128,255,.8)';
+  zodX.font=`bold ${W*.012}px "Share Tech Mono"`;
+  zodX.textAlign='center';zodX.textBaseline='middle';
+  zodX.fillText(STATE.observer.toUpperCase()+' OBSERVER',cx,cy+innerR*.25);
+
+  // Plot planets on zodiac
+  PNAMES.forEach(n=>{
+    if(n===STATE.observer) return;
+    const deg=getPlanetLongitude(n,STATE.t);
+    const a=(deg-90)*Math.PI/180;
+    const p=PLANETS[n];
+    // place at inner radius
+    const pr=Math.max(4,Math.log(p.R+1)*2.2);
+    const plotR=innerR*.8;
+    const px=cx+plotR*Math.cos(a);
+    const py=cy+plotR*Math.sin(a);
+
+    // glow
+    const grd=zodX.createRadialGradient(px,py,0,px,py,pr*2.5);
+    grd.addColorStop(0,p.col+'88');grd.addColorStop(1,'transparent');
+    zodX.beginPath();zodX.arc(px,py,pr*2.5,0,Math.PI*2);
+    zodX.fillStyle=grd;zodX.fill();
+
+    zodX.beginPath();zodX.arc(px,py,pr,0,Math.PI*2);
+    zodX.fillStyle=p.col;zodX.fill();
+    zodX.fillStyle='rgba(210,225,255,.7)';
+    zodX.font=`${pr*1.4}px serif`;
+    zodX.textAlign='center';zodX.textBaseline='middle';
+    zodX.fillText(p.sym,px,py);
+
+    // line to rim
+    zodX.beginPath();
+    zodX.moveTo(cx+innerR*Math.cos(a),cy+innerR*Math.sin(a));
+    zodX.lineTo(cx+outerR*Math.cos(a),cy+outerR*Math.sin(a));
+    zodX.strokeStyle=p.col+'44';zodX.lineWidth=.8;zodX.stroke();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// HOUSE LIST (right panel of zodiac)
+// ═══════════════════════════════════════════════════════════
+function buildHouseList(){
+  document.getElementById('zodObsLbl').textContent=STATE.observer;
+  const el=document.getElementById('houseList');
+  el.innerHTML='';
+
+  // Which planets are in each house right now?
+  const housePlanets={};
+  ZODIAC_12.forEach(z=>housePlanets[z.name]=[]);
+  PNAMES.forEach(n=>{
+    if(n===STATE.observer) return;
+    const deg=getPlanetLongitude(n,STATE.t);
+    const h=getZodiacHouse(deg);
+    housePlanets[h.name].push(n);
+  });
+
+  ZODIAC_12.forEach(z=>{
+    const occ=housePlanets[z.name].length>0;
+    const div=document.createElement('div');
+    div.className='zod-house'+(occ?' occupied':'');
+    div.innerHTML=`
+      <div class="zh-name">${z.sym} ${z.name}</div>
+      <div class="zh-deg">${z.start}°–${z.end}° · ${z.element} · ${z.quality} · Ruler: ${z.ruler}</div>
+      <div class="zh-planets">${housePlanets[z.name].map(n=>`
+        <span class="zh-planet-tag" style="color:${PLANETS[n].col};border-color:${PLANETS[n].col}44">${PLANETS[n].sym} ${n}</span>
+      `).join('')}</div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// PLANET CARDS
+// ═══════════════════════════════════════════════════════════
+function buildCards(){
+  document.getElementById('obsLbl').textContent=STATE.observer;
+  const list=document.getElementById('cardList');
+  list.innerHTML='';
+  const maxB=Math.max(...STATE.metrics.map(m=>m.maxBright));
+
+  STATE.metrics.forEach(m=>{
+    const p=PLANETS[m.name];
+    const div=document.createElement('div');
+    div.className='p-card';
+    div.style.borderColor=p.col+'22';
+    div.innerHTML=`
+      <div class="p-card-hd">
+        <div class="p-card-name">${p.sym} ${m.name}</div>
+        <div class="p-dot" style="background:${p.col}"></div>
+      </div>
+      <div class="mrow"><span class="mk">VISIBILITY</span><span class="mv">${(m.visFrac*100).toFixed(1)}%</span></div>
+      <div class="mrow"><span class="mk">MEAN BRIGHTNESS</span><span class="mv">${m.meanBrightVis.toFixed(4)}</span></div>
+      <div class="mrow"><span class="mk">MAX ELONGATION</span><span class="mv">${m.maxElong.toFixed(1)}°</span></div>
+      <div class="mrow"><span class="mk">ORBITAL PERIOD</span><span class="mv">${p.P.toFixed(1)} d</span></div>
+      <div class="mrow"><span class="mk">SYNODIC PERIOD</span><span class="mv">${synodic(STATE.observer,m.name).toFixed(1)} d</span></div>
+      <div class="vis-bar"><div class="vis-fill" style="width:${m.visFrac*100}%;background:${p.col}88"></div></div>
+      <span class="int-badge ${m.isInterior?'interior':'exterior'}">${m.isInterior?'INTERIOR · DAWN/DUSK ONLY':'EXTERIOR · FULL NIGHT WANDERER'}</span>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function buildVisPanel(){
+  const el=document.getElementById('visPanel');
+  el.innerHTML='';
+
+  // Current positions
+  const div=document.createElement('div');
+  div.innerHTML='<div class="s-title" style="margin-bottom:8px">Current Positions</div>';
+  PNAMES.forEach(n=>{
+    if(n===STATE.observer) return;
+    const deg=getPlanetLongitude(n,STATE.t);
+    const h=getZodiacHouse(deg);
+    const obsP=xy(STATE.observer,STATE.t),tgP=xy(n,STATE.t);
+    const rel=[tgP[0]-obsP[0],tgP[1]-obsP[1]];
+    const dist=Math.hypot(rel[0],rel[1]);
+    const sunV=[-obsP[0],-obsP[1]];
+    const cosE=(rel[0]*sunV[0]+rel[1]*sunV[1])/(dist*Math.hypot(sunV[0],sunV[1]));
+    const elong=Math.acos(Math.max(-1,Math.min(1,cosE)))*180/Math.PI;
+    const vis=elong>=STATE.elongThresh;
+    const p=PLANETS[n];
+    const row=document.createElement('div');
+    row.className='mrow';
+    row.style.padding='3px 0';
+    row.innerHTML=`
+      <span style="color:${p.col};font-size:9px">${p.sym} ${n}</span>
+      <span style="font-size:8px;color:${vis?'var(--teal)':'var(--ember)'}">${h.sym}${h.name.substring(0,3)} ${elong.toFixed(0)}° ${vis?'VIS':'—'}</span>
+    `;
+    div.appendChild(row);
+  });
+  el.appendChild(div);
+
+  // Notable conjunctions
+  const conj=document.createElement('div');
+  conj.innerHTML='<div class="s-title" style="margin-top:14px;margin-bottom:8px">Near Conjunctions</div>';
+  const positions=PNAMES.filter(n=>n!==STATE.observer).map(n=>({name:n,deg:getPlanetLongitude(n,STATE.t)}));
+  const pairs=[];
+  for(let i=0;i<positions.length;i++)for(let j=i+1;j<positions.length;j++){
+    const diff=Math.abs(positions[i].deg-positions[j].deg);
+    const ang=Math.min(diff,360-diff);
+    if(ang<15) pairs.push({a:positions[i].name,b:positions[j].name,ang:ang.toFixed(1)});
+  }
+  if(pairs.length){
+    pairs.sort((a,b)=>a.ang-b.ang).slice(0,3).forEach(pair=>{
+      const r=document.createElement('div');r.className='mrow';r.style.padding='3px 0';
+      r.innerHTML=`<span style="font-size:8px">${PLANETS[pair.a].sym}${pair.a.substring(0,3)} — ${PLANETS[pair.b].sym}${pair.b.substring(0,3)}</span><span style="font-size:8px;color:var(--gold)">${pair.ang}°</span>`;
+      conj.appendChild(r);
+    });
+  } else {
+    conj.innerHTML+='<div style="font-size:9px;color:var(--text-d);font-family:\'EB Garamond\',serif;font-style:italic">No close conjunctions at this time</div>';
+  }
+  el.appendChild(conj);
+}
+
+// ═══════════════════════════════════════════════════════════
+// CULTURE TAB
+// ═══════════════════════════════════════════════════════════
+function buildCulture(){
+  const metrics=STATE.metrics;
+  const observer=STATE.observer;
+  const c=generateCulture(observer,metrics);
+  const obs=PLANETS[observer];
+  const container=document.getElementById('cultureContent');
+
+  const top3=metrics.slice(0,3);
+  const brightName=top3[0]?.name;
+  const dom=getDeityInfo(brightName,top3[0],observer);
+  const slowestExt=metrics.filter(m=>!m.isInterior).sort((a,b)=>PLANETS[b.name].P-PLANETS[a.name].P)[0];
+
+  container.innerHTML=`
+  <div class="cult-section">
+    <div class="cult-h1">Civilization of ${observer} — Sky Culture Profile</div>
+    <div class="cult-body">
+      A hypothetical civilization evolving on <strong>${observer}</strong> would experience a year of <em>${obs.P.toFixed(1)} Earth days</em>. Their Sun would appear as <em>${c.sunFeel}</em>. From this world, the night sky generates a specific set of pressures on mythology, timekeeping, and religious architecture.
+    </div>
+
+    <div class="cult-h2">The Dominant Sky Force</div>
+    <div class="cult-body">
+      The brightest wandering star from ${observer} is <em>${brightName}</em>—which means the culture's central deity, its most important calendar anchor, and its primary navigational object would all be shaped by this body's behavior. ${brightName} would be ${metrics[0].isInterior?'an interior planet, confined to dawn and dusk, generating a theology of liminal beauty and impermanence':'an exterior planet, roaming the full night sky, generating a theology of authority, abundance, and the long cycle'}.
+    </div>
+
+    <div class="cult-h2">Interior Planets (Dawn/Dusk Stars)</div>
+    <div class="cult-body">
+      From ${observer}, the following bodies are interior—they never stray far from the Sun and appear only at the threshold of day and night: <strong>${metrics.filter(m=>m.isInterior).map(m=>m.name).join(', ')||'none'}</strong>. These would become the <em>messenger deities</em>, the gods of liminal moments, of speed and impermanence. Any culture that watches the sky on ${observer} eventually discovers that some wanderers seem "tied" to the Sun—appearing only at dawn or dusk. This is one of the oldest empirical astronomical discoveries. The theological consequence is that these bodies become associated with <em>the threshold between worlds</em>: life and death, sleep and waking, the living and the divine.
+    </div>
+
+    <div class="cult-h2">Exterior Planets (Night Wanderers)</div>
+    <div class="cult-body">
+      The exterior planets—<strong>${metrics.filter(m=>!m.isInterior).map(m=>m.name).join(', ')||'none'}</strong>—roam freely across the full night sky. They can appear at midnight, at opposition, at any hour. These become the <em>kings, warriors, judges, and timekeepers</em> of the culture's pantheon. Their slower motion means they spend longer in each zodiac house, which is what made them seem powerful to ancient astronomers: they govern longer periods of time.
+    </div>
+  </div>
+
+  <div class="cult-section">
+    <div class="cult-h1">Calendar Systems</div>
+    <div class="cult-body">
+      Any astronomical civilization must solve the problem of time. On ${observer}, the year lasts <em>${obs.P.toFixed(1)} Earth days</em>. The most visible wandering star—${brightName}—has a synodic period (as seen from ${observer}) of approximately <em>${synodic(observer,brightName).toFixed(1)} days</em>. A civilization here would likely construct its first sacred calendar around this synodic period.
+    </div>
+
+    <div class="cult-h2">Primary Calendar Anchors</div>
+    <div class="cult-grid">
+      ${top3.map(m=>`
+        <div class="cult-card">
+          <div class="cult-card-title">${PLANETS[m.name].sym} ${m.name} Calendar</div>
+          <div class="cult-card-body">
+            Synodic period: <strong>${synodic(observer,m.name).toFixed(1)} days</strong><br>
+            ${m.isInterior?`Interior planet. Morning-to-evening-star cycle of ~${synodic(observer,m.name).toFixed(0)} days. Governs the short-cycle sacred calendar—monthly rites, messenger festivals, threshold ceremonies.`:`Exterior planet. Full opposition cycle every ~${synodic(observer,m.name).toFixed(0)} days. Governs the medium-cycle calendar—annual or multi-year festivals, coronation cycles, harvest rites tied to its rising and setting.`}
+          </div>
+        </div>
+      `).join('')}
+      ${slowestExt?`
+        <div class="cult-card">
+          <div class="cult-card-title">${PLANETS[slowestExt.name].sym} ${slowestExt.name} — The Great Cycle</div>
+          <div class="cult-card-body">
+            Orbital period: <strong>${PLANETS[slowestExt.name].P.toFixed(0)} days (${(PLANETS[slowestExt.name].P/365.25).toFixed(1)} Earth years)</strong><br>
+            The slowest visible exterior wanderer becomes the civilization's <em>cosmic clock</em>—the largest time-unit they can measure without instruments. Its return to a given zodiac house marks a generation. Civilizations on ${observer} likely developed their first written records to track this body's position across time.
+          </div>
+        </div>
+      `:''}
+    </div>
+
+    <div class="cult-h2">Sacred Festivals</div>
+    <div class="fest-list">
+      ${top3.map(m=>{
+        const deity=getDeityInfo(m.name,m,observer);
+        return deity.festivals.map(f=>`
+          <div class="fest-item">
+            <div class="fest-date">${PLANETS[m.name].sym} ${m.name}</div>
+            <div>
+              <div class="fest-name">${f}</div>
+              <div class="fest-desc">Synodic anchor: ${synodic(observer,m.name).toFixed(1)} days · ${m.isInterior?'Interior (liminal rite)':'Exterior (full-sky ceremony)'}</div>
+            </div>
+          </div>
+        `).join('');
+      }).join('')}
+      <div class="fest-item">
+        <div class="fest-date">⊕ ALL</div>
+        <div>
+          <div class="fest-name">The Grand Conjunction Vigil</div>
+          <div class="fest-desc">When ${top3.map(m=>m.name).join(', ')} appear within 20° of each other simultaneously, this becomes the civilization's rarest and most sacred event—occurring perhaps once per century. Associated with the birth or death of eras, the crowning of god-kings, apocalyptic prophecy, and new world ages.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cult-section">
+    <div class="cult-h1">Zodiac & Constellation Culture</div>
+    <div class="cult-body">
+      The zodiac of ${observer} is the same 12-house structure visible from Earth—because the zodiac represents the ecliptic plane, which all planets share. However, the <em>speed</em> at which planets traverse the houses differs dramatically depending on the observer's world.
+    </div>
+
+    <div class="cult-h2">How Each Planet Moves Through the ${observer} Zodiac</div>
+    <div class="cult-grid">
+      ${metrics.slice(0,6).map(m=>{
+        const p=PLANETS[m.name];
+        const daysPerHouse=(p.P/12).toFixed(1);
+        return `
+          <div class="cult-card">
+            <div class="cult-card-title">${p.sym} ${m.name}</div>
+            <div class="cult-card-body">
+              ~${daysPerHouse} days per zodiac house<br>
+              Total circuit: ${p.P.toFixed(1)} days (${(p.P/365.25).toFixed(2)} Earth years)<br>
+              ${m.isInterior?'Never reaches midnight sky — "trapped star"':'Completes full zodiac circuits — "wandering lord"'}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    <div class="cult-h2">Constellation Mythology</div>
+    <div class="cult-body">
+      A civilization on ${observer} would name the same star patterns as Earth's civilizations—the background stars are identical regardless of which planet you observe from (within the solar system). The <em>difference</em> is which planets visit which constellations at what times. From ${observer}, the constellation that ${brightName} occupies most frequently at opposition would become the most sacred constellation in the zodiac—the "Throne of ${dom.name}."
+    </div>
+    <div class="cult-body" style="margin-top:12px">
+      The background constellations themselves—Orion, Scorpius, the Southern Cross—would have the same shapes from ${observer} as from Earth, with negligible parallax shift (the stars are so far away that the shift from one planet to another is unmeasurable with the naked eye). This means a ${observer} civilization would recognize all the same star patterns, but <em>assign them entirely different meanings</em> based on which planets pass through them.
+    </div>
+
+    <div class="cult-h2">The Great Ages (Precession)</div>
+    <div class="cult-body">
+      Precession of the equinoxes—the 26,000-year wobble of a planet's axis—shifts which constellation the Sun rises in at the vernal equinox. This cycle, the same from all planets, generates the concept of "World Ages." From ${observer}, the Great Year of ~26,000 Earth years would be divided into ${Math.round(26000/obs.P*obs.P).toLocaleString()} local years—a number that becomes mystically significant in the civilization's cosmology.
+    </div>
+  </div>
+
+  <div class="cult-section">
+    <div class="cult-h1">Emergent Religion & Cosmology</div>
+    <div class="cult-body">
+      The sky of ${observer} generates specific pressures on religious thought. Here is what a fully developed ${observer}-based civilization's cosmology would likely include:
+    </div>
+
+    <div class="cult-grid">
+      <div class="cult-card">
+        <div class="cult-card-title">Creation Myth Structure</div>
+        <div class="cult-card-body">
+          The dominant creation myth would feature the Sun as the primordial creator, then the birth of the ${brightName}-deity as the first "child of light"—the brightest wanderer emerging from darkness. The interior planets would be "children of the threshold," born between light and dark. The exterior giants (Jupiter, Saturn) would be ancient gods predating the current era.
+        </div>
+      </div>
+      <div class="cult-card">
+        <div class="cult-card-title">Afterlife Geography</div>
+        <div class="cult-card-body">
+          The soul's journey after death follows the planetary spheres outward: Mercury → Venus → Earth (if visible) → Mars → Jupiter → Saturn → the Fixed Stars (heaven). Each sphere requires a password or virtue to pass through. The outermost planet visible from ${observer} is the final gate before the divine realm of fixed stars. Pluto, if visible, becomes literally the underworld god—named for the darkness at the solar system's edge.
+        </div>
+      </div>
+      <div class="cult-card">
+        <div class="cult-card-title">Astrological Personality System</div>
+        <div class="cult-card-body">
+          Each of the ${metrics.length} visible wanderers rules a personality type. Birth under a given planet's opposition (closest approach, brightest) grants that deity's qualities. Interior planets at greatest elongation mark sensitive, liminal personality types. The slowest exterior planet (${slowestExt?.name||'Saturn'}) rules old souls, scholars, and those who outlast their enemies.
+        </div>
+      </div>
+      <div class="cult-card">
+        <div class="cult-card-title">Prophecy & Political Astrology</div>
+        <div class="cult-card-body">
+          Conjunctions of the top two brightest wanderers would be the most powerful political omen—interpreted as the meeting of two divine forces, often heralding dynastic change, war, or peace. Oppositions of the brightest exterior planet mark coronation dates. The 12-house zodiac governs electoral timing: a coronation in the house ruled by the dominant deity's planet ensures divine favor.
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PANTHEON TAB
+// ═══════════════════════════════════════════════════════════
+function buildPantheon(){
+  const grid=document.getElementById('pantheonGrid');
+  grid.innerHTML='';
+
+  STATE.metrics.forEach(m=>{
+    const deity=getDeityInfo(m.name,m,STATE.observer);
+    const p=PLANETS[m.name];
+    const card=document.createElement('div');
+    card.className='deity-card';
+    card.style.borderColor=p.col+'22';
+    card.innerHTML=`
+      <span class="deity-symbol" style="color:${p.col}">${p.sym}</span>
+      <div class="deity-name">${deity.name}</div>
+      <div class="deity-planet">${m.name} · as seen from ${STATE.observer}</div>
+      <div class="deity-title">"${deity.title}"</div>
+      <div class="deity-lore">${deity.lore}</div>
+      <div class="deity-domains">${deity.domains.map(d=>`<span class="d-tag">${d}</span>`).join('')}</div>
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+        <div class="mk" style="font-size:7px;letter-spacing:.2em;margin-bottom:4px">SACRED FESTIVALS</div>
+        ${deity.festivals.map(f=>`<div style="font-family:'EB Garamond',serif;font-size:11px;color:var(--text-d);padding:1px 0">· ${f}</div>`).join('')}
+      </div>
+      <div style="margin-top:8px">
+        <div class="mk" style="font-size:7px;letter-spacing:.2em;margin-bottom:3px">CALENDAR ROLE</div>
+        <div style="font-family:'EB Garamond',serif;font-size:11px;color:var(--text-d)">${deity.calendar}</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// TIMELINE CANVAS
+// ═══════════════════════════════════════════════════════════
+const tlC=document.getElementById('tlCanvas');
+const tlX=tlC.getContext('2d');
+
+function buildTimeline(){
+  const legend=document.getElementById('tlLegend');
+  legend.innerHTML='';
+  PNAMES.filter(n=>n!==STATE.observer).forEach(n=>{
+    const div=document.createElement('div');
+    div.className='tl-leg-item';
+    div.innerHTML=`<div class="tl-leg-dot" style="background:${PLANETS[n].col}"></div>${PLANETS[n].sym} ${n}`;
+    legend.appendChild(div);
+  });
+  drawTimeline();
+}
+
+function drawTimeline(){
+  const container=document.getElementById('tlCanvas').parentElement;
+  const CH=Math.max(300,container.clientHeight-20);
+  const targets=PNAMES.filter(n=>n!==STATE.observer);
+  const TRACK_H=Math.floor(CH/targets.length);
+  const CW=Math.max(2400,container.clientWidth);
+  tlC.width=CW; tlC.height=CH;
+
+  tlX.fillStyle='rgba(2,3,10,.98)';tlX.fillRect(0,0,CW,CH);
+
+  const STEP=30; // sample every 30 days
+  const totalDays=MAX_DAYS;
+  const pixPerDay=CW/totalDays;
+
+  // Year markers
+  for(let yr=0;yr*365<=totalDays;yr+=10){
+    const px=yr*365*pixPerDay;
+    tlX.beginPath();tlX.moveTo(px,0);tlX.lineTo(px,CH);
+    tlX.strokeStyle=yr%50===0?'rgba(200,168,76,.15)':'rgba(100,130,200,.06)';
+    tlX.lineWidth=yr%50===0?1:.5;tlX.stroke();
+    if(yr>0&&yr%50===0){
+      tlX.fillStyle='rgba(200,168,76,.4)';
+      tlX.font='8px "Share Tech Mono"';
+      tlX.textAlign='center';
+      tlX.fillText(`Yr ${yr}`,px,10);
+    }
+  }
+
+  targets.forEach((name,ti)=>{
+    const yBase=ti*TRACK_H+TRACK_H*.5;
+    const p=PLANETS[name];
+
+    // track label
+    tlX.fillStyle=p.col+'cc';tlX.font='8px "Share Tech Mono"';
+    tlX.textAlign='left';tlX.fillText(`${p.sym} ${name}`,4,yBase-TRACK_H*.3);
+
+    // visibility stripe
+    let prevVis=false,lineStart=0;
+    for(let t=0;t<=totalDays;t+=STEP){
+      const op=xy(STATE.observer,t),tp=xy(name,t);
+      const rel=[tp[0]-op[0],tp[1]-op[1]];
+      const dist=Math.hypot(rel[0],rel[1]);
+      const sunV=[-op[0],-op[1]];
+      const cosE=(rel[0]*sunV[0]+rel[1]*sunV[1])/(dist*Math.hypot(sunV[0],sunV[1]));
+      const elong=Math.acos(Math.max(-1,Math.min(1,cosE)))*180/Math.PI;
+      const vis=elong>=STATE.elongThresh;
+
+      // brightness as vertical position
+      const stL=Math.hypot(tp[0],tp[1]);
+      const stH=[-tp[0]/stL,-tp[1]/stL];
+      const otH=[-rel[0]/dist,-rel[1]/dist];
+      const cosP=Math.max(-1,Math.min(1,stH[0]*otH[0]+stH[1]*otH[1]));
+      const phase=(1+Math.cos(Math.acos(cosP)))/2;
+      const bright=(p.albedo*p.R**2*phase)/(dist**2);
+      const brightN=Math.min(1,bright/Math.max(.001,STATE.metrics.find(m=>m.name===name)?.maxBright||1));
+      const px=t*pixPerDay;
+      const py=yBase+TRACK_H*.35*(1-brightN*2);
+
+      if(t===0){
+        tlX.beginPath();tlX.moveTo(px,py);
+      } else {
+        if(vis){
+          tlX.lineTo(px,py);
+        } else {
+          tlX.strokeStyle=p.col+'88';tlX.lineWidth=1;tlX.stroke();
+          tlX.beginPath();tlX.moveTo(px,py);
+        }
+      }
+    }
+    tlX.strokeStyle=p.col+'88';tlX.lineWidth=1;tlX.stroke();
+
+    // Divider
+    tlX.beginPath();
+    tlX.moveTo(0,ti*TRACK_H+TRACK_H);
+    tlX.lineTo(CW,ti*TRACK_H+TRACK_H);
+    tlX.strokeStyle='rgba(100,130,200,.08)';tlX.lineWidth=.5;tlX.stroke();
+  });
+
+  // Current time marker
+  const tx=STATE.t*pixPerDay;
+  tlX.beginPath();tlX.moveTo(tx,0);tlX.lineTo(tx,CH);
+  tlX.strokeStyle='rgba(200,168,76,.8)';tlX.lineWidth=1.5;tlX.stroke();
+  // Scroll to keep current time in view
+  const wrap=tlC.parentElement;
+  wrap.scrollLeft=Math.max(0,tx-wrap.clientWidth/2);
+}
+
+// ═══════════════════════════════════════════════════════════
+// HEADER STATS
+// ═══════════════════════════════════════════════════════════
+function updateStats(){
+  const obs=PLANETS[STATE.observer];
+  const localYear=(STATE.t/obs.P).toFixed(2);
+  document.getElementById('statYear').textContent=localYear;
+  document.getElementById('statDays').textContent=Math.round(STATE.t).toLocaleString();
+
+  // count visible
+  let vis=0;
+  PNAMES.forEach(n=>{
+    if(n===STATE.observer) return;
+    const op=xy(STATE.observer,STATE.t),tp=xy(n,STATE.t);
+    const rel=[tp[0]-op[0],tp[1]-op[1]];
+    const dist=Math.hypot(rel[0],rel[1]);
+    const sunV=[-op[0],-op[1]];
+    const cosE=(rel[0]*sunV[0]+rel[1]*sunV[1])/(dist*Math.hypot(sunV[0],sunV[1]));
+    const elong=Math.acos(Math.max(-1,Math.min(1,cosE)))*180/Math.PI;
+    if(elong>=STATE.elongThresh) vis++;
+  });
+  document.getElementById('statVisible').textContent=`${vis}/${PNAMES.length-1}`;
+}
+
+function updateFooterTime(){
+  const obs=PLANETS[STATE.observer];
+  const localYear=(STATE.t/obs.P).toFixed(2);
+  document.getElementById('ftTime').textContent=`T+${Math.round(STATE.t).toLocaleString()} days · ${STATE.observer} Year ${localYear}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// FULL REFRESH
+// ═══════════════════════════════════════════════════════════
+function fullRefresh(){
+  STATE.observer=document.getElementById('selObs').value;
+  STATE.elongThresh=parseInt(document.getElementById('selElong').value);
+  METRICS_CACHE={};
+  STATE.metrics=computeMetrics(STATE.observer,STATE.elongThresh);
+  buildCards();
+  buildVisPanel();
+  buildHouseList();
+  buildCulture();
+  buildPantheon();
+  buildTimeline();
+  drawSky();
+  drawZodiac();
+  updateStats();
+  updateFooterTime();
+}
+
+function lightRefresh(){
+  drawSky();
+  drawZodiac();
+  buildVisPanel();
+  buildHouseList();
+  updateStats();
+  updateFooterTime();
+  if(STATE.activeTab==='timeline') drawTimeline();
+}
+
+// ═══════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    const id='pane-'+tab.dataset.tab;
+    document.getElementById(id).classList.add('active');
+    STATE.activeTab=tab.dataset.tab;
+    if(STATE.activeTab==='sky'){resizeSky();}
+    if(STATE.activeTab==='zodiac'){resizeZod();}
+    if(STATE.activeTab==='timeline'){buildTimeline();}
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════
+document.getElementById('selObs').addEventListener('change',fullRefresh);
+document.getElementById('selElong').addEventListener('change',fullRefresh);
+document.getElementById('selZod').addEventListener('change',fullRefresh);
+
+const slider=document.getElementById('masterSlider');
+slider.addEventListener('input',()=>{
+  STATE.t=parseInt(slider.value);
+  lightRefresh();
+});
+
+// Speed buttons
+document.querySelectorAll('.spd-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.spd-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    STATE.speed=parseInt(btn.dataset.spd);
+  });
+});
+
+// Play
+const playBtn=document.getElementById('playBtn');
+playBtn.addEventListener('click',()=>{
+  STATE.playing=!STATE.playing;
+  playBtn.textContent=STATE.playing?'⏸ PAUSE':'▶ PLAY';
+  if(STATE.playing){
+    function tick(){
+      if(!STATE.playing) return;
+      STATE.t+=STATE.speed*2;
+      if(STATE.t>MAX_DAYS) STATE.t=0;
+      slider.value=STATE.t;
+      lightRefresh();
+      playTimer=requestAnimationFrame(tick);
+    }
+    tick();
+  } else {
+    if(playTimer) cancelAnimationFrame(playTimer);
+  }
+});
+
+// Epoch button
+const epochBtn=document.getElementById('epochBtn');
+const EPOCHS=[0,9056,18112,27168,45280,63392,90519];
+let epochIdx=0;
+epochBtn.addEventListener('click',()=>{
+  epochIdx=(epochIdx+1)%EPOCHS.length;
+  STATE.t=EPOCHS[epochIdx];
+  slider.value=STATE.t;
+  lightRefresh();
+});
+
+// ═══════════════════════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════════════════════
+window.addEventListener('resize',()=>{
+  if(STATE.activeTab==='sky') resizeSky();
+  if(STATE.activeTab==='zodiac') resizeZod();
+  if(STATE.activeTab==='timeline') drawTimeline();
+});
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+fullRefresh();
+setTimeout(()=>{resizeSky();resizeZod();},100);
+</script>
+
+</body>
+</html>
