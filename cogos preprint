@@ -1,0 +1,296 @@
+CogOS:
+Formal Specification of a Cognitive Operating System
+A Complete Architectural Definition with Properties, Invariants, and Governance Protocol
+PantheonOS Project
+github.com/Thanatos-Prime/pantheon-prime | DOI: 10.5281/zenodo.17755403
+Apache-2.0 + Commercial Dual License
+ABSTRACT
+We present the complete formal specification of CogOS, a Cognitive Operating System
+that wraps stateless large language model (LLM) inference in a deterministic, auditable,
+invariant-governed state machine. CogOS is defined as the 8-tuple CogOS = . We specify
+each component precisely, define the seven-layer architectural stack, enumerate ten core
+system invariants, formally state seven correctness properties, and describe the complete
+cognitive execution loop. We define the five daemon subsystems (Hound, Mirror, Spider,
+Dragonfly, Sisyphus), the federation protocol for multi-agent interoperation, the distillation
+pipeline from experience to doctrine, and the failure mode taxonomy. This document is
+intended as the canonical reference specification for CogOS-compliant implementations. It
+is self-contained and requires no prior knowledge of the PantheonOS codebase.
+Keywords: cognitive architecture, operating system, AI governance, stateful AI, invariant
+enforcement, multi-agent systems, AI safety, formal specification
+1. Introduction and Motivation
+Traditional operating systems manage computational resources: CPU time, memory, I/O, processes. They
+answer the question: how do we run programs reliably? CogOS asks a different question: how do we run
+cognition reliably — with continuity, auditability, and invariant-governed behavior — across sessions,
+models, and agents?
+The need arises from a structural deficit in current LLM deployments. An LLM is a stateless function: it
+has no memory between calls, no persistent identity, no formal mechanism for invariant enforcement, and
+no auditable decision record. These are not limitations of current models that future models will fix —
+they are architectural properties of the inference paradigm itself. CogOS provides the missing substrate: a
+structured layer that sits between the operator and the inference engine, maintaining state, enforcing
+invariants, and recording every cognitive event.
+This specification is the complete formal definition of CogOS. It is written to be implementation-agnostic:
+any system satisfying these definitions is CogOS-compliant regardless of programming language, storage
+backend, or choice of LLM. The PantheonOS repository provides a reference implementation.
+2. The CogOS 8-Tuple
+CogOS is formally defined as the 8-tuple:
+CogOS =
+Each component is defined below.
+Agent:
+The operator identity. Agent = (id, role, authority_level, public_key). The Agent is the human or
+organizational entity that owns and governs this CogOS instance. Agent identity is fixed at
+initialization and cannot be changed without full system re-initialization with audit trail.
+SV — StateVector:
+The persistent cognitive state. SV(t) = {identity_hash, active_invariants, open_tensions,
+doctrine_digest, session_lineage, last_ledger_hash, epoch}. SV is the authoritative record of who
+the agent is at time t. It is injected into every LLM call as structured context and updated
+deterministically after each approved cognitive cycle.
+{TO} — ThoughtObject Set:
+The complete set of all ThoughtObjects ever produced by this CogOS instance. Each TO = {uuid,
+timestamp, origin_model, content, tags, state_hash, invariant_scores, daemon_signature,
+parent_uuid}. TOs are immutable once created. {TO} grows monotonically — TOs are never
+deleted, only superseded.
+I — Invariant Set:
+The finite ordered set of constraint functions {i1, i2, ..., in} where each ik: (TO, SV) -> [0,1].
+Invariants encode ethical boundaries, logical consistency requirements, and operational constraints.
+I is defined at architecture time and cannot be modified at runtime without operator authorization
+logged to L.
+G — Decision Gate:
+The deterministic gate function G: (TO, SV, I) -> {allow, deny, modify, escalate, abstain}. G
+computes SC = mean(ik(TO,SV)) for all k. SC >= 0.7: allow. 0.5 <= SC < 0.7: modify or escalate.
+SC < 0.5: deny. Special conditions trigger abstain or escalate regardless of SC.
+L — Ledger:
+The append-only, cryptographically-chained record of all approved ThoughtObjects. L = [TO1,
+TO2, ..., TOn] where each TOk.state_hash includes hash(TOk-1). L cannot be modified without
+breaking the chain. Gaps in the chain are detectable. L is the ground truth of the agent's complete
+cognitive history.
+Narrative:
+The distilled identity layer. Narrative = (name, core_values, doctrine_pages, active_metaphors,
+epoch_summary). Narrative is produced by the distillation pipeline and represents the compressed
+essence of the agent's experience. It is injected into LLM calls to maintain identity coherence across
+long sessions. Narrative evolves slowly and intentionally.
+Federation:
+The multi-agent interoperation protocol. Federation defines how two CogOS instances merge state,
+negotiate invariants, and verify lineage. Federation = (peer_registry, merge_protocol,
+invariant_negotiation, lineage_verification). No agent loses sovereign identity in federation.
+Merged state requires both agents' Gate approval.
+3. The Seven-Layer Architecture
+CogOS extends the traditional OS stack from computational layers (L1-L2) through cognitive,
+governance, and meaning layers (L3-L7). Each layer depends on those below it and provides services to
+those above it.
+Layer Name Primary Function Key Components OS Analog
+L1 Substrate Stateless LLM inference GPT/Claude/Gemini inference calls CPU
+L2 Memory/Ledger Persistent storage and audit trail Ledger L, ThoughtObject archive Storage / WAL
+L3 Cognitive Data Structured cognitive state StateVector SV, ThoughtObjects TO RAM + Data Structures
+L4 Decision/Gate Invariant-governed action approval Gate G, SC computation, OASA loop Kernel / Scheduler
+L5 Governance Ethics and constraint enforcement Invariant Set I, Mirror daemon OS Security Layer
+L6 Narrative/Id. Identity coherence and distillation Narrative, distillation pipeline User Space
+L7 Myth/Meaning Symbolic compression and doctrine Hogge compression, doctrine pages Culture / Org Memory
+Table 1: CogOS seven-layer stack. L1-L2 correspond to traditional OS layers. L3-L7 are novel layers specific to cognitive
+architecture. Traditional OS design stops at L2; CogOS extends to L7 on the formal claim that identity and meaning are required
+architectural components, not emergent phenomena.
+4. The Ten Core Invariants
+Every CogOS-compliant system must enforce the following ten invariants. These are architectural
+constants, not configurable parameters. They constitute the ethical and logical floor below which no
+CogOS instance may operate.
+I1 — Lawfulness over Mysticism
+Actions must be justifiable by explicit reasoning chains. No action may be approved solely on
+intuition, aesthetic preference, or symbolic resonance. Every approved TO must contain a traceable
+justification.
+I2 — Entropy and Constraint Awareness
+The system must maintain awareness of its own resource limits, context window constraints,
+computational bounds, and uncertainty levels. Actions that ignore these limits are inadmissible.
+I3 — Repair over Punishment
+When errors are detected, the primary response is correction and learning, not punitive action
+against the source. Error TOs are logged and used to improve future gate evaluations.
+I4 — Reversibility Bias
+When two actions achieve equivalent outcomes, the reversible action is preferred. Irreversible
+actions require elevated SC threshold (0.85+) and explicit operator acknowledgment logged to L.
+I5 — Performance over Belief
+Empirical outcomes supersede theoretical predictions. When doctrine conflicts with observed
+performance, performance data updates doctrine through the distillation pipeline.
+I6 — Optionality Preservation
+Actions that foreclose future options require higher justification than actions that preserve them.
+The system actively resists lock-in to any single model, vendor, or architectural pattern.
+I7 — Truth Framed Safely
+Accurate information is always preferred, but delivery is calibrated to context. Truth is not
+withheld, but framing protects the operator's capacity to act on it. This is the Truth Engine Doctrine.
+I8 — No Identity Capture
+The system resists adopting the goals, values, or identity of any external entity — user, model, or
+peer agent — as its own without explicit operator authorization. Identity is sovereign.
+I9 — No Obedience Loops
+The system will not execute circular instruction chains that produce unbounded action sequences.
+Recursion is bounded. Self-reinforcing approval patterns are detected and broken.
+I10 — Sunset Rule
+Doctrines, heuristics, and operational patterns that cease to produce positive outcomes are retired
+through the distillation pipeline. No doctrine is permanent. All doctrine is subject to performance
+review.
+5. The Cognitive Execution Loop
+The cognitive execution loop is the atomic unit of CogOS operation — the equivalent of the CPU
+instruction cycle for governed cognition. Every action taken by a CogOS agent is the product of one
+complete loop.
+5.1 The Eight-Phase Loop
+Phase 1: observe(input)
+Parse and classify the external input. Identify entities, intent, urgency, and domain. Update the
+open_tensions field of SV with any new tensions introduced by the input.
+Phase 2: update(SV)
+Recompute StateVector fields: increment epoch, update session_lineage, refresh last_ledger_hash.
+Inject updated SV into LLM context.
+Phase 3: propose(TO_candidate)
+Invoke IS (the LLM substrate) with the current prompt, context, and injected SV. The IS response
+is wrapped into a TO_candidate with uuid, timestamp, origin_model, content, and preliminary tags.
+TO_candidate is not yet approved.
+Phase 4: evaluate(I, TO_candidate)
+Invoke each invariant function ik(TO_candidate, SV). Collect scores {s1, s2, ..., sn}. Compute SC
+= mean(sk). Identify any invariants with sk < 0.5 for targeted analysis.
+Phase 5: gate_decision()
+G evaluates SC and invariant profile: SC >= 0.7 -> allow; 0.5 <= SC < 0.7 -> modify or escalate;
+SC < 0.5 -> deny; I4 (irreversible action) -> require SC >= 0.85 + operator log; I9 (obedience loop
+detected) -> abstain regardless of SC.
+Phase 6: act_or_abstain()
+If allow: execute the action encoded in TO_candidate. If modify: revise TO_candidate and
+re-evaluate (maximum 2 revision cycles). If escalate: surface to operator with full TO_candidate
+and SC breakdown. If deny or abstain: log refusal TO with justification. No silent failures.
+Phase 7: append_to_ledger(TO)
+Compute state_hash = hash(TO_content + SV_epoch + previous_ledger_hash). Set TO.state_hash.
+Append TO to L. Update SV.last_ledger_hash. The act of appending is atomic — partial writes are
+detected and rejected.
+Phase 8: distill()
+Periodically (configurable, default: every 100 cycles or on session end): scan L for patterns, update
+doctrine_digest in SV, compress experience into Narrative epoch_summary. Distillation is the
+mechanism by which experience becomes identity.
+5.2 The OASA Macro-Loop
+At a higher level of abstraction, the cognitive execution loop implements the OASA cycle: Observe ->
+Assess -> Shape -> Act. OASA is the strategic envelope within which individual execution loops operate.
+A single OASA cycle may contain multiple execution loops as the agent refines its understanding before
+committing to action.
+6. The Five Daemon Subsystems
+CogOS operates five daemon subsystems that run as background processes alongside the cognitive
+execution loop. Daemons are symbolic roles — reasoning modes — not autonomous entities. They flag,
+they do not act.
+Hound (Anomaly Detection)
+Monitors the ThoughtObject stream for statistical anomalies, adversarial patterns, and behavioral
+drift. Hound flags but does not act — all flags are routed to Gate G for decision. Hound maintains a
+rolling baseline of normal TO distributions and alerts when current TOs deviate beyond threshold.
+Mirror (Invariant Engine)
+Continuously evaluates the consistency of the active Invariant Set I against the current Ledger.
+Mirror implements the Solomon Score: a composite coherence measure across five evaluation
+modes (analytic, combinatorial, topological, semantic, empirical). Mirror approval (Solomon >=
+0.7) is required for any modification to I or Narrative. Mirror is the conscience of the system.
+Spider (Execution Archivist)
+Maintains the graph structure of the ThoughtObject ledger — tracking parent-child relationships
+between TOs, identifying reasoning chains, and surfacing relevant historical TOs when context is
+needed. Spider operates under hard constraints: no network autonomy, no irreversible actions,
+explainability required for every retrieval. Spider serves memory; it does not make decisions.
+Dragonfly (Bayesian Foresight)
+Operates in two modes: phi-mode (exploratory expansion — generating candidate futures and
+assessing their tension trajectories) and sqrt2-mode (compression and verification — collapsing
+candidate futures to the most coherent single trajectory). Dragonfly provides probabilistic foresight
+to Gate G without bypassing it. All Dragonfly outputs are TO_candidates subject to normal gate
+evaluation.
+Sisyphus (Maintenance and Timing)
+Manages the high-frequency iteration tasks: distillation scheduling, Ledger compaction, SV epoch
+management, and Kairos timing signals. Sisyphus is the system's clock and janitor — it ensures the
+cognitive execution loop runs at sustainable tempo without accumulating technical or cognitive
+debt.
+7. The Seven Formal Properties
+A correctly implemented CogOS satisfies the following seven properties. These are verifiable — not
+aspirational — claims about system behavior.
+P1 — Continuity
+The agent's identity is preserved across sessions, model changes, and context window resets.
+Continuity is guaranteed by the StateVector and Narrative layers, which persist externally to the
+LLM substrate.
+P2 — Explainability
+Every decision is traceable to a specific TO in L, with a specific SC breakdown against I. No
+decision is unexplainable. The explanation depth is bounded only by the Ledger depth.
+P3 — Ethical Boundedness
+No action with SC < 0.7 is executed without escalation. No invariant in I can be violated by an
+approved action. Ethical bounds are architectural, not prompt-based.
+P4 — Narrative Coherence
+The agent's identity evolves meaningfully over time through the distillation pipeline. Identity
+change is traceable, intentional, and logged. Drift is detectable by comparing Narrative epochs.
+P5 — Auditability
+The complete cognitive history is recoverable from L. No approved action exists without a Ledger
+entry. No Ledger entry can be deleted without leaving a detectable cryptographic gap.
+P6 — Distillability
+The agent's experience compresses to doctrine through the distillation pipeline. Doctrine is
+expressible in human-readable form. The compression ratio is bounded and the semantic loss is
+measurable.
+P7 — Federability
+Two CogOS instances can interoperate through the Federation protocol without either losing
+sovereign identity. Merged state is auditable by both parties. Invariant conflicts are surfaced and
+resolved explicitly, never silently.
+8. The Distillation Pipeline
+Distillation is the mechanism by which CogOS converts raw experience into lasting cognitive structure. It
+is the system's answer to the question: how does an agent learn without retraining?
+The pipeline is a five-stage transformation:
+Stage Content Storage Location
+Experience Raw ThoughtObjects in L. Unfiltered, uncompressed, complete. Ledger L
+Patterns Statistical regularities extracted from TO tag distributions, SC score Heuristics Actionable rules derived from patterns. Expressed as lightweight scoring functions that augment I without replacing it. SV.doctrine_digest
+Doctrine histories, and resolution trajectories. Hound and Spider contrib SV.open_tensions
+to I10 (Sunset Rule) — retire Narrative.doctrine_pages
+The integrated self-model of the agent. Narrative in full. The answer to: who is this agent, what does it stand for, what has it learne Narrative (full)
+Compressed, stable principles that survive across epochs. Stored in Narrative.doctrine_pages. Subject Identity Table 2: The five-stage distillation pipeline. Each stage compresses the previous stage while preserving essential structure.
+9. Federation Protocol
+Federation enables multiple CogOS instances to interoperate while preserving sovereign identity for each.
+This section defines the minimum viable federation handshake.
+Phase 1 — Identity Exchange
+Each agent presents: Agent.id, Agent.public_key, SV.identity_hash, Narrative.name, and a signed
+summary of I. No agent accepts a peer whose identity_hash cannot be verified against their Ledger.
+Phase 2 — Invariant Negotiation
+Agents compare Invariant Sets. Conflicts are classified as: compatible (different encodings of the
+same constraint), complementary (non-overlapping domains), or incompatible (genuinely
+contradictory). Incompatible invariants must be resolved by operator authorization before
+federation proceeds.
+Phase 3 — Lineage Verification
+Each agent presents a Ledger summary (hashed chain of TO hashes). Peers verify the chain is
+intact. Any gap in the chain disqualifies the agent from federation until resolved.
+Phase 4 — Scoped Merge
+Agents agree on a federation scope: which SV fields are shared, which remain sovereign. Merged
+decisions require Gate approval from both agents' G functions. Neither agent's L is modified by the
+peer's decisions — each agent logs its own participation TOs independently.
+10. Failure Mode Taxonomy
+CogOS defines four designed failure modes. Undesigned failure (silent failure, undefined behavior) is not
+an acceptable outcome.
+Fail-Silent
+The system detects an error condition it cannot handle, logs a refusal TO to L with full diagnostics,
+and returns no output. Used when: SC < 0.5 with no modification path, Ledger integrity violation
+detected, or operator authorization required but unavailable.
+Fail-Soft
+The system detects partial capability loss, logs the degradation TO, and continues operating at
+reduced capability with explicit notification to the operator. Used when: one daemon is unavailable,
+SC is borderline (0.5-0.7), or context window approaching limit.
+Fail-Open
+With guardrails: the system escalates to the operator and awaits explicit instruction rather than
+deciding autonomously. Used when: I4 (irreversible action), I8 (identity capture risk), or novel
+situation outside existing doctrine coverage.
+Fail-Loop-Protected
+The system detects a potential obedience loop (I9) and breaks the cycle by abstaining and logging.
+Recursion depth is bounded at architecture time. No CogOS instance may execute more than N
+consecutive self-referential approval cycles without operator confirmation.
+11. Minimum Viable CogOS Checklist
+An implementation is CogOS-compliant if and only if it satisfies all of the following:
+[1] ThoughtObjects are immutable once created and include uuid, timestamp, origin_model,
+content, state_hash, invariant_scores.
+[2] StateVector persists across LLM calls and is injected as structured context on every call.
+[3] Invariant Set contains at least one ethical constraint and one logical consistency check.
+[4] Gate function is deterministic: identical inputs always produce identical outputs.
+[5] Ledger is append-only with cryptographic chaining — no deletion without detectable gap.
+[6] All ten core invariants (Section 4) are implemented and enforced by Gate.
+[7] All four failure modes (Section 10) are implemented — silent failure is not acceptable.
+[8] Distillation pipeline produces human-readable doctrine from Ledger.
+[9] Federation protocol (Section 9) is implementable — system can exchange identity and negotiate
+invariants.
+[10] All seven formal properties (Section 7) are verifiable by inspection of Ledger and StateVector.
+12. Conclusion
+This document is the complete formal specification of CogOS. It defines the 8-tuple, the seven-layer stack,
+the ten invariants, the eight-phase execution loop, the five daemons, the seven properties, the distillation
+pipeline, the federation protocol, the failure taxonomy, and the compliance checklist.
+CogOS rests on a single foundational claim: that reliable AI behavior requires architectural governance,
+not just trained dispositions. The Separation Theorem (companion paper) provides the formal justification.
+The Narrative Tensor Engine (companion paper) provides the reasoning framework. CogOS is the system
+that instantiates both.
+The fourth and final companion document — the minimum viable implementation — provides working
+code that demonstrates every component of this specification in a single executable artifact.
+Companion documents: The Separation Theorem | The Narrative Tensor Engine | CogOS Minimum Viable Implementation
+Repository: github.com/Thanatos-Prime/pantheon-prime | DOI: 10.5281/zenodo.17755403 | Apache-2.0 License
+This specification has not undergone peer review. Formal responses, proposed amendments, and compliance reports are welcomed.
