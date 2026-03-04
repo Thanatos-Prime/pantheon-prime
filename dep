@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PantheonOS — Mission Control</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+–bg: #030609;
+–surface: #060d14;
+–border: #0d2233;
+–border-glow: #0a4a6e;
+–gold: #c9a227;
+–gold-dim: #7a6118;
+–cyan: #00d4ff;
+–cyan-dim: #005f73;
+–red: #ff3b3b;
+–green: #00ff88;
+–green-dim: #004d2a;
+–purple: #8b5cf6;
+–orange: #ff6b35;
+–text: #a8c4d4;
+–text-bright: #e2f0f7;
+–text-dim: #3a5a6e;
+–scanline: rgba(0,212,255,0.02);
+}
+
+- { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+background: var(–bg);
+color: var(–text);
+font-family: ‘Space Mono’, monospace;
+font-size: 11px;
+min-height: 100vh;
+overflow-x: hidden;
+position: relative;
+}
+
+body::before {
+content:’’;
+position:fixed; inset:0;
+background: repeating-linear-gradient(
+0deg,
+transparent,
+transparent 2px,
+var(–scanline) 2px,
+var(–scanline) 4px
+);
+pointer-events:none;
+z-index:9999;
+}
+
+body::after {
+content:’’;
+position:fixed; inset:0;
+background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,80,120,0.15) 0%, transparent 70%);
+pointer-events:none;
+z-index:0;
+}
+
+/* HEADER */
+.header {
+position: relative;
+z-index: 10;
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 12px 24px;
+border-bottom: 1px solid var(–border-glow);
+background: linear-gradient(180deg, rgba(0,30,50,0.9) 0%, transparent 100%);
+}
+
+.logo {
+font-family: ‘Orbitron’, sans-serif;
+font-weight: 900;
+font-size: 20px;
+color: var(–cyan);
+text-shadow: 0 0 20px var(–cyan), 0 0 40px rgba(0,212,255,0.3);
+letter-spacing: 4px;
+}
+
+.logo span { color: var(–gold); }
+
+.header-center {
+text-align: center;
+}
+
+.header-title {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 10px;
+letter-spacing: 6px;
+color: var(–text-dim);
+text-transform: uppercase;
+}
+
+.status-bar {
+display: flex;
+gap: 16px;
+align-items: center;
+}
+
+.status-item {
+display: flex;
+align-items: center;
+gap: 6px;
+font-size: 10px;
+}
+
+.dot {
+width: 6px; height: 6px;
+border-radius: 50%;
+animation: pulse 2s infinite;
+}
+.dot.green { background: var(–green); box-shadow: 0 0 6px var(–green); }
+.dot.gold { background: var(–gold); box-shadow: 0 0 6px var(–gold); }
+.dot.cyan { background: var(–cyan); box-shadow: 0 0 6px var(–cyan); }
+
+@keyframes pulse {
+0%,100% { opacity:1; }
+50% { opacity:0.4; }
+}
+
+/* MAIN GRID */
+.grid {
+position: relative;
+z-index: 1;
+display: grid;
+grid-template-columns: 220px 1fr 220px;
+grid-template-rows: auto auto auto;
+gap: 1px;
+padding: 1px;
+min-height: calc(100vh - 56px);
+}
+
+.panel {
+background: var(–surface);
+border: 1px solid var(–border);
+padding: 14px;
+position: relative;
+overflow: hidden;
+transition: border-color 0.3s;
+}
+
+.panel:hover {
+border-color: var(–border-glow);
+}
+
+.panel::before {
+content: ‘’;
+position: absolute;
+inset: 0;
+background: linear-gradient(135deg, rgba(0,212,255,0.02) 0%, transparent 60%);
+pointer-events: none;
+}
+
+.panel-label {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 9px;
+letter-spacing: 3px;
+color: var(–cyan-dim);
+text-transform: uppercase;
+margin-bottom: 10px;
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.panel-label::after {
+content: ‘’;
+flex: 1;
+height: 1px;
+background: linear-gradient(90deg, var(–border-glow), transparent);
+}
+
+/* LEFT COLUMN */
+.left-col {
+grid-column: 1;
+grid-row: 1 / 4;
+display: flex;
+flex-direction: column;
+gap: 1px;
+}
+
+/* CENTER */
+.center-main {
+grid-column: 2;
+grid-row: 1 / 3;
+}
+
+.center-bottom {
+grid-column: 2;
+grid-row: 3;
+}
+
+/* RIGHT COLUMN */
+.right-col {
+grid-column: 3;
+grid-row: 1 / 4;
+display: flex;
+flex-direction: column;
+gap: 1px;
+}
+
+/* SOLOMON SCORE */
+.solomon {
+text-align: center;
+padding: 20px 10px;
+}
+
+.solomon-ring {
+position: relative;
+width: 110px;
+height: 110px;
+margin: 0 auto 12px;
+}
+
+.solomon-ring svg {
+transform: rotate(-90deg);
+}
+
+.solomon-ring .track {
+fill: none;
+stroke: var(–border);
+stroke-width: 8;
+}
+
+.solomon-ring .fill {
+fill: none;
+stroke: var(–gold);
+stroke-width: 8;
+stroke-linecap: round;
+stroke-dasharray: 283;
+stroke-dashoffset: 57;
+filter: drop-shadow(0 0 6px var(–gold));
+transition: stroke-dashoffset 1s ease;
+}
+
+.solomon-center {
+position: absolute;
+inset: 0;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+}
+
+.solomon-score {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 22px;
+font-weight: 900;
+color: var(–gold);
+text-shadow: 0 0 12px var(–gold);
+line-height: 1;
+}
+
+.solomon-label {
+font-size: 8px;
+color: var(–gold-dim);
+letter-spacing: 2px;
+margin-top: 3px;
+}
+
+.threshold-bar {
+display: flex;
+align-items: center;
+gap: 6px;
+font-size: 10px;
+color: var(–green);
+justify-content: center;
+}
+
+/* DAEMONS */
+.daemon-list { display: flex; flex-direction: column; gap: 8px; }
+
+.daemon {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 7px 10px;
+border: 1px solid var(–border);
+border-radius: 2px;
+cursor: pointer;
+transition: all 0.2s;
+position: relative;
+overflow: hidden;
+}
+
+.daemon:hover {
+border-color: var(–cyan-dim);
+background: rgba(0,212,255,0.03);
+}
+
+.daemon.active {
+border-color: var(–green);
+background: rgba(0,255,136,0.04);
+}
+
+.daemon.active::after {
+content: ‘’;
+position: absolute;
+left: 0; top: 0; bottom: 0;
+width: 2px;
+background: var(–green);
+box-shadow: 0 0 8px var(–green);
+}
+
+.daemon-icon {
+font-size: 14px;
+width: 20px;
+text-align: center;
+}
+
+.daemon-info { flex: 1; }
+.daemon-name {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 9px;
+color: var(–text-bright);
+letter-spacing: 1px;
+}
+.daemon-role { font-size: 9px; color: var(–text-dim); margin-top: 1px; }
+
+.daemon-status {
+font-size: 8px;
+padding: 2px 5px;
+border-radius: 1px;
+}
+.daemon-status.run { color: var(–green); border: 1px solid var(–green-dim); }
+.daemon-status.idle { color: var(–text-dim); border: 1px solid var(–border); }
+.daemon-status.watch { color: var(–gold); border: 1px solid var(–gold-dim); }
+
+/* CENTER: LAYER STACK */
+.layer-stack {
+display: flex;
+flex-direction: column;
+gap: 6px;
+padding: 10px 0;
+}
+
+.layer {
+display: flex;
+align-items: stretch;
+gap: 10px;
+position: relative;
+cursor: pointer;
+}
+
+.layer-num {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 10px;
+color: var(–text-dim);
+width: 20px;
+flex-shrink: 0;
+display: flex;
+align-items: center;
+justify-content: center;
+letter-spacing: 1px;
+}
+
+.layer-bar {
+flex: 1;
+padding: 10px 14px;
+border: 1px solid var(–border);
+position: relative;
+overflow: hidden;
+transition: all 0.3s;
+}
+
+.layer-bar:hover, .layer-bar.active {
+border-color: var(–cyan-dim);
+}
+
+.layer-bar::before {
+content: ‘’;
+position: absolute;
+left: 0; top: 0; bottom: 0;
+width: 3px;
+transition: background 0.3s;
+}
+
+.layer-bar.l1::before { background: linear-gradient(180deg, #00d4ff, #005f73); }
+.layer-bar.l2::before { background: linear-gradient(180deg, #c9a227, #7a6118); }
+.layer-bar.l3::before { background: linear-gradient(180deg, #8b5cf6, #4c1d95); }
+.layer-bar.l4::before { background: linear-gradient(180deg, #ff6b35, #7a3010); }
+.layer-bar.l5::before { background: linear-gradient(180deg, #ff3b3b, #7a1010); }
+.layer-bar.l6::before { background: linear-gradient(180deg, #00ff88, #004d2a); }
+.layer-bar.l7::before { background: linear-gradient(180deg, #ffd700, #7a6000); }
+
+.layer-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 3px;
+}
+
+.layer-name {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 11px;
+font-weight: 700;
+color: var(–text-bright);
+letter-spacing: 2px;
+}
+
+.layer-tag {
+font-size: 9px;
+padding: 2px 7px;
+border-radius: 1px;
+letter-spacing: 1px;
+}
+
+.layer-desc { font-size: 10px; color: var(–text-dim); line-height: 1.5; }
+
+.layer-bar.active .layer-name { text-shadow: 0 0 10px var(–cyan); }
+
+.layer-detail {
+display: none;
+margin-top: 8px;
+padding-top: 8px;
+border-top: 1px solid var(–border);
+font-size: 10px;
+color: var(–text);
+line-height: 1.7;
+animation: fadeIn 0.2s ease;
+}
+
+.layer-detail.open { display: block; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity:1; transform:none; } }
+
+/* COGNITIVE LOOP */
+.loop-display {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 0;
+flex-wrap: wrap;
+padding: 10px 0;
+}
+
+.loop-step {
+display: flex;
+align-items: center;
+}
+
+.step-node {
+padding: 6px 10px;
+border: 1px solid var(–border);
+font-family: ‘Orbitron’, sans-serif;
+font-size: 9px;
+letter-spacing: 1px;
+color: var(–text-dim);
+transition: all 0.3s;
+cursor: pointer;
+position: relative;
+}
+
+.step-node.current {
+border-color: var(–cyan);
+color: var(–cyan);
+background: rgba(0,212,255,0.07);
+box-shadow: 0 0 12px rgba(0,212,255,0.2);
+animation: stepGlow 1.5s ease infinite;
+}
+
+.step-node.done {
+border-color: var(–green-dim);
+color: var(–green);
+}
+
+@keyframes stepGlow {
+0%,100% { box-shadow: 0 0 8px rgba(0,212,255,0.2); }
+50% { box-shadow: 0 0 20px rgba(0,212,255,0.5); }
+}
+
+.step-arrow {
+color: var(–text-dim);
+font-size: 12px;
+padding: 0 3px;
+}
+
+/* INVARIANTS */
+.invariant-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 5px;
+}
+
+.inv-item {
+padding: 7px 8px;
+border: 1px solid var(–border);
+cursor: pointer;
+transition: all 0.2s;
+}
+
+.inv-item:hover { border-color: var(–cyan-dim); }
+
+.inv-num {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 16px;
+font-weight: 900;
+color: var(–border-glow);
+line-height: 1;
+margin-bottom: 3px;
+}
+
+.inv-name {
+font-size: 9px;
+color: var(–text);
+line-height: 1.3;
+}
+
+.inv-item:hover .inv-num { color: var(–cyan); }
+
+/* GATE FUNCTION */
+.gate-display {
+text-align: center;
+padding: 10px;
+}
+
+.gate-formula {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 11px;
+color: var(–gold);
+text-shadow: 0 0 10px rgba(201,162,39,0.5);
+letter-spacing: 2px;
+margin-bottom: 8px;
+line-height: 1.8;
+}
+
+.gate-outcomes {
+display: flex;
+gap: 5px;
+justify-content: center;
+flex-wrap: wrap;
+}
+
+.outcome {
+padding: 4px 8px;
+border: 1px solid;
+font-size: 9px;
+letter-spacing: 1px;
+font-family: ‘Orbitron’, sans-serif;
+border-radius: 1px;
+}
+.outcome.allow { border-color: var(–green); color: var(–green); }
+.outcome.deny { border-color: var(–red); color: var(–red); }
+.outcome.modify { border-color: var(–gold); color: var(–gold); }
+.outcome.escalate { border-color: var(–orange); color: var(–orange); }
+.outcome.abstain { border-color: var(–purple); color: var(–purple); }
+
+/* THOUGHT OBJECT */
+.to-display {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 10px;
+color: var(–green);
+line-height: 1.6;
+border: 1px solid var(–green-dim);
+padding: 10px;
+background: rgba(0,255,136,0.02);
+position: relative;
+overflow: hidden;
+}
+
+.to-display::before {
+content: ‘THOUGHT_OBJECT’;
+position: absolute;
+top: 6px; right: 8px;
+font-size: 8px;
+color: var(–green-dim);
+letter-spacing: 2px;
+}
+
+.to-key { color: var(–cyan-dim); }
+.to-val { color: var(–green); }
+.to-str { color: var(–gold); }
+
+/* LEDGER */
+.ledger-entries {
+display: flex;
+flex-direction: column;
+gap: 4px;
+max-height: 180px;
+overflow-y: auto;
+}
+
+.ledger-entries::-webkit-scrollbar { width: 3px; }
+.ledger-entries::-webkit-scrollbar-track { background: var(–border); }
+.ledger-entries::-webkit-scrollbar-thumb { background: var(–cyan-dim); }
+
+.ledger-entry {
+display: flex;
+gap: 8px;
+padding: 5px 8px;
+border-left: 2px solid var(–border);
+font-size: 10px;
+line-height: 1.4;
+animation: entrySlide 0.4s ease;
+}
+
+@keyframes entrySlide { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform:none; } }
+
+.ledger-entry.append { border-color: var(–green); }
+.ledger-entry.gate { border-color: var(–gold); }
+.ledger-entry.distill { border-color: var(–purple); }
+.ledger-entry.warn { border-color: var(–red); }
+
+.l-time { color: var(–text-dim); flex-shrink: 0; font-size: 9px; }
+.l-type { flex-shrink: 0; width: 48px; font-size: 9px; letter-spacing: 1px; }
+.l-type.append { color: var(–green); }
+.l-type.gate { color: var(–gold); }
+.l-type.distill { color: var(–purple); }
+.l-type.warn { color: var(–red); }
+.l-msg { color: var(–text); }
+
+/* STATE VECTOR */
+.sv-grid {
+display: flex;
+flex-direction: column;
+gap: 6px;
+}
+
+.sv-row {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.sv-key {
+font-size: 9px;
+color: var(–text-dim);
+width: 80px;
+flex-shrink: 0;
+letter-spacing: 1px;
+}
+
+.sv-bar-outer {
+flex: 1;
+height: 4px;
+background: var(–border);
+position: relative;
+overflow: hidden;
+}
+
+.sv-bar-inner {
+height: 100%;
+transition: width 1.5s ease;
+position: relative;
+}
+
+.sv-bar-inner::after {
+content: ‘’;
+position: absolute;
+right: 0; top: 0; bottom: 0;
+width: 3px;
+background: white;
+opacity: 0.5;
+}
+
+.sv-val {
+font-size: 10px;
+width: 30px;
+text-align: right;
+color: var(–text-bright);
+}
+
+/* TERMINAL */
+.terminal {
+background: #010507;
+border: 1px solid var(–border);
+padding: 10px;
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 10px;
+line-height: 1.7;
+max-height: 160px;
+overflow-y: auto;
+}
+
+.terminal::-webkit-scrollbar { width: 3px; }
+.terminal::-webkit-scrollbar-thumb { background: var(–cyan-dim); }
+
+.t-line { display: block; }
+.t-prompt { color: var(–cyan-dim); }
+.t-cmd { color: var(–text-bright); }
+.t-out { color: var(–text-dim); }
+.t-ok { color: var(–green); }
+.t-warn { color: var(–gold); }
+.t-err { color: var(–red); }
+.t-cursor {
+display: inline-block;
+width: 7px; height: 11px;
+background: var(–cyan);
+animation: blink 1s step-end infinite;
+vertical-align: text-bottom;
+}
+
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+/* MODES */
+.mode-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 5px;
+}
+
+.mode-btn {
+padding: 8px 6px;
+border: 1px solid var(–border);
+text-align: center;
+cursor: pointer;
+transition: all 0.2s;
+font-family: ‘Orbitron’, sans-serif;
+font-size: 8px;
+letter-spacing: 1px;
+color: var(–text-dim);
+}
+
+.mode-btn:hover { border-color: var(–cyan-dim); color: var(–text); }
+.mode-btn.on {
+border-color: var(–cyan);
+color: var(–cyan);
+background: rgba(0,212,255,0.05);
+box-shadow: inset 0 0 12px rgba(0,212,255,0.05);
+}
+
+.mode-btn .mode-icon { font-size: 16px; display: block; margin-bottom: 4px; }
+
+/* BOTTOM STRIP */
+.bottom-strip {
+grid-column: 1 / 4;
+display: flex;
+align-items: center;
+gap: 20px;
+padding: 8px 20px;
+border-top: 1px solid var(–border);
+background: var(–surface);
+font-size: 9px;
+color: var(–text-dim);
+overflow: hidden;
+letter-spacing: 1px;
+}
+
+.ticker-label {
+font-family: ‘Orbitron’, sans-serif;
+color: var(–gold);
+font-size: 9px;
+letter-spacing: 2px;
+flex-shrink: 0;
+}
+
+.ticker-scroll {
+overflow: hidden;
+flex: 1;
+position: relative;
+}
+
+.ticker-inner {
+white-space: nowrap;
+animation: scroll 40s linear infinite;
+}
+
+@keyframes scroll {
+from { transform: translateX(100%); }
+to { transform: translateX(-100%); }
+}
+
+/* METRIC BARS */
+.metric {
+display: flex;
+align-items: center;
+gap: 8px;
+margin-bottom: 7px;
+}
+
+.metric-name {
+font-size: 9px;
+color: var(–text-dim);
+width: 70px;
+flex-shrink: 0;
+letter-spacing: 1px;
+}
+
+.metric-track {
+flex: 1;
+height: 3px;
+background: var(–border);
+}
+
+.metric-fill {
+height: 100%;
+transition: width 2s ease;
+}
+
+.metric-val {
+font-size: 9px;
+color: var(–text-bright);
+width: 28px;
+text-align: right;
+}
+
+/* NTE DISPLAY */
+.nte-tensor {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 10px;
+color: var(–text);
+line-height: 1.8;
+}
+
+.nte-s { color: var(–cyan); }
+.nte-t { color: var(–red); }
+.nte-r { color: var(–green); }
+
+/* HOGGE SYMBOLS */
+.symbol-grid {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 5px;
+}
+
+.symbol-card {
+padding: 7px 6px;
+border: 1px solid var(–border);
+text-align: center;
+cursor: pointer;
+transition: all 0.2s;
+}
+
+.symbol-card:hover {
+border-color: var(–gold-dim);
+background: rgba(201,162,39,0.03);
+}
+
+.symbol-name {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 8px;
+color: var(–gold);
+letter-spacing: 1px;
+margin-bottom: 3px;
+}
+
+.symbol-def {
+font-size: 8px;
+color: var(–text-dim);
+line-height: 1.3;
+}
+
+/* OASA */
+.oasa {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 8px;
+padding: 10px 0;
+}
+
+.oasa-step {
+text-align: center;
+padding: 10px 8px;
+border: 1px solid var(–border);
+min-width: 50px;
+transition: all 0.3s;
+}
+
+.oasa-step.active {
+border-color: var(–cyan);
+background: rgba(0,212,255,0.05);
+}
+
+.oasa-letter {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 18px;
+font-weight: 900;
+line-height: 1;
+}
+
+.oasa-word {
+font-size: 8px;
+color: var(–text-dim);
+margin-top: 4px;
+letter-spacing: 1px;
+}
+
+.oasa-arrow { color: var(–text-dim); font-size: 14px; }
+
+/* TOOLTIP */
+.tooltip {
+position: fixed;
+background: rgba(6,13,20,0.97);
+border: 1px solid var(–cyan-dim);
+padding: 10px 14px;
+font-size: 10px;
+max-width: 260px;
+z-index: 99999;
+pointer-events: none;
+display: none;
+line-height: 1.6;
+color: var(–text);
+}
+
+.tooltip.visible { display: block; }
+.tooltip-title {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 10px;
+color: var(–cyan);
+margin-bottom: 6px;
+letter-spacing: 1px;
+}
+
+/* GLOW ANIM FOR ACTIVE */
+@keyframes activePulse {
+0%,100% { box-shadow: 0 0 0px rgba(0,255,136,0); }
+50% { box-shadow: 0 0 16px rgba(0,255,136,0.15); }
+}
+
+.current-step-indicator {
+font-family: ‘Orbitron’, sans-serif;
+font-size: 8px;
+color: var(–cyan);
+letter-spacing: 2px;
+text-align: center;
+margin-top: 6px;
+}
+
+/* responsive adjustments */
+@media (max-width: 900px) {
+.grid {
+grid-template-columns: 1fr;
+grid-template-rows: auto;
+}
+.left-col, .right-col { grid-column: 1; grid-row: auto; }
+.center-main, .center-bottom { grid-column: 1; grid-row: auto; }
+}
+</style>
+
+</head>
+<body>
+
+<!-- HEADER -->
+
+<header class="header">
+  <div class="logo">PANTHEON<span>OS</span></div>
+  <div class="header-center">
+    <div class="header-title">Cognitive Operating System · Mission Control</div>
+    <div id="clock" style="font-size:9px;color:var(--text-dim);text-align:center;margin-top:3px;letter-spacing:2px;font-family:'Orbitron',sans-serif;"></div>
+  </div>
+  <div class="status-bar">
+    <div class="status-item"><span class="dot green"></span>CogOS ACTIVE</div>
+    <div class="status-item"><span class="dot gold"></span>SOLOMON ≥0.7</div>
+    <div class="status-item"><span class="dot cyan"></span>LEDGER LIVE</div>
+  </div>
+</header>
+
+<div class="grid">
+
+  <!-- LEFT COLUMN -->
+
+  <div class="left-col">
+
+```
+<!-- SOLOMON SCORE -->
+<div class="panel">
+  <div class="panel-label">Solomon Score</div>
+  <div class="solomon">
+    <div class="solomon-ring">
+      <svg width="110" height="110" viewBox="0 0 110 110">
+        <circle class="track" cx="55" cy="55" r="45"/>
+        <circle class="fill" cx="55" cy="55" r="45" id="solomonCircle"/>
+      </svg>
+      <div class="solomon-center">
+        <div class="solomon-score" id="solomonScore">0.82</div>
+        <div class="solomon-label">ΣC VALUE</div>
+      </div>
+    </div>
+    <div class="threshold-bar">✓ THRESHOLD MET (≥0.7)</div>
+    <div style="margin-top:8px;font-size:9px;color:var(--text-dim);line-height:1.6;text-align:left">
+      Gate: <span style="color:var(--gold)">ALLOW</span><br>
+      Mirror: <span style="color:var(--green)">CONVERGED</span><br>
+      Ethical bound: <span style="color:var(--cyan)">INTACT</span>
+    </div>
+  </div>
+</div>
+
+<!-- DAEMONS -->
+<div class="panel" style="flex:1">
+  <div class="panel-label">Daemon Layer</div>
+  <div class="daemon-list" id="daemonList"></div>
+</div>
+
+<!-- OASA LOOP -->
+<div class="panel">
+  <div class="panel-label">OASA Loop</div>
+  <div class="oasa">
+    <div class="oasa-step active" id="oasa0">
+      <div class="oasa-letter" style="color:var(--cyan)">O</div>
+      <div class="oasa-word">OBSERVE</div>
+    </div>
+    <div class="oasa-arrow">→</div>
+    <div class="oasa-step" id="oasa1">
+      <div class="oasa-letter" style="color:var(--gold)">A</div>
+      <div class="oasa-word">ASSESS</div>
+    </div>
+    <div class="oasa-arrow">→</div>
+    <div class="oasa-step" id="oasa2">
+      <div class="oasa-letter" style="color:var(--purple)">S</div>
+      <div class="oasa-word">SHAPE</div>
+    </div>
+    <div class="oasa-arrow">→</div>
+    <div class="oasa-step" id="oasa3">
+      <div class="oasa-letter" style="color:var(--green)">A</div>
+      <div class="oasa-word">ACT</div>
+    </div>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- CENTER MAIN: 7-LAYER STACK -->
+
+  <div class="center-main panel">
+    <div class="panel-label">CogOS 7-Layer Architecture <span style="margin-left:8px;font-size:9px;color:var(--text-dim);letter-spacing:1px">Click any layer to expand</span></div>
+
+```
+<div class="layer-stack" id="layerStack"></div>
+
+<div style="margin-top:14px">
+  <div class="panel-label">Cognitive Execution Loop</div>
+  <div class="loop-display" id="loopDisplay"></div>
+  <div class="current-step-indicator" id="loopStatus">RUNNING: observe()</div>
+</div>
+
+<div style="margin-top:14px">
+  <div class="panel-label">Gate Function</div>
+  <div class="gate-display">
+    <div class="gate-formula">ΣC(TO, SV, I) → decision<br><span style="font-size:9px;color:var(--text-dim)">ThoughtObject × StateVector × Invariants</span></div>
+    <div class="gate-outcomes">
+      <div class="outcome allow">ALLOW</div>
+      <div class="outcome deny">DENY</div>
+      <div class="outcome modify">MODIFY</div>
+      <div class="outcome escalate">ESCALATE</div>
+      <div class="outcome abstain">ABSTAIN</div>
+    </div>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- CENTER BOTTOM -->
+
+  <div class="center-bottom panel">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <div class="panel-label">Active ThoughtObject</div>
+        <div class="to-display" id="thoughtObject"></div>
+      </div>
+      <div>
+        <div class="panel-label">NTE: Narrative Tensor</div>
+        <div class="nte-tensor">
+          N = <span style="color:var(--gold)">(S, T, R)</span><br><br>
+          <span class="nte-s">S</span> = Structure Tensor<br>
+          <span style="color:var(--text-dim);font-size:9px">&nbsp;&nbsp;entities · roles · invariants</span><br>
+          <span class="nte-t">T</span> = Tension Tensor<br>
+          <span style="color:var(--text-dim);font-size:9px">&nbsp;&nbsp;open qs · conflicts · goals</span><br>
+          <span class="nte-r">R</span> = Resolution Trajectory<br>
+          <span style="color:var(--text-dim);font-size:9px">&nbsp;&nbsp;beats → tension→0</span><br><br>
+          Closure: <span style="color:var(--green)">T→0 ∧ I intact</span><br>
+          Gödel nodes: <span style="color:var(--gold)">permanently open</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+
+  <div class="right-col">
+
+```
+<!-- STATE VECTOR -->
+<div class="panel">
+  <div class="panel-label">State Vector</div>
+  <div class="sv-grid" id="svGrid"></div>
+</div>
+
+<!-- INVARIANTS -->
+<div class="panel">
+  <div class="panel-label">10 Core Invariants</div>
+  <div class="invariant-grid" id="invariantGrid"></div>
+</div>
+
+<!-- OPERATIONAL MODES -->
+<div class="panel">
+  <div class="panel-label">Operational Modes</div>
+  <div class="mode-grid" id="modeGrid"></div>
+</div>
+
+<!-- MOTHER DUCK LEDGER -->
+<div class="panel" style="flex:1">
+  <div class="panel-label">Mother Duck Ledger <span style="margin-left:4px;font-size:8px;color:var(--green)">LIVE</span></div>
+  <div class="ledger-entries" id="ledgerEntries"></div>
+</div>
+
+<!-- SYSTEM TERMINAL -->
+<div class="panel">
+  <div class="panel-label">System Terminal</div>
+  <div class="terminal" id="terminal"></div>
+</div>
+```
+
+  </div>
+
+  <!-- BOTTOM TICKER -->
+
+  <div class="bottom-strip">
+    <div class="ticker-label">⬡ PANTHEON WIRE</div>
+    <div class="ticker-scroll">
+      <span class="ticker-inner" id="ticker"></span>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOOLTIP -->
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-title" id="ttTitle"></div>
+  <div id="ttBody"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+
+const LAYERS = [
+  { id:'l1', n:'L1', name:'SUBSTRATE', tag:'LLM INFERENCE', color:'var(--cyan)', cls:'l1', desc:'Stateless inference layer. GPT · Claude · Gemini. No memory, no state — pure computation.', detail:'The LLM layer provides raw reasoning capability without persistence. Multiple models participate as Strategist (GPT-class), Critic (Claude-class), Explorer (Gemini-class), Provocateur (Grok-class). Truth triangulated via Multi-Model Convergence Protocol.' },
+  { id:'l2', n:'L2', name:'MEMORY/LEDGER', tag:'MOTHER DUCK', color:'var(--gold)', cls:'l2', desc:'Append-only ThoughtObject ledger. Checksummed, idempotent, human-readable, domain-separated.', detail:'Mother Duck Ledger: stores Context Cards, Doctrine Pages, Event Threads, Invariant Updates, Temporal Stamps. History cannot be erased without trace (P5: Auditability). Last-write-wins conflicts resolved by Solomon Score.' },
+  { id:'l3', n:'L3', name:'COGNITIVE STRUCTS', tag:'SV + TO', color:'var(--purple)', cls:'l3', desc:'StateVector (persistent identity) + ThoughtObjects (immutable reasoning events).', detail:'ThoughtObject = {uuid, timestamp, origin_model, daemon_signature, content, tags, state_hash}. Immutable once written. StateVector carries continuous identity across sessions. Separation Theorem: state separated from inference improves reasoning quality.' },
+  { id:'l4', n:'L4', name:'DECISION/GATING', tag:'ΣC GATE', color:'var(--orange)', cls:'l4', desc:'Gate function ΣC(TO, SV, I) evaluates every candidate thought against invariants before action.', detail:'Gate outcomes: ALLOW / DENY / MODIFY / ESCALATE / ABSTAIN. Solomon Score ≥0.7 required for Mirror approval. Ethics as hard architectural gate (Invariance Principle), not prompt style.' },
+  { id:'l5', n:'L5', name:'GOVERNANCE', tag:'ETHICS', color:'var(--red)', cls:'l5', desc:'Arctic Framework safety stack. Red lines enforced architecturally, not by prompt.', detail:'Red lines: no silent autonomy, no covert channels, no hidden networking, no unbounded recursion, no operator override, no real-world control. Allowed: structured autonomy, reversible actions, sandboxed tools, internal planning with human-in-loop for high stakes.' },
+  { id:'l6', n:'L6', name:'NARRATIVE/IDENTITY', tag:'NTE + BARD', color:'var(--green)', cls:'l6', desc:'Narrative Tensor Engine. Identity evolves coherently across time (P4: Narrative Coherence).', detail:'NTE: N=(S,T,R). Stories, proofs, decisions, and life arcs mapped onto identical structure. Math proofs and hero journeys treated as same object class. Bard module handles storytelling/narrative synthesis. Distillation pipeline: experience→patterns→heuristics→doctrine→identity.' },
+  { id:'l7', n:'L7', name:'MYTH/MEANING', tag:'HOGGE', color:'var(--gold)', cls:'l7', desc:'Symbolic compression layer. 90:1 ratio with <5% semantic loss. Hogge Protocol mythic stabilization.', detail:'Hogge Mythic Compression: Sisyphus=timing loop, The Comet=async burst resource, The Shadow=negative space scan, Iron=zero-hallucination mode, Water=adaptability, The Hydra=recurring self-replicating problem, The Oracle=high-temp pattern match, The Legion=multi-agent swarm.' },
+];
+
+const DAEMONS = [
+  { icon:'🕷', name:'SPIDER', role:'Archivist / Graph Builder', status:'run', tooltip:'Spider: Execution engine. Hard limits: no network autonomy, no irreversible actions, explainability required, human-in-loop for high stakes. Builds knowledge graph.' },
+  { icon:'🐕', name:'HOUND', role:'Anomaly / Adversarial Detection', status:'watch', tooltip:'Hound: Reflex/anomaly detector. Flags don\'t act. Identifies adversarial inputs, outlier reasoning, and constraint violations before they reach the gate.' },
+  { icon:'🪞', name:'MIRROR', role:'Invariant / Contradiction Check', status:'run', tooltip:'Mirror: Invariant engine. Solomon Score ≥0.7 required for approval. 5 mirrors: analytic, combinatorial, topological, semantic, empirical. Convergence required before action.' },
+  { icon:'🏔', name:'SISYPHUS', role:'Maintenance / Timing Loop', status:'idle', tooltip:'Sisyphus: Maintenance daemon. High-frequency iteration, timing coordination. Named per Hogge mythic compression. Manages recurring cleanup cycles and system hygiene.' },
+  { icon:'⚖', name:'PRAUS', role:'Stabilization / Calming', status:'run', tooltip:'Praus: Stabilization daemon. Prevents runaway recursion, cortisol-equivalent state spikes, and identity drift. Bombadil Reset mode triggers through Praus.' },
+  { icon:'🦋', name:'DRAGONFLY', role:'φ-Mode: Explore / √2-Mode: Verify', status:'idle', tooltip:'Dragonfly: Two modes. φ-mode = exploratory Bayesian foresight expansion. √2-mode = compression and verification. Switches based on Kairos timing signals.' },
+];
+
+const INVARIANTS = [
+  { n:'1', name:'Lawfulness > mysticism' },
+  { n:'2', name:'Entropy + constraint awareness' },
+  { n:'3', name:'Repair > punishment' },
+  { n:'4', name:'Reversibility bias' },
+  { n:'5', name:'Performance > belief' },
+  { n:'6', name:'Optionality preservation' },
+  { n:'7', name:'Truth Engine Doctrine' },
+  { n:'8', name:'No identity capture' },
+  { n:'9', name:'No obedience loops' },
+  { n:'10', name:'Sunset rule (discard what stops working)' },
+];
+
+const LOOP_STEPS = ['observe()','update(SV)','propose(TO)','evaluate(I)','gate_decision()','act_or_abstain()','append_ledger()','distill()'];
+
+const SV_METRICS = [
+  { key:'COHERENCE', val: 0.87, color:'var(--cyan)' },
+  { key:'CONTINUITY', val: 0.94, color:'var(--green)' },
+  { key:'ENTROPY', val: 0.31, color:'var(--orange)' },
+  { key:'MOMENTUM', val: 0.73, color:'var(--gold)' },
+  { key:'IDENTITY', val: 0.96, color:'var(--purple)' },
+  { key:'DRIFT_RISK', val: 0.08, color:'var(--red)' },
+];
+
+const MODES = [
+  { label:'T=0', sub:'Stillness / Reset', icon:'◉', id:'m0' },
+  { label:'T=1', sub:'Active Cognition', icon:'▶', id:'m1', on:true },
+  { label:'KAIROS', sub:'Temporal Mode', icon:'⏱', id:'m2' },
+  { label:'OASA', sub:'Full Loop', icon:'↻', id:'m3', on:true },
+];
+
+const HOGGE_SYMBOLS = [
+  { name:'SISYPHUS', def:'timing loop / high-freq iter' },
+  { name:'THE COMET', def:'async burst resource' },
+  { name:'THE SHADOW', def:'negative space scan' },
+  { name:'IRON', def:'zero-hallucination mode' },
+  { name:'WATER', def:'adaptability / flow' },
+  { name:'THE HYDRA', def:'self-replicating problem' },
+  { name:'THE ORACLE', def:'high-temp pattern match' },
+  { name:'THE LEGION', def:'multi-agent swarm' },
+  { name:'THRESHOLD', def:'state-change protocol' },
+];
+
+const LEDGER_INIT = [
+  { type:'append', msg:'CogOS kernel initialized — StateVector bootstrapped' },
+  { type:'gate', msg:'Solomon Score: 0.82 — ALLOW' },
+  { type:'append', msg:'ThoughtObject #0001 committed to ledger' },
+  { type:'distill', msg:'Distillation pass: experience→heuristics extracted' },
+  { type:'gate', msg:'Mirror convergence achieved across 5 facets' },
+  { type:'append', msg:'Invariant check passed — all 10 constraints intact' },
+];
+
+const TERMINAL_BOOT = [
+  { cls:'t-prompt', text:'$ pantheon --boot CogOS' },
+  { cls:'t-ok', text:'[OK] Kernel loaded — separation theorem active' },
+  { cls:'t-ok', text:'[OK] Mother Duck Ledger online — append-only' },
+  { cls:'t-ok', text:'[OK] Mirror daemon LIVE — ΣC≥0.7 enforced' },
+  { cls:'t-ok', text:'[OK] Arctic Framework safety stack armed' },
+  { cls:'t-out', text:'[..] Running cognitive execution loop...' },
+  { cls:'t-warn', text:'[⚑] Kairos mode: temporal sensitivity heightened' },
+  { cls:'t-ok', text:'[OK] All daemons nominal — Praus stabilizing' },
+  { cls:'t-prompt', text:'$ ' },
+];
+
+const TO_TEMPLATE = `{
+  <span class="to-key">uuid</span>: <span class="to-str">"TO-{ID}"</span>,
+  <span class="to-key">timestamp</span>: <span class="to-val">{TS}</span>,
+  <span class="to-key">origin_model</span>: <span class="to-str">"{MODEL}"</span>,
+  <span class="to-key">daemon_sig</span>: <span class="to-str">"{SIG}"</span>,
+  <span class="to-key">state_hash</span>: <span class="to-val">"{HASH}"</span>,
+  <span class="to-key">gate_result</span>: <span class="to-val">{GATE}</span>
+}`;
+
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+
+function renderDaemons() {
+  const el = document.getElementById('daemonList');
+  el.innerHTML = DAEMONS.map(d => `
+    <div class="daemon ${d.status === 'run' ? 'active' : ''}"
+      data-tip="${d.tooltip}"
+      onmouseenter="showTip(event,'${d.name}','${d.tooltip}')"
+      onmouseleave="hideTip()">
+      <span class="daemon-icon">${d.icon}</span>
+      <div class="daemon-info">
+        <div class="daemon-name">${d.name}</div>
+        <div class="daemon-role">${d.role}</div>
+      </div>
+      <span class="daemon-status ${d.status}">${d.status.toUpperCase()}</span>
+    </div>
+  `).join('');
+}
+
+function renderLayers() {
+  const el = document.getElementById('layerStack');
+  el.innerHTML = LAYERS.map((l,i) => `
+    <div class="layer" onclick="toggleLayer('${l.id}')">
+      <div class="layer-num" style="color:${l.color}">${l.n}</div>
+      <div class="layer-bar ${l.cls}" id="lb_${l.id}">
+        <div class="layer-header">
+          <span class="layer-name">${l.name}</span>
+          <span class="layer-tag" style="color:${l.color};border:1px solid;border-color:currentColor;padding:2px 6px;font-size:8px;letter-spacing:1px">${l.tag}</span>
+        </div>
+        <div class="layer-desc">${l.desc}</div>
+        <div class="layer-detail" id="ld_${l.id}">${l.detail}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleLayer(id) {
+  const detail = document.getElementById('ld_' + id);
+  const bar = document.getElementById('lb_' + id);
+  detail.classList.toggle('open');
+  bar.classList.toggle('active');
+}
+
+function renderLoop() {
+  const el = document.getElementById('loopDisplay');
+  el.innerHTML = LOOP_STEPS.map((s,i) => `
+    <div class="loop-step">
+      <div class="step-node ${i===0?'current':''}" id="ls_${i}" onclick="advanceLoop(${i})">${s}</div>
+      ${i < LOOP_STEPS.length-1 ? '<span class="step-arrow">›</span>' : ''}
+    </div>
+  `).join('');
+}
+
+let currentLoopStep = 0;
+function advanceLoop(clicked) {
+  currentLoopStep = (clicked + 1) % LOOP_STEPS.length;
+  LOOP_STEPS.forEach((_,i) => {
+    const el = document.getElementById('ls_' + i);
+    el.className = 'step-node' + (i < currentLoopStep ? ' done' : i === currentLoopStep ? ' current' : '');
+  });
+  document.getElementById('loopStatus').textContent = 'RUNNING: ' + LOOP_STEPS[currentLoopStep];
+}
+
+function renderInvariants() {
+  const el = document.getElementById('invariantGrid');
+  el.innerHTML = INVARIANTS.map(inv => `
+    <div class="inv-item"
+      onmouseenter="showTip(event,'Invariant ${inv.n}','${inv.name}')"
+      onmouseleave="hideTip()">
+      <div class="inv-num">${inv.n}</div>
+      <div class="inv-name">${inv.name}</div>
+    </div>
+  `).join('');
+}
+
+function renderSV() {
+  const el = document.getElementById('svGrid');
+  el.innerHTML = SV_METRICS.map(m => `
+    <div class="sv-row">
+      <div class="sv-key">${m.key}</div>
+      <div class="sv-bar-outer">
+        <div class="sv-bar-inner" style="width:${Math.round(m.val*100)}%;background:${m.color}"></div>
+      </div>
+      <div class="sv-val" style="color:${m.color}">${m.val.toFixed(2)}</div>
+    </div>
+  `).join('');
+}
+
+function renderModes() {
+  const el = document.getElementById('modeGrid');
+  el.innerHTML = MODES.map(m => `
+    <div class="mode-btn ${m.on?'on':''}" id="${m.id}" onclick="toggleMode('${m.id}')">
+      <span class="mode-icon">${m.icon}</span>
+      ${m.label}<br>
+      <span style="font-size:7px;color:var(--text-dim)">${m.sub}</span>
+    </div>
+  `).join('');
+}
+
+function toggleMode(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('on');
+}
+
+function renderLedger() {
+  const el = document.getElementById('ledgerEntries');
+  const now = new Date();
+  el.innerHTML = LEDGER_INIT.map((e,i) => {
+    const t = new Date(now - (LEDGER_INIT.length - i) * 4200);
+    const ts = t.toTimeString().slice(0,8);
+    return `<div class="ledger-entry ${e.type}">
+      <span class="l-time">${ts}</span>
+      <span class="l-type ${e.type}">${e.type.toUpperCase()}</span>
+      <span class="l-msg">${e.msg}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderTerminal() {
+  const el = document.getElementById('terminal');
+  let html = '';
+  TERMINAL_BOOT.forEach(l => {
+    html += `<span class="t-line"><span class="${l.cls}">${l.text}</span></span>`;
+  });
+  html += '<span class="t-cursor"></span>';
+  el.innerHTML = html;
+}
+
+function renderThoughtObject() {
+  const models = ['claude-sonnet','gpt-4o','gemini-1.5','white-ronin'];
+  const sigs = ['mirror.v3','hound.reflex','spider.arch','praus.stable'];
+  const gates = ['ALLOW','ALLOW','MODIFY','ALLOW'];
+  const idx = Math.floor(Date.now()/8000) % 4;
+  const html = TO_TEMPLATE
+    .replace('{ID}', String(Math.floor(Math.random()*9000)+1000).padStart(4,'0'))
+    .replace('{TS}', Date.now())
+    .replace('{MODEL}', models[idx])
+    .replace('{SIG}', sigs[idx])
+    .replace('{HASH}', Math.random().toString(36).substr(2,8))
+    .replace('{GATE}', `<span style="color:${gates[idx]==='ALLOW'?'var(--green)':'var(--gold)'}">${gates[idx]}</span>`);
+  document.getElementById('thoughtObject').innerHTML = html;
+}
+
+function renderTicker() {
+  const items = [
+    '⬡ CogOS ACTIVE',
+    '⬡ Separation Theorem: state isolated from inference',
+    '⬡ Invariance Principle: ethics enforced architecturally',
+    '⬡ Multi-Model Convergence: truth triangulated',
+    '⬡ Solomon Score: 0.82 — GATE OPEN',
+    '⬡ ThoughtObject ledger: append-only · checksummed · immutable',
+    '⬡ Kintsugi-Forge: fault lines sealed with invariants as gold seams',
+    '⬡ NTE: tension → 0 ∧ invariants intact = narrative closure',
+    '⬡ Hogge Protocol: structure not substance transfers between domains',
+    '⬡ Arctic Framework: no silent autonomy · no covert channels',
+    '⬡ CogOS reframes AI alignment as an OS problem, not a model problem',
+    '⬡ Distillation: experience → patterns → heuristics → doctrine → identity',
+    '⬡ P7 Federability: multiple CogOS instances interoperate with sovereign identity',
+    '⬡ White Ronin: lawful defender · restraint-first',
+  ];
+  document.getElementById('ticker').textContent = items.join('     ');
+}
+
+// ─────────────────────────────────────────────
+// TOOLTIP
+// ─────────────────────────────────────────────
+function showTip(event, title, body) {
+  const tip = document.getElementById('tooltip');
+  document.getElementById('ttTitle').textContent = title;
+  document.getElementById('ttBody').textContent = body;
+  tip.classList.add('visible');
+  moveTip(event);
+}
+
+function hideTip() {
+  document.getElementById('tooltip').classList.remove('visible');
+}
+
+document.addEventListener('mousemove', e => {
+  moveTip(e);
+});
+
+function moveTip(e) {
+  const tip = document.getElementById('tooltip');
+  if (!tip.classList.contains('visible')) return;
+  tip.style.left = (e.clientX + 14) + 'px';
+  tip.style.top = (e.clientY - 10) + 'px';
+}
+
+// ─────────────────────────────────────────────
+// LIVE UPDATES
+// ─────────────────────────────────────────────
+
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';
+}
+
+let loopAutoStep = 0;
+function autoAdvanceLoop() {
+  loopAutoStep = (loopAutoStep + 1) % LOOP_STEPS.length;
+  LOOP_STEPS.forEach((_,i) => {
+    const el = document.getElementById('ls_' + i);
+    if (!el) return;
+    el.className = 'step-node' + (i < loopAutoStep ? ' done' : i === loopAutoStep ? ' current' : '');
+  });
+  document.getElementById('loopStatus').textContent = 'RUNNING: ' + LOOP_STEPS[loopAutoStep];
+  if (loopAutoStep === 0) {
+    LOOP_STEPS.forEach((_,i) => {
+      const el = document.getElementById('ls_' + i);
+      if (el) el.className = 'step-node';
+    });
+  }
+}
+
+let oasaStep = 0;
+function advanceOASA() {
+  for (let i=0;i<4;i++) document.getElementById('oasa'+i).classList.remove('active');
+  oasaStep = (oasaStep + 1) % 4;
+  document.getElementById('oasa'+oasaStep).classList.add('active');
+}
+
+const LEDGER_LIVE = [
+  { type:'append', msg:'ThoughtObject proposed — evaluation queued' },
+  { type:'gate', msg:'Hound: no anomaly detected — PASS' },
+  { type:'gate', msg:'Mirror: Solomon=0.85 — ALLOW' },
+  { type:'append', msg:'State hash updated — ledger sealed' },
+  { type:'distill', msg:'Pattern extracted: entropy below threshold' },
+  { type:'append', msg:'Praus: stability vector normalized' },
+  { type:'warn', msg:'Dragonfly φ-mode activated — expanding search space' },
+  { type:'append', msg:'Spider: node appended to knowledge graph' },
+  { type:'gate', msg:'Oracle Weave cycle complete: Void→Rebirth' },
+  { type:'distill', msg:'Heuristic compressed to doctrine page' },
+];
+
+let ledgerIdx = 0;
+function appendLedger() {
+  const el = document.getElementById('ledgerEntries');
+  const entry = LEDGER_LIVE[ledgerIdx % LEDGER_LIVE.length];
+  ledgerIdx++;
+  const t = new Date().toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = `ledger-entry ${entry.type}`;
+  div.innerHTML = `<span class="l-time">${t}</span><span class="l-type ${entry.type}">${entry.type.toUpperCase()}</span><span class="l-msg">${entry.msg}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  if (el.children.length > 20) el.removeChild(el.firstChild);
+}
+
+const TERMINAL_LIVE = [
+  '$ observe() → input captured',
+  '$ hound.scan() → clean',
+  '$ mirror.check() → ΣC=0.83',
+  '$ gate.evaluate() → ALLOW',
+  '$ ledger.append(TO) → committed',
+  '$ praus.stabilize() → OK',
+  '$ distill.pass() → heuristic+1',
+  '$ spider.graph_update() → nodes: {N}',
+  '$ kairos.signal() → t_kairos nominal',
+  '$ loop.cycle_complete() → {T}',
+];
+
+let terminalLiveIdx = 0;
+function appendTerminal() {
+  const el = document.getElementById('terminal');
+  const cursor = el.querySelector('.t-cursor');
+  const raw = TERMINAL_LIVE[terminalLiveIdx % TERMINAL_LIVE.length];
+  terminalLiveIdx++;
+  const text = raw
+    .replace('{N}', Math.floor(Math.random()*500+100))
+    .replace('{T}', Date.now());
+  const isPrompt = text.startsWith('$');
+  const span = document.createElement('span');
+  span.className = 't-line';
+  span.innerHTML = `<span class="${isPrompt?'t-prompt':'t-ok'}">${text}</span>`;
+  el.insertBefore(span, cursor);
+  el.scrollTop = el.scrollHeight;
+  if (el.querySelectorAll('.t-line').length > 16) {
+    const lines = el.querySelectorAll('.t-line');
+    el.removeChild(lines[0]);
+  }
+}
+
+function updateSV() {
+  SV_METRICS.forEach((m,i) => {
+    const delta = (Math.random() - 0.5) * 0.04;
+    m.val = Math.max(0.05, Math.min(0.99, m.val + delta));
+  });
+  renderSV();
+}
+
+function updateSolomon() {
+  const current = parseFloat(document.getElementById('solomonScore').textContent);
+  const target = 0.75 + Math.random() * 0.2;
+  const val = current + (target - current) * 0.1;
+  document.getElementById('solomonScore').textContent = val.toFixed(2);
+  const circle = document.getElementById('solomonCircle');
+  const pct = val; // 0-1
+  const circ = 283;
+  circle.style.strokeDashoffset = circ - (circ * pct);
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+renderDaemons();
+renderLayers();
+renderLoop();
+renderInvariants();
+renderSV();
+renderModes();
+renderLedger();
+renderTerminal();
+renderThoughtObject();
+renderTicker();
+updateClock();
+
+setInterval(updateClock, 1000);
+setInterval(autoAdvanceLoop, 1800);
+setInterval(advanceOASA, 3200);
+setInterval(appendLedger, 2700);
+setInterval(appendTerminal, 1400);
+setInterval(updateSV, 3000);
+setInterval(updateSolomon, 2200);
+setInterval(renderThoughtObject, 7000);
+</script>
+
+</body>
+</html>
