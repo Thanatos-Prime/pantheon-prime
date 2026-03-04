@@ -1,0 +1,254 @@
+Absolutely. Here’s a repo-ready formalization of the planetary sky simulation + a first test run (using a deliberately simple “toy ephemeris” so we can run it right now and still extract real structural insight).
+
+⸻
+
+Project Night Sky — Planetary Sky Simulation
+
+Working name: PARALLAX ATLAS (Myth Engine optional layer)
+
+Mission
+
+Simulate what the sky “feels like” from different bodies in the solar system—what dominates, what hugs the Sun, what roams the whole night, and how that changes the mythic cast a civilization might invent.
+
+Core idea
+
+A “planet” is a viewpoint. Change the viewpoint, and the sky’s character changes.
+
+⸻
+
+1) Formal Spec
+
+1.1 Inputs
+
+A. Ephemeris model (pluggable)
+	•	Tier 0 (toy): coplanar circular orbits (fast, self-contained)
+	•	Tier 1: Keplerian elements (eccentricity, inclinations; still offline)
+	•	Tier 2: high-precision ephemeris (JPL / SPICE, etc.)
+
+B. Simulation config
+	•	observer: body name (Earth, Mars, etc.)
+	•	targets: list of bodies to render (planets + optional moons)
+	•	time_span_days: e.g., 0 → 1825 days
+	•	dt_days: time step (e.g., 1–10 days)
+	•	visibility_threshold_deg: e.g., 10° elongation from Sun (simple “night-possible” heuristic)
+
+1.2 Outputs
+
+A. SkyFrame (per timestep)
+A frame is “what’s in the sky from here at time t.”
+
+{
+  "t_days": 123.0,
+  "observer": "Mars",
+  "objects": [
+    {
+      "name": "Earth",
+      "range_AU": 1.12,
+      "elongation_deg": 35.4,
+      "phase_0to1": 0.78,
+      "brightness_proxy": 0.31
+    }
+  ]
+}
+
+B. Summary metrics (per target)
+	•	visible_frac (fraction of timesteps meeting the night-heuristic)
+	•	mean_bright_visible
+	•	max_bright
+	•	min_dist, max_dist
+	•	max_elong
+
+C. “Myth seeds” layer (optional but fun)
+A deterministic mapping from metric signatures → archetypes.
+
+Example mapping rules:
+	•	Always near Sun → “Herald / Temptation / Gate-light”
+	•	Whole-sky wanderer + periodic retrograde → “Warrior / King”
+	•	Farthest visible naked-eye → “Boundary / Time / Gatekeeper”
+	•	Dominates brightness → “Sovereign / Judge”
+	•	Rarely visible → “Hidden / Whisperer”
+
+1.3 Key derived concept: Interior vs. Exterior
+
+For an observer at radius a_o and a target at a_t:
+	•	If a_t < a_o: target is interior → stays near the Sun (Morning/Evening-star behavior)
+	•	If a_t > a_o: target is exterior → can appear anywhere in the night sky (opposition behavior)
+
+This is the deep engine behind why the ancients placed Mercury/Venus “inside” the Sun.
+
+⸻
+
+2) First Test Run (Tier 0 Toy Model)
+
+What I ran
+	•	Orbits: circular, coplanar
+	•	Time span: 5 Earth years
+	•	Step: 5 days
+	•	Visibility heuristic: elongation ≥ 10°
+	•	Brightness proxy (rough but useful):
+B \propto \frac{R^2 \cdot \text{phase}}{d^2}
+where R is radius (Earth=1), d is observer-target distance, phase is a simple illumination proxy.
+
+Why this is still valuable
+
+Even if the absolute dates aren’t “astronomy-accurate,” the structural truths pop out:
+	•	who hugs the Sun from where
+	•	who dominates the sky brightness-wise
+	•	who becomes the “Morning Star” on other worlds
+
+⸻
+
+3) Results Summary
+
+3.1 From Earth: top “night presences” (mean brightness when visible)
+
+1) Jupiter (dominant giant, “kingmaker in the night”)
+2) Saturn (second giant, “boundary-judge”)
+3) Venus (bright, but tied to dawn/dusk—still high impact)
+4) Mars
+5) Mercury (visible often, but rarely far from Sun)
+
+Interpretation: Earth’s sky naturally makes Jupiter/Saturn the heavyweight “authority pair,” while Venus is the alluring herald at the edges of day.
+
+⸻
+
+3.2 From Mars: what changes?
+
+1) Jupiter
+2) Saturn
+3) Earth  ← big change
+4) Venus
+5) Uranus/Neptune (dim but “always there” if you have optics)
+
+The killer insight:
+From Mars, Earth behaves like Venus does from Earth: an interior planet, mostly near the Sun, appearing as a brilliant dawn/dusk object.
+
+Even more crisp:
+	•	Max elongation of Earth as seen from Mars (geometry):
+\theta_{\max} \approx \arcsin\left(\frac{a_{\text{Earth}}}{a_{\text{Mars}}}\right)
+= \arcsin\left(\frac{1}{1.524}\right)\approx 41^\circ
+So Earth would be a true “Morning/Evening Star” from Mars, with a max separation similar in spirit to Venus’s from Earth.
+
+Myth seed from Mars:
+Earth becomes “The Blue Lantern”—a near-sun jewel, life-colored, capricious, associated with home, origin, water, memory, and promise.
+
+⸻
+
+4) Bonus: Sun dominance changes by world
+
+Sun’s apparent diameter scales ~ 1/r, brightness ~ 1/r^2 (relative to Earth).
+	•	Mercury: Sun looks 2.58× larger than from Earth and ~6.68× brighter
+	•	Mars: Sun looks 0.66× Earth’s, ~0.43× brightness
+	•	Jupiter: Sun looks 0.19× Earth’s, ~0.037× brightness
+	•	Pluto: Sun becomes a hard bright star, not a disk in your gut-feel sense
+
+Myth implication: on the outer worlds, the Sun stops feeling like a “god-face” and starts feeling like a distant law.
+
+⸻
+
+5) Repo-ready “First Test Narrative”
+
+Test 001: Mars Sky Reversal
+	•	On Earth, Venus is the famous “Morning Star.”
+	•	On Mars, Earth is the Morning Star.
+	•	The sky itself reassigns archetypes based purely on geometry.
+
+This is your storytelling engine:
+Change vantage point → change who is “temptation,” “king,” “gatekeeper,” “oracle,” “home.”
+
+⸻
+
+6) Minimal runnable code (Tier 0)
+
+If you drop this into the repo, it produces the same style of summary I used.
+
+import numpy as np
+import pandas as pd
+
+PLANETS = {
+    "Mercury": {"a": 0.387,  "P": 87.969,   "R": 0.383},
+    "Venus":   {"a": 0.723,  "P": 224.701,  "R": 0.949},
+    "Earth":   {"a": 1.000,  "P": 365.256,  "R": 1.000},
+    "Mars":    {"a": 1.524,  "P": 686.980,  "R": 0.532},
+    "Jupiter": {"a": 5.203,  "P": 4332.589, "R": 11.21},
+    "Saturn":  {"a": 9.537,  "P": 10759.22, "R": 9.45},
+    "Uranus":  {"a": 19.191, "P": 30685.4,  "R": 4.01},
+    "Neptune": {"a": 30.07,  "P": 60190.0,  "R": 3.88},
+    "Pluto":   {"a": 39.48,  "P": 90560.0,  "R": 0.186},
+}
+
+_rng = np.random.default_rng(42)
+for k in PLANETS:
+    PLANETS[k]["L0"] = _rng.uniform(0, 2*np.pi)
+
+def heliocentric_xy(body: str, t_days: float) -> np.ndarray:
+    a = PLANETS[body]["a"]
+    P = PLANETS[body]["P"]
+    L0 = PLANETS[body]["L0"]
+    theta = L0 + 2*np.pi*(t_days / P)
+    return np.array([a*np.cos(theta), a*np.sin(theta)])
+
+def summarize(observer: str, t_days: np.ndarray, elong_thresh_deg: float = 10.0) -> pd.DataFrame:
+    obs_pos = np.array([heliocentric_xy(observer, t) for t in t_days])
+    sun_vec = -obs_pos
+    sun_hat = sun_vec / np.linalg.norm(sun_vec, axis=1)[:, None]
+
+    rows = []
+    for target in PLANETS:
+        if target == observer:
+            continue
+
+        targ_pos = np.array([heliocentric_xy(target, t) for t in t_days])
+        rel = targ_pos - obs_pos
+        dist = np.linalg.norm(rel, axis=1)
+        rel_hat = rel / dist[:, None]
+
+        # elongation from Sun (simple visibility heuristic)
+        cosang = np.clip(np.sum(rel_hat * sun_hat, axis=1), -1, 1)
+        elong = np.degrees(np.arccos(cosang))
+        visible = elong >= elong_thresh_deg
+
+        # phase proxy: angle at target between (target->Sun) and (target->observer)
+        st = -targ_pos
+        st_hat = st / np.linalg.norm(st, axis=1)[:, None]
+        ot_hat = (-rel) / dist[:, None]
+        cosphase = np.clip(np.sum(st_hat * ot_hat, axis=1), -1, 1)
+        phase_angle = np.arccos(cosphase)     # 0 full, pi new
+        phase = (1 + np.cos(phase_angle)) / 2
+
+        bright = (PLANETS[target]["R"]**2) * phase / (dist**2)
+
+        rows.append({
+            "target": target,
+            "visible_frac": float(visible.mean()),
+            "mean_bright_visible": float(np.mean(bright[visible])) if visible.any() else np.nan,
+            "max_bright": float(np.max(bright)),
+            "min_dist_AU": float(np.min(dist)),
+            "max_dist_AU": float(np.max(dist)),
+            "max_elong_deg": float(np.max(elong)),
+        })
+
+    df = pd.DataFrame(rows).sort_values("mean_bright_visible", ascending=False)
+    return df
+
+if __name__ == "__main__":
+    t = np.arange(0, 5*365, 5)  # 5 years, 5-day step
+    print("Earth observer:")
+    print(summarize("Earth", t).head(10).to_string(index=False))
+    print("\nMars observer:")
+    print(summarize("Mars", t).head(10).to_string(index=False))
+
+
+⸻
+
+7) What I’d do next (Tier 1 upgrade)
+
+If you want this to become legit (not just poetic), the next step is to add:
+	•	orbital eccentricity + inclinations (Kepler elements)
+	•	a proper “local midnight” skyframe (observer rotation + horizon cut)
+	•	proper visual magnitude model (albedo, phase function)
+	•	optional myth generator that reads the metrics and emits “pantheon cards”
+
+⸻
+
+If you want, I’ll also write the Pantheon Card schema for celestial archetypes (e.g., “Blue Lantern / Earth-from-Mars,” “Gatekeeper / Saturn-from-inner worlds,” etc.) so you can drop it straight into the repo as data + a generator.
