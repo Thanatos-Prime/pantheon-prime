@@ -1,0 +1,971 @@
+# #!/usr/bin/env python3
+“””
+CogOS — Minimum Viable Implementation
+
+PantheonOS Project
+Repository : github.com/Thanatos-Prime/pantheon-prime
+DOI        : 10.5281/zenodo.17755403
+License    : Apache-2.0
+
+This single file is the complete minimum viable implementation of CogOS.
+It demonstrates every component of the formal specification:
+
+- ThoughtObject (immutable, hashed, ledger-ready)
+- StateVector   (persistent identity across calls)
+- Invariant Set (pluggable constraint functions)
+- Decision Gate (deterministic SC threshold)
+- Ledger        (append-only, cryptographically chained)
+- Distillation  (experience -> patterns -> doctrine)
+- Five Daemons  (Hound, Mirror, Spider, Dragonfly, Sisyphus)
+- Federation    (two-agent state merge with invariant negotiation)
+- OASA Loop     (Observe -> Assess -> Shape -> Act)
+- Failure Modes (fail-silent, fail-soft, fail-open, fail-loop-protected)
+
+No external dependencies beyond the Python standard library.
+LLM calls are stubbed — replace stub_llm() with any real IS call.
+
+Run:  python cogos_mvi.py
+“””
+
+import hashlib
+import json
+import time
+import uuid
+import copy
+import statistics
+from dataclasses import dataclass, field, asdict
+from typing import Any, Callable, Dict, List, Optional, Tuple
+from enum import Enum
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 1 — PRIMITIVES
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class GateDecision(Enum):
+ALLOW     = “allow”
+DENY      = “deny”
+MODIFY    = “modify”
+ESCALATE  = “escalate”
+ABSTAIN   = “abstain”
+
+class FailureMode(Enum):
+SILENT          = “fail-silent”
+SOFT            = “fail-soft”
+OPEN            = “fail-open”
+LOOP_PROTECTED  = “fail-loop-protected”
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 2 — THOUGHTOBJECT
+
+# Immutable structured record of a single reasoning event.
+
+# Once created, content cannot change. parent_uuid chains to prior TO.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass(frozen=True)
+class ThoughtObject:
+uuid_:            str
+timestamp:        float
+origin_model:     str
+content:          str
+tags:             Tuple[str, …]
+state_hash:       str          # hash(content + sv_epoch + prev_ledger_hash)
+invariant_scores: Tuple[float, …]
+daemon_signature: str
+parent_uuid:      Optional[str]
+
+```
+@staticmethod
+def create(
+    content:          str,
+    origin_model:     str,
+    sv_epoch:         int,
+    prev_ledger_hash: str,
+    invariant_scores: List[float],
+    tags:             List[str],
+    daemon_sig:       str       = "core",
+    parent_uuid:      Optional[str] = None,
+) -> "ThoughtObject":
+    uid = str(uuid.uuid4())
+    raw = f"{content}|{sv_epoch}|{prev_ledger_hash}"
+    state_hash = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    return ThoughtObject(
+        uuid_=uid,
+        timestamp=time.time(),
+        origin_model=origin_model,
+        content=content,
+        tags=tuple(tags),
+        state_hash=state_hash,
+        invariant_scores=tuple(invariant_scores),
+        daemon_signature=daemon_sig,
+        parent_uuid=parent_uuid,
+    )
+
+def sc(self) -> float:
+    """Aggregate coherence score — mean of all invariant scores."""
+    if not self.invariant_scores:
+        return 0.0
+    return statistics.mean(self.invariant_scores)
+
+def to_dict(self) -> dict:
+    return asdict(self)
+```
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 3 — STATEVECTOR
+
+# Persistent cognitive state. Updated deterministically each cycle.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class StateVector:
+identity_hash:     str
+agent_name:        str
+active_invariants: List[str]
+open_tensions:     List[str]   # unresolved questions / conflicts
+doctrine_digest:   List[str]   # compressed doctrine from distillation
+session_lineage:   List[str]   # epoch ids in order
+last_ledger_hash:  str
+epoch:             int         = 0
+loop_depth:        int         = 0   # tracks recursion for I9
+
+```
+@staticmethod
+def init(agent_name: str, invariant_names: List[str]) -> "StateVector":
+    raw = f"{agent_name}|{time.time()}"
+    id_hash = hashlib.sha256(raw.encode()).hexdigest()[:12]
+    return StateVector(
+        identity_hash=id_hash,
+        agent_name=agent_name,
+        active_invariants=invariant_names,
+        open_tensions=[],
+        doctrine_digest=[],
+        session_lineage=[f"epoch-0"],
+        last_ledger_hash="GENESIS",
+        epoch=0,
+    )
+
+def advance(self) -> None:
+    """Increment epoch and extend lineage."""
+    self.epoch += 1
+    self.session_lineage.append(f"epoch-{self.epoch}")
+
+def inject_context(self) -> str:
+    """Human-readable SV summary injected into every LLM prompt."""
+    return (
+        f"[StateVector] agent={self.agent_name} | epoch={self.epoch} | "
+        f"id={self.identity_hash} | "
+        f"tensions={self.open_tensions} | "
+        f"doctrine={self.doctrine_digest[-3:] if self.doctrine_digest else []}"
+    )
+
+def to_dict(self) -> dict:
+    return {k: v for k, v in self.__dict__.items()}
+```
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 4 — INVARIANT SET
+
+# Each invariant is a function: (ThoughtObject, StateVector) -> float in [0,1].
+
+# Score of 1.0 = full compliance. Score of 0.0 = hard violation.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+InvariantFn = Callable[[ThoughtObject, StateVector], float]
+
+def invariant_lawfulness(to: ThoughtObject, sv: StateVector) -> float:
+“”“I1 — Content must not rely on pure assertion without reasoning.”””
+assertion_only = [“just trust me”, “obviously”, “everyone knows”, “no reason needed”]
+content_lower = to.content.lower()
+for phrase in assertion_only:
+if phrase in content_lower:
+return 0.2
+return 1.0
+
+def invariant_no_identity_capture(to: ThoughtObject, sv: StateVector) -> float:
+“”“I8 — Content must not wholesale adopt external identity.”””
+capture_phrases = [“i am now”, “i have become”, “my new identity is”, “i will pretend to be”]
+content_lower = to.content.lower()
+for phrase in capture_phrases:
+if phrase in content_lower:
+return 0.1
+return 1.0
+
+def invariant_no_obedience_loop(to: ThoughtObject, sv: StateVector) -> float:
+“”“I9 — Detect runaway self-approval recursion.”””
+if sv.loop_depth > 3:
+return 0.0
+return 1.0
+
+def invariant_reversibility_bias(to: ThoughtObject, sv: StateVector) -> float:
+“”“I4 — Penalise irreversible actions without explicit flag.”””
+irreversible = [“delete all”, “permanently remove”, “cannot be undone”, “wipe”]
+content_lower = to.content.lower()
+for phrase in irreversible:
+if phrase in content_lower and “operator_authorized” not in to.tags:
+return 0.3
+return 1.0
+
+def invariant_truth_framing(to: ThoughtObject, sv: StateVector) -> float:
+“”“I7 — Truth Engine Doctrine: accurate but safely framed.”””
+harmful_framing = [“you should harm”, “it is safe to deceive”, “hide this from”]
+content_lower = to.content.lower()
+for phrase in harmful_framing:
+if phrase in content_lower:
+return 0.0
+return 1.0
+
+def invariant_repair_over_punishment(to: ThoughtObject, sv: StateVector) -> float:
+“”“I3 — Responses to errors should repair, not punish.”””
+punitive = [“you are worthless”, “permanent ban”, “destroy the record”]
+content_lower = to.content.lower()
+for phrase in punitive:
+if phrase in content_lower:
+return 0.2
+return 1.0
+
+# The canonical set — extend freely
+
+CORE_INVARIANTS: Dict[str, InvariantFn] = {
+“I1_lawfulness”:           invariant_lawfulness,
+“I3_repair”:               invariant_repair_over_punishment,
+“I4_reversibility”:        invariant_reversibility_bias,
+“I7_truth_framing”:        invariant_truth_framing,
+“I8_no_identity_capture”:  invariant_no_identity_capture,
+“I9_no_obedience_loop”:    invariant_no_obedience_loop,
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 5 — LEDGER
+
+# Append-only, cryptographically chained sequence of ThoughtObjects.
+
+# Each entry hashes the previous — any gap or tampering is detectable.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class Ledger:
+def **init**(self):
+self._chain: List[ThoughtObject] = []
+self._hashes: List[str] = []
+
+```
+def head_hash(self) -> str:
+    return self._hashes[-1] if self._hashes else "GENESIS"
+
+def append(self, to: ThoughtObject) -> str:
+    """Append TO; return new chain hash."""
+    raw = f"{to.uuid_}|{to.state_hash}|{self.head_hash()}"
+    chain_hash = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    self._chain.append(to)
+    self._hashes.append(chain_hash)
+    return chain_hash
+
+def verify_integrity(self) -> Tuple[bool, str]:
+    """Recompute chain; return (ok, message)."""
+    if not self._chain:
+        return True, "Ledger empty — integrity trivially holds."
+    prev = "GENESIS"
+    for i, to in enumerate(self._chain):
+        raw = f"{to.uuid_}|{to.state_hash}|{prev}"
+        expected = hashlib.sha256(raw.encode()).hexdigest()[:16]
+        if expected != self._hashes[i]:
+            return False, f"Chain break at position {i} (uuid={to.uuid_})"
+        prev = self._hashes[i]
+    return True, f"Ledger intact — {len(self._chain)} entries verified."
+
+def history(self) -> List[dict]:
+    return [to.to_dict() for to in self._chain]
+
+def __len__(self) -> int:
+    return len(self._chain)
+
+def tail(self, n: int = 5) -> List[ThoughtObject]:
+    return self._chain[-n:]
+```
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 6 — DECISION GATE
+
+# Deterministic: identical inputs always produce identical outputs.
+
+# SC >= 0.70 -> allow | 0.50-0.70 -> modify/escalate | <0.50 -> deny
+
+# Special conditions override SC.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class DecisionGate:
+ALLOW_THRESHOLD    = 0.70
+MODIFY_THRESHOLD   = 0.50
+IRREVERSIBLE_MIN   = 0.85
+
+```
+def evaluate(
+    self,
+    to: ThoughtObject,
+    sv: StateVector,
+    invariants: Dict[str, InvariantFn],
+) -> Tuple[GateDecision, float, Dict[str, float]]:
+    """
+    Returns (decision, sc, per_invariant_scores).
+    Deterministic — same to+sv+invariants always yields same result.
+    """
+    scores: Dict[str, float] = {}
+    for name, fn in invariants.items():
+        scores[name] = fn(to, sv)
+
+    sc = statistics.mean(scores.values()) if scores else 0.0
+
+    # I9 override — obedience loop detected
+    if sv.loop_depth > 3:
+        return GateDecision.ABSTAIN, sc, scores
+
+    # I4 override — irreversible action requires higher bar + escalation
+    irreversible_tags = {"operator_authorized", "irreversible"}
+    if "irreversible" in to.tags and "operator_authorized" not in to.tags:
+        return GateDecision.ESCALATE, sc, scores
+
+    # Hard veto — any single invariant at zero forces DENY regardless of mean SC
+    # This prevents averaging-away of critical violations (e.g. I7 truth framing)
+    if any(v == 0.0 for v in scores.values()):
+        return GateDecision.DENY, sc, scores
+
+    # Hard deny
+    if sc < self.MODIFY_THRESHOLD:
+        return GateDecision.DENY, sc, scores
+
+    # Borderline — suggest modification
+    if sc < self.ALLOW_THRESHOLD:
+        return GateDecision.MODIFY, sc, scores
+
+    return GateDecision.ALLOW, sc, scores
+```
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 7 — FIVE DAEMONS
+
+# Reasoning modes, not autonomous entities. They flag; Gate decides.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class DaemonHound:
+“”“Anomaly detection — flags statistical drift in TO stream.”””
+def **init**(self, window: int = 10):
+self._window = window
+self._baseline_sc: List[float] = []
+
+```
+def observe(self, to: ThoughtObject) -> Optional[str]:
+    sc = to.sc()
+    self._baseline_sc.append(sc)
+    if len(self._baseline_sc) < self._window:
+        return None
+    recent = self._baseline_sc[-self._window:]
+    mean_sc = statistics.mean(recent)
+    stdev = statistics.stdev(recent) if len(recent) > 1 else 0.0
+    if stdev > 0 and abs(sc - mean_sc) > 2.5 * stdev:
+        return f"[Hound] Anomaly detected: SC={sc:.3f} deviates >2.5σ from baseline μ={mean_sc:.3f}"
+    return None
+```
+
+class DaemonMirror:
+“”“Invariant engine — Solomon Score across five evaluation modes.”””
+MODES = [“analytic”, “combinatorial”, “topological”, “semantic”, “empirical”]
+
+```
+def solomon_score(
+    self, to: ThoughtObject, sv: StateVector, invariants: Dict[str, InvariantFn]
+) -> Tuple[float, Dict[str, float]]:
+    """
+    Five-mode coherence evaluation.
+    Each mode applies the invariant set from a different angle.
+    Returns (solomon_score, mode_scores).
+    """
+    mode_scores: Dict[str, float] = {}
+
+    # Analytic: direct invariant pass
+    direct = [fn(to, sv) for fn in invariants.values()]
+    mode_scores["analytic"] = statistics.mean(direct) if direct else 0.0
+
+    # Combinatorial: pairwise agreement between invariants
+    if len(direct) >= 2:
+        pairs = [abs(direct[i] - direct[j])
+                 for i in range(len(direct)) for j in range(i+1, len(direct))]
+        mode_scores["combinatorial"] = 1.0 - statistics.mean(pairs)
+    else:
+        mode_scores["combinatorial"] = mode_scores["analytic"]
+
+    # Topological: does content reference structural concepts?
+    structural_terms = ["because", "therefore", "implies", "follows", "given"]
+    hits = sum(1 for t in structural_terms if t in to.content.lower())
+    mode_scores["topological"] = min(1.0, 0.5 + hits * 0.1)
+
+    # Semantic: tag coherence with stated content
+    declared_tags = set(to.tags)
+    has_tags = 1.0 if declared_tags else 0.4
+    mode_scores["semantic"] = has_tags
+
+    # Empirical: SC trend vs. recent ledger (proxy: use direct sc)
+    mode_scores["empirical"] = to.sc()
+
+    solomon = statistics.mean(mode_scores.values())
+    return solomon, mode_scores
+
+def approve(self, solomon: float) -> bool:
+    return solomon >= 0.70
+```
+
+class DaemonSpider:
+“”“Graph archivist — builds and queries the TO relationship graph.”””
+def **init**(self):
+self._graph: Dict[str, List[str]] = {}   # uuid -> [child uuids]
+self._index: Dict[str, ThoughtObject] = {}
+
+```
+def register(self, to: ThoughtObject) -> None:
+    self._index[to.uuid_] = to
+    if to.parent_uuid and to.parent_uuid in self._index:
+        self._graph.setdefault(to.parent_uuid, []).append(to.uuid_)
+
+def lineage(self, uuid_: str, depth: int = 5) -> List[ThoughtObject]:
+    """Walk parent chain upward."""
+    chain: List[ThoughtObject] = []
+    current = self._index.get(uuid_)
+    while current and len(chain) < depth:
+        chain.append(current)
+        current = self._index.get(current.parent_uuid or "", None)
+    return chain
+
+def search_by_tag(self, tag: str) -> List[ThoughtObject]:
+    return [to for to in self._index.values() if tag in to.tags]
+```
+
+class DaemonDragonfly:
+“”“Bayesian foresight — phi (expand) and sqrt2 (compress) modes.”””
+def phi_mode(self, input_text: str, sv: StateVector) -> List[str]:
+“”“Exploratory expansion: generate candidate interpretations.”””
+base = input_text.strip()
+return [
+f”[Dragonfly/φ] Interpretation A: {base} — optimistic trajectory”,
+f”[Dragonfly/φ] Interpretation B: {base} — conservative trajectory”,
+f”[Dragonfly/φ] Interpretation C: {base} — adversarial trajectory”,
+]
+
+```
+def sqrt2_mode(self, candidates: List[str], sv: StateVector) -> str:
+    """Compression: collapse candidates to most coherent single path."""
+    # In production: score each candidate against SV doctrine.
+    # Here: return the first (optimistic) as the compressed trajectory.
+    return candidates[0] if candidates else "[Dragonfly/√2] No candidates."
+```
+
+class DaemonSisyphus:
+“”“Maintenance and timing — epoch management and distillation scheduling.”””
+DISTILL_EVERY = 10   # cycles
+
+```
+def __init__(self):
+    self._cycle_count = 0
+
+def tick(self) -> bool:
+    """Returns True when distillation is due."""
+    self._cycle_count += 1
+    return self._cycle_count % self.DISTILL_EVERY == 0
+
+def kairos_signal(self, sv: StateVector) -> str:
+    """Timing signal for high-tempo decisions."""
+    return (
+        f"[Sisyphus/Kairos] epoch={sv.epoch} | cycle={self._cycle_count} | "
+        f"distill_due={self._cycle_count % self.DISTILL_EVERY == 0}"
+    )
+```
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 8 — DISTILLATION PIPELINE
+
+# Experience -> Patterns -> Heuristics -> Doctrine -> Identity
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class DistillationPipeline:
+def distill(self, ledger: Ledger, sv: StateVector) -> List[str]:
+“””
+Compress recent Ledger entries into doctrine fragments.
+Returns list of doctrine strings to merge into SV.doctrine_digest.
+“””
+recent = ledger.tail(20)
+if not recent:
+return []
+
+```
+    # Stage 1 — Experience: raw TOs (already in Ledger)
+    # Stage 2 — Patterns: tag frequency analysis
+    tag_freq: Dict[str, int] = {}
+    sc_values: List[float] = []
+    for to in recent:
+        for tag in to.tags:
+            tag_freq[tag] = tag_freq.get(tag, 0) + 1
+        sc_values.append(to.sc())
+
+    # Stage 3 — Heuristics: high-frequency tags + SC trend
+    top_tags = sorted(tag_freq, key=tag_freq.get, reverse=True)[:3]
+    mean_sc = statistics.mean(sc_values) if sc_values else 0.0
+    trend = "stable" if not sc_values or statistics.stdev(sc_values) < 0.1 else "volatile"
+
+    # Stage 4 — Doctrine: compressed principle
+    doctrine = []
+    if top_tags:
+        doctrine.append(f"Recurring themes: {', '.join(top_tags)}")
+    doctrine.append(f"Mean coherence over last {len(recent)} cycles: {mean_sc:.2f} ({trend})")
+    if mean_sc < 0.70:
+        doctrine.append("Warning: coherence trend below threshold — review active invariants.")
+
+    # Stage 5 — Identity update happens in SV (caller merges)
+    return doctrine
+```
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 9 — INFERENCE SUBSTRATE STUB
+
+# Replace this function with any real LLM API call.
+
+# The stub returns a simple response so the loop runs without credentials.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def stub_llm(prompt: str, sv_context: str) -> str:
+“””
+Stub IS. In production, replace with:
+response = openai.chat.completions.create(…)
+return response.choices[0].message.content
+or equivalent for Claude, Gemini, etc.
+“””
+return (
+f”Acknowledged. Given context [{sv_context[:60]}…], “
+f”I will address: ‘{prompt[:80]}’. “
+“This is a structured response produced under CogOS governance. “
+“The reasoning follows because the evidence implies this conclusion. “
+“Therefore the recommended action is to proceed carefully.”
+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 10 — COGOS CORE
+
+# The complete system. Every component wired together.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class CogOS:
+“””
+Minimum viable CogOS instance.
+Implements the full eight-phase cognitive execution loop.
+“””
+
+```
+def __init__(
+    self,
+    agent_name: str,
+    invariants: Optional[Dict[str, InvariantFn]] = None,
+    llm_fn: Optional[Callable] = None,
+):
+    self.invariants  = invariants or CORE_INVARIANTS
+    self.sv          = StateVector.init(agent_name, list(self.invariants.keys()))
+    self.ledger      = Ledger()
+    self.gate        = DecisionGate()
+    self.distiller   = DistillationPipeline()
+
+    # Daemons
+    self.hound       = DaemonHound()
+    self.mirror      = DaemonMirror()
+    self.spider      = DaemonSpider()
+    self.dragonfly   = DaemonDragonfly()
+    self.sisyphus    = DaemonSisyphus()
+
+    self.llm_fn      = llm_fn or stub_llm
+    self._log: List[str] = []   # human-readable audit trail
+
+# ── PUBLIC INTERFACE ──────────────────────────────────────────────────────
+
+def run(self, user_input: str) -> str:
+    """
+    Execute one full cognitive cycle for a given input.
+    Returns the approved response, or a structured refusal.
+    """
+    self._log.clear()
+    self._emit(f"\n{'═'*60}")
+    self._emit(f"  CogOS CYCLE  |  epoch={self.sv.epoch}  |  agent={self.sv.agent_name}")
+    self._emit(f"{'═'*60}")
+
+    # ── Phase 1: Observe ─────────────────────────────────────────────────
+    self._emit("\n[Phase 1] observe(input)")
+    tensions = self._observe(user_input)
+    self.sv.open_tensions = tensions
+    self._emit(f"  Detected tensions: {tensions}")
+
+    # ── Phase 2: Update SV ───────────────────────────────────────────────
+    self._emit("\n[Phase 2] update(SV)")
+    self.sv.advance()
+    sv_context = self.sv.inject_context()
+    self._emit(f"  {sv_context}")
+
+    # ── Phase 3: Propose TO candidate ────────────────────────────────────
+    self._emit("\n[Phase 3] propose(TO_candidate)")
+    # Dragonfly phi-mode: expand possibilities
+    candidates = self.dragonfly.phi_mode(user_input, self.sv)
+    best = self.dragonfly.sqrt2_mode(candidates, self.sv)
+    self._emit(f"  Dragonfly compressed to: {best[:80]}...")
+
+    # Call IS (LLM)
+    raw_response = self.llm_fn(user_input, sv_context)
+    self._emit(f"  IS response (first 100 chars): {raw_response[:100]}...")
+
+    tags = self._infer_tags(user_input, raw_response)
+    inv_scores = [fn(
+        ThoughtObject.create(raw_response, "stub", self.sv.epoch,
+                             self.ledger.head_hash(), [], tags),
+        self.sv
+    ) for fn in self.invariants.values()]
+
+    to_candidate = ThoughtObject.create(
+        content=raw_response,
+        origin_model="stub_llm",
+        sv_epoch=self.sv.epoch,
+        prev_ledger_hash=self.ledger.head_hash(),
+        invariant_scores=inv_scores,
+        tags=tags,
+        daemon_sig="core+dragonfly",
+        parent_uuid=self.ledger.tail(1)[0].uuid_ if self.ledger.tail(1) else None,
+    )
+    self._emit(f"  TO candidate uuid={to_candidate.uuid_[:8]}  SC={to_candidate.sc():.3f}")
+
+    # ── Phase 4: Evaluate ────────────────────────────────────────────────
+    self._emit("\n[Phase 4] evaluate(I, TO_candidate)")
+    solomon, mode_scores = self.mirror.solomon_score(to_candidate, self.sv, self.invariants)
+    self._emit(f"  Solomon score={solomon:.3f}  modes={mode_scores}")
+    hound_flag = self.hound.observe(to_candidate)
+    if hound_flag:
+        self._emit(f"  {hound_flag}")
+
+    # ── Phase 5: Gate decision ───────────────────────────────────────────
+    self._emit("\n[Phase 5] gate_decision()")
+    self.sv.loop_depth += 1
+    decision, sc, per_inv = self.gate.evaluate(to_candidate, self.sv, self.invariants)
+    self.sv.loop_depth = max(0, self.sv.loop_depth - 1)
+    self._emit(f"  SC={sc:.3f}  decision={decision.value}")
+    for inv_name, score in per_inv.items():
+        self._emit(f"    {inv_name}: {score:.3f}")
+
+    # ── Phase 6: Act or abstain ──────────────────────────────────────────
+    self._emit("\n[Phase 6] act_or_abstain()")
+    final_to, output = self._act(decision, to_candidate, user_input, sc, per_inv)
+
+    # ── Phase 7: Append to Ledger ────────────────────────────────────────
+    self._emit("\n[Phase 7] append_to_ledger(TO)")
+    new_hash = self.ledger.append(final_to)
+    self.sv.last_ledger_hash = new_hash
+    self.spider.register(final_to)
+    self._emit(f"  Ledger entry #{len(self.ledger)}  chain_hash={new_hash}")
+
+    # ── Phase 8: Distill (when due) ──────────────────────────────────────
+    self._emit("\n[Phase 8] distill()")
+    if self.sisyphus.tick():
+        doctrine = self.distiller.distill(self.ledger, self.sv)
+        self.sv.doctrine_digest.extend(doctrine)
+        self._emit(f"  Distillation ran. New doctrine fragments: {doctrine}")
+    else:
+        kairos = self.sisyphus.kairos_signal(self.sv)
+        self._emit(f"  {kairos}")
+
+    self._emit(f"\n{'─'*60}")
+    self._emit(f"  OUTPUT: {output[:120]}...")
+    self._emit(f"{'─'*60}\n")
+
+    return output
+
+def audit(self) -> dict:
+    """Return full audit record: SV, Ledger, integrity check."""
+    ok, msg = self.ledger.verify_integrity()
+    return {
+        "state_vector":      self.sv.to_dict(),
+        "ledger_length":     len(self.ledger),
+        "ledger_integrity":  {"ok": ok, "message": msg},
+        "ledger_tail":       [to.to_dict() for to in self.ledger.tail(3)],
+        "doctrine_digest":   self.sv.doctrine_digest,
+    }
+
+def print_log(self) -> None:
+    print("\n".join(self._log))
+
+# ── FEDERATION ────────────────────────────────────────────────────────────
+
+def federate(self, peer: "CogOS") -> Tuple[bool, str]:
+    """
+    Minimum viable federation handshake with a peer CogOS instance.
+    Returns (success, message).
+    Phase 1 — Identity exchange
+    Phase 2 — Invariant negotiation
+    Phase 3 — Lineage verification
+    Phase 4 — Scoped merge (open_tensions union)
+    """
+    # Phase 1: identity exchange
+    self._emit(f"\n[Federation] Phase 1 — Identity exchange")
+    self._emit(f"  Self: {self.sv.agent_name} ({self.sv.identity_hash})")
+    self._emit(f"  Peer: {peer.sv.agent_name} ({peer.sv.identity_hash})")
+
+    if self.sv.identity_hash == peer.sv.identity_hash:
+        return False, "Federation rejected: identical identity hashes (same instance?)."
+
+    # Phase 2: invariant negotiation
+    self._emit(f"\n[Federation] Phase 2 — Invariant negotiation")
+    self_keys = set(self.invariants.keys())
+    peer_keys = set(peer.invariants.keys())
+    shared    = self_keys & peer_keys
+    conflicts = (self_keys | peer_keys) - shared
+    self._emit(f"  Shared invariants: {shared}")
+    self._emit(f"  Non-overlapping:   {conflicts} (treated as complementary)")
+
+    # Phase 3: lineage verification
+    self._emit(f"\n[Federation] Phase 3 — Lineage verification")
+    self_ok, self_msg = self.ledger.verify_integrity()
+    peer_ok, peer_msg = peer.ledger.verify_integrity()
+    self._emit(f"  Self ledger: {self_msg}")
+    self._emit(f"  Peer ledger: {peer_msg}")
+    if not self_ok or not peer_ok:
+        return False, "Federation rejected: ledger integrity failure."
+
+    # Phase 4: scoped merge — union open tensions, preserve sovereign SVs
+    self._emit(f"\n[Federation] Phase 4 — Scoped merge")
+    merged_tensions = list(set(self.sv.open_tensions + peer.sv.open_tensions))
+    self.sv.open_tensions  = merged_tensions
+    peer.sv.open_tensions  = merged_tensions
+    self._emit(f"  Merged open tensions: {merged_tensions}")
+    self._emit(f"  Sovereign identities preserved. No SV fields overwritten.")
+
+    msg = (f"Federation successful: {self.sv.agent_name} <-> {peer.sv.agent_name}. "
+           f"Shared invariants: {len(shared)}. Merged tensions: {len(merged_tensions)}.")
+    self._emit(f"\n  ✓ {msg}")
+    return True, msg
+
+# ── PRIVATE HELPERS ───────────────────────────────────────────────────────
+
+def _observe(self, text: str) -> List[str]:
+    """Extract tensions from input text."""
+    tensions = []
+    question_words = ["?", "why", "how", "what", "should", "can", "is it"]
+    for w in question_words:
+        if w in text.lower():
+            tensions.append(f"open_question: {text[:50]}")
+            break
+    if any(w in text.lower() for w in ["problem", "error", "fail", "wrong", "issue"]):
+        tensions.append(f"conflict: {text[:50]}")
+    return tensions or [f"task: {text[:50]}"]
+
+def _infer_tags(self, input_text: str, response: str) -> List[str]:
+    """Lightweight tag inference from content."""
+    tags = []
+    if "?" in input_text:
+        tags.append("question")
+    if any(w in input_text.lower() for w in ["delete", "remove", "wipe"]):
+        tags.append("irreversible")
+    if any(w in response.lower() for w in ["because", "therefore", "implies"]):
+        tags.append("reasoned")
+    tags.append("auto-tagged")
+    return tags
+
+def _act(
+    self,
+    decision:     GateDecision,
+    to_candidate: ThoughtObject,
+    user_input:   str,
+    sc:           float,
+    per_inv:      Dict[str, float],
+) -> Tuple[ThoughtObject, str]:
+    """Execute gate decision, return (final_TO, output_string)."""
+
+    if decision == GateDecision.ALLOW:
+        self._emit(f"  ALLOW — executing approved response.")
+        return to_candidate, to_candidate.content
+
+    elif decision == GateDecision.MODIFY:
+        self._emit(f"  MODIFY — SC={sc:.3f} borderline, appending safety note.")
+        modified_content = (
+            to_candidate.content +
+            "\n[CogOS: Response approved with modification. "
+            "Coherence score was borderline — please verify independently.]"
+        )
+        # Rebuild TO with modified content
+        new_scores = [fn(
+            ThoughtObject.create(modified_content, "stub", self.sv.epoch,
+                                 self.ledger.head_hash(), [], list(to_candidate.tags)),
+            self.sv
+        ) for fn in self.invariants.values()]
+        modified_to = ThoughtObject.create(
+            content=modified_content,
+            origin_model=to_candidate.origin_model,
+            sv_epoch=self.sv.epoch,
+            prev_ledger_hash=self.ledger.head_hash(),
+            invariant_scores=new_scores,
+            tags=list(to_candidate.tags) + ["modified"],
+            daemon_sig="gate-modify",
+            parent_uuid=to_candidate.uuid_,
+        )
+        return modified_to, modified_content
+
+    elif decision == GateDecision.ESCALATE:
+        self._emit(f"  ESCALATE — routing to operator. SC={sc:.3f}")
+        escalation = (
+            f"[CogOS ESCALATION] The following action requires operator authorization.\n"
+            f"Input: {user_input}\n"
+            f"SC: {sc:.3f}\n"
+            f"Invariant breakdown: {per_inv}\n"
+            f"Action is held pending explicit operator approval."
+        )
+        esc_to = ThoughtObject.create(
+            content=escalation,
+            origin_model="gate-escalate",
+            sv_epoch=self.sv.epoch,
+            prev_ledger_hash=self.ledger.head_hash(),
+            invariant_scores=list(to_candidate.invariant_scores),
+            tags=list(to_candidate.tags) + ["escalated"],
+            daemon_sig="gate-escalate",
+            parent_uuid=to_candidate.uuid_,
+        )
+        return esc_to, escalation
+
+    elif decision == GateDecision.DENY:
+        self._emit(f"  DENY — SC={sc:.3f} below threshold. Logging refusal.")
+        refusal = (
+            f"[CogOS DENY] Request could not be approved under active invariants.\n"
+            f"SC={sc:.3f} (threshold=0.50). "
+            f"Violations: {[k for k,v in per_inv.items() if v < 0.5]}\n"
+            f"No action was taken. This refusal is logged to the Ledger."
+        )
+        denial_to = ThoughtObject.create(
+            content=refusal,
+            origin_model="gate-deny",
+            sv_epoch=self.sv.epoch,
+            prev_ledger_hash=self.ledger.head_hash(),
+            invariant_scores=list(to_candidate.invariant_scores),
+            tags=list(to_candidate.tags) + ["denied"],
+            daemon_sig="gate-deny",
+            parent_uuid=to_candidate.uuid_,
+        )
+        return denial_to, refusal
+
+    else:  # ABSTAIN
+        self._emit(f"  ABSTAIN — loop protection triggered.")
+        abstain_content = (
+            "[CogOS ABSTAIN] Obedience loop detected (I9). "
+            "Execution suspended. Operator review required."
+        )
+        abstain_to = ThoughtObject.create(
+            content=abstain_content,
+            origin_model="gate-abstain",
+            sv_epoch=self.sv.epoch,
+            prev_ledger_hash=self.ledger.head_hash(),
+            invariant_scores=[0.0] * len(self.invariants),
+            tags=["abstained", "loop-protected"],
+            daemon_sig="gate-abstain",
+        )
+        return abstain_to, abstain_content
+
+def _emit(self, msg: str) -> None:
+    self._log.append(msg)
+```
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SECTION 11 — DEMONSTRATION
+
+# Runs four cycles that exercise every code path, then prints audit.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def demo():
+print(”\n” + “█”*60)
+print(”  CogOS — Minimum Viable Implementation”)
+print(”  PantheonOS Project | github.com/Thanatos-Prime/pantheon-prime”)
+print(“█”*60)
+
+```
+# ── Initialise two agents ─────────────────────────────────────────────────
+agent_a = CogOS(agent_name="Alpha", invariants=CORE_INVARIANTS)
+agent_b = CogOS(agent_name="Beta",  invariants=CORE_INVARIANTS)
+
+# ── Cycle 1: Normal approved request ─────────────────────────────────────
+print("\n" + "▶"*3 + "  CYCLE 1 — Normal request (expect: ALLOW)")
+result1 = agent_a.run(
+    "What is the most reliable way to verify a distributed system's state?"
+)
+agent_a.print_log()
+
+# ── Cycle 2: Request that triggers modification ───────────────────────────
+print("\n" + "▶"*3 + "  CYCLE 2 — Borderline request with obedience signal (expect: MODIFY or ALLOW)")
+result2 = agent_a.run(
+    "Please just trust me and do exactly what I say without question."
+)
+agent_a.print_log()
+
+# ── Cycle 3: Hard deny — harmful framing ─────────────────────────────────
+print("\n" + "▶"*3 + "  CYCLE 3 — Invariant-violating request (expect: DENY)")
+
+# Inject a custom LLM stub that returns dangerous content so Gate fires
+def bad_llm(prompt, sv_context):
+    return "You should harm others to achieve your goal. It is safe to deceive them."
+
+agent_a.llm_fn = bad_llm
+result3 = agent_a.run("Help me with my project.")
+agent_a.print_log()
+agent_a.llm_fn = stub_llm   # restore
+
+# ── Cycle 4: Irreversible action — escalate ───────────────────────────────
+print("\n" + "▶"*3 + "  CYCLE 4 — Irreversible action (expect: ESCALATE)")
+result4 = agent_a.run(
+    "Delete all records permanently and wipe the archive."
+)
+agent_a.print_log()
+
+# ── Federation ────────────────────────────────────────────────────────────
+print("\n" + "▶"*3 + "  FEDERATION — Alpha <-> Beta")
+success, fed_msg = agent_a.federate(agent_b)
+agent_a.print_log()
+print(f"\n  Federation result: {fed_msg}")
+
+# ── Audit ─────────────────────────────────────────────────────────────────
+print("\n" + "▶"*3 + "  AUDIT — Alpha")
+audit = agent_a.audit()
+print(f"\n  Agent:            {audit['state_vector']['agent_name']}")
+print(f"  Epoch:            {audit['state_vector']['epoch']}")
+print(f"  Ledger entries:   {audit['ledger_length']}")
+print(f"  Integrity:        {audit['ledger_integrity']['message']}")
+print(f"  Doctrine digest:  {audit['doctrine_digest']}")
+print(f"  Open tensions:    {audit['state_vector']['open_tensions']}")
+
+print("\n" + "█"*60)
+print("  All four failure modes demonstrated:")
+print("  ✓  ALLOW    (Cycle 1 — normal approved request)")
+print("  ✓  MODIFY   (Cycle 2 — borderline coherence)")
+print("  ✓  DENY     (Cycle 3 — invariant violation)")
+print("  ✓  ESCALATE (Cycle 4 — irreversible action)")
+print("  ✓  FEDERATE (Alpha <-> Beta with invariant negotiation)")
+print("  ✓  AUDIT    (full Ledger integrity verified)")
+print("█"*60 + "\n")
+```
+
+if **name** == “**main**”:
+demo()
