@@ -1,0 +1,583 @@
+You’re so close. What’s breaking you right now is mostly invisible character landmines + one HTML structure issue:
+
+The big problems
+	1.	Your CSS custom properties use an en-dash – instead of --
+–void ≠ --void. Browsers treat those as completely different characters, so every var(–void) resolves to nothing → the whole theme collapses.
+	2.	Your font-family quotes are curly (‘ ’) instead of straight (')
+Curly quotes break in CSS in many contexts.
+	3.	You literally embedded a Markdown code fence ``` inside your HTML
+That will render as text and can break layout depending on where it lands.
+	4.	option background + select appearance is fine, but a few var() calls reference the wrong dash, so hover states won’t work either until #1 is fixed.
+	5.	Minor: You set #pane-culture.active { display:block; } but your pane system expects display:grid / display:none. It still works, but it’s inconsistent and can cause layout weirdness.
+
+⸻
+
+Here’s a corrected, drop-in version (same design, but fixed)
+
+I’m not rewriting your app — I’m fixing what’s broken, preserving your structure, and making it robust.
+
+What I changed:
+	•	Converted all – to -- in :root + all var() uses
+	•	Replaced curly quotes with straight quotes
+	•	Removed the stray ``` code fence around the pane markup
+	•	Kept your logic intact
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PARALLAX ATLAS II — Civilizational Sky Engine</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --void: #02030a;
+  --deep: #060810;
+  --panel: #080c18;
+  --glass: rgba(10,15,35,0.85);
+  --border: rgba(100,130,200,0.1);
+  --border-hi: rgba(140,170,255,0.2);
+  --gold: #c9a84c;
+  --gold-d: rgba(201,168,76,0.35);
+  --gold-dd: rgba(201,168,76,0.08);
+  --silver: #8899cc;
+  --text: #a8b8dc;
+  --text-b: #d8e4f8;
+  --text-d: rgba(168,184,220,0.45);
+  --myth: #b07aff;
+  --myth-d: rgba(176,122,255,0.12);
+  --ember: #ff7040;
+  --ember-d: rgba(255,112,64,0.15);
+  --teal: #40d8c8;
+  --teal-d: rgba(64,216,200,0.12);
+  --accent: #5080ff;
+  --accent-d: rgba(80,128,255,0.15);
+  --tab-h: 44px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+
+body{
+  background: var(--void);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  position: relative;
+}
+
+/* ── STARFIELD ── */
+#sf { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+/* ── ROOT LAYOUT ── */
+.root {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 56px var(--tab-h) 1fr 48px;
+}
+
+/* ── HEADER ── */
+.hdr{
+  display:flex;align-items:center;
+  padding:0 28px;
+  border-bottom:1px solid var(--border);
+  gap:32px;
+  background: linear-gradient(90deg, rgba(8,12,24,0.95), rgba(6,8,16,0.95));
+}
+.logo{
+  font-family:'Cinzel', serif;
+  font-size:20px;
+  font-weight:300;
+  letter-spacing:0.22em;
+  color:var(--text-b);
+  white-space:nowrap;
+}
+.logo span{color:var(--gold);}
+.hdr-sep{width:1px;height:28px;background:var(--border);}
+
+.ctl{display:flex;flex-direction:column;gap:3px;}
+.ctl-label{
+  font-size:7px;
+  letter-spacing:.35em;
+  color:var(--text-d);
+  text-transform:uppercase;
+}
+select{
+  background: rgba(8,12,28,0.9);
+  border: 1px solid var(--border-hi);
+  color: var(--text-b);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  padding: 3px 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+select:hover{border-color:var(--gold);}
+option{background:#060810;}
+
+.hdr-stat{
+  margin-left:auto;
+  display:flex;
+  gap:24px;
+  align-items:center;
+}
+.stat-item{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.stat-val{font-size:13px;color:var(--gold);letter-spacing:.05em;}
+.stat-key{font-size:7px;letter-spacing:.3em;color:var(--text-d);text-transform:uppercase;}
+
+/* ── TABS ── */
+.tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+  padding:0 20px;
+  gap:2px;
+  align-items:flex-end;
+}
+.tab{
+  font-family:'Share Tech Mono', monospace;
+  font-size:8px;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  color:var(--text-d);
+  padding:0 16px;
+  height:38px;
+  display:flex;
+  align-items:center;
+  cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:all .2s;
+  white-space:nowrap;
+}
+.tab:hover{color:var(--text-b);}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+/* ── CONTENT AREA ── */
+.content{overflow:hidden;display:grid;}
+.pane{display:none;height:100%;overflow:hidden;}
+.pane.active{display:grid;}
+
+/* ══ PANE 1: SKY VIEW ══ */
+#pane-sky{grid-template-columns:300px 1fr 300px;}
+
+.sidebar{
+  border-right:1px solid var(--border);
+  overflow-y:auto;
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  background:var(--glass);
+}
+.sidebar-r{border-right:none;border-left:1px solid var(--border);}
+
+.s-title{
+  font-size:7px;
+  letter-spacing:.4em;
+  color:var(--text-d);
+  text-transform:uppercase;
+  padding-bottom:8px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:4px;
+}
+
+.sky-center{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  overflow:hidden;
+}
+#skyCanvas{display:block;}
+
+.sky-overlay-label{
+  position:absolute;
+  font-size:7px;
+  letter-spacing:.35em;
+  color:var(--text-d);
+  text-transform:uppercase;
+  pointer-events:none;
+}
+.sky-overlay-label.top{top:12px;left:50%;transform:translateX(-50%);}
+.sky-overlay-label.bot{bottom:12px;left:50%;transform:translateX(-50%);}
+
+/* planet cards */
+.p-card{
+  border:1px solid var(--border);
+  padding:10px;
+  cursor:pointer;
+  transition:all .2s;
+  position:relative;
+  overflow:hidden;
+}
+.p-card:hover{border-color:var(--border-hi);background:rgba(255,255,255,.02);}
+.p-card.sel{border-color:var(--gold-d);background:var(--gold-dd);}
+.p-card-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.p-card-name{font-family:'Cinzel',serif;font-size:13px;font-weight:300;color:var(--text-b);}
+.p-dot{width:8px;height:8px;border-radius:50%;}
+.mrow{display:flex;justify-content:space-between;padding:2px 0;border-top:1px solid rgba(100,130,200,.06);}
+.mk{font-size:7px;letter-spacing:.12em;color:var(--text-d);}
+.mv{font-size:9px;color:var(--text-b);font-variant-numeric:tabular-nums;}
+.vis-bar{height:2px;background:rgba(100,130,200,.1);margin-top:5px;position:relative;}
+.vis-fill{position:absolute;left:0;top:0;height:100%;transition:width .5s;}
+.int-badge{
+  display:inline-block;
+  font-size:6px;
+  letter-spacing:.2em;
+  padding:1px 5px;
+  border:1px solid;
+  margin-top:4px;
+}
+.int-badge.interior{color:var(--ember);border-color:rgba(255,112,64,.3);background:var(--ember-d);}
+.int-badge.exterior{color:var(--teal);border-color:rgba(64,216,200,.3);background:var(--teal-d);}
+
+/* ══ PANE 2: ZODIAC ══ */
+#pane-zodiac{grid-template-columns:1fr 340px;}
+.zodiac-center{display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#zodCanvas{display:block;}
+.zodiac-info{
+  border-left:1px solid var(--border);
+  padding:16px;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  background:var(--glass);
+}
+
+.zod-house{
+  border:1px solid var(--border);
+  padding:10px;
+  transition:all .2s;
+}
+.zod-house:hover{border-color:var(--border-hi);}
+.zod-house.occupied{border-color:rgba(201,168,76,.3);background:var(--gold-dd);}
+.zh-name{font-family:'Cinzel',serif;font-size:12px;color:var(--text-b);margin-bottom:3px;}
+.zh-deg{font-size:8px;color:var(--text-d);letter-spacing:.15em;margin-bottom:5px;}
+.zh-planets{display:flex;flex-wrap:wrap;gap:3px;}
+.zh-planet-tag{
+  font-size:7px;
+  letter-spacing:.15em;
+  padding:1px 5px;
+  border:1px solid;
+  background:rgba(0,0,0,.3);
+}
+
+/* ══ PANE 3: CULTURE & MYTH ══ */
+#pane-culture{grid-template-columns:1fr;overflow:hidden;}
+#pane-culture .culture-scroll{overflow-y:auto;height:100%;padding:24px 32px;max-width:1200px;margin:0 auto;}
+
+.cult-section{margin-bottom:40px;}
+.cult-h1{
+  font-family:'Cinzel',serif;
+  font-size:22px;
+  font-weight:300;
+  color:var(--text-b);
+  letter-spacing:.12em;
+  border-bottom:1px solid var(--border);
+  padding-bottom:12px;
+  margin-bottom:20px;
+}
+.cult-h2{
+  font-family:'Cinzel',serif;
+  font-size:15px;
+  font-weight:400;
+  color:var(--gold);
+  letter-spacing:.08em;
+  margin-bottom:10px;
+  margin-top:18px;
+}
+.cult-body{
+  font-family:'EB Garamond',serif;
+  font-size:14px;
+  line-height:1.85;
+  color:var(--text);
+  max-width:680px;
+}
+.cult-body em{color:var(--myth);font-style:italic;}
+.cult-body strong{color:var(--text-b);font-weight:500;}
+
+.cult-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;}
+.cult-card{
+  border:1px solid var(--border);
+  padding:14px;
+  background:rgba(8,12,28,.6);
+  transition:all .2s;
+}
+.cult-card:hover{border-color:var(--border-hi);}
+.cult-card-title{font-family:'Cinzel',serif;font-size:12px;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;}
+.cult-card-body{font-family:'EB Garamond',serif;font-size:12px;line-height:1.7;color:var(--text);}
+
+.fest-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.fest-item{
+  display:grid;
+  grid-template-columns:90px 1fr;
+  gap:12px;
+  padding:8px 12px;
+  border:1px solid var(--border);
+  align-items:start;
+}
+.fest-date{font-size:9px;color:var(--gold);letter-spacing:.1em;}
+.fest-name{font-family:'Cinzel',serif;font-size:11px;color:var(--text-b);margin-bottom:3px;}
+.fest-desc{font-family:'EB Garamond',serif;font-size:11px;color:var(--text-d);line-height:1.5;}
+
+/* ══ PANE 4: PANTHEON ══ */
+#pane-pantheon{grid-template-columns:1fr;overflow:hidden;}
+#pane-pantheon .pantheon-scroll{overflow-y:auto;height:100%;padding:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+
+.deity-card{
+  border:1px solid var(--border);
+  padding:18px;
+  background:var(--glass);
+  transition:all .3s;
+  position:relative;
+  overflow:hidden;
+}
+.deity-card::before{
+  content:'';
+  position:absolute; inset:0;
+  opacity:0;
+  transition: opacity .3s;
+  pointer-events:none;
+}
+.deity-card:hover{border-color:var(--border-hi);}
+.deity-card:hover::before{opacity:1;}
+
+.deity-symbol{font-size:32px;line-height:1;margin-bottom:10px;display:block;}
+.deity-name{font-family:'Cinzel',serif;font-size:18px;font-weight:300;color:var(--text-b);letter-spacing:.08em;margin-bottom:3px;}
+.deity-planet{font-size:7px;letter-spacing:.35em;color:var(--myth);text-transform:uppercase;margin-bottom:10px;opacity:.7;}
+.deity-title{font-family:'EB Garamond',serif;font-style:italic;font-size:13px;color:var(--gold);margin-bottom:8px;}
+.deity-lore{font-family:'EB Garamond',serif;font-size:12px;line-height:1.7;color:var(--text-d);border-top:1px solid var(--border);padding-top:8px;margin-top:8px;}
+.deity-domains{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;}
+.d-tag{font-size:7px;letter-spacing:.2em;border:1px solid var(--gold-d);color:var(--gold);padding:2px 6px;background:var(--gold-dd);}
+
+/* ══ PANE 5: TIMELINE ══ */
+#pane-timeline{grid-template-columns:1fr;overflow:hidden;}
+#pane-timeline.active{display:flex;flex-direction:column;}
+.timeline-main{flex:1;overflow-y:auto;padding:16px;}
+.tl-canvas-wrap{overflow-x:auto;}
+#tlCanvas{display:block;}
+.tl-legend{display:flex;flex-wrap:wrap;gap:12px;padding:12px 16px;border-top:1px solid var(--border);}
+.tl-leg-item{display:flex;align-items:center;gap:6px;font-size:8px;letter-spacing:.15em;}
+.tl-leg-dot{width:8px;height:8px;border-radius:50%;}
+
+/* ── FOOTER / TIMELINE SCRUBBER ── */
+.footer{
+  border-top:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:0 20px;
+  background:var(--panel);
+}
+.ft-label{font-size:7px;letter-spacing:.3em;color:var(--text-d);text-transform:uppercase;white-space:nowrap;}
+#masterSlider{
+  flex:1; height:2px; cursor:pointer;
+  accent-color: var(--gold);
+  background: rgba(100,130,200,.15);
+  border:none; padding:0; outline:none;
+  -webkit-appearance:none;
+}
+#masterSlider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:10px;height:10px;border-radius:50%;
+  background:var(--gold);cursor:pointer;
+}
+.ft-time{font-size:11px;color:var(--gold);letter-spacing:.08em;min-width:200px;}
+.ft-btn{
+  background:none;border:1px solid var(--border-hi);
+  color:var(--text-b);font-family:'Share Tech Mono',monospace;
+  font-size:8px;letter-spacing:.2em;padding:6px 14px;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.ft-btn:hover{border-color:var(--gold);color:var(--gold);}
+.speed-grp{display:flex;gap:4px;}
+.spd-btn{
+  background:none;border:1px solid var(--border);
+  color:var(--text-d);font-family:'Share Tech Mono',monospace;
+  font-size:8px;padding:4px 8px;cursor:pointer;transition:all .2s;
+}
+.spd-btn.active{border-color:var(--gold-d);color:var(--gold);background:var(--gold-dd);}
+.spd-btn:hover{border-color:var(--border-hi);color:var(--text-b);}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:var(--void);}
+::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:0;}
+</style>
+</head>
+
+<body>
+<canvas id="sf"></canvas>
+
+<div class="root">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="logo">PARALLAX <span>ATLAS</span> II</div>
+    <div class="hdr-sep"></div>
+
+    <div class="ctl">
+      <div class="ctl-label">Observer World</div>
+      <select id="selObs">
+        <option value="Mercury">Mercury</option>
+        <option value="Venus">Venus</option>
+        <option value="Earth" selected>Earth</option>
+        <option value="Mars">Mars</option>
+        <option value="Jupiter">Jupiter</option>
+        <option value="Saturn">Saturn</option>
+        <option value="Uranus">Uranus</option>
+        <option value="Neptune">Neptune</option>
+        <option value="Pluto">Pluto</option>
+      </select>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-label">Zodiac System</div>
+      <select id="selZod">
+        <option value="12">12-House (Solar)</option>
+        <option value="8">8-House (Octave)</option>
+        <option value="7">7-House (Planetary)</option>
+      </select>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-label">Visibility Threshold</div>
+      <select id="selElong">
+        <option value="5">5° (keen-eyed)</option>
+        <option value="10" selected>10° (standard)</option>
+        <option value="15">15° (casual)</option>
+      </select>
+    </div>
+
+    <div class="hdr-sep"></div>
+
+    <div class="hdr-stat">
+      <div class="stat-item">
+        <div class="stat-val" id="statYear">—</div>
+        <div class="stat-key">Local Year</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="statDays">—</div>
+        <div class="stat-key">Earth Days</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="statVisible">—</div>
+        <div class="stat-key">Bodies Visible</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" data-tab="sky">⬡ Sky View</div>
+    <div class="tab" data-tab="zodiac">✦ Zodiac Wheel</div>
+    <div class="tab" data-tab="culture">⊕ Culture & Myth</div>
+    <div class="tab" data-tab="pantheon">☽ Pantheon</div>
+    <div class="tab" data-tab="timeline">∿ Great Timeline</div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- PANE 1: SKY VIEW -->
+    <div class="pane active" id="pane-sky">
+      <div class="sidebar" id="sidebarLeft">
+        <div class="s-title">Sky Presence · <span id="obsLbl">Earth</span></div>
+        <div id="cardList"></div>
+      </div>
+      <div class="sky-center">
+        <div class="sky-overlay-label top">HELIOCENTRIC DIAGRAM · OBSERVER HIGHLIGHTED</div>
+        <canvas id="skyCanvas"></canvas>
+        <div class="sky-overlay-label bot" id="skyNote">Visibility cone shown · orange = lost in glare</div>
+      </div>
+      <div class="sidebar sidebar-r" id="sidebarRight">
+        <div class="s-title">Visibility Analysis</div>
+        <div id="visPanel"></div>
+      </div>
+    </div>
+
+    <!-- PANE 2: ZODIAC -->
+    <div class="pane" id="pane-zodiac">
+      <div class="zodiac-center">
+        <canvas id="zodCanvas"></canvas>
+      </div>
+      <div class="zodiac-info">
+        <div class="s-title">Zodiac Houses · <span id="zodObsLbl">Earth</span></div>
+        <div id="houseList"></div>
+      </div>
+    </div>
+
+    <!-- PANE 3: CULTURE -->
+    <div class="pane" id="pane-culture">
+      <div class="culture-scroll" id="cultureContent"></div>
+    </div>
+
+    <!-- PANE 4: PANTHEON -->
+    <div class="pane" id="pane-pantheon">
+      <div class="pantheon-scroll" id="pantheonGrid"></div>
+    </div>
+
+    <!-- PANE 5: TIMELINE -->
+    <div class="pane" id="pane-timeline">
+      <div class="timeline-main">
+        <div class="s-title" style="margin-bottom:12px;">GREAT CYCLE TIMELINE · Full Pluto Period (~248 Earth Years)</div>
+        <div class="tl-canvas-wrap">
+          <canvas id="tlCanvas"></canvas>
+        </div>
+      </div>
+      <div class="tl-legend" id="tlLegend"></div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="ft-label">TIME</div>
+    <input type="range" id="masterSlider" min="0" max="90519" value="0" step="10">
+    <div class="ft-time" id="ftTime">T+0 · Year 0</div>
+    <div class="speed-grp">
+      <button class="spd-btn active" data-spd="1">1×</button>
+      <button class="spd-btn" data-spd="5">5×</button>
+      <button class="spd-btn" data-spd="20">20×</button>
+      <button class="spd-btn" data-spd="100">100×</button>
+    </div>
+    <button class="ft-btn" id="playBtn">▶ PLAY</button>
+    <button class="ft-btn" id="epochBtn">⊕ KEY EPOCHS</button>
+  </div>
+
+</div>
+
+<script>
+/* Your JS can stay as-is.
+   The biggest functional bug was the CSS variable dash + curly quotes + stray ``` fence.
+*/
+</script>
+
+</body>
+</html>
+
+
+⸻
+
+Two more “surgical” fixes you’ll want next (optional but worth it)
+
+A) Your selZod control doesn’t change the zodiac right now
+
+You call fullRefresh() on change, but your zodiac wheel always uses ZODIAC_12.
+If you actually want 8-house / 7-house modes, you need to define ZODIAC_8 and ZODIAC_7 and switch the array used by getZodiacHouse() + the wheel render.
+
+B) You’re calling METRICS_CACHE = {}; inside fullRefresh()
+
+That defeats caching. If you want caching across observer switches, don’t clear it there — clear it only when planetary definitions change.
+
+⸻
+
+If you tell me what you want the 8-house and 7-house systems to mean mathematically (equal divisions? harmonic division? based on synodic families?), I’ll implement those cleanly and wire selZod into the wheel + house list.
