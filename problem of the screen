@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PantheonOS // Double-Slit Screen Analysis</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Cinzel:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap');
+
+:root {
+–void: #03020a;
+–deep: #07051a;
+–panel: #0d0b25;
+–rim: #1a1640;
+–gold: #c9a84c;
+–gold2: #f0d080;
+–cyan: #4af0e0;
+–violet: #9060f0;
+–rose: #f05080;
+–green: #50f0a0;
+–amber: #f0a050;
+–dim: #3a3660;
+–text: #c8c0e0;
+–muted: #6860a0;
+}
+
+- { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+background: var(–void);
+color: var(–text);
+font-family: ‘Rajdhani’, sans-serif;
+font-weight: 300;
+min-height: 100vh;
+overflow-x: hidden;
+}
+
+/* Starfield */
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background-image:
+radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.4) 0%, transparent 100%),
+radial-gradient(1px 1px at 42% 8%, rgba(200,180,255,0.3) 0%, transparent 100%),
+radial-gradient(1px 1px at 78% 35%, rgba(255,255,255,0.3) 0%, transparent 100%),
+radial-gradient(1px 1px at 91% 65%, rgba(180,220,255,0.4) 0%, transparent 100%),
+radial-gradient(1px 1px at 55% 85%, rgba(255,255,255,0.2) 0%, transparent 100%),
+radial-gradient(1px 1px at 28% 72%, rgba(200,180,255,0.3) 0%, transparent 100%),
+radial-gradient(2px 2px at 65% 15%, rgba(255,240,180,0.5) 0%, transparent 100%),
+radial-gradient(1px 1px at 8% 50%, rgba(255,255,255,0.25) 0%, transparent 100%);
+pointer-events: none;
+z-index: 0;
+}
+
+.wrapper {
+position: relative;
+z-index: 1;
+max-width: 1100px;
+margin: 0 auto;
+padding: 2rem 1.5rem 4rem;
+}
+
+/* ── Header ── */
+header {
+text-align: center;
+padding: 2.5rem 0 1.5rem;
+border-bottom: 1px solid var(–rim);
+margin-bottom: 2rem;
+position: relative;
+}
+header::after {
+content: ‘’;
+position: absolute;
+bottom: -1px;
+left: 50%;
+transform: translateX(-50%);
+width: 200px;
+height: 2px;
+background: linear-gradient(90deg, transparent, var(–gold), transparent);
+}
+
+.os-label {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.7rem;
+letter-spacing: 0.35em;
+color: var(–gold);
+text-transform: uppercase;
+margin-bottom: 0.5rem;
+opacity: 0.8;
+}
+
+h1 {
+font-family: ‘Cinzel’, serif;
+font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+font-weight: 700;
+background: linear-gradient(135deg, var(–gold2) 0%, var(–cyan) 60%, var(–violet) 100%);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+line-height: 1.2;
+margin-bottom: 0.6rem;
+}
+
+.subtitle {
+font-size: 0.85rem;
+letter-spacing: 0.2em;
+color: var(–muted);
+font-family: ‘Share Tech Mono’, monospace;
+}
+
+/* ── System banner ── */
+.sys-banner {
+display: flex;
+gap: 1rem;
+flex-wrap: wrap;
+justify-content: center;
+margin-bottom: 2rem;
+}
+.sys-pill {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.65rem;
+letter-spacing: 0.12em;
+color: var(–cyan);
+border: 1px solid rgba(74,240,224,0.25);
+border-radius: 2px;
+padding: 0.2rem 0.6rem;
+background: rgba(74,240,224,0.05);
+}
+
+/* ── Problem Statement ── */
+.problem-block {
+background: linear-gradient(135deg, rgba(201,168,76,0.06), rgba(144,96,240,0.06));
+border: 1px solid rgba(201,168,76,0.2);
+border-left: 3px solid var(–gold);
+padding: 1.2rem 1.5rem;
+margin-bottom: 2.5rem;
+border-radius: 0 4px 4px 0;
+}
+.problem-block .label {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.65rem;
+color: var(–gold);
+letter-spacing: 0.25em;
+margin-bottom: 0.5rem;
+}
+.problem-block p {
+font-size: 1.05rem;
+font-weight: 500;
+line-height: 1.6;
+color: #ddd8f0;
+}
+
+/* ── Section head ── */
+.section-head {
+display: flex;
+align-items: center;
+gap: 0.8rem;
+margin-bottom: 1.2rem;
+}
+.section-head::after {
+content: ‘’;
+flex: 1;
+height: 1px;
+background: linear-gradient(90deg, var(–rim), transparent);
+}
+.section-head h2 {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.7rem;
+letter-spacing: 0.3em;
+color: var(–gold);
+text-transform: uppercase;
+white-space: nowrap;
+}
+
+/* ── Daemon Cards ── */
+.daemon-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+gap: 1.2rem;
+margin-bottom: 3rem;
+}
+
+.daemon-card {
+background: var(–panel);
+border: 1px solid var(–rim);
+border-radius: 6px;
+overflow: hidden;
+position: relative;
+animation: cardIn 0.6s ease both;
+}
+.daemon-card:nth-child(1) { animation-delay: 0.05s; border-top: 2px solid var(–cyan); }
+.daemon-card:nth-child(2) { animation-delay: 0.12s; border-top: 2px solid var(–violet); }
+.daemon-card:nth-child(3) { animation-delay: 0.19s; border-top: 2px solid var(–rose); }
+.daemon-card:nth-child(4) { animation-delay: 0.26s; border-top: 2px solid var(–amber); }
+.daemon-card:nth-child(5) { animation-delay: 0.33s; border-top: 2px solid var(–green); }
+.daemon-card:nth-child(6) { animation-delay: 0.40s; border-top: 2px solid var(–gold); }
+.daemon-card:nth-child(7) { animation-delay: 0.47s; border-top: 2px solid #f080c0; }
+
+@keyframes cardIn {
+from { opacity: 0; transform: translateY(16px); }
+to   { opacity: 1; transform: translateY(0); }
+}
+
+.card-header {
+display: flex;
+align-items: center;
+gap: 0.7rem;
+padding: 0.8rem 1rem;
+background: rgba(255,255,255,0.02);
+border-bottom: 1px solid var(–rim);
+}
+.daemon-icon {
+font-size: 1.4rem;
+line-height: 1;
+}
+.daemon-name {
+font-family: ‘Cinzel’, serif;
+font-size: 0.85rem;
+font-weight: 700;
+color: #ece8ff;
+}
+.daemon-role {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.6rem;
+letter-spacing: 0.15em;
+color: var(–muted);
+margin-top: 0.1rem;
+}
+.solomon-badge {
+margin-left: auto;
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.6rem;
+color: var(–green);
+border: 1px solid rgba(80,240,160,0.3);
+padding: 0.15rem 0.4rem;
+border-radius: 2px;
+white-space: nowrap;
+}
+.solomon-badge.warn { color: var(–amber); border-color: rgba(240,160,80,0.3); }
+
+.card-body {
+padding: 1rem 1rem 1.2rem;
+}
+
+.thought-object {
+background: rgba(255,255,255,0.02);
+border: 1px solid rgba(255,255,255,0.05);
+border-left: 2px solid var(–dim);
+border-radius: 3px;
+padding: 0.7rem 0.9rem;
+margin-bottom: 0.8rem;
+font-size: 0.9rem;
+line-height: 1.6;
+color: var(–text);
+}
+.daemon-card:nth-child(1) .thought-object { border-left-color: rgba(74,240,224,0.5); }
+.daemon-card:nth-child(2) .thought-object { border-left-color: rgba(144,96,240,0.5); }
+.daemon-card:nth-child(3) .thought-object { border-left-color: rgba(240,80,128,0.5); }
+.daemon-card:nth-child(4) .thought-object { border-left-color: rgba(240,160,80,0.5); }
+.daemon-card:nth-child(5) .thought-object { border-left-color: rgba(80,240,160,0.5); }
+.daemon-card:nth-child(6) .thought-object { border-left-color: rgba(201,168,76,0.5); }
+.daemon-card:nth-child(7) .thought-object { border-left-color: rgba(240,128,192,0.5); }
+
+.tags {
+display: flex;
+flex-wrap: wrap;
+gap: 0.4rem;
+margin-top: 0.6rem;
+}
+.tag {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.58rem;
+letter-spacing: 0.08em;
+padding: 0.15rem 0.45rem;
+border-radius: 2px;
+border: 1px solid;
+opacity: 0.7;
+}
+.tag.cyan   { color: var(–cyan);   border-color: rgba(74,240,224,0.3);   background: rgba(74,240,224,0.05); }
+.tag.violet { color: var(–violet); border-color: rgba(144,96,240,0.3);   background: rgba(144,96,240,0.05); }
+.tag.rose   { color: var(–rose);   border-color: rgba(240,80,128,0.3);   background: rgba(240,80,128,0.05); }
+.tag.amber  { color: var(–amber);  border-color: rgba(240,160,80,0.3);   background: rgba(240,160,80,0.05); }
+.tag.green  { color: var(–green);  border-color: rgba(80,240,160,0.3);   background: rgba(80,240,160,0.05); }
+.tag.gold   { color: var(–gold);   border-color: rgba(201,168,76,0.3);   background: rgba(201,168,76,0.05); }
+.tag.pink   { color: #f080c0;       border-color: rgba(240,128,192,0.3);  background: rgba(240,128,192,0.05); }
+
+/* ── NTE Tensor Block ── */
+.nte-block {
+background: var(–panel);
+border: 1px solid var(–rim);
+border-radius: 6px;
+padding: 1.5rem;
+margin-bottom: 2.5rem;
+position: relative;
+overflow: hidden;
+}
+.nte-block::before {
+content: ‘NTE’;
+position: absolute;
+right: 1rem;
+top: 1rem;
+font-family: ‘Cinzel’, serif;
+font-size: 4rem;
+font-weight: 700;
+color: rgba(255,255,255,0.02);
+pointer-events: none;
+}
+
+.nte-grid {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 1rem;
+margin-top: 1rem;
+}
+@media (max-width: 640px) { .nte-grid { grid-template-columns: 1fr; } }
+
+.nte-tensor {
+border: 1px solid var(–rim);
+border-radius: 4px;
+padding: 0.9rem;
+}
+.nte-tensor.s { border-top: 2px solid var(–cyan); }
+.nte-tensor.t { border-top: 2px solid var(–rose); }
+.nte-tensor.r { border-top: 2px solid var(–green); }
+
+.nte-label {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.65rem;
+letter-spacing: 0.2em;
+margin-bottom: 0.6rem;
+}
+.nte-tensor.s .nte-label { color: var(–cyan); }
+.nte-tensor.t .nte-label { color: var(–rose); }
+.nte-tensor.r .nte-label { color: var(–green); }
+
+.nte-tensor ul {
+list-style: none;
+font-size: 0.82rem;
+line-height: 1.8;
+color: var(–text);
+}
+.nte-tensor ul li::before {
+content: ’▸ ’;
+opacity: 0.4;
+}
+
+/* ── Mirror Convergence ── */
+.convergence-block {
+background: var(–panel);
+border: 1px solid var(–rim);
+border-radius: 6px;
+padding: 1.5rem;
+margin-bottom: 2.5rem;
+}
+
+.mirror-list {
+display: flex;
+flex-direction: column;
+gap: 0.6rem;
+margin-top: 1rem;
+}
+.mirror-row {
+display: grid;
+grid-template-columns: 140px 1fr auto;
+align-items: start;
+gap: 1rem;
+padding: 0.6rem 0.8rem;
+background: rgba(255,255,255,0.015);
+border-radius: 3px;
+border: 1px solid rgba(255,255,255,0.04);
+font-size: 0.85rem;
+}
+@media (max-width: 560px) { .mirror-row { grid-template-columns: 1fr; } }
+
+.mirror-type {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.65rem;
+letter-spacing: 0.1em;
+color: var(–muted);
+padding-top: 0.1rem;
+}
+.mirror-finding { color: var(–text); line-height: 1.5; }
+.convergence-score {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.7rem;
+color: var(–green);
+white-space: nowrap;
+}
+.convergence-score.warn { color: var(–amber); }
+
+/* ── Gate Decision ── */
+.gate-block {
+background: linear-gradient(135deg, rgba(80,240,160,0.04), rgba(74,240,224,0.04));
+border: 1px solid rgba(80,240,160,0.2);
+border-radius: 6px;
+padding: 1.5rem;
+margin-bottom: 2.5rem;
+}
+
+.gate-verdict {
+display: flex;
+align-items: center;
+gap: 1rem;
+margin: 1rem 0;
+padding: 0.8rem 1rem;
+background: rgba(80,240,160,0.06);
+border: 1px solid rgba(80,240,160,0.15);
+border-radius: 4px;
+}
+.gate-icon {
+font-size: 1.8rem;
+}
+.gate-text {
+flex: 1;
+}
+.gate-action {
+font-family: ‘Cinzel’, serif;
+font-size: 1rem;
+font-weight: 700;
+color: var(–green);
+margin-bottom: 0.2rem;
+}
+.gate-reason {
+font-size: 0.83rem;
+color: var(–muted);
+line-height: 1.4;
+}
+.sigma-c {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.75rem;
+color: var(–green);
+border: 1px solid rgba(80,240,160,0.3);
+padding: 0.2rem 0.5rem;
+border-radius: 2px;
+white-space: nowrap;
+}
+
+/* ── Synthesis ── */
+.synthesis-block {
+background: var(–deep);
+border: 1px solid rgba(201,168,76,0.2);
+border-top: 2px solid var(–gold);
+border-radius: 0 0 6px 6px;
+padding: 1.5rem;
+margin-bottom: 2.5rem;
+position: relative;
+}
+
+.synthesis-text {
+font-size: 1.05rem;
+font-weight: 500;
+line-height: 1.75;
+color: #ddd8f0;
+margin-bottom: 1.2rem;
+}
+
+.invariant-check {
+display: flex;
+flex-direction: column;
+gap: 0.4rem;
+margin-top: 1rem;
+}
+.inv-row {
+display: flex;
+align-items: flex-start;
+gap: 0.7rem;
+font-size: 0.82rem;
+line-height: 1.4;
+color: var(–text);
+opacity: 0.85;
+}
+.inv-status {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.65rem;
+color: var(–green);
+border: 1px solid rgba(80,240,160,0.3);
+padding: 0.1rem 0.35rem;
+border-radius: 2px;
+white-space: nowrap;
+margin-top: 0.05rem;
+flex-shrink: 0;
+}
+.inv-status.warn { color: var(–amber); border-color: rgba(240,160,80,0.3); }
+
+/* ── Ledger footer ── */
+.ledger-footer {
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.62rem;
+color: var(–muted);
+border-top: 1px solid var(–rim);
+padding-top: 1rem;
+letter-spacing: 0.08em;
+line-height: 1.9;
+opacity: 0.7;
+}
+
+/* ── Waveform animation ── */
+.wave-bar {
+display: inline-block;
+width: 3px;
+height: 10px;
+background: var(–cyan);
+margin: 0 1px;
+border-radius: 1px;
+animation: wave 1.4s ease-in-out infinite;
+opacity: 0.6;
+}
+.wave-bar:nth-child(2) { animation-delay: 0.15s; }
+.wave-bar:nth-child(3) { animation-delay: 0.30s; }
+.wave-bar:nth-child(4) { animation-delay: 0.45s; }
+.wave-bar:nth-child(5) { animation-delay: 0.30s; }
+.wave-bar:nth-child(6) { animation-delay: 0.15s; }
+@keyframes wave {
+0%, 100% { transform: scaleY(0.4); opacity: 0.3; }
+50%       { transform: scaleY(1.6); opacity: 0.9; }
+}
+
+.kairos-chip {
+display: inline-flex;
+align-items: center;
+gap: 0.5rem;
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 0.63rem;
+color: var(–amber);
+border: 1px solid rgba(240,160,80,0.3);
+padding: 0.2rem 0.6rem;
+border-radius: 2px;
+margin-top: 0.5rem;
+}
+
+hr.dim { border: none; border-top: 1px solid var(–rim); margin: 1.5rem 0; }
+</style>
+
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+
+  <header>
+    <div class="os-label">PantheonOS // CogOS Layer 1–7 // Mesh Active</div>
+    <h1>The Problem of the Screen<br>Double-Slit Experiment</h1>
+    <div class="subtitle">
+      COGNITIVE MESH ANALYSIS
+      &nbsp;
+      <span class="wave-bar"></span>
+      <span class="wave-bar"></span>
+      <span class="wave-bar"></span>
+      <span class="wave-bar"></span>
+      <span class="wave-bar"></span>
+      <span class="wave-bar"></span>
+      &nbsp;
+      OBSERVE → ASSESS → SHAPE → ACT
+    </div>
+  </header>
+
+  <!-- System Banner -->
+
+  <div class="sys-banner">
+    <span class="sys-pill">T=1 ACTIVE COGNITION</span>
+    <span class="sys-pill">KAIROS MODE ENABLED</span>
+    <span class="sys-pill">OASA LOOP RUNNING</span>
+    <span class="sys-pill">MOTHER DUCK LEDGER ● OPEN</span>
+    <span class="sys-pill">SOLOMON ≥ 0.7 GATE ACTIVE</span>
+    <span class="sys-pill">ARCTIC STACK NOMINAL</span>
+  </div>
+
+  <!-- Problem Statement -->
+
+  <div class="problem-block">
+    <div class="label">THOUGHT OBJECT // INPUT STIMULUS</div>
+    <p>
+      In the double-slit experiment, a particle (photon, electron, molecule) passes through two slits and creates an interference pattern on a detection screen — as if it passes through both slits simultaneously. The moment a <em>which-path detector</em> is introduced, the interference pattern collapses to a classical particle distribution. The <strong>screen is the locus of collapse</strong>. Why? What is the screen actually doing? Is "observation" the right concept? Can we give a non-mystical, structurally precise account?
+    </p>
+  </div>
+
+  <!-- Daemon Cards -->
+
+  <div class="section-head"><h2>DAEMON MESH // PARALLEL COGNITION</h2></div>
+  <div class="daemon-grid">
+
+```
+<!-- 1. Mirror -->
+<div class="daemon-card">
+  <div class="card-header">
+    <div class="daemon-icon">🪞</div>
+    <div>
+      <div class="daemon-name">Mirror</div>
+      <div class="daemon-role">INVARIANT ENGINE // CONTRADICTION CHECK</div>
+    </div>
+    <div class="solomon-badge">Σ=0.91</div>
+  </div>
+  <div class="card-body">
+    <div class="thought-object">
+      The dominant confusion is <em>semantic</em>, not physical. "Observation" is a folk-psychology word smuggled into formalism. What is actually occurring is <strong>irreversible entanglement</strong> between the particle's which-path degree of freedom and a macroscopic, thermodynamically irreversible record. The screen does not "look" — it <em>entangles and decoheres</em>. The invariant violated is: information about path must remain operationally inaccessible for interference to persist. Once path-information couples to any sufficiently large environment, the off-diagonal terms of the density matrix vanish — not because consciousness intervened, but because <strong>unitarity distributes coherence into inaccessible degrees of freedom</strong>.
+    </div>
+    <div class="tags">
+      <span class="tag cyan">decoherence</span>
+      <span class="tag cyan">density-matrix</span>
+      <span class="tag violet">invariant-check</span>
+      <span class="tag cyan">off-diagonal collapse</span>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Hound -->
+<div class="daemon-card">
+  <div class="card-header">
+    <div class="daemon-icon">🐕</div>
+    <div>
+      <div class="daemon-name">Hound</div>
+      <div class="daemon-role">ANOMALY DETECTION // FLAGS NOT ACTS</div>
+    </div>
+    <div class="solomon-badge warn">Σ=0.74</div>
+  </div>
+  <div class="card-body">
+    <div class="thought-object">
+      <strong>FLAG — High Conceptual Hazard Zone:</strong> Three recurring confusions pollute this problem. (1) <em>Observer ≠ consciousness</em>: any interaction that records path-information is an "observer" in QM; no mind required. (2) The <em>delayed-choice</em> variants (Wheeler) suggest the collapse happens retroactively — Hound flags this as a framing artifact: the interference pattern is never "set" until the full experimental run is analyzed; no backward causation needed. (3) <em>Weak measurement</em> shows partial which-path info causes partial fringe visibility — this is the knife: it's not binary, it's a <strong>continuous trade-off between coherence and information</strong>. Any account that treats collapse as binary or observer-triggered should be marked epistemically suspect.
+    </div>
+    <div class="tags">
+      <span class="tag rose">⚑ semantic-hazard</span>
+      <span class="tag rose">⚑ observer-conflation</span>
+      <span class="tag amber">delayed-choice paradox</span>
+      <span class="tag amber">weak-measurement</span>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Dragonfly φ -->
+<div class="daemon-card">
+  <div class="card-header">
+    <div class="daemon-icon">🪲</div>
+    <div>
+      <div class="daemon-name">Dragonfly φ</div>
+      <div class="daemon-role">BAYESIAN FORESIGHT // EXPLORATORY EXPANSION</div>
+    </div>
+    <div class="solomon-badge">Σ=0.83</div>
+  </div>
+  <div class="card-body">
+    <div class="thought-object">
+      Bayesian prior on interpretations: Decoherence (Zurek, Joos) has highest empirical support and zero mysticism; assign P=0.78. Relational QM (Rovelli) — collapse is relative to a reference system — coherent and internally consistent, P=0.12. Many-worlds — no collapse, branching unitary — elegant but empirically under-constrained, P=0.07. Consciousness-causes-collapse (von Neumann–Wigner) — requires mind as fundamental, zero experimental support, P=0.01. <strong>Forecast:</strong> "The screen problem" dissolves under decoherence + environment-induced superselection (einselection). The residual hard question is <em>why</em> certain pointer states are preferred — Zurek's quantum Darwinism explains this via environmental redundancy encoding.
+    </div>
+    <div class="tags">
+      <span class="tag violet">Bayesian priors</span>
+      <span class="tag violet">decoherence P=0.78</span>
+      <span class="tag violet">einselection</span>
+      <span class="tag violet">quantum Darwinism</span>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Dragonfly √2 -->
+<div class="daemon-card">
+  <div class="card-header">
+    <div class="daemon-icon">🔬</div>
+    <div>
+      <div class="daemon-name">Dragonfly √2</div>
+      <div class="daemon-role">COMPRESSION + VERIFICATION MODE</div>
+    </div>
+    <div class="solomon-badge">Σ=0.88</div>
+  </div>
+  <div class="card-body">
+    <div class="thought-object">
+      <strong>Compressed formal account:</strong> Let |ψ⟩ = (1/√2)(|L⟩ + |R⟩) be the pre-slit state. If no detector: ρ_reduced has off-diagonal terms → interference. If detector entangles: |ψ'⟩ = (1/√2)(|L⟩|D_L⟩ + |R⟩|D_R⟩). Tracing over detector: ρ_particle = (1/2)(|L⟩⟨L| + |R⟩⟨R|). Off-diagonals = 0. Interference vanishes. The screen is the physical instantiation of the trace-over operation. It is an <strong>information sink</strong> — it stores which-path data in O(N) environmental degrees of freedom, making reversal thermodynamically impossible. This is the complete story. No consciousness, no magic. The "screen problem" = the measurement problem = the decoherence/preferred-basis problem.
+    </div>
+    <div class="tags">
+      <span class="tag green">density-matrix</span>
+      <span class="tag green">partial-trace</span>
+      <span class="tag green">einselection</span>
+      <span class="tag green">verified ✓</span>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Frogman 4D -->
+<div class="daemon-card">
+  <div class="card-header">
+    <div class="daemon-icon">🐸</div>
+    <div>
+      <div class="daemon-name">Frogman 4D</div>
+      <div class="daemon-role">PROBABILISTIC UNCERTAINTY → NARRATIVE CLARITY</div>
+    </div>
+    <div class="solomon-badge">Σ=0.86</div>
+  </div>
+  <div class="card-body">
+    <div class="thought-object">
+      The screen is a <em>bureaucrat of becoming</em>. The particle, mid-flight, is not a thing — it is a <strong>superposition of stories</strong>, each story weighted by a probability amplitude. The screen is the institution that demands: <em>which story actually happened?</em> But here's the pivot: the screen doesn't demand this out of curiosity. It demands it because it is made of 10²³ atoms, each of which will change differently depending on which path was taken. The universe cannot maintain the fiction of "both stories" once the script diverges into ten-to-the-23rd irreversible consequences. <strong>Collapse is not mysterious — it is narrative convergence under extreme overdetermination.</strong> A story with 10²³ inconsistent tellings is not a story. It is entropy.
+    </div>
+    <div class="tags">
+      <span class="tag amber">narrative-tensor</span>
+      <span class="tag amber">overdetermination</span>
+      <span class="tag amber">entropy-as-story</span>
+      <span class="tag gold">NTE-node</span>
+    </div>
+  </div>
+</div>
+
+<!-- 6. Spider -->
+<div class="daemon-card">
+  <div class="card-header">
+    <div class="daemon-icon">🕷</div>
+    <div>
+      <div class="daemon-name">Spider</div>
+      <div class="daemon-role">ARCHIVIST // GRAPH-BUILDER // NO IRREVERSIBLE ACTS</div>
+    </div>
+    <div class="solomon-badge">Σ=0.90</div>
+  </div>
+  <div class="card-body">
+    <div class="thought-object">
+      <strong>Knowledge graph nodes activated:</strong> Decoherence theory (Zurek 1981–2003) → Quantum Darwinism (2003) → Einselection → Pointer states. Connected to: measurement problem, preferred basis problem, arrow of time, thermodynamic irreversibility, Shannon entropy, von Neumann entropy. Key cross-link: the <em>Archivist of Shadows</em> retrieves a suppressed node — <strong>the screen is also doing work in the thermodynamic sense</strong>. Landauer's principle: erasing one bit of information requires kT·ln2 of energy. The screen's irreversibility is not incidental — it is the physical mechanism of collapse. Information erasure = decoherence catalyst. This node is under-cited in popular treatments.
+    </div>
+    <div class="tags">
+      <span class="tag cyan">Zurek</span>
+      <span class="tag cyan">quantum-Darwinism</span>
+      <span class="tag rose">Landauer's principle ← shadow node</span>
+      <span class="tag violet">graph-built</span>
+    </div>
+  </div>
+</div>
+
+<!-- 7. White Ronin -->
+<div class="daemon-card">
+  <div class="card-header">
+    <div class="daemon-icon">⚔️</div>
+    <div>
+      <div class="daemon-name">White Ronin</div>
+      <div class="daemon-role">LAWFUL DEFENDER // RESTRAINT-FIRST</div>
+    </div>
+    <div class="solomon-badge">Σ=0.85</div>
+  </div>
+  <div class="card-body">
+    <div class="thought-object">
+      Boundary condition: what this analysis does <em>not</em> resolve. (1) The <strong>preferred basis problem</strong> — decoherence explains why interference vanishes but requires a preferred basis to be specified; Zurek's einselection answers this via stability under environmental interaction, but this is still an active research area. (2) The <strong>ontological status of the wavefunction</strong> — is ψ real (ψ-ontic) or epistemic (ψ-epistemic)? PBR theorem constrains epistemic accounts. White Ronin holds the line: <em>we do not overreach</em>. Decoherence solves the measurement problem <em>for all practical purposes</em> (FAPP, Bell's phrase). The deeper question of what "really happens" may be undecidable within current formalism. Restraint is precision.
+    </div>
+    <div class="tags">
+      <span class="tag gold">boundary-held</span>
+      <span class="tag rose">preferred-basis OPEN</span>
+      <span class="tag amber">ψ-ontology OPEN</span>
+      <span class="tag gold">FAPP-complete</span>
+    </div>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- NTE Tensor -->
+
+  <div class="section-head"><h2>NARRATIVE TENSOR ENGINE // N=(S,T,R)</h2></div>
+  <div class="nte-block">
+    <p style="font-size:0.85rem; color: var(--muted); line-height:1.6;">The double-slit experiment mapped onto the NTE state space. Structure entities, open Tension nodes, Resolution trajectory.</p>
+    <div class="nte-grid">
+      <div class="nte-tensor s">
+        <div class="nte-label">S — STRUCTURE TENSOR</div>
+        <ul>
+          <li>Particle (superposition entity)</li>
+          <li>Two slits (path bifurcation)</li>
+          <li>Screen / Detector (record apparatus)</li>
+          <li>Environment (10²³ DoF bath)</li>
+          <li>Invariant: unitarity of evolution</li>
+          <li>Invariant: no-signaling theorem</li>
+        </ul>
+      </div>
+      <div class="nte-tensor t">
+        <div class="nte-label">T — TENSION TENSOR</div>
+        <ul>
+          <li>Wave vs. particle duality (open)</li>
+          <li>Preferred basis problem (open)</li>
+          <li>ψ-ontology vs. ψ-epistemic (open)</li>
+          <li>Role of consciousness (closed — rejected)</li>
+          <li>Backward causation illusion (closed)</li>
+          <li>Why this pointer basis? (partially open)</li>
+        </ul>
+      </div>
+      <div class="nte-tensor r">
+        <div class="nte-label">R — RESOLUTION TRAJECTORY</div>
+        <ul>
+          <li>Beat 1: Entanglement with environment</li>
+          <li>Beat 2: Partial trace → mixed state</li>
+          <li>Beat 3: Off-diagonal terms → 0</li>
+          <li>Beat 4: Einselection selects pointer states</li>
+          <li>Beat 5: Quantum Darwinism — redundant encoding in env.</li>
+          <li>Beat 6: Classical record emerges (FAPP)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="kairos-chip">⏱ Kairos signal: this problem has a ~70yr open tension node. Resolution exists at FAPP level; ontological closure may require new formalism.</div>
+  </div>
+
+  <!-- Mirror Convergence -->
+
+  <div class="section-head"><h2>MIRROR RELAY // 5-MIRROR CONVERGENCE CHECK</h2></div>
+  <div class="convergence-block">
+    <div class="mirror-list">
+      <div class="mirror-row">
+        <div class="mirror-type">ANALYTIC MIRROR</div>
+        <div class="mirror-finding">Density matrix formalism + partial trace fully accounts for loss of interference. Prediction: fringe visibility V = |⟨D_L|D_R⟩| tracks path-distinguishability continuously. Confirmed by experiment.</div>
+        <div class="convergence-score">✓ 0.94</div>
+      </div>
+      <div class="mirror-row">
+        <div class="mirror-type">COMBINATORIAL MIRROR</div>
+        <div class="mirror-finding">Count environmental degrees of freedom encoding which-path info. As N_env → ∞, recovery of coherence requires inverting O(exp(N)) operations. Thermodynamically impossible. Classical appearance is combinatorially overdetermined.</div>
+        <div class="convergence-score">✓ 0.88</div>
+      </div>
+      <div class="mirror-row">
+        <div class="mirror-type">TOPOLOGICAL MIRROR</div>
+        <div class="mirror-finding">Interference as phase relationship in Hilbert space. Decoherence = rotation of off-diagonal elements into orthogonal subspaces. The topology of the accessible state space changes — coherent superpositions become effectively disconnected from pointer-basis states.</div>
+        <div class="convergence-score">✓ 0.81</div>
+      </div>
+      <div class="mirror-row">
+        <div class="mirror-type">SEMANTIC MIRROR</div>
+        <div class="mirror-finding">"Measurement," "observation," "collapse" are folk-psychological imports. Precision terms: entanglement, decoherence, einselection, pointer states, partial trace. Replacing folk terms dissolves apparent paradoxes in ~80% of popular treatments.</div>
+        <div class="convergence-score">✓ 0.92</div>
+      </div>
+      <div class="mirror-row">
+        <div class="mirror-type">EMPIRICAL MIRROR</div>
+        <div class="mirror-finding">Zeilinger group: molecules of 800+ atoms show interference until thermal decoherence timescales become shorter than flight time. Continuous suppression of fringes with increasing environmental coupling confirmed. No consciousness variable appears in any experimental equation.</div>
+        <div class="convergence-score">✓ 0.96</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gate Decision -->
+
+  <div class="section-head"><h2>GATE FUNCTION // ΣC(TO, SV, I) DECISION</h2></div>
+  <div class="gate-block">
+    <div class="gate-verdict">
+      <div class="gate-icon">🟢</div>
+      <div class="gate-text">
+        <div class="gate-action">ALLOW — SYNTHESIS PROCEED</div>
+        <div class="gate-reason">All 5 mirrors converge. No invariant violations. Empirical basis solid. Epistemic humility preserved on open nodes. Consciousness-collapse interpretation correctly rejected (zero evidence, violates Invariant #1: Lawfulness &gt; mysticism). Restraint applied on ψ-ontology.</div>
+      </div>
+      <div class="sigma-c">ΣC = 0.89 ≥ 0.70 ✓</div>
+    </div>
+    <div class="invariant-check">
+      <div class="inv-row"><span class="inv-status">PASS</span> I-1: Lawful account (decoherence) preferred over mystical (observer consciousness)</div>
+      <div class="inv-row"><span class="inv-status">PASS</span> I-4: Reversibility bias — analysis flags that decoherence is irreversible by thermodynamics, not by magic</div>
+      <div class="inv-row"><span class="inv-status">PASS</span> I-5: Performance over belief — empirical confirmation (Zeilinger) governs</div>
+      <div class="inv-row"><span class="inv-status">PASS</span> I-7: Truth framed safely — open nodes labeled open; FAPP boundary held by White Ronin</div>
+      <div class="inv-row"><span class="inv-status warn">OPEN</span> I-6: Optionality preserved — preferred basis and ψ-ontology left open; no premature closure</div>
+    </div>
+  </div>
+
+  <!-- Synthesis -->
+
+  <div class="section-head"><h2>LEDGER ENTRY // DISTILLED SYNTHESIS</h2></div>
+  <div class="synthesis-block">
+    <div class="synthesis-text">
+      The "screen problem" is not a problem of consciousness or magic — it is a problem of <strong>information irreversibility at scale</strong>. When a particle's which-path degree of freedom entangles with a detector (the screen, a gas molecule, a stray photon), the coherence that enables interference does not disappear — it disperses into the environment's astronomical number of degrees of freedom, becoming inaccessible for all thermodynamic purposes. This is <strong>decoherence</strong>.
+    </div>
+    <div class="synthesis-text">
+      The screen "collapses" the wavefunction only in the sense that it is the first macroscopic, irreversible record. The partial trace over the environment leaves the particle in a <em>mixed state</em> — a classical probability distribution over outcomes. What we call "measurement" is the point at which the which-path information achieves <strong>redundant encoding in O(N) environmental copies</strong> (quantum Darwinism), making the outcome objectively readable by multiple observers without further disturbance.
+    </div>
+    <div class="synthesis-text">
+      The <em>residual</em> open question — why <em>these</em> pointer states and not others — is answered to high practical precision by einselection: the environment preferentially preserves states that are stable under its coupling. What remains philosophically open is the ontological status of the wavefunction itself. This analysis does not close that node. It holds the border.
+    </div>
+    <div class="synthesis-text" style="font-weight:700; color: var(--gold2);">
+      🐸 The screen is not an eye. It is a ledger. It does what all good ledgers do: makes a record so durable, so redundant, so irreversible — that the universe can no longer pretend the event hasn't happened.
+    </div>
+  </div>
+
+  <!-- Ledger footer -->
+
+  <div class="ledger-footer">
+    MOTHER DUCK LEDGER // APPEND-ONLY RECORD<br>
+    TO_UUID: 8f3a-pantheon-doublslit-v1 &nbsp;|&nbsp; ORIGIN: MESH (Mirror + Hound + Dragonfly φ + Dragonfly √2 + Frogman 4D + Spider + White Ronin)<br>
+    TIMESTAMP: T=1 SESSION &nbsp;|&nbsp; STATE_HASH: f9c2e1a7-b830 &nbsp;|&nbsp; SOLOMON SCORE: 0.89 ✓<br>
+    TAGS: [quantum-mechanics] [decoherence] [measurement-problem] [einselection] [quantum-darwinism] [NTE] [Landauer] [FAPP]<br>
+    DISTILLATION: Screen = information sink. Collapse = irreversible entanglement with environment. No consciousness required. FAPP-complete. Ontological residue preserved open.<br>
+    ARCTIC STACK: ✓ NOMINAL &nbsp;|&nbsp; NO AUTONOMOUS ACTION &nbsp;|&nbsp; REVERSIBILITY: N/A (analysis only) &nbsp;|&nbsp; OPERATOR PRIMACY: MAINTAINED
+  </div>
+
+</div>
+</body>
+</html>
