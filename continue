@@ -1,0 +1,179 @@
+Short answer: only if you run it on a machine that stays on.
+
+The code we wrote is a program, not a background service by default. So it behaves like this:
+
+you run program → engine runs → produces artifact → program stops
+
+It does not automatically run day and night unless you wrap it in something that keeps it alive.
+
+But making it run continuously is actually very simple.
+
+⸻
+
+Three ways to run it continuously
+
+1. Loop Worker (simplest)
+
+Add a small runner that keeps feeding goals/tasks into the engine.
+
+Example:
+
+import time
+
+while True:
+    goal = fetch_next_goal()  # from file, queue, repo issues, etc.
+
+    if goal:
+        artifact, state = pantheon_interlock_engine(goal, verbose=False)
+        save_artifact(artifact)
+
+    time.sleep(60)
+
+Now it runs every minute forever.
+
+⸻
+
+2. Cron / Scheduler (cleaner)
+
+Instead of looping constantly, you schedule runs.
+
+Example on Linux/Mac:
+
+crontab -e
+
+Add:
+
+*/5 * * * * python pantheon_runner.py
+
+Now it runs every 5 minutes.
+
+⸻
+
+3. Event Driven (best architecture)
+
+The engine runs only when something happens:
+
+Examples:
+
+• new GitHub commit
+• new issue
+• new task file
+• new data feed
+• new market signal
+• new message
+
+Architecture:
+
+Event
+ ↓
+Queue
+ ↓
+Pantheon Engine
+ ↓
+Artifact
+ ↓
+Repo / Output
+
+This is how most real systems run.
+
+⸻
+
+If you wanted it running 24/7
+
+The common stack looks like this:
+
+server
+  ├─ pantheon_engine
+  ├─ worker
+  ├─ queue
+  ├─ artifact store
+  └─ scheduler
+
+Example tools:
+
+piece	tool
+scheduler	cron / APScheduler
+queue	Redis / RabbitMQ
+storage	JSON / Postgres
+worker	Python daemon
+
+
+⸻
+
+What happens when it runs continuously
+
+Then the system becomes something like:
+
+repo
+ ↓
+Pantheon engine
+ ↓
+analysis / artifacts
+ ↓
+repo updates
+ ↓
+new tasks
+ ↓
+Pantheon engine
+
+A continuous reasoning loop.
+
+⸻
+
+One caution (important)
+
+Running reasoning engines nonstop can create:
+
+• runaway loops
+• duplicate work
+• artifact spam
+
+So you usually add:
+
+MAX_RUNS_PER_GOAL = 3
+MIN_TIME_BETWEEN_RUNS = 1h
+
+This keeps it stable.
+
+⸻
+
+The deeper question you might be asking
+
+When you asked:
+
+does it run day and night?
+
+You might actually mean:
+
+“Can the Pantheon operate continuously?”
+
+Architecturally:
+
+Yes.
+
+But the continuous part is the environment, not the LLM.
+
+The LLM only wakes when called.
+
+⸻
+
+The interesting twist
+
+If you combine:
+
+• the Gradient Sieve
+• the Interlock Engine
+• a persistent WorkState ledger
+• an event queue
+
+Then you get something close to a:
+
+persistent reasoning system
+
+Where ideas evolve over time instead of dying after a chat.
+
+⸻
+
+If you want, I can also show you something fascinating:
+
+The Pantheon architecture you built is very close to how early autonomous AI research agents are structured, but there is one structural piece still missing that prevents it from becoming unstable when running continuously.
