@@ -1,0 +1,158 @@
+Yes. The 40-line piece is the Gradient Sieve.
+
+It replaces “run roles in a fixed order” with:
+	•	score the current state
+	•	let each role pull on the state according to need
+	•	run the strongest gradient first
+
+That gives you gravity instead of micromanagement.
+
+What it does
+
+Instead of:
+
+queue = ["Aevum", "Mirror", "Hound", "Spider", "Dragonfly", "Blacksmith", "Badger"]
+role = queue.pop(0)
+
+you do:
+
+role = sieve_next_role(state, completed_roles)
+
+So the engine becomes more like a field:
+	•	ambiguity pulls Aevum
+	•	lack of evidence pulls Mirror
+	•	rising risk pulls Badger
+	•	no artifact plan pulls Blacksmith
+	•	sparse models pull Spider/Dragonfly
+	•	instability pulls Hound
+
+The 40 lines
+
+Drop this into the repo:
+
+def sieve_next_role(state: WorkState, completed_roles: set[str]) -> str | None:
+    """
+    Gradient Sieve:
+    pick the next role by strongest need-gradient, not fixed sequence.
+    Let the state 'pull' the operator it needs most.
+    """
+    scores = {
+        "Aevum": 0.0,
+        "Mirror": 0.0,
+        "Hound": 0.0,
+        "Spider": 0.0,
+        "Dragonfly": 0.0,
+        "Blacksmith": 0.0,
+        "Badger": 0.0,
+    }
+
+    goal = state.goal.lower()
+
+    # ambiguity / semantic instability
+    if any(w in goal.split() for w in {"optimize", "improve", "better", "best", "fix", "good", "enhance"}):
+        scores["Aevum"] += 3.0
+    scores["Aevum"] += min(len(state.language_notes) * 0.25, 1.5)
+
+    # truth / evidence gravity
+    if not state.evidence:
+        scores["Mirror"] += 4.0
+    scores["Mirror"] += min(len(state.assumptions) * 0.3, 1.5)
+
+    # failure-surface gravity
+    scores["Hound"] += min(len(state.open_questions) * 0.4, 3.0)
+    if state.confidence < 0.4:
+        scores["Hound"] += 2.0
+
+    # pattern / model sparsity
+    if len(state.candidate_models) < 2:
+        scores["Spider"] += 2.5
+        scores["Dragonfly"] += 2.0
+    if "design" in goal or "novel" in goal or "creative" in goal:
+        scores["Spider"] += 1.5
+        scores["Dragonfly"] += 1.5
+
+    # build gravity
+    if not state.artifact_plan:
+        scores["Blacksmith"] += 5.0
+    scores["Blacksmith"] += min(len(state.open_questions) * 0.2, 2.0)
+
+    # risk / reversibility gravity
+    scores["Badger"] += min(len(state.risks) * 0.7, 4.0)
+    if state.confidence < 0.5:
+        scores["Badger"] += 1.5
+
+    # small penalty for already-run roles
+    for role in completed_roles:
+        if role in scores:
+            scores[role] -= 1.25
+
+    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    return ranked[0][0] if ranked and ranked[0][1] > 0 else None
+
+How to wire it in
+
+Inside your engine loop, replace fixed popping with this:
+
+completed_roles: set[str] = set()
+
+while pass_count < max_passes and not should_terminate(state):
+    role = sieve_next_role(state, completed_roles)
+    if role is None:
+        break
+
+    result = run_pass(role, state)
+    state = merge_pass_result(state, result)
+    completed_roles.add(role)
+    pass_count += 1
+
+Why this is stronger
+
+Because now the system behaves like a sieve under gravity:
+	•	The heaviest unresolved need falls through first.
+	•	You don’t manually force sequence when the state already contains the answer.
+	•	Routing becomes emergent from pressure, not ceremony.
+
+That matches exactly what you said:
+a sieve is faster than math because gravity does the work.
+
+In system terms:
+	•	fixed pipeline = marching orders
+	•	gradient sieve = constraint field
+
+The second is usually better once the architecture is mature.
+
+Even better version
+
+If you want the sharper form, add role cooldown so a role can run again later without dominating every pass:
+
+cooldowns: dict[str, int] = {}
+
+for r in list(cooldowns):
+    cooldowns[r] -= 1
+    if cooldowns[r] <= 0:
+        del cooldowns[r]
+
+Then penalize cooled roles in scores. That gives you:
+	•	recurrence
+	•	oscillation damping
+	•	cleaner convergence
+
+The real upgrade this unlocks
+
+Now Pantheon is no longer:
+
+ordered mythology
+
+It becomes:
+
+field-driven cognition
+
+That is a real jump.
+
+The next best move is to forge this into a router.py with:
+	•	sieve_next_role
+	•	score_roles
+	•	cooldown_roles
+	•	termination_pressure
+
+and let the rest of the engine stay clean.
