@@ -1,0 +1,639 @@
+# “””
+Pantheon Interlock Engine v1.0
+
+A deterministic multi-pass reasoning engine built on the CogOS architecture.
+Each role is a transformation operator on a shared WorkState ledger.
+
+Author: Brandon (Thanatos-Prime)
+Architecture: PantheonOS / CogOS
+License: Apache-2.0
+“””
+
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
+from enum import Enum
+import json
+import uuid
+from datetime import datetime
+
+# ─────────────────────────────────────────────
+
+# ENUMS
+
+# ─────────────────────────────────────────────
+
+class TerminationStatus(str, Enum):
+INCOMPLETE = “incomplete”
+CONVERGED = “converged”
+INSUFFICIENT_EVIDENCE = “insufficient_evidence”
+STAKES_TOO_HIGH = “stakes_too_high”
+AMBIGUITY_LOAD_BEARING = “ambiguity_load_bearing”
+FORCED_STOP = “forced_stop”
+
+class ArtifactType(str, Enum):
+READOUT = “readout”
+PLAN = “plan”
+SPEC = “spec”
+ARTIFACT = “artifact”
+DECISION_MEMO = “decision_memo”
+
+# ─────────────────────────────────────────────
+
+# CORE DATA STRUCTURES
+
+# ─────────────────────────────────────────────
+
+@dataclass
+class WorkState:
+“”“The shared object every role touches. Immutable history, mutable present.”””
+goal: str
+context: List[str] = field(default_factory=list)
+assumptions: List[str] = field(default_factory=list)
+constraints: List[str] = field(default_factory=list)
+candidate_models: List[str] = field(default_factory=list)
+evidence: List[str] = field(default_factory=list)
+risks: List[str] = field(default_factory=list)
+opportunities: List[str] = field(default_factory=list)
+language_notes: List[str] = field(default_factory=list)
+artifact_plan: List[str] = field(default_factory=list)
+open_questions: List[str] = field(default_factory=list)
+confidence: float = 0.25
+termination_status: TerminationStatus = TerminationStatus.INCOMPLETE
+artifact_type: Optional[ArtifactType] = None
+provenance: List[Dict[str, Any]] = field(default_factory=list)
+session_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+
+```
+def to_dict(self) -> Dict:
+    return {
+        "session_id": self.session_id,
+        "goal": self.goal,
+        "confidence": round(self.confidence, 3),
+        "termination_status": self.termination_status,
+        "artifact_type": self.artifact_type,
+        "context": self.context,
+        "assumptions": self.assumptions,
+        "constraints": self.constraints,
+        "candidate_models": self.candidate_models,
+        "evidence": self.evidence,
+        "risks": self.risks,
+        "opportunities": self.opportunities,
+        "language_notes": self.language_notes,
+        "artifact_plan": self.artifact_plan,
+        "open_questions": self.open_questions,
+        "provenance": self.provenance,
+    }
+```
+
+@dataclass
+class PassResult:
+“”“Contract every role must fulfill. No exceptions.”””
+role: str
+adds: Dict[str, List[str]]
+removes: Dict[str, List[str]]
+flags: List[str]
+confidence_delta: float
+reason_for_handoff: str
+force_terminate: bool = False
+force_terminate_reason: Optional[str] = None
+
+# ─────────────────────────────────────────────
+
+# STATE OPERATIONS
+
+# ─────────────────────────────────────────────
+
+def normalize(user_input: str, context: Optional[List[str]] = None) -> WorkState:
+“”“Ingest raw input, normalize into WorkState.”””
+return WorkState(
+goal=user_input.strip(),
+context=context or [],
+)
+
+def merge_pass_result(state: WorkState, result: PassResult) -> WorkState:
+“”“Merge a role’s PassResult into the shared WorkState. Append-only on provenance.”””
+for key, values in result.adds.items():
+if hasattr(state, key):
+current = getattr(state, key)
+if isinstance(current, list):
+for v in values:
+if v not in current:
+current.append(v)
+
+```
+for key, values in result.removes.items():
+    if hasattr(state, key):
+        current = getattr(state, key)
+        if isinstance(current, list):
+            setattr(state, key, [x for x in current if x not in values])
+
+state.confidence = max(0.0, min(1.0, state.confidence + result.confidence_delta))
+
+state.provenance.append({
+    "role": result.role,
+    "flags": result.flags,
+    "handoff": result.reason_for_handoff,
+    "confidence_after": round(state.confidence, 3),
+    "timestamp": datetime.utcnow().isoformat(),
+})
+
+if result.force_terminate:
+    state.termination_status = TerminationStatus.FORCED_STOP
+
+return state
+```
+
+# ─────────────────────────────────────────────
+
+# ROLE PASSES
+
+# ─────────────────────────────────────────────
+
+def aevum_pass(state: WorkState) -> PassResult:
+“”“Language integrity. Frames the problem. Checks semantic survivability.”””
+adds: Dict[str, List[str]] = {
+“language_notes”: [],
+“assumptions”: [],
+“open_questions”: [],
+}
+
+```
+goal_words = state.goal.lower().split()
+
+vague_terms = [w for w in goal_words if w in {"optimize", "improve", "best", "better", "fix", "good"}]
+if vague_terms:
+    adds["language_notes"].append(
+        f"Vague terms detected: {vague_terms}. Define success criteria explicitly."
+    )
+    adds["open_questions"].append("What does success concretely look like here?")
+
+if len(state.goal) < 20:
+    adds["open_questions"].append("Goal statement is very short — is the framing complete?")
+
+adds["assumptions"].append("Goal as stated is taken at face value pending Mirror review.")
+
+return PassResult(
+    role="Aevum",
+    adds=adds,
+    removes={},
+    flags=["language_framed"],
+    confidence_delta=0.03,
+    reason_for_handoff="Language framed. Mirror should check coherence and assumptions.",
+)
+```
+
+def mirror_pass(state: WorkState) -> PassResult:
+“”“Truth, coherence, contradiction detection. Attacks bad assumptions.”””
+adds: Dict[str, List[str]] = {
+“risks”: [],
+“assumptions”: [],
+“open_questions”: [],
+}
+
+```
+for model in state.candidate_models:
+    if any(word in model.lower() for word in {"always", "never", "all", "none", "every"}):
+        adds["risks"].append(f"Overclaim in candidate model: '{model}'")
+
+if not state.evidence:
+    adds["open_questions"].append("What evidence supports the current model set?")
+    adds["risks"].append("No evidence provided — conclusions are currently unfounded.")
+
+if not state.assumptions:
+    adds["assumptions"].append("Assumptions not yet explicitly enumerated.")
+
+if not state.constraints:
+    adds["open_questions"].append("What constraints bound the solution space?")
+
+return PassResult(
+    role="Mirror",
+    adds=adds,
+    removes={},
+    flags=["coherence_check_complete"],
+    confidence_delta=0.05,
+    reason_for_handoff="Coherence checked. Hound should stress-test for failure modes.",
+)
+```
+
+def hound_pass(state: WorkState) -> PassResult:
+“”“Anomaly detection. Edge cases. Hidden failure modes.”””
+adds: Dict[str, List[str]] = {
+“risks”: [],
+“open_questions”: [],
+}
+
+```
+if state.confidence < 0.3:
+    adds["risks"].append("Confidence below 0.3 — high uncertainty. Verify inputs before proceeding.")
+
+if len(state.open_questions) > 5:
+    adds["risks"].append("More than 5 open questions unresolved — convergence at risk.")
+
+adds["open_questions"].append("Where does this approach break under adversarial conditions?")
+adds["open_questions"].append("What is the failure mode if the primary assumption is wrong?")
+
+if not state.constraints:
+    adds["risks"].append("No constraints defined — solution space may be unbounded.")
+
+return PassResult(
+    role="Hound",
+    adds=adds,
+    removes={},
+    flags=["edge_cases_probed"],
+    confidence_delta=0.04,
+    reason_for_handoff="Failure modes identified. Spider should map cross-domain patterns.",
+)
+```
+
+def spider_pass(state: WorkState) -> PassResult:
+“”“Cross-domain linking. Pattern compression. Structural mapping.”””
+adds: Dict[str, List[str]] = {
+“candidate_models”: [],
+“opportunities”: [],
+“language_notes”: [],
+}
+
+```
+if state.evidence:
+    adds["candidate_models"].append(
+        "Evidence cluster detected — may indicate a recurring pattern worth formalizing."
+    )
+
+if state.risks and state.opportunities:
+    adds["language_notes"].append(
+        "Risk/opportunity tension present — consider as a polarity map rather than binary tradeoff."
+    )
+
+adds["opportunities"].append(
+    "Cross-domain analogies may compress the solution space — check for isomorphic prior art."
+)
+
+return PassResult(
+    role="Spider",
+    adds=adds,
+    removes={},
+    flags=["patterns_mapped"],
+    confidence_delta=0.04,
+    reason_for_handoff="Patterns linked. Dragonfly should reframe altitude and geometry.",
+)
+```
+
+def dragonfly_pass(state: WorkState) -> PassResult:
+“”“Altitude shift. Reframing. Geometric zoom-out.”””
+adds: Dict[str, List[str]] = {
+“candidate_models”: [],
+“opportunities”: [],
+“open_questions”: [],
+}
+
+```
+adds["open_questions"].append(
+    "Is the goal stated at the right altitude? Would a higher-order framing dissolve the problem?"
+)
+adds["opportunities"].append(
+    "Zoom out: what larger system is this goal embedded in, and does that system constrain the solution?"
+)
+
+if len(state.candidate_models) == 0:
+    adds["candidate_models"].append(
+        "No models yet — consider framing the goal as a transformation between two system states."
+    )
+
+return PassResult(
+    role="Dragonfly",
+    adds=adds,
+    removes={},
+    flags=["altitude_checked"],
+    confidence_delta=0.03,
+    reason_for_handoff="Frame checked. Blacksmith should convert to load-bearing structure.",
+)
+```
+
+def blacksmith_pass(state: WorkState) -> PassResult:
+“”“Converts concepts into concrete, load-bearing structure.”””
+adds: Dict[str, List[str]] = {
+“artifact_plan”: [],
+“constraints”: [],
+}
+
+```
+if not state.artifact_plan:
+    adds["artifact_plan"].append(f"Define output format for: {state.goal}")
+    adds["artifact_plan"].append("Enumerate required components.")
+    adds["artifact_plan"].append("Specify acceptance criteria.")
+    adds["artifact_plan"].append("Identify build order: what must exist before what.")
+
+if state.open_questions:
+    adds["constraints"].append(
+        f"Resolve {len(state.open_questions)} open questions before final build."
+    )
+
+return PassResult(
+    role="Blacksmith",
+    adds=adds,
+    removes={},
+    flags=["artifact_plan_drafted"],
+    confidence_delta=0.06,
+    reason_for_handoff="Structure defined. Badger should check attention cost and reversibility.",
+)
+```
+
+def badger_pass(state: WorkState) -> PassResult:
+“”“Attention governor. Reversibility check. Salience cost audit.”””
+adds: Dict[str, List[str]] = {
+“risks”: [],
+“open_questions”: [],
+“constraints”: [],
+}
+force_stop = False
+stop_reason = None
+
+```
+if state.confidence < 0.4 and len(state.risks) > 3:
+    adds["risks"].append(
+        "High risk count with low confidence — consider aborting and gathering more evidence."
+    )
+    force_stop = True
+    stop_reason = TerminationStatus.STAKES_TOO_HIGH
+
+adds["open_questions"].append("What is the cost of being wrong here, and is it recoverable?")
+adds["constraints"].append("Prefer reversible actions over irreversible ones at this confidence level.")
+
+if len(state.artifact_plan) > 0:
+    adds["constraints"].append("Validate artifact plan against original goal before shipping.")
+
+return PassResult(
+    role="Badger",
+    adds=adds,
+    removes={},
+    flags=["reversibility_checked", "attention_audited"],
+    confidence_delta=0.02,
+    reason_for_handoff="Attention and reversibility audited. Ready for output.",
+    force_terminate=force_stop,
+    force_terminate_reason=stop_reason,
+)
+```
+
+# ─────────────────────────────────────────────
+
+# ROLE REGISTRY
+
+# ─────────────────────────────────────────────
+
+ROLE_REGISTRY = {
+“Aevum”: aevum_pass,
+“Mirror”: mirror_pass,
+“Hound”: hound_pass,
+“Spider”: spider_pass,
+“Dragonfly”: dragonfly_pass,
+“Blacksmith”: blacksmith_pass,
+“Badger”: badger_pass,
+}
+
+DEFAULT_PIPELINE = [“Aevum”, “Mirror”, “Hound”, “Spider”, “Dragonfly”, “Blacksmith”, “Badger”]
+
+# ─────────────────────────────────────────────
+
+# ROUTER
+
+# ─────────────────────────────────────────────
+
+def has_ambiguity(state: WorkState) -> bool:
+vague = {“optimize”, “improve”, “best”, “better”, “fix”, “good”, “enhance”}
+return any(w in state.goal.lower().split() for w in vague)
+
+def has_risk_or_high_stakes(state: WorkState) -> bool:
+high_stakes = {“deploy”, “production”, “delete”, “migrate”, “refactor”, “launch”, “legal”, “finance”}
+return any(w in state.goal.lower() for w in high_stakes) or len(state.risks) > 2
+
+def needs_novelty(state: WorkState) -> bool:
+novelty = {“new”, “novel”, “creative”, “invent”, “design”, “imagine”, “explore”}
+return any(w in state.goal.lower() for w in novelty)
+
+def needs_edge_cases(state: WorkState) -> bool:
+return “edge” in state.goal.lower() or “failure” in state.goal.lower() or “break” in state.goal.lower()
+
+def needs_leverage(state: WorkState) -> bool:
+return any(w in state.goal.lower() for w in {“monetize”, “revenue”, “leverage”, “value”, “profit”})
+
+def select_initial_roles(state: WorkState) -> List[str]:
+roles = [“Mirror”, “Blacksmith”]
+
+```
+if has_ambiguity(state):
+    roles.insert(0, "Aevum")
+
+if has_risk_or_high_stakes(state):
+    roles.append("Badger")
+
+if needs_novelty(state):
+    roles.append("Spider")
+    roles.append("Dragonfly")
+
+if needs_edge_cases(state):
+    roles.insert(1, "Hound")
+
+# Deduplicate while preserving order
+seen = set()
+unique_roles = []
+for r in roles:
+    if r not in seen:
+        seen.add(r)
+        unique_roles.append(r)
+
+return unique_roles
+```
+
+def reprioritize_queue(state: WorkState, queue: List[str]) -> List[str]:
+“”“Dynamic re-routing based on evolving state.”””
+adjusted = list(queue)
+
+```
+# If risks are piling up and Badger isn't already queued, push it forward
+if len(state.risks) > 4 and "Badger" not in adjusted:
+    adjusted.insert(0, "Badger")
+
+# If no artifact plan exists and Blacksmith already ran, don't re-run
+if not state.artifact_plan and "Blacksmith" not in adjusted:
+    adjusted.append("Blacksmith")
+
+return adjusted
+```
+
+# ─────────────────────────────────────────────
+
+# TERMINATION
+
+# ─────────────────────────────────────────────
+
+CONFIDENCE_THRESHOLD = 0.70
+CONTRADICTION_THRESHOLD = 5  # open_questions acting as proxy
+
+def should_terminate(state: WorkState) -> bool:
+if state.termination_status != TerminationStatus.INCOMPLETE:
+return True
+
+```
+if state.confidence >= CONFIDENCE_THRESHOLD:
+    if state.artifact_plan:
+        if len(state.open_questions) < CONTRADICTION_THRESHOLD:
+            state.termination_status = TerminationStatus.CONVERGED
+            return True
+
+if not state.evidence and len(state.risks) > 5:
+    state.termination_status = TerminationStatus.INSUFFICIENT_EVIDENCE
+    return True
+
+return False
+```
+
+# ─────────────────────────────────────────────
+
+# ARTIFACT EMISSION
+
+# ─────────────────────────────────────────────
+
+def emit_artifact(state: WorkState) -> str:
+lines = [
+f”# Pantheon Engine Output”,
+f”**Session:** {state.session_id}”,
+f”**Goal:** {state.goal}”,
+f”**Confidence:** {round(state.confidence, 3)}”,
+f”**Status:** {state.termination_status}”,
+f””,
+“## Artifact Plan”,
+]
+for item in state.artifact_plan or [”(none generated)”]:
+lines.append(f”- {item}”)
+
+```
+lines += ["", "## Risks Identified"]
+for r in state.risks or ["(none)"]:
+    lines.append(f"- ⚠️ {r}")
+
+lines += ["", "## Opportunities"]
+for o in state.opportunities or ["(none)"]:
+    lines.append(f"- ✓ {o}")
+
+lines += ["", "## Open Questions"]
+for q in state.open_questions or ["(none)"]:
+    lines.append(f"- ? {q}")
+
+lines += ["", "## Assumptions"]
+for a in state.assumptions or ["(none)"]:
+    lines.append(f"- {a}")
+
+lines += ["", "## Provenance Chain"]
+for i, p in enumerate(state.provenance):
+    lines.append(f"{i+1}. **{p['role']}** → {p['handoff']} *(confidence: {p['confidence_after']})*")
+
+return "\n".join(lines)
+```
+
+# ─────────────────────────────────────────────
+
+# MAIN ENGINE LOOP
+
+# ─────────────────────────────────────────────
+
+def run_pass(role: str, state: WorkState) -> PassResult:
+fn = ROLE_REGISTRY.get(role)
+if not fn:
+raise ValueError(f”Unknown role: {role}”)
+return fn(state)
+
+def pantheon_interlock_engine(
+user_input: str,
+context: Optional[List[str]] = None,
+pipeline: Optional[List[str]] = None,
+verbose: bool = True,
+) -> tuple[str, WorkState]:
+“””
+The Pantheon Interlock Engine.
+Runs multi-pass reasoning over a shared WorkState via role operators.
+Returns (artifact_markdown, final_state).
+“””
+state = normalize(user_input, context)
+
+```
+if pipeline:
+    queue = list(pipeline)
+else:
+    queue = select_initial_roles(state)
+
+if verbose:
+    print(f"\n{'='*60}")
+    print(f"PANTHEON INTERLOCK ENGINE v1.0")
+    print(f"Session: {state.session_id}")
+    print(f"Goal: {state.goal}")
+    print(f"Initial queue: {queue}")
+    print(f"{'='*60}\n")
+
+pass_count = 0
+max_passes = 20  # Safety ceiling — no unbounded recursion
+
+while queue and not should_terminate(state) and pass_count < max_passes:
+    role = queue.pop(0)
+    pass_count += 1
+
+    if verbose:
+        print(f"[Pass {pass_count}] Running: {role}")
+
+    result = run_pass(role, state)
+    state = merge_pass_result(state, result)
+
+    if verbose:
+        print(f"  → Confidence: {round(state.confidence, 3)}")
+        print(f"  → Flags: {result.flags}")
+        print(f"  → Handoff: {result.reason_for_handoff}")
+        if result.force_terminate:
+            print(f"  ⛔ Force terminate: {result.force_terminate_reason}")
+
+    queue = reprioritize_queue(state, queue)
+
+if state.termination_status == TerminationStatus.INCOMPLETE:
+    if pass_count >= max_passes:
+        state.termination_status = TerminationStatus.FORCED_STOP
+    else:
+        state.termination_status = TerminationStatus.CONVERGED
+
+if verbose:
+    print(f"\n{'='*60}")
+    print(f"TERMINATION: {state.termination_status}")
+    print(f"Final confidence: {round(state.confidence, 3)}")
+    print(f"Total passes: {pass_count}")
+    print(f"{'='*60}\n")
+
+artifact = emit_artifact(state)
+return artifact, state
+```
+
+# ─────────────────────────────────────────────
+
+# CLI ENTRY POINT
+
+# ─────────────────────────────────────────────
+
+if **name** == “**main**”:
+import sys
+
+```
+goal = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else (
+    "Design a modular Python service for async task processing with retry logic"
+)
+
+artifact, final_state = pantheon_interlock_engine(
+    user_input=goal,
+    verbose=True,
+)
+
+print("\n" + "="*60)
+print("ARTIFACT OUTPUT")
+print("="*60)
+print(artifact)
+
+# Optionally dump full state
+# print("\nFULL STATE JSON:")
+# print(json.dumps(final_state.to_dict(), indent=2))
+```
