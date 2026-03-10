@@ -1,0 +1,423 @@
+# Chalklight: Product Specification
+
+*An AI math notebook where your handwriting becomes a living lesson*
+
+-----
+
+## One-Sentence Pitch
+
+Chalklight is an AI math notebook where your handwriting becomes a living lesson: it reads your work, edits the page with you, animates each step inline, and saves a replayable record of how the solution unfolded.
+
+-----
+
+## Core Insight
+
+Most math tools show you `State₀` and `Stateₙ` — the problem and the answer.
+
+Chalklight shows you `State₀ → State₁ → … → Stateₙ` — the **transformation sequence** — with each step made visible, animated, and reversible.
+
+**Mathematical understanding lives in the transition, not the state.**
+
+The page itself becomes a dynamic teacher. Help does not arrive in a separate window — it arrives inside the same symbolic surface where the thinking happened.
+
+-----
+
+## Design Principles
+
+1. **Preserve authorship.** The user’s ink matters. AI does not replace their work with sterile typeset math unless asked.
+1. **Show transformations, not just outcomes.** Every step has a visual grammar.
+1. **Keep reversibility sacred.** All AI edits are undoable.
+1. **Layer intuition with rigor.** “Why” and “how” are both available on demand.
+1. **Adapt to skill level.** A child, a college student, and a researcher use the same surface differently.
+
+-----
+
+## Modes
+
+### Ink Mode
+
+Pure handwriting and sketching.
+
+- Stylus-first, freeform
+- Symbols, diagrams, arrows, annotations
+- AI stays quiet unless invited
+
+### Tutor Mode
+
+The page becomes interactive.
+
+- Animate next step
+- Show hint
+- Ask guiding question
+- Detect likely misconception
+- Offer alternate methods
+
+### Edit Mode
+
+AI can rewrite or clean the page.
+
+- Straighten layout
+- Convert handwriting to formatted math
+- Move terms, align equations
+- Insert missing steps
+- Preserve original as ghost layer (always undoable)
+
+### Replay Mode
+
+Every page is a movie.
+
+- Scrub timeline
+- See every stroke and AI intervention
+- Replay solution at different speeds
+- Optional narration
+
+### Proof Mode
+
+For advanced users.
+
+- Formalize steps
+- Tag assumptions
+- Verify logical validity
+- Convert to structured proof tree
+
+-----
+
+## The Animation Engine
+
+This is the heart of Chalklight. Every symbolic transformation has a **visual verb**:
+
+|Operation                |Animation                        |
+|-------------------------|---------------------------------|
+|Substitution             |Fade out / fade in replacement   |
+|Term migration across `=`|Slide with sign flip             |
+|Cancellation             |Dissolve                         |
+|Factoring                |Pull-together grouping           |
+|Expansion                |Bloom outward                    |
+|Completing the square    |Geometric fill                   |
+|Derivative               |Slope line sweeping the curve    |
+|Integral                 |Area accumulating under the curve|
+|Proof dependency         |Connective highlight             |
+
+Not decoration. The animation **is** the semantic layer made kinetic.
+
+-----
+
+## Example Workflow
+
+User writes:
+
+```
+2x + 5 = 17
+```
+
+AI animates:
+
+1. Circles `+5`
+1. Fades it from left side
+1. Slides `-5` onto both sides simultaneously
+1. Simplifies in place → `2x = 12`
+1. Highlights the invariant: *“same operation on both sides”*
+1. Divides both sides by 2 → `x = 6`
+1. Offers: *“Want to check by substitution?”*
+
+The lesson happens **on the user’s own page**. No separate answer box. No context switch.
+
+-----
+
+## Example Workflow: Calculus
+
+User writes:
+
+```
+Find the derivative of x² sin x
+```
+
+AI response (on page):
+
+1. Adds faint badge: `Product Rule candidate`
+1. User taps badge
+1. Page splits expression: `u = x²`, `v = sin x`
+1. Shows formula: `(uv)' = u'v + uv'`
+1. Substitutes step by step
+1. Highlights result: `2x sin x + x² cos x`
+1. Offers: *“Want a geometric intuition too?”*
+
+Both procedural and conceptual paths are available.
+
+-----
+
+## UX Architecture
+
+### Main Canvas
+
+Infinite notebook page with layered rendering:
+
+|Layer               |Contents                     |
+|--------------------|-----------------------------|
+|Ink layer           |Raw strokes, pressure, timing|
+|Math structure layer|Parsed symbol tree           |
+|AI annotation layer |Hints, callouts, color-coding|
+|Animation layer     |Step transitions             |
+|Timeline layer      |Semantic checkpoints         |
+
+### Right Rail (controls)
+
+- Hint
+- Next Step
+- Explain Why
+- Show Alternate Path
+- Clean Page
+- Replay
+- Save Checkpoint
+
+### Bottom Timeline
+
+Scrubber with semantic checkpoints:
+
+- “problem written”
+- “subtracted 5”
+- “isolated x”
+- “checked answer”
+
+### Margin Intelligence
+
+Active margins, like a tutor’s notes:
+
+- *“This looks like a quadratic.”*
+- *“Try factoring before quadratic formula.”*
+- *“Same pattern as page 12.”*
+- *“Careful: sign error here.”*
+
+-----
+
+## Technical Architecture
+
+### Layer 1: Ink Capture
+
+- High-frequency stylus sampling
+- Vector strokes (not bitmap)
+- Pressure and timing preserved
+- Optional shape snapping
+
+### Layer 2: Math Recognition Engine
+
+Converts handwriting to:
+
+- Symbol set
+- 2D spatial layout
+- Expression tree
+- Diagram objects
+
+Must parse **mathematical structure**, not just OCR characters. Spatial relationships (fractions, exponents, matrices) are structurally meaningful.
+
+### Layer 3: Semantic Math Engine
+
+Understands:
+
+- Algebraic equivalence
+- Transformation legality (which moves are valid)
+- Theorem patterns
+- Proof dependencies
+- Geometry relationships
+- Unit consistency
+
+### Layer 4: Tutor Planner
+
+Decides intervention strategy:
+
+- Minimal hint vs. next step vs. full derivation
+- Alternate strategy suggestion
+- Misconception diagnosis
+- Pacing adaptation
+
+### Layer 5: Animation Engine
+
+Executes the visual grammar of transformations (see table above). Each operation type has a defined animation primitive.
+
+### Layer 6: Knowledge Memory
+
+Learns the user over time:
+
+- Topics they struggle with
+- Common error patterns
+- Preferred explanation style (intuition-first vs. rigor-first)
+- Pace preferences
+- What analogies land for them
+
+### Layer 7: Version Ledger
+
+Every page state is stored as a `ρ`-tuple:
+
+```
+⟨Transform : State_i, State_{i+1}, op, justification, timestamp⟩
+```
+
+This means:
+
+- Any state is fully reversible
+- AI edits can be undone
+- Solution branches can be compared
+- Two different solution paths can be tested for structural analogy (`~`)
+
+-----
+
+## Semantic Save Format
+
+Each save state stores:
+
+|Field               |Contents                          |
+|--------------------|----------------------------------|
+|`ink_raw`           |Raw vector strokes                |
+|`symbols`           |Recognized math structure         |
+|`parse_tree`        |Expression/proof tree             |
+|`intent`            |Inferred problem goal             |
+|`transformation_log`|Ordered list of operations applied|
+|`mistake_history`   |Flagged error patterns            |
+|`confidence`        |Per-step recognition confidence   |
+|`user_metadata`     |Pace, style, struggle topics      |
+
+This is not a file save. It is a **meaning save** — the page can be intelligently resumed.
+
+-----
+
+## Error-Aware Tutoring
+
+Chalklight detects patterns across sessions, not just single mistakes.
+
+Not: *“Wrong.”*
+
+But: *“You’re making the right kind of move. The sign flipped because you divided by a negative here — this is the third time this pattern has appeared.”*
+
+Misconception diagnosis targets common failure modes:
+
+- Sign errors under division
+- Incorrect distribution
+- Dropped terms during expansion
+- Order-of-operations mistakes
+- Geometry labeling errors
+
+-----
+
+## Stretch Features
+
+### Geometry Mode
+
+Draw a triangle by hand. AI recognizes it, labels points, computes measurements, and can animate proofs.
+
+### Physics Mode
+
+Write equations with units and force diagrams. AI tracks dimensional consistency and can animate vectors, fields, and motion.
+
+### Word Problem Mode
+
+User writes messy natural-language problem text. AI extracts entities, constants, and assumptions — then turns it into structured math on the same page. (Translation engine: reality → solvable form.)
+
+### Video-From-Page
+
+Tap “teach this.” The pad generates a short lesson video from the current page:
+
+- Cleaned visuals
+- Step-by-step animation
+- Optional voiceover
+- Exportable
+
+### Collaborative Mode
+
+Student and tutor edit the same live page. Or student replays the teacher’s reasoning after class.
+
+### Exam Mode
+
+No answer reveal. Legal hints only. Misconception flags enabled. Timer optional.
+
+-----
+
+## MVP Scope (90-Day Target)
+
+### Month 1: Core Canvas
+
+- [ ] Ink capture with vector strokes
+- [ ] Basic handwriting recognition for algebra expressions
+- [ ] Manual “next step” button triggering AI completion
+- [ ] Simple step animation (fade/replace)
+- [ ] Checkpoint save/load
+
+### Month 2: Tutor Layer
+
+- [ ] Margin hints and callouts
+- [ ] Misconception detection for 5 common algebra errors
+- [ ] Replay mode (scrubber + timeline)
+- [ ] Ghost layer for preserved original ink
+- [ ] “Explain why” for each step
+
+### Month 3: Memory + Polish
+
+- [ ] User knowledge profile (struggle topics, pace)
+- [ ] Cross-page pattern recognition (“same as page 12”)
+- [ ] Product Rule / Chain Rule animation primitives for calculus
+- [ ] Export: cleaned PDF, video-from-page (basic)
+- [ ] Proof mode skeleton
+
+-----
+
+## Market Entry
+
+**Beachhead:** Algebra and calculus students on tablets (iPad, Surface).
+
+**Entry wedges:**
+
+- Tutoring centers
+- Homeschool networks
+- AP/IB test prep
+- College calculus supplemental tool
+
+**Expansion path:**
+
+- Engineering notebook
+- Research scratchpad
+- Proof assistant (formal verification adjacent)
+- Scientific whiteboard
+- Quantitative copilot for professionals
+
+-----
+
+## The Deeper Architecture
+
+Chalklight is a **domain-specific instance of a meaning engine**.
+
+Under the hood, every step is not just a math transformation — it is a logged **relational event**:
+
+```
+⟨Transform : State_i, State_{i+1}, operation, justification, t⟩
+```
+
+This means Chalklight secretly implements the [Relation Algebra](./relation_algebra_spec.md):
+
+- Every derivation is a relation sequence
+- Two proofs can be compared via structural analogy (`~`)
+- Errors are constraint violations (`⊥`)
+- The ledger is a relation field, not a flat log
+
+Chalklight does for math what the Stitching Layer does for language: surface form on top, relational structure underneath, transformations logged as meaningful operations.
+
+**The smart pad is a meaning engine for mathematics.**
+
+-----
+
+## Connection to PantheonOS
+
+|Chalklight             |PantheonOS                         |
+|-----------------------|-----------------------------------|
+|Step transformation log|ThoughtObject ledger               |
+|Tutor planner          |Daemon stack                       |
+|Misconception detection|Hound daemon                       |
+|Ghost layer / undo     |Reversibility invariant            |
+|User knowledge profile |StateVector                        |
+|Analogy detection (`~`)|Hogge Rotational Isomorphism       |
+|Exam mode constraints  |Ethics gate / invariant enforcement|
+
+Chalklight is a PantheonOS application. The math pad is a narrow, consumer-facing expression of the full cognitive architecture.
+
+-----
+
+*Part of the PantheonOS research corpus. Apache-2.0 + commercial dual license.*
+*github.com/Thanatos-Prime/pantheon-prime*
