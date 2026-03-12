@@ -1,0 +1,346 @@
+“””
+Pantheon Semantic Coordinate Layer
+query.py — Four-pass semantic query resolver
+
+Resolution passes:
+
+1. Direct match   — exact node names, aliases, compression phrases
+1. Invariant match — nodes sharing similar core invariant
+1. Neighborhood expansion — neighbors, opposites, related doctrines
+1. Transfer expansion — known mappings into other domains
+
+Silence is a valid state. If no pass finds a stable match,
+the resolver returns a structured null result rather than a weak guess.
+“””
+
+from **future** import annotations
+from dataclasses import dataclass, field
+from typing import Optional
+import yaml
+import os
+
+from similarity import NodeRecord, load_nodes_from_directory, _token_overlap
+
+# —————————————————————————
+
+# Match types
+
+# —————————————————————————
+
+MATCH_DIRECT = “direct”
+MATCH_INVARIANT = “invariant”
+MATCH_NEIGHBORHOOD = “neighborhood”
+MATCH_TRANSFER = “transfer”
+MATCH_NONE = “no_stable_match”
+
+# —————————————————————————
+
+# Result objects
+
+# —————————————————————————
+
+@dataclass
+class QueryMatch:
+node_id: str
+node_name: str
+match_type: str
+confidence: float
+reason: str
+
+@dataclass
+class QueryResult:
+query: str
+matches: list[QueryMatch] = field(default_factory=list)
+status: str = MATCH_NONE  # no_stable_match | weak_analogy_only | draft_relation | resolved
+notes: str = “”
+
+```
+def resolved(self) -> bool:
+    return self.status == "resolved"
+
+def best(self) -> Optional[QueryMatch]:
+    if not self.matches:
+        return None
+    return sorted(self.matches, key=lambda m: m.confidence, reverse=True)[0]
+
+def explain(self) -> str:
+    lines = [f'Query: "{self.query}"', f"Status: {self.status}"]
+    if self.notes:
+        lines.append(f"Notes: {self.notes}")
+    lines.append("")
+    if not self.matches:
+        lines.append("  No matches found.")
+    else:
+        for m in sorted(self.matches, key=lambda x: x.confidence, reverse=True):
+            lines.append(
+                f"  [{m.match_type:15s}]  {m.confidence:.2f}  {m.node_name}  — {m.reason}"
+            )
+    return "\n".join(lines)
+```
+
+# —————————————————————————
+
+# Pass 1: Direct match
+
+# —————————————————————————
+
+def _normalize(s: str) -> str:
+return s.lower().strip()
+
+def pass_direct(query: str, nodes: list[NodeRecord]) -> list[QueryMatch]:
+“””
+Exact or near-exact match against name, id, aliases, compression_phrase.
+“””
+q = _normalize(query)
+matches = []
+
+```
+for node in nodes:
+    targets = [
+        _normalize(node.name),
+        _normalize(node.id),
+        _normalize(node.compression_phrase),
+    ] + [_normalize(a) for a in node.aliases]
+
+    for target in targets:
+        if q == target:
+            matches.append(QueryMatch(
+                node_id=node.id,
+                node_name=node.name,
+                match_type=MATCH_DIRECT,
+                confidence=1.0,
+                reason=f"exact match on '{target}'"
+            ))
+            break
+        elif q in target or target in q:
+            matches.append(QueryMatch(
+                node_id=node.id,
+                node_name=node.name,
+                match_type=MATCH_DIRECT,
+                confidence=0.85,
+                reason=f"substring match on '{target}'"
+            ))
+            break
+
+return matches
+```
+
+# —————————————————————————
+
+# Pass 2: Invariant match
+
+# —————————————————————————
+
+INVARIANT_MATCH_THRESHOLD = 0.15  # Jaccard token overlap
+
+def pass_invariant(query: str, nodes: list[NodeRecord]) -> list[QueryMatch]:
+“””
+Find nodes whose core_invariant shares significant token overlap with the query.
+“””
+matches = []
+
+```
+for node in nodes:
+    score = _token_overlap(query, node.core_invariant)
+    if score >= INVARIANT_MATCH_THRESHOLD:
+        matches.append(QueryMatch(
+            node_id=node.id,
+            node_name=node.name,
+            match_type=MATCH_INVARIANT,
+            confidence=min(0.90, score * 2.5),  # scale up, cap at 0.90
+            reason=f"invariant overlap {score:.3f}: '{node.core_invariant[:80]}...'"
+        ))
+
+return matches
+```
+
+# —————————————————————————
+
+# Pass 3: Neighborhood expansion
+
+# —————————————————————————
+
+def pass_neighborhood(
+seed_ids: list[str],
+all_nodes: list[NodeRecord],
+node_index: dict[str, NodeRecord],
+) -> list[QueryMatch]:
+“””
+Expand from a set of seed node IDs into their declared neighbors.
+Returns nodes adjacent to seeds that aren’t already seeds.
+“””
+seed_set = set(seed_ids)
+expansion_ids: set[str] = set()
+
+```
+for node_id in seed_ids:
+    if node_id in node_index:
+        for neighbor_id in node_index[node_id].neighbors:
+            if neighbor_id not in seed_set:
+                expansion_ids.add(neighbor_id)
+
+matches = []
+for node_id in expansion_ids:
+    if node_id in node_index:
+        node = node_index[node_id]
+        matches.append(QueryMatch(
+            node_id=node.id,
+            node_name=node.name,
+            match_type=MATCH_NEIGHBORHOOD,
+            confidence=0.55,
+            reason=f"neighbor of seed node(s)"
+        ))
+
+return matches
+```
+
+# —————————————————————————
+
+# Pass 4: Transfer expansion
+
+# —————————————————————————
+
+def pass_transfer(
+seed_ids: list[str],
+node_index: dict[str, NodeRecord],
+) -> list[QueryMatch]:
+“””
+Find transfer rules declared by seed nodes that point to other known nodes.
+Low confidence — transfer matches require human validation before use.
+“””
+seed_set = set(seed_ids)
+matches = []
+
+```
+for node_id in seed_ids:
+    if node_id not in node_index:
+        continue
+    node = node_index[node_id]
+    for transfer_id in node.transfers:
+        # transfer_id may reference a target node id or a transfer rule id
+        # If target is a known node and not already a seed, surface it
+        if transfer_id in node_index and transfer_id not in seed_set:
+            target = node_index[transfer_id]
+            matches.append(QueryMatch(
+                node_id=target.id,
+                node_name=target.name,
+                match_type=MATCH_TRANSFER,
+                confidence=0.40,
+                reason=f"transfer rule '{transfer_id}' from '{node.name}'"
+            ))
+
+return matches
+```
+
+# —————————————————————————
+
+# Four-pass resolver
+
+# —————————————————————————
+
+def resolve_query(
+query: str,
+nodes: list[NodeRecord],
+min_confidence: float = 0.30,
+) -> QueryResult:
+“””
+Resolve a natural-language query against the PSCL node graph.
+
+```
+Returns a QueryResult. If no pass finds a match above min_confidence,
+status is MATCH_NONE — silence is a valid state.
+"""
+result = QueryResult(query=query)
+node_index = {n.id: n for n in nodes}
+
+# Pass 1: direct
+direct = pass_direct(query, nodes)
+result.matches.extend(direct)
+
+# Pass 2: invariant
+invariant = pass_invariant(query, nodes)
+result.matches.extend(invariant)
+
+# Dedup by node_id, keep highest confidence
+seen: dict[str, QueryMatch] = {}
+for m in result.matches:
+    if m.node_id not in seen or m.confidence > seen[m.node_id].confidence:
+        seen[m.node_id] = m
+result.matches = list(seen.values())
+
+# Pass 3: neighborhood from seeds found so far
+seed_ids = [m.node_id for m in result.matches]
+if seed_ids:
+    neighborhood = pass_neighborhood(seed_ids, nodes, node_index)
+    for m in neighborhood:
+        if m.node_id not in seen:
+            seen[m.node_id] = m
+            result.matches.append(m)
+
+# Pass 4: transfer from seeds
+if seed_ids:
+    transfer = pass_transfer(seed_ids, node_index)
+    for m in transfer:
+        if m.node_id not in seen:
+            seen[m.node_id] = m
+            result.matches.append(m)
+
+# Filter by min_confidence
+result.matches = [m for m in result.matches if m.confidence >= min_confidence]
+
+# Determine status
+if not result.matches:
+    result.status = MATCH_NONE
+    result.notes = "No stable match found. Query may require new node creation or invariant refinement."
+else:
+    best = max(result.matches, key=lambda m: m.confidence)
+    if best.confidence >= 0.80:
+        result.status = "resolved"
+    elif best.confidence >= 0.55:
+        result.status = "weak_analogy_only"
+        result.notes = "Best match is a neighborhood or transfer expansion. Validate before use."
+    else:
+        result.status = "draft_relation"
+        result.notes = "All matches are low-confidence. Insufficient invariant clarity for canonization."
+
+return result
+```
+
+# —————————————————————————
+
+# CLI
+
+# —————————————————————————
+
+if **name** == “**main**”:
+import argparse
+
+```
+parser = argparse.ArgumentParser(
+    description="PSCL four-pass query resolver",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog="""
+```
+
+Examples:
+python query.py “compartmentalization” –corpus nodes/
+python query.py “limited bandwidth suppression” –corpus nodes/ –min-confidence 0.2
+python query.py “negative feedback prevents silent failure” –corpus nodes/
+“””
+)
+parser.add_argument(“query”, help=“Natural language query string”)
+parser.add_argument(”–corpus”, default=“nodes/”, help=“Directory of node YAML files”)
+parser.add_argument(”–min-confidence”, type=float, default=0.30)
+
+```
+args = parser.parse_args()
+
+nodes = load_nodes_from_directory(args.corpus)
+if not nodes:
+    print(f"No nodes loaded from {args.corpus}")
+    exit(1)
+
+print(f"Loaded {len(nodes)} nodes from {args.corpus}\n")
+result = resolve_query(args.query, nodes, min_confidence=args.min_confidence)
+print(result.explain())
+```
