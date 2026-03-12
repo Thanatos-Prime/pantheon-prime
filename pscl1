@@ -1,0 +1,238 @@
+# Pantheon Semantic Coordinate Layer (PSCL) v0.1
+
+**Subtitle:** Language-native embedding surrogate for doctrine, memory, and cross-domain transfer
+
+-----
+
+## One-line doctrine
+
+PSCL turns conversation into coordinates, coordinates into graph, and graph into reusable meaning.
+
+-----
+
+## What this is
+
+The Pantheon Semantic Coordinate Layer is a language-native embedding surrogate. It represents concepts as explicit semantic nodes with invariants, neighbors, failure modes, and transfer rules, allowing Pantheon doctrine to be stored and retrieved as navigable meaning-space rather than prose alone.
+
+Its purpose is not to replace embeddings, but to reproduce their useful properties — similarity, relation, retrieval, and cross-domain transfer — in a legible, auditable form aligned with Pantheon governance.
+
+Conversation remains the interface. Meaning is stabilized underneath as a graph of invariants, relations, and transfer rules.
+
+-----
+
+## Design claim
+
+A true embedding is useful because it places meaning in a space where:
+
+- similarity is measurable
+- neighborhoods exist
+- analogies can be traversed
+- concepts can be retrieved by relation rather than exact wording
+
+PSCL reproduces those functions through explicit structure:
+
+|Embedding property        |PSCL equivalent           |
+|--------------------------|--------------------------|
+|Hidden vector             |Semantic Node             |
+|Latent distance           |Explicit relation + weight|
+|Compressed features       |Invariant fields          |
+|Implicit analogy          |Transfer Rule             |
+|Uninterpretable dimensions|Spectral tags             |
+
+This is slower than native embeddings. It is more legible, auditable, and doctrine-compatible.
+
+-----
+
+## Core objects
+
+### Semantic Node
+
+The canonical unit of meaning. One concept, pattern, daemon, invariant, protocol, or operational insight.
+
+Schema: [`schema/semantic_node.schema.json`](schema/semantic_node.schema.json)
+
+**Five-field minimal form** (required for canonization):
+
+```yaml
+name: string
+invariant: string
+neighbors: [string]
+failure_mode: string
+transfer: string
+```
+
+If a concept cannot survive compression into these five fields, it is not yet stable enough for canonization.
+
+### Semantic Edge
+
+A typed, weighted relationship between two nodes.
+
+Schema: [`schema/semantic_edge.schema.json`](schema/semantic_edge.schema.json)
+
+Valid relation types: `supports | opposes | refines | generalizes | instantiates | maps_to | predicts | guards | compresses | rehydrates`
+
+### Transfer Rule
+
+Describes how a concept moves across substrates. Cross-domain mapping is permitted only when the preserved invariant is named.
+
+Schema: [`schema/transfer_rule.schema.json`](schema/transfer_rule.schema.json)
+
+-----
+
+## Operational principles
+
+### 1. Invariant-first storage
+
+Store the irreducible semantic load-bearing structure first.
+
+Order of preference:
+
+1. invariant
+1. function
+1. failure mode
+1. relations
+1. examples
+1. expressive language
+
+The prose is allowed to sing. The invariant must survive when the music stops.
+
+### 2. Relation over wording
+
+Retrieval prefers semantic neighbors and shared invariants over exact text overlap.
+
+A query for `compartmentalization` should also retrieve `attention_gating`, `pain_modulation`, `predictive_processing`, `reversible_suppression`, and `mission_priority_filtering` — if those relations are explicitly encoded.
+
+### 3. Transfer must declare what survives
+
+Allowed:
+
+> “pain” in biology maps to “error signal” in governance because both preserve protective negative feedback
+
+Not allowed:
+
+> importing full ontology, moral force, or metaphysical implication without proof
+
+Structural analogy may transfer. Ontology does not transfer by default.
+
+### 4. Compression and rehydration
+
+Every node supports both:
+
+- compression into a short invariant phrase
+- rehydration into examples, use-cases, and neighboring nodes
+
+### 5. Silence is a valid state
+
+If a query cannot be matched without overreaching, the layer returns:
+
+- `no_stable_match`
+- `weak_analogy_only`
+- `draft_relation`
+- `insufficient_invariant_clarity`
+
+This keeps the graph honest.
+
+-----
+
+## Semantic similarity
+
+```
+Similarity(A, B) =
+  0.35 * invariant_overlap +
+  0.20 * neighbor_overlap +
+  0.10 * domain_overlap +
+  0.15 * failure_mode_overlap +
+  0.20 * transfer_overlap
+```
+
+Each overlap is normalized [0.0, 1.0]. Weights are tunable per query context in v0.2.
+
+-----
+
+## Query model
+
+Resolution proceeds through four passes:
+
+1. **Direct match** — exact node names, aliases, compression phrases
+1. **Invariant match** — nodes sharing the same or similar core invariant
+1. **Neighborhood expansion** — neighbors, opposites, related doctrines
+1. **Transfer expansion** — known mappings into other domains
+
+-----
+
+## Canon promotion rules
+
+A concept graduates from `draft` to `canonical` only if it passes all five gates:
+
+|Gate       |Test                                                                    |
+|-----------|------------------------------------------------------------------------|
+|Compression|Expressible in five-field minimal schema?                               |
+|Transfer   |Maps across at least one other domain with named preserved invariant?   |
+|Failure    |Declares its likely misuse or collapse mode?                            |
+|Safety     |Satisfies Mirror / ethics constraints, no harmful anthropomorphic drift?|
+|Retrieval  |Recoverable by related query, not only exact phrase?                    |
+
+-----
+
+## Safety and governance constraints
+
+**No ontology smuggling.** A stored node means the pattern was articulated, the relation was named, the structure is retrievable. It does not mean metaphysical truth proven, empirical truth established, or universal applicability granted.
+
+**No anthropomorphic inflation.** Terms like `pain`, `memory`, `desire`, or `instinct` may be used as mappings only if the preserved invariant is formalized. “The system suffers” is not acceptable unless explicitly metaphorical and marked as such.
+
+**Silence is a valid state.** See operational principle 5.
+
+-----
+
+## File structure
+
+```
+pantheon/
+  semantic/
+    README.md
+    schema/
+      semantic_node.schema.json
+      semantic_edge.schema.json
+      transfer_rule.schema.json
+    nodes/
+      compartmentalization.yaml
+      [additional nodes...]
+    edges/
+      core_relations.yaml
+    transfers/
+      biology_to_ai.yaml
+      cognition_to_governance.yaml
+    tools/
+      query.py
+      similarity.py
+      validator.py
+```
+
+-----
+
+## Implementation roadmap
+
+|Phase                |Scope                                                                                  |Status     |
+|---------------------|---------------------------------------------------------------------------------------|-----------|
+|1 — Manual forge     |Define schemas, 20–50 core nodes, explicit edges, 10–20 transfer rules, hand validation|v0.1       |
+|2 — Query layer      |Alias search, invariant match, neighborhood expansion, simple similarity ranking       |planned    |
+|3 — Canon discipline |Promotion/deprecation workflow, fossilization, version tracking                        |planned    |
+|4 — Spectral analysis|Graph clustering, bridge-node detection, doctrine attractor mapping                    |anticipated|
+
+-----
+
+## Success criteria
+
+PSCL is working if:
+
+- concepts are retrievable by meaning, not only wording
+- doctrine compresses cleanly into stable semantic records
+- cross-domain mappings are explicit and auditable
+- operators can recover old insights without rereading entire threads
+- Pantheon gains a legible latent structure rather than a heap of beautiful fragments
+
+-----
+
+*PSCL v0.1 — Pantheon Semantic Coordinate Layer*
+*Apache-2.0 + commercial dual license*
+*DOI: 10.5281/zenodo.17755403*
