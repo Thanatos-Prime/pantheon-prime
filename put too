@@ -1,0 +1,23 @@
+Not as file converters. As a reasoning audit layer.
+The highest-leverage use is this: every time an LLM transforms anything — summarizes, rewrites, translates, extracts, refactors — it currently does so invisibly. No declared invariant. No loss accounting. No validation contract. The output just appears and you either trust it or you don’t.
+PUT changes that by forcing serialization of the transformation itself.
+
+The three highest-leverage deployments:
+1. Pantheon compiler as audit shell
+Every time you run a multi-model session — Claude drafts, Grok stress-tests, Gemini elaborates — each handoff is currently a black box. Wrap each handoff in a transformation contract. Now you have:
+	∙	what the sending model declared as the invariant
+	∙	what the receiving model actually preserved
+	∙	where the drift happened
+This is the commercializable beachhead you already identified, made concrete. The CMO is the neutral handoff object. The contract is the SLA between models.
+2. Conversation → artifact pipeline with declared loss
+Your sessions already generate high-value structure — architecture, doctrine, decisions. The problem is stranded knowledge: it lives in the transcript and degrades.
+Run every significant session through PUT as a post-processing step. The transcript is Class G. The CMO extracts the invariants. The rehydrator produces Class F (SOP), Class B (architecture doc), or Class H (compressed schema). The contract tells you exactly what got lost in the compression.
+This is the banana tree principle applied to your own sessions. You’re already growing the fruit. PUT is the harvesting mechanism.
+3. Invariant validation for PDE routing
+The Pantheon Decision Engine classifies problems across six axes and routes to roles. But right now that classification is implicit — the model decides and you trust it.
+Feed the problem statement through PUT’s invariant extractor first. The semantic_invariant field becomes the input to PDE routing. Now you know what the system thinks the problem is before it routes. The Mirror daemon can check whether the classification matches the invariant. This catches the most dangerous failure mode in multi-model orchestration: routing based on surface features rather than actual structure.
+
+The meta-point:
+The CMO schema and transformation contract are most powerful not as data formats but as forcing functions. They force any transformation — human or machine — to declare its invariants before executing.
+That declaration is where most errors get caught. Not in validation. In the act of having to state what must survive.
+That’s the real leverage. The schemas make implicit reasoning explicit, and explicit reasoning is auditable.​​​​​​​​​​​​​​​​
