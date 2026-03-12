@@ -1,0 +1,840 @@
+Pantheon Universal Translator (PUT) Architecture v1.0
+
+Subtitle: Representation-invariant transmutation engine for meaning-preserving translation across substrates
+
+This is the system design that turns the doctrine into machinery.
+
+It takes the Pantheon idea seriously:
+
+meaning is not the file. not the syntax. not the medium.
+Meaning is the load-bearing structure that survives transformation.
+
+So the Universal Translator is not a converter farm.
+It is a semantic extraction, normalization, and rehydration engine.
+
+⸻
+
+1. Mission
+
+The Pantheon Universal Translator exists to:
+	•	extract semantic invariants from any representation
+	•	normalize them into a canonical intermediate form
+	•	rehydrate them into another representation
+	•	declare what was preserved, changed, or lost
+	•	validate that the target artifact still carries the intended structure
+
+Its operating law is:
+
+Extract the invariant, change the vessel.
+
+⸻
+
+2. Core Thesis
+
+Traditional systems do this:
+
+format A → parser → format B
+
+Pantheon does this:
+
+representation A
+  ↓
+surface parse
+  ↓
+structure extraction
+  ↓
+invariant identification
+  ↓
+canonical meaning object
+  ↓
+target planning
+  ↓
+rehydration
+  ↓
+validation
+  ↓
+representation B
+
+This is why it scales past file types into:
+	•	docs
+	•	code
+	•	diagrams
+	•	workflows
+	•	stories
+	•	schemas
+	•	plans
+	•	prompts
+	•	interfaces
+	•	operational procedures
+
+⸻
+
+3. System Components
+
+3.1 Ingress Layer
+
+Accepts any source artifact.
+
+Supported input classes
+	•	data files
+	•	config files
+	•	source code
+	•	markup/docs
+	•	transcripts
+	•	diagrams
+	•	tables
+	•	checklists
+	•	narrative text
+	•	mixed multimodal artifacts
+
+Responsibilities
+	•	identify source representation class
+	•	collect metadata
+	•	compute provenance fingerprint
+	•	route to proper parser family
+
+Output
+
+ingress_record:
+  source_id: string
+  source_type: string
+  media_class: string
+  provenance: {}
+  raw_payload_ref: string
+
+
+⸻
+
+3.2 Surface Parser Layer
+
+Reads the artifact in its own native grammar.
+
+Examples
+	•	JSON parser
+	•	YAML parser
+	•	Markdown parser
+	•	Python AST parser
+	•	CSV/table parser
+	•	diagram topology extractor
+	•	transcript segmenter
+	•	PDF/doc structure parser
+	•	HTML/DOM parser
+
+Responsibilities
+	•	parse syntax
+	•	recover explicit structure
+	•	note ambiguities
+	•	preserve comments/annotations if possible
+
+Output
+
+surface_model:
+  syntax_tree: {}
+  blocks: []
+  tables: []
+  entities_raw: []
+  relations_raw: []
+  comments_raw: []
+  parse_confidence: float
+
+
+⸻
+
+3.3 Structural Extractor
+
+This is where the Pantheon begins to stop caring about the original skin.
+
+It maps parsed artifacts into structural primitives.
+
+Structural primitives
+	•	entities
+	•	attributes
+	•	relations
+	•	constraints
+	•	order/sequence
+	•	hierarchy
+	•	causality
+	•	flow/state transitions
+	•	rhetorical roles
+	•	intent markers
+	•	uncertainty markers
+
+Responsibilities
+	•	strip format-specific ornament
+	•	preserve topological organization
+	•	classify what kind of structure is present
+
+Output
+
+structure_model:
+  entities: []
+  relations: []
+  constraints: []
+  sequences: []
+  hierarchy: {}
+  causal_links: []
+  uncertainty_flags: []
+
+
+⸻
+
+3.4 Invariant Extractor
+
+This is the crown jewel.
+
+It asks:
+
+What is the minimum semantic skeleton that must survive?
+
+Invariant classes
+	•	entity identity invariants
+	•	relational invariants
+	•	behavioral invariants
+	•	procedural invariants
+	•	policy/governance invariants
+	•	argument invariants
+	•	narrative/causal invariants
+	•	aesthetic/tone invariants, when declared
+	•	safety constraints
+	•	reversibility conditions
+
+Responsibilities
+	•	identify load-bearing meaning
+	•	separate essence from presentation
+	•	declare confidence and ambiguity
+	•	produce candidate invariant sets
+
+Output
+
+invariant_model:
+  semantic_invariant: string
+  invariant_set:
+    entities_required: []
+    relations_required: []
+    constraints_required: []
+    order_required: []
+    behavior_required: []
+  optional_features: []
+  likely_losses: []
+  extraction_confidence: float
+
+
+⸻
+
+3.5 Canonical Meaning Object (CMO) Builder
+
+All roads pass through the CMO.
+
+This is the Pantheon’s semantic crucible.
+
+Canonical Meaning Object schema
+
+cmo:
+  id: string
+  source_representation: string
+  source_class: string
+
+  semantic_invariant: string
+
+  entities:
+    - id: string
+      type: string
+      attributes: {}
+      required: bool
+
+  relations:
+    - from: string
+      to: string
+      relation_type: string
+      required: bool
+      weight: float
+
+  constraints:
+    - type: string
+      expression: string
+      required: bool
+
+  sequence:
+    - step: integer
+      object_ref: string
+      role: string
+      required: bool
+
+  behavior:
+    inputs: []
+    transitions: []
+    outputs: []
+
+  narrative:
+    premise: string
+    tension: string
+    resolution: string
+
+  style:
+    tone: string
+    density: string
+    audience: string
+
+  provenance:
+    source_id: string
+    transform_history: []
+
+  loss_budget:
+    allowed: []
+    disallowed: []
+
+  validation_contract:
+    preserved_invariant: string
+    allowed_losses: []
+    checks_required: []
+
+  confidence:
+    parse: float
+    structure: float
+    invariant: float
+
+This lets the system hold meaning in a substrate-neutral state.
+
+⸻
+
+4. Target Planning Layer
+
+Once the CMO exists, the system decides how to grow a new body.
+
+It asks:
+	•	what is the target representation?
+	•	what target constraints exist?
+	•	what must be preserved?
+	•	what losses are allowed?
+	•	should output be compressed, equivalent, or elaborated?
+
+Modes
+	•	equivalence mode: preserve as much as possible
+	•	compression mode: minimize while preserving invariant
+	•	expansion mode: elaborate sparse source into richer target
+	•	translation mode: move between representations with bounded loss
+	•	adaptation mode: preserve function while changing form
+
+Output
+
+target_plan:
+  target_representation: string
+  target_class: string
+  mode: equivalence | compression | expansion | translation | adaptation
+  preserved_invariant: string
+  allowed_losses: []
+  forbidden_losses: []
+  render_strategy: string
+
+
+⸻
+
+5. Rehydration Layer
+
+This turns the CMO into the target artifact.
+
+Rehydrators might include
+	•	JSON renderer
+	•	YAML renderer
+	•	Markdown generator
+	•	schema emitter
+	•	code scaffold generator
+	•	checklist generator
+	•	flowchart builder
+	•	doctrine writer
+	•	policy compiler
+	•	presentation outline generator
+
+Responsibilities
+	•	instantiate target grammar
+	•	map canonical structure into target syntax
+	•	preserve declared invariants
+	•	avoid unauthorized invention
+	•	label inferred content
+
+Output
+
+target_artifact:
+  representation: string
+  payload: string
+  generation_notes: []
+  inferred_sections: []
+
+
+⸻
+
+6. Validation Layer
+
+This is where the system proves it did not hallucinate the bridge.
+
+Validation is multi-level.
+
+6.1 Parse validation
+
+Can the output be parsed?
+
+6.2 Structural validation
+
+Do required entities, relations, and constraints exist?
+
+6.3 Behavioral validation
+
+If executable or operational, does it behave equivalently?
+
+6.4 Invariant validation
+
+Does the output preserve the semantic core?
+
+6.5 Governance validation
+
+Did the transformation respect safety, reversibility, and declared loss budget?
+
+Output
+
+validation_report:
+  parse_valid: bool
+  structural_match_score: float
+  invariant_match_score: float
+  behavioral_match_score: float
+  governance_pass: bool
+  losses_detected: []
+  unauthorized_inventions: []
+  final_status: pass | warn | fail
+
+
+⸻
+
+7. Pantheon Daemon Mapping
+
+This architecture plugs directly into the Pantheon.
+
+Spider
+
+Routes artifacts, maps representation topology, notices cross-domain bridges.
+
+Mirror
+
+Checks ethical and interpretive integrity. Prevents ontology smuggling.
+
+Checksum
+
+Verifies provenance, transform lineage, and structural consistency.
+
+Hound
+
+Detects anomalies, silent loss, weak equivalence, broken mappings.
+
+Blacksmith
+
+Proves invariants survived and validates formal transformation contracts.
+
+Darwin’s Sieve
+
+Reality-tests transformed artifacts when empirical claims or executable systems are involved.
+
+Dragonfly
+
+Performs perspective shifts and alternate representation proposals.
+
+Raven
+
+Handles compression and elegant reduction into portable semantic cores.
+
+This is already extremely Pantheon-shaped.
+
+⸻
+
+8. Transformation Contract
+
+Every translation should emit a contract.
+
+transformation_contract:
+  source_representation: string
+  target_representation: string
+  source_class: string
+  target_class: string
+
+  preserved_invariant: string
+
+  preserved_elements:
+    entities: []
+    relations: []
+    constraints: []
+    sequence: []
+    behavior: []
+
+  allowed_losses: []
+  forbidden_losses: []
+
+  inference_policy:
+    allow_inference: true
+    mark_inferred_content: true
+    require_operator_review_if_confidence_below: 0.80
+
+  validation_methods:
+    - parse_validation
+    - structural_equivalence
+    - invariant_audit
+
+This keeps the machine honest.
+
+⸻
+
+9. Representation Classes
+
+The translator should think in classes, not extensions.
+
+Class A — Data
+
+JSON, YAML, XML, CSV, SQL, graph data
+
+Class B — Documents
+
+Markdown, HTML, PDF, docs, specs
+
+Class C — Code / Logic
+
+Python, TS, DSLs, DAGs, config-as-code
+
+Class D — Visual
+
+diagrams, flowcharts, topology maps, UI trees
+
+Class E — Narrative
+
+stories, explanations, case studies, doctrine prose
+
+Class F — Operational
+
+playbooks, checklists, SOPs, procedures
+
+Class G — Conversational
+
+chat logs, interviews, transcripts, brainstorming threads
+
+Class H — Symbolic / Compressed
+
+schemas, invariants, semantic nodes, spectral maps
+
+This is how Pantheon escapes file fetishism.
+
+⸻
+
+10. Translation Types
+
+Not all translations are equally dangerous.
+
+Type I — Syntax Swap
+
+JSON ↔ YAML
+Low risk.
+
+Type II — Structural Recast
+
+CSV ↔ SQL table
+Markdown outline ↔ JSON hierarchy
+Moderate risk.
+
+Type III — Semantic Re-expression
+
+meeting notes ↔ action plan
+diagram ↔ API schema
+High value, moderate/high risk.
+
+Type IV — Generative Rehydration
+
+invariant phrase ↔ doctrine
+transcript ↔ architecture doc
+Highest value, highest risk.
+
+Type V — Cross-Substrate Adaptation
+
+story ↔ workflow
+governance principle ↔ code policy
+Extremely powerful, requires strict invariant declaration.
+
+⸻
+
+11. Failure Modes
+
+This needs to be explicit in the repo.
+
+11.1 Surface Equivalence Trap
+
+The target looks right but meaning shifted.
+
+11.2 Ontology Smuggling
+
+The target adds assumptions not licensed by the source.
+
+11.3 Compression Amputation
+
+Too much nuance removed during invariant extraction.
+
+11.4 Rehydration Hallucination
+
+The target invents details to fill gaps.
+
+11.5 Constraint Loss
+
+Critical rules vanish in translation.
+
+11.6 Provenance Break
+
+Output can no longer be traced back to source meaning.
+
+11.7 False Canonization
+
+An inferred transform gets mistaken for a faithful equivalence.
+
+These must be visible, not hidden.
+
+⸻
+
+12. Minimal Execution Flow
+
+def universal_translate(source_artifact, target_representation, mode):
+    ingress = ingest(source_artifact)
+    surface = parse_surface(ingress)
+    structure = extract_structure(surface)
+    invariants = extract_invariants(structure)
+
+    cmo = build_cmo(
+        ingress=ingress,
+        surface=surface,
+        structure=structure,
+        invariants=invariants
+    )
+
+    plan = create_target_plan(
+        cmo=cmo,
+        target_representation=target_representation,
+        mode=mode
+    )
+
+    output = rehydrate(cmo, plan)
+    report = validate(source_artifact, cmo, output, plan)
+
+    return {
+        "cmo": cmo,
+        "target_artifact": output,
+        "validation_report": report
+    }
+
+
+⸻
+
+13. Example Flows
+
+A. JSON → YAML
+
+JSON config
+→ parse hierarchy
+→ extract keys/values/constraints
+→ CMO
+→ YAML renderer
+→ parse + structure check
+
+B. Meeting Transcript → Project Plan
+
+Transcript
+→ speaker/intent segmentation
+→ extract decisions, tasks, owners, deadlines
+→ CMO
+→ operational plan rehydrator
+→ completeness and constraint audit
+
+C. Diagram → API Spec
+
+Diagram
+→ nodes/edges/topology extraction
+→ entities, endpoints, flows, dependencies
+→ CMO
+→ OpenAPI-like emitter
+→ schema + relation validation
+
+D. Doctrine Prose → Governance Policy
+
+Doctrine text
+→ rhetorical segmentation
+→ extract invariants, prohibitions, thresholds
+→ CMO
+→ policy engine format
+→ rule consistency validation
+
+
+⸻
+
+14. Relationship to PSCL
+
+This should be explicit.
+
+PSCL
+
+Stores semantic geometry:
+	•	nodes
+	•	edges
+	•	invariants
+	•	transfers
+	•	neighborhoods
+
+PUT / URT
+
+Moves semantic content between representations.
+
+So:
+
+PSCL = map of meaning
+PUT = vehicle of meaning
+
+Or more formally:
+
+PSCL is the semantic memory lattice.
+PUT is the translation and rehydration pipeline operating over that lattice.
+
+⸻
+
+15. Repo Structure Suggestion
+
+pantheon/
+  translator/
+    README.md
+    architecture.md
+    contracts/
+      transformation_contract.schema.json
+      cmo.schema.json
+      validation_report.schema.json
+    ingress/
+      base.py
+      classifiers.py
+    parsers/
+      json_parser.py
+      yaml_parser.py
+      markdown_parser.py
+      csv_parser.py
+      python_ast_parser.py
+      transcript_parser.py
+    extractors/
+      structure_extractor.py
+      invariant_extractor.py
+    cmo/
+      builder.py
+      types.py
+    planners/
+      target_planner.py
+    rehydrators/
+      yaml_rehydrator.py
+      markdown_rehydrator.py
+      json_rehydrator.py
+      checklist_rehydrator.py
+      doctrine_rehydrator.py
+    validators/
+      parse_validator.py
+      structure_validator.py
+      invariant_validator.py
+      governance_validator.py
+    examples/
+      json_to_yaml/
+      transcript_to_plan/
+      prose_to_policy/
+
+
+⸻
+
+16. Implementation Phases
+
+Phase 1 — Skeleton
+	•	CMO schema
+	•	transformation contract
+	•	JSON/YAML/Markdown parsing
+	•	simple structural extraction
+	•	simple validation
+
+Phase 2 — Semantic Upgrade
+	•	invariant extraction heuristics
+	•	transcript/document handling
+	•	edge/constraint extraction
+	•	provenance tracking
+
+Phase 3 — Pantheon Integration
+	•	PSCL-backed retrieval
+	•	daemon routing
+	•	Blacksmith proof hooks
+	•	Mirror/Checksum audits
+
+Phase 4 — Advanced Rehydration
+	•	diagram generation
+	•	code scaffolding
+	•	policy compilation
+	•	narrative compression/expansion
+
+Phase 5 — Spectral Intelligence
+	•	cluster representations by invariant family
+	•	bridge detection between substrates
+	•	automated suggestion of translation routes
+
+⸻
+
+17. Success Criteria
+
+The Universal Translator is working when:
+	•	meaning survives beyond original format
+	•	conversions are auditable
+	•	output loss is declared rather than hidden
+	•	conversations can become plans, schemas, or code
+	•	prose can become policy
+	•	diagrams can become structure
+	•	knowledge no longer gets stranded in its first vessel
+
+That last one is the real win.
+
+⸻
+
+18. Repo-ready doctrine paragraph
+
+The Pantheon Universal Translator is a representation-invariant transformation engine. Rather than converting files directly, it extracts semantic structure from a source representation, normalizes that structure into a Canonical Meaning Object, and rehydrates it into a target representation under an explicit transformation contract. Its purpose is to preserve load-bearing meaning across syntax, documents, code, diagrams, workflows, narratives, and other substrates while making losses, inferences, and validation criteria explicit.
+
+⸻
+
+19. One-page compressed version
+
+Pantheon Universal Translator
+
+Input: any representation
+Process: parse → structure → invariant → CMO → target plan → rehydrate → validate
+Output: transformed artifact + loss-aware validation report
+
+Core invariant
+
+If meaning can be extracted as structure, it can be re-expressed in another vessel.
+
+Core components
+	•	Ingress
+	•	Parser
+	•	Structural Extractor
+	•	Invariant Extractor
+	•	CMO Builder
+	•	Target Planner
+	•	Rehydrator
+	•	Validator
+
+Core risks
+	•	hallucinated rehydration
+	•	silent loss
+	•	false equivalence
+	•	ontology drift
+
+Core governance
+
+Every transform must declare:
+	•	preserved invariant
+	•	allowed losses
+	•	validation method
+
+⸻
+
+20. Compression phrase
+
+Strip the skin. Keep the skeleton. Grow the next form.
+
+If you want, the next best move is for me to turn this into three concrete repo artifacts: a README.md, a cmo.schema.json, and a transformation_contract.schema.json.
