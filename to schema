@@ -1,0 +1,390 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Thanatos-Prime/pantheon-prime/schemas/thought_object.schema.json",
+  "title": "ThoughtObject",
+  "description": "Canonical intermediate representation for the Pantheon Translation Engine. A substrate-agnostic bundle of invariants extracted from a source representation and used to rehydrate into any target form.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "source_type", "intent"],
+  "additionalProperties": false,
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this ThoughtObject instance.",
+      "examples": ["idea-001", "to-20240312-a3f"]
+    },
+
+    "version": {
+      "type": "string",
+      "description": "Schema version this ThoughtObject was produced against.",
+      "default": "0.1.0"
+    },
+
+    "source_type": {
+      "type": "string",
+      "description": "The representation format of the original source material.",
+      "enum": [
+        "freeform_text",
+        "json",
+        "yaml",
+        "markdown",
+        "python_code",
+        "pseudocode",
+        "diagram_spec",
+        "transcript",
+        "research_abstract",
+        "concept_map",
+        "equation",
+        "unknown"
+      ]
+    },
+
+    "intent": {
+      "type": "string",
+      "description": "A single concise statement of what this idea is trying to accomplish. The intent invariant — what problem this solves.",
+      "minLength": 5
+    },
+
+    "entities": {
+      "type": "array",
+      "description": "The distinct objects, actors, concepts, or components that exist in this idea.",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name or label of this entity."
+          },
+          "type": {
+            "type": "string",
+            "description": "The category of entity.",
+            "enum": [
+              "actor",
+              "process",
+              "data",
+              "system",
+              "concept",
+              "constraint",
+              "assignment",
+              "event",
+              "resource",
+              "interface",
+              "unknown"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional elaboration of this entity's role or meaning."
+          },
+          "properties": {
+            "type": "object",
+            "description": "Optional key-value attributes for this entity.",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+
+    "relations": {
+      "type": "array",
+      "description": "The structural connections between entities. Relational invariants — how components connect.",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Name of the source entity."
+          },
+          "to": {
+            "type": "string",
+            "description": "Name of the target entity."
+          },
+          "type": {
+            "type": "string",
+            "description": "The nature of this relation.",
+            "examples": [
+              "occupies",
+              "depends_on",
+              "produces",
+              "consumes",
+              "evaluates",
+              "triggers",
+              "filters",
+              "participates_in",
+              "owns",
+              "extends",
+              "implements"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "description": "Whether this relation is directional or bidirectional.",
+            "enum": ["directed", "bidirectional"],
+            "default": "directed"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional elaboration of this relation."
+          }
+        }
+      }
+    },
+
+    "behaviors": {
+      "type": "array",
+      "description": "The actions, operations, or transformations that occur. Behavioral invariants.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the behavior or operation."
+          },
+          "actor": {
+            "type": "string",
+            "description": "The entity that performs this behavior, if known."
+          },
+          "inputs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Entity names consumed by this behavior."
+          },
+          "outputs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Entity names produced by this behavior."
+          },
+          "sequence_position": {
+            "type": "integer",
+            "description": "Optional ordering index if behaviors form a pipeline.",
+            "minimum": 0
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+
+    "constraints": {
+      "type": "array",
+      "description": "Rules, limits, or invariants that must not be violated. Constraint invariants.",
+      "items": {
+        "type": "object",
+        "required": ["rule"],
+        "additionalProperties": false,
+        "properties": {
+          "rule": {
+            "type": "string",
+            "description": "A concise statement of the constraint.",
+            "examples": [
+              "EthicsScore >= 0.7",
+              "All actions must be auditable",
+              "No self-authorized bypass",
+              "Repair before termination"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "description": "Category of constraint.",
+            "enum": [
+              "ethical",
+              "structural",
+              "operational",
+              "legal",
+              "performance",
+              "safety",
+              "invariant",
+              "unknown"
+            ],
+            "default": "unknown"
+          },
+          "severity": {
+            "type": "string",
+            "description": "Whether violating this constraint is fatal or degraded.",
+            "enum": ["hard", "soft"],
+            "default": "hard"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+
+    "ambiguities": {
+      "type": "array",
+      "description": "Unresolved uncertainties, missing bindings, or underspecified elements in the source. Ambiguity is a first-class object.",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A concise statement of the ambiguity."
+          },
+          "affects": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Entity or relation names that this ambiguity touches."
+          },
+          "resolution_required": {
+            "type": "boolean",
+            "description": "Whether this ambiguity must be resolved before translation can proceed.",
+            "default": false
+          }
+        }
+      }
+    },
+
+    "evaluation": {
+      "type": "array",
+      "description": "Criteria for knowing whether a translation of this ThoughtObject still works. Evaluation invariants.",
+      "items": {
+        "type": "string",
+        "description": "A testable question or criterion.",
+        "examples": [
+          "Can another agent implement the workflow?",
+          "Can the structure be reconstructed from output?",
+          "Does the output satisfy all hard constraints?"
+        ]
+      }
+    },
+
+    "audit": {
+      "type": "object",
+      "description": "Optional translation audit record. Populated during Phase F of the translation pipeline.",
+      "additionalProperties": false,
+      "properties": {
+        "source_hash": {
+          "type": "string",
+          "description": "Hash of the original source material for traceability."
+        },
+        "translation_timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this ThoughtObject was produced."
+        },
+        "target_forms_produced": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of target representations generated from this ThoughtObject."
+        },
+        "scores": {
+          "type": "object",
+          "description": "Evaluation scorecard for the most recent translation.",
+          "additionalProperties": false,
+          "properties": {
+            "fidelity":              { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "structural_integrity":  { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "constraint_retention":  { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "target_fitness":        { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "reversibility":         { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "compression_efficiency":{ "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "overall": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Weighted mean across all dimensions. Minimum acceptable: 0.7."
+            }
+          }
+        },
+        "failure_flags": {
+          "type": "array",
+          "description": "Any failure modes detected during audit.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "surface_mimicry",
+              "overcompression",
+              "false_equivalence",
+              "narrative_drift",
+              "irreversible_distortion",
+              "premature_formalization"
+            ]
+          }
+        }
+      }
+    },
+
+    "metadata": {
+      "type": "object",
+      "description": "Optional additional context for this ThoughtObject.",
+      "additionalProperties": true,
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "domain": {
+          "type": "string",
+          "description": "The problem domain this idea belongs to."
+        },
+        "author": {
+          "type": "string"
+        },
+        "pantheon_daemon_origin": {
+          "type": "string",
+          "description": "Which PantheonOS daemon produced or validated this ThoughtObject.",
+          "examples": ["Spider", "Mirror", "Dragonfly"]
+        }
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "id": "idea-001",
+      "version": "0.1.0",
+      "source_type": "freeform_text",
+      "intent": "coordinate AI roles to evaluate, filter, compress, and emit ideas",
+      "entities": [
+        { "name": "Idea", "type": "data" },
+        { "name": "Evaluator", "type": "actor" },
+        { "name": "EthicsGate", "type": "process" },
+        { "name": "Compressor", "type": "process" },
+        { "name": "Output", "type": "data" }
+      ],
+      "relations": [
+        { "from": "Evaluator", "to": "Idea", "type": "evaluates" },
+        { "from": "EthicsGate", "to": "Idea", "type": "filters" },
+        { "from": "Compressor", "to": "Idea", "type": "consumes" },
+        { "from": "Compressor", "to": "Output", "type": "produces" }
+      ],
+      "behaviors": [
+        { "name": "Evaluate", "actor": "Evaluator", "sequence_position": 0 },
+        { "name": "Filter", "actor": "EthicsGate", "sequence_position": 1 },
+        { "name": "Compress", "actor": "Compressor", "sequence_position": 2 },
+        { "name": "Emit", "actor": "Output", "sequence_position": 3 }
+      ],
+      "constraints": [
+        { "rule": "EthicsScore >= 0.7", "type": "ethical", "severity": "hard" },
+        { "rule": "All actions must be auditable", "type": "operational", "severity": "hard" }
+      ],
+      "ambiguities": [
+        {
+          "description": "Evaluation scoring method unspecified",
+          "affects": ["Evaluator"],
+          "resolution_required": false
+        }
+      ],
+      "evaluation": [
+        "Can another agent implement the workflow from this spec?",
+        "Can the source intent be reconstructed from the output?"
+      ],
+      "metadata": {
+        "tags": ["multi-role", "pipeline", "ethics-gate"],
+        "domain": "AI orchestration",
+        "pantheon_daemon_origin": "Spider"
+      }
+    }
+  ]
+}
