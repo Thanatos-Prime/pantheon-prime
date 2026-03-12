@@ -1,0 +1,383 @@
+# Pantheon Translation Engine — Design Specification
+
+**Version:** 0.1  
+**Status:** Draft — Repo Ready  
+**Part of:** PantheonOS (github.com/Thanatos-Prime/pantheon-prime)
+
+-----
+
+## 1. Purpose
+
+The Pantheon Translation Engine is a system for taking an idea expressed in one form and transforming it into another form without losing its essential structure.
+
+Its goal is not mere format conversion. Its goal is **meaning preservation under transformation**.
+
+This includes transformations such as:
+
+- notes → structured schema
+- schema → code scaffold
+- code → diagram
+- diagram → operational workflow
+- workflow → narrative explanation
+- JSON → YAML
+- mathematical relation → software abstraction
+- research concept → implementation plan
+
+The engine treats all of these as instances of a single deeper operation:
+
+```
+Reduce → Extract Invariants → Rehydrate into Target Form
+```
+
+-----
+
+## 2. Core Claim
+
+Most information loss in human and AI systems does not come from ignorance.  
+It comes from **representation mismatch**.
+
+An idea may already exist, but be trapped in a form that another person cannot use, another domain cannot parse, another tool cannot execute, or another model cannot meaningfully extend.
+
+The Pantheon Translation Engine exists to resolve that mismatch by identifying what must remain true across forms.
+
+-----
+
+## 3. Primary Invariant
+
+A valid translation preserves **functional meaning**, **structural relations**, and **operative constraints**, even when surface form changes.
+
+Every representation has three layers:
+
+|Layer              |Definition                                                                                               |
+|-------------------|---------------------------------------------------------------------------------------------------------|
+|**Surface Form**   |The visible encoding: prose, code, math, diagram, schema, image, table, story                            |
+|**Structural Form**|The relations between parts: hierarchy, dependency, sequence, equivalence, feedback, symmetry, constraint|
+|**Invariant Core** |The irreducible identity of the idea: what must remain true for it to still be “the same thing”          |
+
+The engine preserves layers 2 and 3. Layer 1 is allowed to change.
+
+-----
+
+## 4. Translation Validity Criteria
+
+A translation is valid if it satisfies all of the following:
+
+### 4.1 Semantic Preservation
+
+The target form expresses substantially the same underlying meaning.
+
+### 4.2 Structural Preservation
+
+Key relations among components are maintained.
+
+### 4.3 Constraint Preservation
+
+Important limits, rules, and boundaries survive the transformation.
+
+### 4.4 Usefulness Preservation
+
+The translation remains actionable in the target substrate — not merely decorative.
+
+### 4.5 Reversibility Score
+
+The translated form should, where possible, allow partial or full reconstruction of source intent.
+
+-----
+
+## 5. Translation Pipeline
+
+The engine operates as a six-phase pipeline.
+
+### Phase A — Ingest
+
+Accept source material in any supported representation.
+
+Supported sources (v0.1): freeform text, JSON, YAML, Markdown, Python code.
+
+### Phase B — Reduction
+
+Compress the source into a substrate-agnostic intermediate representation.
+
+Extraction targets:
+
+- entities
+- relationships
+- goals
+- constraints
+- flows
+- transformations
+- assumptions
+- ambiguities
+- missing bindings
+
+### Phase C — Invariant Extraction
+
+Determine what must survive translation.
+
+Invariant classes:
+
+- **Entity invariants** — what objects exist
+- **Relational invariants** — how they connect
+- **Behavioral invariants** — what transforms or acts
+- **Constraint invariants** — what cannot be violated
+- **Intent invariants** — what problem this solves
+- **Evaluation invariants** — how to know whether it still works
+
+### Phase D — Target Mapping
+
+Choose a target substrate and determine what it requires.
+
+|Target |Requirements                              |
+|-------|------------------------------------------|
+|Code   |Types, functions, interfaces, control flow|
+|Diagram|Nodes, edges, labels, grouping            |
+|YAML   |Hierarchy, serialization discipline       |
+|Math   |Symbolic precision, defined operations    |
+|Prose  |Readability, sequence, explanatory framing|
+
+### Phase E — Rehydration
+
+Render the invariant bundle into the target representation.
+
+### Phase F — Audit
+
+Evaluate whether the resulting form preserved the necessary invariants. Score against criteria in Section 7.
+
+-----
+
+## 6. Canonical Intermediate Representation
+
+The engine routes all translations through a single canonical intermediate layer: the **ThoughtObject**.
+
+This eliminates the combinatorial explosion of brittle direct converters.
+
+Minimal ThoughtObject structure:
+
+```json
+{
+  "id": "idea-001",
+  "source_type": "freeform_notes",
+  "intent": "coordinate research roles through structured feedback",
+  "entities": [
+    {"name": "Agent", "type": "actor"},
+    {"name": "Role", "type": "assignment"},
+    {"name": "FeedbackLoop", "type": "process"}
+  ],
+  "relations": [
+    {"from": "Agent", "to": "Role", "type": "occupies"},
+    {"from": "Role", "to": "FeedbackLoop", "type": "participates_in"}
+  ],
+  "constraints": [
+    {"rule": "EthicsScore >= 0.7"},
+    {"rule": "All actions must be auditable"}
+  ],
+  "behaviors": [
+    {"name": "Observe"},
+    {"name": "Assign"},
+    {"name": "Act"},
+    {"name": "Record"},
+    {"name": "Review"}
+  ],
+  "ambiguities": [
+    "Role execution semantics unspecified"
+  ],
+  "evaluation": [
+    "Can another agent implement the workflow?",
+    "Can the structure be reconstructed from output?"
+  ]
+}
+```
+
+Full schema definition: [`schemas/thought_object.schema.json`](./schemas/thought_object.schema.json)
+
+-----
+
+## 7. Evaluation Scorecard
+
+Every translation output is scored on six dimensions:
+
+|Dimension                 |Definition                                           |Range  |
+|--------------------------|-----------------------------------------------------|-------|
+|**Fidelity**              |Did the key meaning survive?                         |0.0–1.0|
+|**Structural Integrity**  |Did important relations remain intact?               |0.0–1.0|
+|**Constraint Retention**  |Did non-negotiable rules survive?                    |0.0–1.0|
+|**Target Fitness**        |Is the result native and useful in the target form?  |0.0–1.0|
+|**Reversibility**         |Can we reconstruct source intent from the output?    |0.0–1.0|
+|**Compression Efficiency**|Useful structure preserved per unit of representation|0.0–1.0|
+
+**Overall score:** weighted mean across all six dimensions.
+
+Minimum acceptable overall: 0.7 (mirrors the PantheonOS ethics gate threshold).
+
+-----
+
+## 8. Failure Modes
+
+The engine treats these as explicitly testable failure classes:
+
+|Failure                    |Description                                                           |
+|---------------------------|----------------------------------------------------------------------|
+|**Surface Mimicry**        |Output looks correct but does not preserve actual meaning             |
+|**Overcompression**        |Important nuance or constraints lost during reduction                 |
+|**False Equivalence**      |Two forms appear similar but differ in operative consequences         |
+|**Narrative Drift**        |System adds interpretive ornament not present in source               |
+|**Irreversible Distortion**|Translation cannot be traced back to original intent                  |
+|**Premature Formalization**|Engine forces precision before the idea is mature enough to support it|
+
+-----
+
+## 9. Example Translation
+
+**Source input:**
+
+> “I want a system where different AI roles evaluate an idea, check its ethics, compress it, and convert it into useful outputs.”
+
+**Reduced intermediate:**
+
+- Entities: `Idea`, `Evaluator`, `EthicsGate`, `Compressor`, `Output`
+- Relations: Evaluator analyzes Idea → EthicsGate filters → Compressor reduces → Output renders
+- Constraints: ethical threshold required, traceability required
+- Behavior sequence: `evaluate → filter → compress → emit`
+
+**Rehydrated as Workflow:**
+
+```
+Input Idea
+→ Multi-role Evaluation
+→ Ethical Gate
+→ Compression Pass
+→ Output Rendering
+→ Audit Log
+```
+
+**Rehydrated as Python Scaffold:**
+
+```python
+class Idea:
+    def __init__(self, content: str):
+        self.content = content
+
+class Evaluator:
+    def evaluate(self, idea: Idea) -> dict:
+        return {"status": "reviewed"}
+
+class EthicsGate:
+    def allow(self, evaluation: dict) -> bool:
+        return evaluation.get("status") == "reviewed"
+
+class Compressor:
+    def compress(self, idea: Idea) -> dict:
+        return {"core": idea.content}
+
+class Renderer:
+    def render(self, compressed: dict) -> str:
+        return compressed["core"]
+```
+
+**Rehydrated as YAML:**
+
+```yaml
+intent: convert idea into structured useful outputs
+entities:
+  - Idea
+  - Evaluator
+  - EthicsGate
+  - Compressor
+  - Output
+pipeline:
+  - evaluate
+  - filter
+  - compress
+  - render
+constraints:
+  - ethical_threshold_required
+  - auditability_required
+```
+
+-----
+
+## 10. Pantheon Daemon Mappings
+
+The Translation Engine maps naturally onto existing PantheonOS roles:
+
+|Daemon        |Translation Function                                       |
+|--------------|-----------------------------------------------------------|
+|**Spider**    |Extracts structure from messy inputs                       |
+|**Mirror**    |Checks ethical and conceptual integrity                    |
+|**Dragonfly** |Performs coordinate transforms between representations     |
+|**Raven**     |Compresses without destroying core                         |
+|**Blacksmith**|Tests whether transformed output still satisfies invariants|
+|**Badger**    |Controls attention budget, prevents overtranslation        |
+|**Checksum**  |Verifies traceability and consistency                      |
+
+The engine is not separate from PantheonOS. It is one of its clearest practical manifestations.
+
+-----
+
+## 11. Design Principles
+
+1. **Translate meaning, not just syntax.** Syntax conversion alone is not enough.
+1. **Preserve invariants before style.** Surface polish must never come at the cost of structural truth.
+1. **Compression must remain recoverable.** A good reduction should enable later rehydration.
+1. **Different targets need different sacrifices.** No translation is perfectly lossless. Losses must be made explicit.
+1. **Ambiguity is a first-class object.** Uncertainty is carried forward when it cannot be resolved honestly.
+1. **Auditability over performance theater.** The engine must show how it got from source to target.
+
+-----
+
+## 12. Minimal Architecture
+
+```
+pantheon_translation_engine/
+├── ingest/
+│   ├── text.py
+│   ├── json_input.py
+│   ├── yaml_input.py
+│   └── code_input.py
+├── reduce/
+│   ├── extractor.py
+│   ├── entities.py
+│   ├── relations.py
+│   └── constraints.py
+├── ir/
+│   ├── thought_object.py
+│   └── schemas.py
+├── targets/
+│   ├── prose.py
+│   ├── json_out.py
+│   ├── yaml_out.py
+│   ├── python_out.py
+│   └── graph_out.py
+├── audit/
+│   ├── fidelity.py
+│   ├── reversibility.py
+│   └── constraint_check.py
+└── main.py
+```
+
+The critical architectural decision is **separation of concerns** — not sophistication at first.
+
+-----
+
+## 13. v0.1 First-Build Objective
+
+The first useful version needs to prove exactly one thing:
+
+> A messy human idea can be reduced into a stable intermediate representation and re-emitted into multiple useful forms with visible preservation of core structure.
+
+That alone is a meaningful artifact.
+
+-----
+
+## 14. Final Compression
+
+If the entire engine had to be reduced to one sentence:
+
+> The Pantheon Translation Engine converts ideas between representations by extracting invariants and rehydrating them into new forms without losing operative meaning.
+
+Reduced further: **Meaning compiler.**
+
+-----
+
+*Version 0.1 — Initial specification*  
+*Part of PantheonOS — Apache-2.0 + Commercial Dual License*
