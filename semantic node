@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pantheon.os/schema/semantic_node.schema.json",
+  "title": "SemanticNode",
+  "description": "The canonical unit of meaning in the Pantheon Semantic Coordinate Layer. Represents one concept, pattern, daemon, invariant, protocol, or operational insight.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "type",
+    "summary",
+    "core_invariant",
+    "compression_phrase",
+    "domains",
+    "neighbors",
+    "failure_modes",
+    "transfers",
+    "safety_constraints"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier. Recommended format: {type}_{snake_case_name}. Example: concept_compartmentalization",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable canonical name."
+    },
+    "type": {
+      "type": "string",
+      "description": "Node class. Determines how the node behaves in retrieval and transfer.",
+      "enum": [
+        "concept",
+        "daemon",
+        "invariant",
+        "protocol",
+        "pattern",
+        "field",
+        "metric"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "description": "One or two sentence description. Must be understandable without context."
+    },
+    "core_invariant": {
+      "type": "string",
+      "description": "The irreducible semantic load-bearing structure of this concept. The prose may change; this must not. Required for canon promotion."
+    },
+    "compression_phrase": {
+      "type": "string",
+      "description": "A short, memorable phrase that encodes the concept's structure. Retrieval anchor. Example: 'Seal the flooded chamber, keep the vessel moving.'"
+    },
+    "domains": {
+      "type": "array",
+      "description": "Knowledge domains this node inhabits. Used for domain_overlap in similarity scoring.",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "neighbors": {
+      "type": "array",
+      "description": "IDs of semantically adjacent nodes. Forms the neighborhood used in retrieval expansion.",
+      "items": { "type": "string" }
+    },
+    "failure_modes": {
+      "type": "array",
+      "description": "Known misuse, collapse, or degradation patterns. Required for canon promotion.",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "transfers": {
+      "type": "array",
+      "description": "IDs of Transfer Rules that describe how this concept maps across domains.",
+      "items": { "type": "string" }
+    },
+    "safety_constraints": {
+      "type": "array",
+      "description": "Constraints that must hold for safe use. Evaluated during Mirror/ethics gate.",
+      "items": { "type": "string" }
+    },
+    "aliases": {
+      "type": "array",
+      "description": "Alternative names or phrasings. Used in direct-match retrieval.",
+      "items": { "type": "string" }
+    },
+    "opposites": {
+      "type": "array",
+      "description": "IDs or names of conceptually opposed nodes. Used in contrastive retrieval.",
+      "items": { "type": "string" }
+    },
+    "examples": {
+      "type": "array",
+      "description": "Concrete instantiations. Used in rehydration.",
+      "items": { "type": "string" }
+    },
+    "source_threads": {
+      "type": "array",
+      "description": "References to originating conversation sessions or documents. Golden Thread hookback. Strongly recommended.",
+      "items": { "type": "string" }
+    },
+    "related_doctrines": {
+      "type": "array",
+      "description": "Named Pantheon doctrines, protocols, or principles this node relates to.",
+      "items": { "type": "string" }
+    },
+    "spectral_tags": {
+      "type": "object",
+      "description": "Dimensional tags used in spectral analysis and cluster detection.",
+      "properties": {
+        "salience": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "How attention-demanding is this concept in active operation?"
+        },
+        "rigidity": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "How resistant is this concept to modification or contextual drift?"
+        },
+        "abstraction": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "How far from concrete instantiation does this concept sit?"
+        },
+        "risk": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "What is the failure cost if this concept is misapplied?"
+        },
+        "reversibility": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "How easily can applications of this concept be undone?"
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "string",
+      "description": "Canon lifecycle state.",
+      "enum": ["draft", "canonical", "deprecated", "fossil"],
+      "default": "draft"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version string. Example: '0.1'",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    }
+  },
+  "additionalProperties": false
+}
