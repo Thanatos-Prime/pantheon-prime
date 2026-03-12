@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pantheon.os/schema/transfer_rule.schema.json",
+  "title": "TransferRule",
+  "description": "Describes how a Pantheon concept moves across domain boundaries. Cross-domain mapping is only permitted when the preserved invariant is explicitly named. Structural analogy may transfer; ontology does not transfer by default.",
+  "type": "object",
+  "required": [
+    "id",
+    "source_domain",
+    "target_domain",
+    "preserved_invariant",
+    "mapping_rule",
+    "break_conditions",
+    "example"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier. Recommended format: {source_domain}_to_{target_domain}_{concept}. Example: biology_to_ai_pain_feedback",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "source_domain": {
+      "type": "string",
+      "description": "The originating domain from which the concept is drawn."
+    },
+    "target_domain": {
+      "type": "string",
+      "description": "The destination domain into which the concept is mapped."
+    },
+    "preserved_invariant": {
+      "type": "string",
+      "description": "The structural property that must hold in both domains for the transfer to be valid. This is the sole license for the mapping. If this invariant cannot be named, the transfer is not permitted."
+    },
+    "mapping_rule": {
+      "type": "string",
+      "description": "Explicit statement of what maps to what. Format: source_term -> target_term. Multiple mappings separated by commas or newlines."
+    },
+    "break_conditions": {
+      "type": "array",
+      "description": "Conditions under which the transfer becomes invalid. The moment a break condition is met, the mapping must be suspended and the preserved_invariant re-evaluated.",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "example": {
+      "type": "string",
+      "description": "A concrete instantiation showing the transfer in practice."
+    },
+    "source_node": {
+      "type": "string",
+      "description": "ID of the Semantic Node in the source domain. Optional but recommended for graph linkage.",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "target_node": {
+      "type": "string",
+      "description": "ID of the Semantic Node in the target domain, if it exists.",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "transfer_type": {
+      "type": "string",
+      "description": "The kind of cross-domain transfer being performed.",
+      "enum": [
+        "structural_analogy",
+        "functional_equivalence",
+        "constraint_mapping",
+        "failure_mode_mapping",
+        "metric_mapping"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "description": "Operator's confidence in the validity of this transfer. 0.0 = speculative, 1.0 = well-validated.",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional context, caveats, or derivation reasoning."
+    },
+    "status": {
+      "type": "string",
+      "description": "Lifecycle state of this transfer rule.",
+      "enum": ["draft", "canonical", "deprecated"],
+      "default": "draft"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version string.",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    }
+  },
+  "additionalProperties": false
+}
