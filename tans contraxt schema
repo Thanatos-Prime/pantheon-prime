@@ -1,0 +1,345 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pantheon.dev/schemas/transformation_contract.schema.json",
+  "title": "Pantheon Transformation Contract",
+  "description": "The explicit contract emitted by every PUT translation. Declares what was preserved, what was lost, what was inferred, and how validation must proceed. This keeps the machine honest.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": [
+    "contract_id",
+    "cmo_id",
+    "source_representation",
+    "target_representation",
+    "source_class",
+    "target_class",
+    "mode",
+    "preserved_invariant",
+    "inference_policy",
+    "validation_methods",
+    "status"
+  ],
+  "properties": {
+
+    "contract_id": {
+      "type": "string",
+      "description": "Unique identifier for this contract instance.",
+      "pattern": "^tc_[a-zA-Z0-9_-]+$"
+    },
+
+    "cmo_id": {
+      "type": "string",
+      "description": "Reference to the Canonical Meaning Object this contract governs.",
+      "pattern": "^cmo_[a-zA-Z0-9_-]+$"
+    },
+
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this contract was issued."
+    },
+
+    "source_representation": {
+      "type": "string",
+      "description": "Format or representation type of the source artifact."
+    },
+
+    "target_representation": {
+      "type": "string",
+      "description": "Format or representation type of the target artifact."
+    },
+
+    "source_class": {
+      "type": "string",
+      "enum": ["A_data", "B_document", "C_code_logic", "D_visual", "E_narrative", "F_operational", "G_conversational", "H_symbolic_compressed"],
+      "description": "Representation class of the source."
+    },
+
+    "target_class": {
+      "type": "string",
+      "enum": ["A_data", "B_document", "C_code_logic", "D_visual", "E_narrative", "F_operational", "G_conversational", "H_symbolic_compressed"],
+      "description": "Representation class of the target."
+    },
+
+    "translation_type": {
+      "type": "string",
+      "description": "Risk classification of this translation.",
+      "enum": [
+        "I_syntax_swap",
+        "II_structural_recast",
+        "III_semantic_re_expression",
+        "IV_generative_rehydration",
+        "V_cross_substrate_adaptation"
+      ]
+    },
+
+    "mode": {
+      "type": "string",
+      "description": "The operating mode governing how fidelity vs transformation are balanced.",
+      "enum": ["equivalence", "compression", "expansion", "translation", "adaptation"]
+    },
+
+    "preserved_invariant": {
+      "type": "string",
+      "description": "The single semantic statement that must survive. Copied from the CMO's semantic_invariant."
+    },
+
+    "preserved_elements": {
+      "type": "object",
+      "description": "Explicit list of elements confirmed to have survived into the target artifact.",
+      "properties": {
+        "entities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Entity ids from the CMO confirmed present in target."
+        },
+        "relations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Relation identifiers confirmed present in target."
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Constraint expressions confirmed present in target."
+        },
+        "sequence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Sequence steps confirmed present in target."
+        },
+        "behavior": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Behavioral elements confirmed present in target."
+        }
+      }
+    },
+
+    "allowed_losses": {
+      "type": "array",
+      "description": "Features or elements that may be absent from the target without constituting a contract violation.",
+      "items": { "type": "string" }
+    },
+
+    "forbidden_losses": {
+      "type": "array",
+      "description": "Features or elements whose absence in the target is a contract violation and must trigger a FAIL status.",
+      "items": { "type": "string" }
+    },
+
+    "detected_losses": {
+      "type": "array",
+      "description": "Features or elements from the source that were not found in the target. Populated by the Validator.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "element": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["allowed", "warn", "forbidden"],
+            "description": "Whether this loss is within the loss budget (allowed), worth flagging (warn), or a contract violation (forbidden)."
+          },
+          "failure_mode": {
+            "type": "string",
+            "enum": [
+              "surface_equivalence_trap",
+              "ontology_smuggling",
+              "compression_amputation",
+              "rehydration_hallucination",
+              "constraint_loss",
+              "provenance_break",
+              "false_canonization"
+            ],
+            "description": "If a forbidden loss, classify the failure mode."
+          }
+        }
+      }
+    },
+
+    "unauthorized_inventions": {
+      "type": "array",
+      "description": "Elements added by rehydration that were not licensed by the CMO. Populated by the Validator.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "element": { "type": "string" },
+          "location": { "type": "string", "description": "Where in the target artifact this invention appears." },
+          "severity": { "type": "string", "enum": ["minor", "significant", "critical"] }
+        }
+      }
+    },
+
+    "inference_policy": {
+      "type": "object",
+      "description": "Rules governing how the rehydrator may fill gaps in the CMO.",
+      "required": ["allow_inference", "mark_inferred_content"],
+      "properties": {
+        "allow_inference": {
+          "type": "boolean",
+          "description": "Whether the rehydrator may infer content not explicitly in the CMO."
+        },
+        "mark_inferred_content": {
+          "type": "boolean",
+          "description": "If true, all inferred content in the target artifact must be labeled."
+        },
+        "require_operator_review_if_confidence_below": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "If any confidence score in the CMO falls below this threshold, flag for operator review before proceeding.",
+          "default": 0.80
+        },
+        "inference_scope": {
+          "type": "string",
+          "enum": ["none", "structural_only", "stylistic_only", "structural_and_stylistic", "unrestricted"],
+          "description": "Bounds on what kinds of content the rehydrator may infer.",
+          "default": "structural_and_stylistic"
+        }
+      }
+    },
+
+    "validation_methods": {
+      "type": "array",
+      "description": "The validation checks that must be run against this transformation.",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "parse_validation",
+          "structural_equivalence",
+          "invariant_audit",
+          "behavioral_equivalence",
+          "governance_check",
+          "provenance_trace"
+        ]
+      }
+    },
+
+    "validation_scores": {
+      "type": "object",
+      "description": "Scores produced by the Validator. Populated after validation runs.",
+      "properties": {
+        "parse_valid": { "type": "boolean" },
+        "structural_match_score": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "invariant_match_score": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "behavioral_match_score": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "governance_pass": { "type": "boolean" }
+      }
+    },
+
+    "daemon_audit_trail": {
+      "type": "array",
+      "description": "Log of Pantheon daemon interventions during this transformation.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "daemon": {
+            "type": "string",
+            "enum": ["Spider", "Mirror", "Checksum", "Hound", "Blacksmith", "Darwin_Sieve", "Dragonfly", "Raven"]
+          },
+          "phase": {
+            "type": "string",
+            "enum": ["ingress", "parse", "structure_extraction", "invariant_extraction", "cmo_build", "target_planning", "rehydration", "validation"]
+          },
+          "action": { "type": "string" },
+          "finding": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "description": "Lineage of the transformation itself.",
+      "properties": {
+        "source_fingerprint": { "type": "string" },
+        "cmo_fingerprint": { "type": "string" },
+        "target_fingerprint": { "type": "string" },
+        "operator": { "type": "string" },
+        "pipeline_version": { "type": "string" }
+      }
+    },
+
+    "status": {
+      "type": "string",
+      "description": "Final status of this transformation contract after validation.",
+      "enum": ["pending", "pass", "warn", "fail"],
+      "default": "pending"
+    },
+
+    "status_reason": {
+      "type": "string",
+      "description": "Human-readable explanation of the status, especially for warn and fail."
+    }
+  },
+
+  "additionalProperties": false,
+
+  "examples": [
+    {
+      "contract_id": "tc_transcript_to_plan_001",
+      "cmo_id": "cmo_transcript_to_plan_001",
+      "timestamp": "2026-03-12T10:00:00Z",
+      "source_representation": "meeting_transcript",
+      "target_representation": "project_plan_markdown",
+      "source_class": "G_conversational",
+      "target_class": "F_operational",
+      "translation_type": "III_semantic_re_expression",
+      "mode": "translation",
+      "preserved_invariant": "Three decisions were made: adopt PUT architecture, assign Spider integration to the platform team, and target Phase 1 completion by end of quarter.",
+      "preserved_elements": {
+        "entities": ["decision_adopt_put", "task_spider_integration", "milestone_phase1"],
+        "relations": ["triggers"],
+        "constraints": ["Phase 1 must complete before Spider integration begins"],
+        "sequence": ["1", "2", "3"],
+        "behavior": []
+      },
+      "allowed_losses": ["speaker attribution", "timestamps", "conversational filler"],
+      "forbidden_losses": ["decisions", "owners", "deadlines"],
+      "detected_losses": [
+        { "element": "speaker attribution", "severity": "allowed" },
+        { "element": "timestamps", "severity": "allowed" }
+      ],
+      "unauthorized_inventions": [],
+      "inference_policy": {
+        "allow_inference": true,
+        "mark_inferred_content": true,
+        "require_operator_review_if_confidence_below": 0.80,
+        "inference_scope": "structural_and_stylistic"
+      },
+      "validation_methods": ["parse_validation", "structural_equivalence", "invariant_audit"],
+      "validation_scores": {
+        "parse_valid": true,
+        "structural_match_score": 0.94,
+        "invariant_match_score": 0.97,
+        "behavioral_match_score": null,
+        "governance_pass": true
+      },
+      "daemon_audit_trail": [
+        {
+          "daemon": "Mirror",
+          "phase": "invariant_extraction",
+          "action": "ontology_check",
+          "finding": "No unauthorized assumptions introduced",
+          "timestamp": "2026-03-12T10:00:01Z"
+        },
+        {
+          "daemon": "Blacksmith",
+          "phase": "validation",
+          "action": "invariant_proof",
+          "finding": "Invariant confirmed present in target artifact",
+          "timestamp": "2026-03-12T10:00:02Z"
+        }
+      ],
+      "provenance": {
+        "source_fingerprint": "sha256:abc123",
+        "cmo_fingerprint": "sha256:def456",
+        "target_fingerprint": "sha256:ghi789",
+        "operator": "Pantheon-PUT-v1.0",
+        "pipeline_version": "1.0.0"
+      },
+      "status": "pass",
+      "status_reason": "All required invariants preserved. Detected losses within declared loss budget. No unauthorized inventions."
+    }
+  ]
+}
