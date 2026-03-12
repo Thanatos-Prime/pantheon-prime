@@ -1,0 +1,345 @@
+“””
+Pantheon Semantic Coordinate Layer
+validator.py — Node schema and canon promotion validator
+
+Validates PSCL YAML nodes against:
+
+1. Required fields (schema completeness)
+1. Five-field minimal form (compression test)
+1. Canon promotion gates (compression, transfer, failure, safety, retrieval)
+1. Structural consistency (neighbor IDs, transfer IDs exist in corpus)
+
+Exit codes:
+0 — all checks passed
+1 — warnings only
+2 — errors found
+“””
+
+from **future** import annotations
+from dataclasses import dataclass, field
+import yaml
+import os
+import sys
+import argparse
+
+# —————————————————————————
+
+# Required fields by status level
+
+# —————————————————————————
+
+REQUIRED_ALWAYS = [
+“id”, “name”, “type”, “summary”, “core_invariant”,
+“compression_phrase”, “domains”, “neighbors”,
+“failure_modes”, “transfers”, “safety_constraints”,
+]
+
+VALID_TYPES = {“concept”, “daemon”, “invariant”, “protocol”, “pattern”, “field”, “metric”}
+VALID_STATUSES = {“draft”, “canonical”, “deprecated”, “fossil”}
+VALID_SPECTRAL = {“low”, “medium”, “high”}
+
+# Canon promotion requires all five gates
+
+CANON_GATES = [“compression”, “transfer”, “failure”, “safety”, “retrieval”]
+
+# —————————————————————————
+
+# Result objects
+
+# —————————————————————————
+
+@dataclass
+class ValidationIssue:
+severity: str  # error | warning | info
+field: str
+message: str
+
+```
+def __str__(self) -> str:
+    return f"  [{self.severity.upper():7s}] {self.field}: {self.message}"
+```
+
+@dataclass
+class ValidationResult:
+node_id: str
+node_path: str
+issues: list[ValidationIssue] = field(default_factory=list)
+canon_gates: dict[str, bool] = field(default_factory=dict)
+
+```
+@property
+def errors(self) -> list[ValidationIssue]:
+    return [i for i in self.issues if i.severity == "error"]
+
+@property
+def warnings(self) -> list[ValidationIssue]:
+    return [i for i in self.issues if i.severity == "warning"]
+
+@property
+def passed(self) -> bool:
+    return len(self.errors) == 0
+
+@property
+def canon_ready(self) -> bool:
+    return all(self.canon_gates.values()) and self.passed
+
+def explain(self) -> str:
+    lines = [
+        f"Node: {self.node_id}  ({self.node_path})",
+        f"  Valid: {'YES' if self.passed else 'NO'}",
+        f"  Canon-ready: {'YES' if self.canon_ready else 'NO'}",
+    ]
+    if self.canon_gates:
+        lines.append("  Canon gates:")
+        for gate, passed in self.canon_gates.items():
+            lines.append(f"    {'✓' if passed else '✗'} {gate}")
+    if self.issues:
+        lines.append("  Issues:")
+        for issue in self.issues:
+            lines.append(str(issue))
+    return "\n".join(lines)
+```
+
+# —————————————————————————
+
+# Validator
+
+# —————————————————————————
+
+class NodeValidator:
+def **init**(self, known_ids: set[str] | None = None):
+“””
+known_ids: set of node IDs in the corpus, used for cross-reference checks.
+If None, cross-reference checks are skipped.
+“””
+self.known_ids = known_ids
+
+```
+def validate(self, data: dict, path: str) -> ValidationResult:
+    node_id = data.get("id", "<unknown>")
+    result = ValidationResult(node_id=node_id, node_path=path)
+
+    self._check_required_fields(data, result)
+    self._check_field_types(data, result)
+    self._check_enum_values(data, result)
+    self._check_compression_test(data, result)
+    self._check_canon_gates(data, result)
+    if self.known_ids is not None:
+        self._check_cross_references(data, result)
+
+    return result
+
+# ------------------------------------------------------------------
+
+def _check_required_fields(self, data: dict, result: ValidationResult):
+    for f in REQUIRED_ALWAYS:
+        if f not in data or data[f] is None:
+            result.issues.append(ValidationIssue("error", f, "missing required field"))
+        elif isinstance(data[f], (list, str)) and len(data[f]) == 0:
+            result.issues.append(ValidationIssue("error", f, "required field is empty"))
+
+def _check_field_types(self, data: dict, result: ValidationResult):
+    list_fields = ["domains", "neighbors", "failure_modes", "transfers", "safety_constraints"]
+    for f in list_fields:
+        if f in data and data[f] is not None and not isinstance(data[f], list):
+            result.issues.append(ValidationIssue("error", f, f"expected list, got {type(data[f]).__name__}"))
+
+    str_fields = ["id", "name", "summary", "core_invariant", "compression_phrase"]
+    for f in str_fields:
+        if f in data and data[f] is not None and not isinstance(data[f], str):
+            result.issues.append(ValidationIssue("error", f, f"expected string, got {type(data[f]).__name__}"))
+
+def _check_enum_values(self, data: dict, result: ValidationResult):
+    if "type" in data and data["type"] not in VALID_TYPES:
+        result.issues.append(ValidationIssue(
+            "error", "type",
+            f"'{data['type']}' is not a valid type. Must be one of: {sorted(VALID_TYPES)}"
+        ))
+
+    if "status" in data and data["status"] not in VALID_STATUSES:
+        result.issues.append(ValidationIssue(
+            "error", "status",
+            f"'{data['status']}' is not a valid status. Must be one of: {sorted(VALID_STATUSES)}"
+        ))
+
+    if "spectral_tags" in data and isinstance(data["spectral_tags"], dict):
+        for tag, value in data["spectral_tags"].items():
+            if value not in VALID_SPECTRAL:
+                result.issues.append(ValidationIssue(
+                    "warning", f"spectral_tags.{tag}",
+                    f"'{value}' should be low | medium | high"
+                ))
+
+def _check_compression_test(self, data: dict, result: ValidationResult):
+    """
+    Gate 1: Can the concept survive the five-field minimal form?
+    name, invariant, neighbors, failure_mode, transfer
+    """
+    gates = {}
+    gates["has_name"] = bool(data.get("name"))
+    gates["has_invariant"] = bool(data.get("core_invariant"))
+    gates["has_neighbors"] = bool(data.get("neighbors"))
+    gates["has_failure_mode"] = bool(data.get("failure_modes"))
+    gates["has_transfer"] = bool(data.get("transfers"))
+
+    if not all(gates.values()):
+        failing = [k for k, v in gates.items() if not v]
+        result.issues.append(ValidationIssue(
+            "warning", "compression_test",
+            f"Failed five-field compression test. Missing: {failing}. "
+            "Node cannot be promoted to canonical until all five are present."
+        ))
+
+def _check_canon_gates(self, data: dict, result: ValidationResult):
+    """
+    All five canon promotion gates. Warnings only — nodes can remain draft.
+    """
+    status = data.get("status", "draft")
+
+    # Gate 1: Compression
+    compression_ok = (
+        bool(data.get("name")) and
+        bool(data.get("core_invariant")) and
+        bool(data.get("neighbors")) and
+        bool(data.get("failure_modes")) and
+        bool(data.get("transfers"))
+    )
+    result.canon_gates["compression"] = compression_ok
+
+    # Gate 2: Transfer (at least one transfer rule declared)
+    transfer_ok = bool(data.get("transfers")) and len(data.get("transfers", [])) >= 1
+    result.canon_gates["transfer"] = transfer_ok
+
+    # Gate 3: Failure (at least one failure mode declared)
+    failure_ok = bool(data.get("failure_modes")) and len(data.get("failure_modes", [])) >= 1
+    result.canon_gates["failure"] = failure_ok
+
+    # Gate 4: Safety (at least one safety constraint declared)
+    safety_ok = bool(data.get("safety_constraints")) and len(data.get("safety_constraints", [])) >= 1
+    result.canon_gates["safety"] = safety_ok
+
+    # Gate 5: Retrieval (has at least one alias — proxy for retrieval accessibility)
+    retrieval_ok = bool(data.get("aliases")) and len(data.get("aliases", [])) >= 1
+    result.canon_gates["retrieval"] = retrieval_ok
+
+    if status == "canonical":
+        for gate, passed in result.canon_gates.items():
+            if not passed:
+                result.issues.append(ValidationIssue(
+                    "error", f"canon_gate_{gate}",
+                    f"Node is marked canonical but failed the {gate} gate."
+                ))
+
+def _check_cross_references(self, data: dict, result: ValidationResult):
+    """
+    Check that neighbor IDs reference known nodes.
+    Warnings only — the corpus may be incomplete.
+    """
+    for neighbor_id in data.get("neighbors", []):
+        if neighbor_id not in self.known_ids:
+            result.issues.append(ValidationIssue(
+                "warning", "neighbors",
+                f"neighbor '{neighbor_id}' not found in corpus. "
+                "May be a future node — verify or create it."
+            ))
+```
+
+# —————————————————————————
+
+# Corpus loader
+
+# —————————————————————————
+
+def load_yaml_corpus(directory: str) -> list[tuple[dict, str]]:
+records = []
+for filename in sorted(os.listdir(directory)):
+if filename.endswith(”.yaml”) or filename.endswith(”.yml”):
+path = os.path.join(directory, filename)
+try:
+with open(path) as f:
+data = yaml.safe_load(f)
+if isinstance(data, dict):
+records.append((data, path))
+except Exception as e:
+print(f”Warning: could not parse {path}: {e}”, file=sys.stderr)
+return records
+
+# —————————————————————————
+
+# CLI
+
+# —————————————————————————
+
+if **name** == “**main**”:
+parser = argparse.ArgumentParser(
+description=“PSCL node validator”,
+formatter_class=argparse.RawDescriptionHelpFormatter,
+epilog=”””
+Examples:
+
+# Validate a single node
+
+python validator.py nodes/compartmentalization.yaml
+
+# Validate all nodes in a directory
+
+python validator.py –corpus nodes/
+
+# Show only errors (suppress warnings)
+
+python validator.py –corpus nodes/ –errors-only
+“””
+)
+parser.add_argument(“path”, nargs=”?”, help=“Path to a single node YAML file”)
+parser.add_argument(”–corpus”, help=“Directory of node YAML files”)
+parser.add_argument(”–errors-only”, action=“store_true”)
+parser.add_argument(”–canon-check”, action=“store_true”, help=“Show canon promotion readiness”)
+
+```
+args = parser.parse_args()
+
+if args.path:
+    with open(args.path) as f:
+        data = yaml.safe_load(f)
+    validator = NodeValidator()
+    result = validator.validate(data, args.path)
+    print(result.explain())
+    sys.exit(0 if result.passed else 2)
+
+elif args.corpus:
+    records = load_yaml_corpus(args.corpus)
+    if not records:
+        print(f"No YAML files found in {args.corpus}")
+        sys.exit(1)
+
+    known_ids = {r.get("id") for r, _ in records if "id" in r}
+    validator = NodeValidator(known_ids=known_ids)
+
+    all_results = []
+    for data, path in records:
+        result = validator.validate(data, path)
+        all_results.append(result)
+
+    total = len(all_results)
+    errors = sum(1 for r in all_results if not r.passed)
+    canon_ready = sum(1 for r in all_results if r.canon_ready)
+
+    for result in all_results:
+        if args.errors_only and result.passed:
+            continue
+        print(result.explain())
+        print()
+
+    print(f"{'='*60}")
+    print(f"Total nodes:    {total}")
+    print(f"Valid:          {total - errors}")
+    print(f"With errors:    {errors}")
+    if args.canon_check:
+        print(f"Canon-ready:    {canon_ready}")
+
+    sys.exit(0 if errors == 0 else 2)
+
+else:
+    parser.print_help()
+    sys.exit(1)
+```
