@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pantheon.os/schema/semantic_edge.schema.json",
+  "title": "SemanticEdge",
+  "description": "A typed, weighted relationship between two Semantic Nodes in the PSCL graph.",
+  "type": "object",
+  "required": [
+    "from",
+    "to",
+    "relation",
+    "weight"
+  ],
+  "properties": {
+    "from": {
+      "type": "string",
+      "description": "ID of the source Semantic Node.",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "to": {
+      "type": "string",
+      "description": "ID of the target Semantic Node.",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "relation": {
+      "type": "string",
+      "description": "The typed relationship from source to target. Each type has a defined semantic direction.",
+      "enum": [
+        "supports",
+        "opposes",
+        "refines",
+        "generalizes",
+        "instantiates",
+        "maps_to",
+        "predicts",
+        "guards",
+        "compresses",
+        "rehydrates"
+      ]
+    },
+    "weight": {
+      "type": "number",
+      "description": "Relation strength. 0.0 = nominal association, 1.0 = near-identity. Used in similarity scoring.",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "notes": {
+      "type": "string",
+      "description": "Human-readable explanation of why this relation holds. Required when weight > 0.7."
+    },
+    "status": {
+      "type": "string",
+      "description": "Edge lifecycle state. Edges can be deprecated independently of their nodes.",
+      "enum": ["active", "draft", "deprecated"],
+      "default": "active"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version string.",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "relation_semantics": {
+      "description": "Reference: what each relation type means.",
+      "supports": "from provides evidence, structure, or mechanism for to",
+      "opposes": "from contradicts or counteracts to",
+      "refines": "from is a more specific or precise form of to",
+      "generalizes": "from is a broader abstraction that subsumes to",
+      "instantiates": "from is a concrete example of to",
+      "maps_to": "from translates into to across a domain boundary (requires Transfer Rule)",
+      "predicts": "from is a leading indicator or precondition for to",
+      "guards": "from enforces constraints that protect the integrity of to",
+      "compresses": "from is a compressed representation of to",
+      "rehydrates": "from expands or elaborates to into full context"
+    }
+  }
+}
