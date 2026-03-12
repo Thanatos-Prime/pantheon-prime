@@ -1,0 +1,335 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pantheon.dev/schemas/cmo.schema.json",
+  "title": "Canonical Meaning Object",
+  "description": "The substrate-neutral semantic state produced by the Pantheon Universal Translator. All roads pass through the CMO.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["id", "source_representation", "source_class", "semantic_invariant", "confidence"],
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this CMO instance.",
+      "pattern": "^cmo_[a-zA-Z0-9_-]+$"
+    },
+
+    "source_representation": {
+      "type": "string",
+      "description": "The format or representation type of the source artifact (e.g. 'json', 'markdown', 'meeting_transcript')."
+    },
+
+    "source_class": {
+      "type": "string",
+      "description": "The representation class of the source artifact.",
+      "enum": ["A_data", "B_document", "C_code_logic", "D_visual", "E_narrative", "F_operational", "G_conversational", "H_symbolic_compressed"]
+    },
+
+    "semantic_invariant": {
+      "type": "string",
+      "description": "A single human-readable statement of the minimum meaning that must survive any transformation. This is the load-bearing skeleton."
+    },
+
+    "entities": {
+      "type": "array",
+      "description": "Named objects, agents, concepts, or resources present in the source.",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "required"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": {
+            "type": "string",
+            "description": "Entity classification (e.g. 'agent', 'resource', 'concept', 'system', 'constraint', 'policy')."
+          },
+          "label": { "type": "string" },
+          "attributes": {
+            "type": "object",
+            "description": "Key-value pairs of entity properties.",
+            "additionalProperties": true
+          },
+          "required": {
+            "type": "boolean",
+            "description": "If true, this entity must survive into any valid target artifact."
+          }
+        }
+      }
+    },
+
+    "relations": {
+      "type": "array",
+      "description": "Directed edges between entities capturing structural and semantic relationships.",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "relation_type", "required"],
+        "properties": {
+          "from": { "type": "string", "description": "Source entity id." },
+          "to": { "type": "string", "description": "Target entity id." },
+          "relation_type": {
+            "type": "string",
+            "description": "Semantic label for the relationship (e.g. 'depends_on', 'triggers', 'governs', 'is_a', 'part_of', 'precedes')."
+          },
+          "required": { "type": "boolean" },
+          "weight": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Confidence or salience weight of this relation."
+          },
+          "inferred": {
+            "type": "boolean",
+            "description": "True if this relation was inferred rather than explicitly stated in the source."
+          }
+        }
+      }
+    },
+
+    "constraints": {
+      "type": "array",
+      "description": "Rules, limits, preconditions, or invariant conditions that must be respected.",
+      "items": {
+        "type": "object",
+        "required": ["type", "expression", "required"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["precondition", "postcondition", "invariant", "prohibition", "threshold", "policy", "safety", "reversibility"]
+          },
+          "expression": {
+            "type": "string",
+            "description": "Human-readable or formal expression of the constraint."
+          },
+          "required": { "type": "boolean" },
+          "scope": {
+            "type": "string",
+            "description": "Entity id or scope identifier this constraint applies to. Omit for global constraints."
+          }
+        }
+      }
+    },
+
+    "sequence": {
+      "type": "array",
+      "description": "Ordered steps, stages, or phases when order is semantically meaningful.",
+      "items": {
+        "type": "object",
+        "required": ["step", "object_ref", "required"],
+        "properties": {
+          "step": { "type": "integer", "minimum": 1 },
+          "object_ref": { "type": "string", "description": "Reference to an entity id or inline label." },
+          "role": { "type": "string", "description": "Functional role of this step (e.g. 'trigger', 'gate', 'action', 'output')." },
+          "required": { "type": "boolean" }
+        }
+      }
+    },
+
+    "behavior": {
+      "type": "object",
+      "description": "Behavioral model for executable, operational, or state-driven artifacts.",
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "transitions": {
+          "type": "array",
+          "description": "State transition descriptions.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from_state": { "type": "string" },
+              "to_state": { "type": "string" },
+              "trigger": { "type": "string" },
+              "condition": { "type": "string" }
+            }
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "narrative": {
+      "type": "object",
+      "description": "Narrative tension model (NTE-compatible). Applicable when source or target is a document, doctrine, or story-class artifact.",
+      "properties": {
+        "premise": { "type": "string", "description": "The initial condition or setup." },
+        "tension": { "type": "string", "description": "The problem, conflict, or unresolved force." },
+        "resolution": { "type": "string", "description": "The closure condition or intended outcome." }
+      }
+    },
+
+    "style": {
+      "type": "object",
+      "description": "Aesthetic and presentational parameters. Used by rehydrators when tone, register, or audience matters.",
+      "properties": {
+        "tone": {
+          "type": "string",
+          "description": "e.g. 'formal', 'technical', 'conversational', 'compressed', 'doctrinal'"
+        },
+        "density": {
+          "type": "string",
+          "enum": ["sparse", "normal", "dense", "compressed"],
+          "description": "Semantic density of the desired output."
+        },
+        "audience": {
+          "type": "string",
+          "description": "Intended reader or consumer of the target artifact."
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "description": "Origin and lineage tracking for this CMO.",
+      "required": ["source_id"],
+      "properties": {
+        "source_id": { "type": "string" },
+        "source_fingerprint": {
+          "type": "string",
+          "description": "Hash or content fingerprint of the original artifact."
+        },
+        "transform_history": {
+          "type": "array",
+          "description": "Ordered list of transformation steps applied before producing this CMO.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "step": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "agent": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "loss_budget": {
+      "type": "object",
+      "description": "Declared tolerance for information loss during transformation.",
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "description": "List of feature types or elements that may be dropped in a valid transformation.",
+          "items": { "type": "string" }
+        },
+        "disallowed": {
+          "type": "array",
+          "description": "List of feature types or elements that must NOT be dropped. Any loss here is a validation failure.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "validation_contract": {
+      "type": "object",
+      "description": "Pre-declared conditions the output must satisfy. Used by the Validator.",
+      "required": ["preserved_invariant"],
+      "properties": {
+        "preserved_invariant": {
+          "type": "string",
+          "description": "The semantic_invariant statement that must survive into the target artifact."
+        },
+        "allowed_losses": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "checks_required": {
+          "type": "array",
+          "description": "Validation methods that must be run.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "parse_validation",
+              "structural_equivalence",
+              "invariant_audit",
+              "behavioral_equivalence",
+              "governance_check",
+              "provenance_trace"
+            ]
+          }
+        }
+      }
+    },
+
+    "optional_features": {
+      "type": "array",
+      "description": "Elements present in the source that may or may not survive into the target.",
+      "items": { "type": "string" }
+    },
+
+    "likely_losses": {
+      "type": "array",
+      "description": "Features the extraction process identified as likely to be lost or degraded in translation.",
+      "items": { "type": "string" }
+    },
+
+    "confidence": {
+      "type": "object",
+      "description": "Per-stage confidence scores for this CMO's extraction quality.",
+      "required": ["parse", "structure", "invariant"],
+      "properties": {
+        "parse": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Confidence in the surface parse of the source artifact."
+        },
+        "structure": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Confidence in the structural extraction."
+        },
+        "invariant": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Confidence that the semantic_invariant correctly captures the load-bearing meaning."
+        }
+      }
+    }
+  },
+
+  "additionalProperties": false,
+
+  "examples": [
+    {
+      "id": "cmo_transcript_to_plan_001",
+      "source_representation": "meeting_transcript",
+      "source_class": "G_conversational",
+      "semantic_invariant": "Three decisions were made: adopt PUT architecture, assign Spider integration to the platform team, and target Phase 1 completion by end of quarter.",
+      "entities": [
+        { "id": "decision_adopt_put", "type": "decision", "label": "Adopt PUT Architecture", "required": true },
+        { "id": "task_spider_integration", "type": "task", "label": "Spider Integration", "attributes": { "owner": "platform_team" }, "required": true },
+        { "id": "milestone_phase1", "type": "milestone", "label": "Phase 1 Complete", "attributes": { "deadline": "end_of_quarter" }, "required": true }
+      ],
+      "relations": [
+        { "from": "decision_adopt_put", "to": "task_spider_integration", "relation_type": "triggers", "required": true, "weight": 1.0 }
+      ],
+      "constraints": [
+        { "type": "threshold", "expression": "Phase 1 must complete before Spider integration begins", "required": true }
+      ],
+      "sequence": [
+        { "step": 1, "object_ref": "decision_adopt_put", "role": "trigger", "required": true },
+        { "step": 2, "object_ref": "task_spider_integration", "role": "action", "required": true },
+        { "step": 3, "object_ref": "milestone_phase1", "role": "gate", "required": true }
+      ],
+      "provenance": { "source_id": "transcript_2026_03_12_standup" },
+      "loss_budget": {
+        "allowed": ["speaker attribution", "conversational filler", "timestamps"],
+        "disallowed": ["decisions", "owners", "deadlines"]
+      },
+      "validation_contract": {
+        "preserved_invariant": "Three decisions were made: adopt PUT architecture, assign Spider integration to the platform team, and target Phase 1 completion by end of quarter.",
+        "allowed_losses": ["speaker attribution"],
+        "checks_required": ["parse_validation", "structural_equivalence", "invariant_audit"]
+      },
+      "optional_features": ["speaker attribution", "timestamps"],
+      "likely_losses": ["conversational tone", "hedging language"],
+      "confidence": { "parse": 0.95, "structure": 0.88, "invariant": 0.91 }
+    }
+  ]
+}
