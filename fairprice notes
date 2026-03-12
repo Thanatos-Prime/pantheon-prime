@@ -1,0 +1,234 @@
+Yes — and the cleanest version is not “one app that nags you,” but a consumer-side pricing shield plus a merchant-side compliance layer.
+
+Call it FairPrice.
+
+Core idea
+
+FairPrice sits between the buyer and the seller and tries to make every purchase look like it’s coming from a neutral, low-information customer profile, so the seller cannot quietly change price based on your income, neighborhood, device, browsing history, urgency, or past behavior.
+
+That matters because the FTC said in January 2025 that companies in its surveillance-pricing study were using personal data and AI-driven systems to tailor prices, with examples including precise location, browsing behavior, and other consumer signals.  ￼
+
+What it would do
+
+1. Mask the signals sellers use
+
+The app/browser layer would:
+	•	strip tracking parameters
+	•	block third-party pricing scripts where possible
+	•	rotate browser fingerprints
+	•	normalize device/user-agent signals
+	•	hide high-value signals like location precision
+	•	offer a “clean-room checkout” mode
+
+The point is not anonymity for its own sake. The point is price neutrality.
+
+2. Run multi-profile price checks
+
+Before you buy, the app quietly tests the same item through several “personas”:
+	•	logged in vs logged out
+	•	iPhone vs desktop
+	•	home IP vs relay
+	•	affluent ZIP proxy vs neutral region
+	•	repeat visitor vs first-time visitor
+
+If the price changes materially, it shows:
+	•	Displayed price
+	•	Lowest observed neutral price
+	•	Discrimination confidence
+	•	Likely factors used
+
+3. Give you a fairness score
+
+Each seller gets a live score such as:
+	•	Green: consistent pricing
+	•	Yellow: mild variation
+	•	Red: likely surveillance pricing
+
+The FTC’s study and issue spotlight both describe concern that firms may be using data-driven systems to change prices at the individual level, which is exactly the behavior this score is trying to detect and surface.  ￼
+
+4. Auto-negotiate toward the neutral price
+
+If a higher price is detected, the app can try:
+	•	reloading through neutral mode
+	•	clearing session identifiers
+	•	switching to guest checkout
+	•	changing fulfillment path
+	•	using a relay region
+	•	replaying from a clean browser state
+
+5. Produce evidence
+
+For the user, it saves a compact audit trail:
+	•	timestamp
+	•	product
+	•	price variants observed
+	•	session conditions
+	•	screenshots/hash proofs
+	•	which signals correlated with price movement
+
+That gives a consumer something more useful than a feeling of being gouged.
+
+⸻
+
+The stronger version: a two-sided system
+
+The best real-world design is:
+
+Consumer app: FairPrice Shield
+
+Protects buyers from covert price discrimination.
+
+Producer API: FairPrice Verify
+
+Lets merchants prove they are not using protected or exploitative inputs for individualized pricing.
+
+That second side matters because some price differences are legitimate, like inventory, shipping, or taxes. The merchant layer would separate:
+
+Allowed variables
+	•	inventory
+	•	shipping cost
+	•	time-limited public promotions
+	•	region-level tax/regulatory differences
+
+Blocked variables
+	•	inferred income
+	•	credit profile proxies
+	•	neighborhood affluence
+	•	urgency/vulnerability inference
+	•	detailed browsing history
+	•	cross-site tracking data
+	•	device-price stereotypes
+
+The FTC has publicly highlighted concern over the use of personal data and machine learning for individualized pricing, and the CFPB has separately proposed limits on how sensitive consumer and financial data can be sold or shared by data brokers.  ￼
+
+Product architecture
+
+Front end
+	•	browser extension
+	•	mobile keyboard/browser overlay
+	•	privacy wallet
+	•	“check fairness” button on product pages
+
+Detection engine
+	•	multi-session price sampling
+	•	fingerprint perturbation
+	•	causal inference layer for likely drivers
+	•	anomaly thresholds by category
+
+Evidence layer
+	•	signed receipts
+	•	comparison logs
+	•	merchant fairness history
+	•	export packet for regulators, journalists, or class-action intake
+
+Merchant-facing tools
+	•	pricing rules linter
+	•	prohibited-feature scanner
+	•	audit logs for model inputs
+	•	certification badge: No Surveillance Pricing
+
+⸻
+
+Business model
+
+Three realistic paths:
+
+1. Consumer subscription
+
+$5–10/month for shoppers who want protection.
+
+2. B2B compliance SaaS
+
+Merchants pay to certify that their pricing engine is not using sketchy inputs.
+
+3. Public-interest / union / insurer distribution
+
+Credit unions, state AG offices, consumer groups, or employers could subsidize it.
+
+⸻
+
+The best features
+
+“Soda test”
+
+Your exact example becomes the flagship demo:
+
+Same soda. Same store. Same moment. Different person profile. Different price?
+
+That is intuitive and politically legible.
+
+“Why this price?”
+
+A plain-language breakdown:
+	•	“Your price appears 11% higher than the neutral baseline.”
+	•	“Main suspected drivers: device type, repeat-visitor cookie, high-income ZIP proxy.”
+
+“Fair checkout mode”
+
+One tap: opens a clean session and tries to get the neutral price automatically.
+
+⸻
+
+Limits
+
+This would not stop everything.
+
+It would be weaker against:
+	•	server-side hidden models
+	•	loyalty-only ecosystems
+	•	dynamic pricing blended with inventory
+	•	marketplaces where seller and platform signals are fused
+
+But even then, it can still create observability, and observability changes behavior.
+
+⸻
+
+Why this could matter now
+
+The policy environment is unusually aligned for a tool like this. The FTC’s 2025 surveillance-pricing study said firms were using a wide range of personal data for individualized pricing, and the CFPB has been pushing on data-broker and sensitive-data practices that can feed those systems.  ￼
+
+So the wedge is strong:
+	•	consumers already hate unfair hidden pricing
+	•	regulators are already scrutinizing surveillance pricing
+	•	merchants may want a way to prove clean behavior
+	•	AI makes both the abuse and the defense easier
+
+One-sentence pitch
+
+FairPrice is an AI pricing firewall that detects, blocks, and documents data-driven price discrimination before a consumer checks out.
+
+MVP in 30 days
+
+Week 1:
+	•	browser extension
+	•	product-page detector
+	•	price snapshot logger
+
+Week 2:
+	•	guest vs logged-in comparison
+	•	cookie reset / clean-room reload
+	•	basic fairness score
+
+Week 3:
+	•	multi-profile testing
+	•	evidence export
+	•	merchant score history
+
+Week 4:
+	•	polished UX
+	•	“fair checkout mode”
+	•	simple merchant audit dashboard
+
+What I’d build first
+
+Start with a browser extension, not a full app.
+
+Why:
+	•	easiest to ship
+	•	easiest to inspect web prices
+	•	easiest to clear sessions and compare states
+	•	easiest to prove value fast
+
+Then expand into mobile and a merchant API.
+
+If you want, I’ll turn this into a tighter startup-style artifact next: a one-page product spec, feature map, moat, and MVP stack.
