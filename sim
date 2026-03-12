@@ -1,0 +1,364 @@
+“””
+Pantheon Semantic Coordinate Layer
+similarity.py — Semantic similarity scoring
+
+Computes Similarity(A, B) using explicit field overlap.
+
+Formula:
+Similarity(A, B) =
+w_invariant * invariant_overlap +
+w_neighbor  * neighbor_overlap  +
+w_domain    * domain_overlap    +
+w_failure   * failure_mode_overlap +
+w_transfer  * transfer_overlap
+
+Default weights (tunable per query context in v0.2):
+invariant_overlap:    0.35
+neighbor_overlap:     0.20
+domain_overlap:       0.10
+failure_mode_overlap: 0.15
+transfer_overlap:     0.20
+“””
+
+from **future** import annotations
+from dataclasses import dataclass, field
+from typing import Optional
+import yaml
+import json
+import os
+
+# —————————————————————————
+
+# Default weights
+
+# —————————————————————————
+
+DEFAULT_WEIGHTS = {
+“invariant”: 0.35,
+“neighbor”: 0.20,
+“domain”: 0.10,
+“failure_mode”: 0.15,
+“transfer”: 0.20,
+}
+
+# —————————————————————————
+
+# Data model (minimal — just enough to compute similarity)
+
+# —————————————————————————
+
+@dataclass
+class NodeRecord:
+id: str
+name: str
+core_invariant: str
+compression_phrase: str
+neighbors: list[str] = field(default_factory=list)
+domains: list[str] = field(default_factory=list)
+failure_modes: list[str] = field(default_factory=list)
+transfers: list[str] = field(default_factory=list)
+aliases: list[str] = field(default_factory=list)
+status: str = “draft”
+
+```
+@classmethod
+def from_dict(cls, d: dict) -> "NodeRecord":
+    return cls(
+        id=d["id"],
+        name=d["name"],
+        core_invariant=d.get("core_invariant", ""),
+        compression_phrase=d.get("compression_phrase", ""),
+        neighbors=d.get("neighbors", []),
+        domains=d.get("domains", []),
+        failure_modes=d.get("failure_modes", []),
+        transfers=d.get("transfers", []),
+        aliases=d.get("aliases", []),
+        status=d.get("status", "draft"),
+    )
+```
+
+# —————————————————————————
+
+# Overlap functions
+
+# —————————————————————————
+
+def _token_overlap(text_a: str, text_b: str) -> float:
+“”“Normalized token overlap between two strings (Jaccard-style).”””
+if not text_a or not text_b:
+return 0.0
+tokens_a = set(text_a.lower().split())
+tokens_b = set(text_b.lower().split())
+if not tokens_a or not tokens_b:
+return 0.0
+intersection = tokens_a & tokens_b
+union = tokens_a | tokens_b
+return len(intersection) / len(union)
+
+def _list_overlap(list_a: list[str], list_b: list[str]) -> float:
+“”“Normalized overlap between two ID/string lists (Jaccard).”””
+if not list_a or not list_b:
+return 0.0
+set_a = set(s.lower() for s in list_a)
+set_b = set(s.lower() for s in list_b)
+intersection = set_a & set_b
+union = set_a | set_b
+return len(intersection) / len(union)
+
+def _failure_mode_overlap(modes_a: list[str], modes_b: list[str]) -> float:
+“””
+Overlap across failure mode text. Uses token-level matching since
+failure modes are prose phrases, not IDs.
+“””
+if not modes_a or not modes_b:
+return 0.0
+tokens_a = set(w for m in modes_a for w in m.lower().split())
+tokens_b = set(w for m in modes_b for w in m.lower().split())
+# Remove stop words that add noise
+stopwords = {“the”, “a”, “an”, “of”, “in”, “to”, “or”, “and”, “is”, “are”, “by”}
+tokens_a -= stopwords
+tokens_b -= stopwords
+if not tokens_a or not tokens_b:
+return 0.0
+intersection = tokens_a & tokens_b
+union = tokens_a | tokens_b
+return len(intersection) / len(union)
+
+# —————————————————————————
+
+# Core similarity function
+
+# —————————————————————————
+
+@dataclass
+class SimilarityResult:
+node_a: str
+node_b: str
+score: float
+breakdown: dict[str, float]
+weights: dict[str, float]
+
+```
+def explain(self) -> str:
+    lines = [
+        f"Similarity({self.node_a}, {self.node_b}) = {self.score:.4f}",
+        "",
+        "Breakdown:",
+    ]
+    for component, raw in self.breakdown.items():
+        w = self.weights.get(component, 0.0)
+        contribution = raw * w
+        lines.append(f"  {component:25s}  raw={raw:.3f}  weight={w:.2f}  contribution={contribution:.4f}")
+    return "\n".join(lines)
+```
+
+def similarity(
+a: NodeRecord,
+b: NodeRecord,
+weights: Optional[dict[str, float]] = None,
+) -> SimilarityResult:
+“””
+Compute semantic similarity between two PSCL nodes.
+
+```
+Returns a SimilarityResult with the composite score and component breakdown.
+"""
+w = weights or DEFAULT_WEIGHTS
+
+invariant_score = _token_overlap(a.core_invariant, b.core_invariant)
+neighbor_score = _list_overlap(a.neighbors, b.neighbors)
+domain_score = _list_overlap(a.domains, b.domains)
+failure_score = _failure_mode_overlap(a.failure_modes, b.failure_modes)
+transfer_score = _list_overlap(a.transfers, b.transfers)
+
+breakdown = {
+    "invariant": invariant_score,
+    "neighbor": neighbor_score,
+    "domain": domain_score,
+    "failure_mode": failure_score,
+    "transfer": transfer_score,
+}
+
+score = (
+    w.get("invariant", 0) * invariant_score +
+    w.get("neighbor", 0) * neighbor_score +
+    w.get("domain", 0) * domain_score +
+    w.get("failure_mode", 0) * failure_score +
+    w.get("transfer", 0) * transfer_score
+)
+
+return SimilarityResult(
+    node_a=a.id,
+    node_b=b.id,
+    score=round(score, 6),
+    breakdown=breakdown,
+    weights=w,
+)
+```
+
+# —————————————————————————
+
+# Weight profiles for context-tuned retrieval (v0.2 preparation)
+
+# —————————————————————————
+
+WEIGHT_PROFILES = {
+“default”: DEFAULT_WEIGHTS,
+
+```
+# Cross-domain transfer queries — maximize transfer overlap
+"transfer": {
+    "invariant": 0.25,
+    "neighbor": 0.15,
+    "domain": 0.10,
+    "failure_mode": 0.10,
+    "transfer": 0.40,
+},
+
+# Failure diagnosis — maximize failure mode overlap
+"failure_diagnosis": {
+    "invariant": 0.25,
+    "neighbor": 0.15,
+    "domain": 0.10,
+    "failure_mode": 0.40,
+    "transfer": 0.10,
+},
+
+# Doctrine retrieval — maximize invariant overlap
+"doctrine": {
+    "invariant": 0.50,
+    "neighbor": 0.20,
+    "domain": 0.10,
+    "failure_mode": 0.10,
+    "transfer": 0.10,
+},
+```
+
+}
+
+# —————————————————————————
+
+# Graph-level ranking
+
+# —————————————————————————
+
+def rank_by_similarity(
+query_node: NodeRecord,
+candidates: list[NodeRecord],
+weights: Optional[dict[str, float]] = None,
+min_score: float = 0.0,
+) -> list[SimilarityResult]:
+“””
+Rank a list of candidate nodes by similarity to a query node.
+
+```
+Returns results sorted descending by score, filtered by min_score.
+Excludes self-match.
+"""
+results = []
+for candidate in candidates:
+    if candidate.id == query_node.id:
+        continue
+    result = similarity(query_node, candidate, weights)
+    if result.score >= min_score:
+        results.append(result)
+
+results.sort(key=lambda r: r.score, reverse=True)
+return results
+```
+
+# —————————————————————————
+
+# YAML loader
+
+# —————————————————————————
+
+def load_node_from_yaml(path: str) -> NodeRecord:
+with open(path, “r”) as f:
+data = yaml.safe_load(f)
+return NodeRecord.from_dict(data)
+
+def load_nodes_from_directory(directory: str) -> list[NodeRecord]:
+nodes = []
+for filename in os.listdir(directory):
+if filename.endswith(”.yaml”) or filename.endswith(”.yml”):
+path = os.path.join(directory, filename)
+try:
+nodes.append(load_node_from_yaml(path))
+except Exception as e:
+print(f”Warning: could not load {path}: {e}”)
+return nodes
+
+# —————————————————————————
+
+# CLI
+
+# —————————————————————————
+
+if **name** == “**main**”:
+import argparse
+
+```
+parser = argparse.ArgumentParser(
+    description="PSCL similarity scorer",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog="""
+```
+
+Examples:
+
+# Score two specific nodes
+
+python similarity.py –node-a nodes/compartmentalization.yaml –node-b nodes/pain_as_feedback.yaml
+
+# Rank all nodes against a query node
+
+python similarity.py –query nodes/compartmentalization.yaml –corpus nodes/ –profile transfer
+
+# Show weight profiles
+
+python similarity.py –list-profiles
+“””
+)
+parser.add_argument(”–node-a”, help=“Path to first node YAML”)
+parser.add_argument(”–node-b”, help=“Path to second node YAML”)
+parser.add_argument(”–query”, help=“Path to query node YAML (for ranking)”)
+parser.add_argument(”–corpus”, help=“Directory of node YAMLs to rank against”)
+parser.add_argument(
+“–profile”,
+default=“default”,
+choices=list(WEIGHT_PROFILES.keys()),
+help=“Weight profile to use”
+)
+parser.add_argument(”–min-score”, type=float, default=0.0)
+parser.add_argument(”–list-profiles”, action=“store_true”)
+
+```
+args = parser.parse_args()
+
+if args.list_profiles:
+    for name, w in WEIGHT_PROFILES.items():
+        print(f"\n{name}:")
+        for k, v in w.items():
+            print(f"  {k}: {v}")
+    exit(0)
+
+w = WEIGHT_PROFILES[args.profile]
+
+if args.node_a and args.node_b:
+    a = load_node_from_yaml(args.node_a)
+    b = load_node_from_yaml(args.node_b)
+    result = similarity(a, b, weights=w)
+    print(result.explain())
+
+elif args.query and args.corpus:
+    query = load_node_from_yaml(args.query)
+    candidates = load_nodes_from_directory(args.corpus)
+    results = rank_by_similarity(query, candidates, weights=w, min_score=args.min_score)
+    print(f"Ranked results for: {query.name} (profile: {args.profile})\n")
+    for r in results:
+        print(f"  {r.score:.4f}  {r.node_b}")
+
+else:
+    parser.print_help()
+```
