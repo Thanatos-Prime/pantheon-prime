@@ -1,0 +1,352 @@
+import { useState } from “react”;
+
+const TRANSFORMS = [
+{ code: “T1”,  name: “Map”,       glyph: “→”,   belt: “base”,     primary: “What here corresponds to what there?”,    martial: “Enter the opponent’s space without becoming them. Carry only what survives translation.”, use: “Two domains share a skeleton.”, fail: “False analogy.”, color: “#C8A97E” },
+{ code: “T2”,  name: “Mirror”,    glyph: “↔”,   belt: “base”,     primary: “What flips, and what stays?”,             martial: “Use the force of the strike to reveal the striker. Reverse the relation and inspect what survives.”, use: “Expose hidden assumptions or dual formulations.”, fail: “Mistaking aesthetic symmetry for real invariance.”, color: “#7EAFC8” },
+{ code: “T3”,  name: “Rotate”,    glyph: “⟳”,   belt: “base”,     primary: “What changes if I change basis?”,         martial: “Do not push the wall. Turn your body and let the opening appear.”, use: “A problem is stuck because the current frame is too expensive.”, fail: “Confusing re-description with actual progress.”, color: “#A97EC8” },
+{ code: “T4”,  name: “Compress”,  glyph: “⇣”,   belt: “base”,     primary: “What is the shortest faithful form?”,     martial: “Fold the cloak so the whole journey fits in one hand.”, use: “Portability, memory, speed, or transfer.”, fail: “Overcompression; meaning collapses into mush.”, color: “#7EC8A9” },
+{ code: “T5”,  name: “Expand”,    glyph: “⇡”,   belt: “base”,     primary: “What does this compact symbol unfold into?”, martial: “Unroll the banner only when the room is ready to see it.”, use: “You have a compact symbol but need operational detail.”, fail: “Hallucinated detail beyond the original invariant.”, color: “#C8C87E” },
+{ code: “T6”,  name: “Split”,     glyph: “⋈”,   belt: “base”,     primary: “What strands are tangled together?”,       martial: “Take the braided rope apart strand by strand.”, use: “The system is tangled and you need levers.”, fail: “Breaking what only works as a whole.”, color: “#C87E7E” },
+{ code: “T7”,  name: “Bind”,      glyph: “⊗”,   belt: “base”,     primary: “What can be fused into a stronger unit?”, martial: “Join hand, breath, and timing into one strike.”, use: “Separate parts are weak but together form a useful object.”, fail: “Forcing incompatible things into brittle union.”, color: “#7E9EC8” },
+{ code: “T8”,  name: “Filter”,    glyph: “⫽”,   belt: “base”,     primary: “What should pass, and what should not?”,  martial: “Do not fight every arrow. Let the bad ones pass into the sand.”, use: “The environment is noisy or adversarial.”, fail: “Filtering out the anomaly that mattered.”, color: “#C8A07E” },
+{ code: “T9”,  name: “Lift”,      glyph: “⤴”,   belt: “base”,     primary: “What higher space makes this easier?”,    martial: “Step to higher ground; the maze becomes a map.”, use: “Trapped in local detail or zero-sum framing.”, fail: “Floating so high you lose operational contact.”, color: “#9EC87E” },
+{ code: “T10”, name: “Project”,   glyph: “⤵”,   belt: “base”,     primary: “How do I bring this back to earth?”,      martial: “A stance means nothing until it touches the ground.”, use: “You have a good abstraction but no execution handle.”, fail: “Oversimplifying and losing the governing invariant.”, color: “#7EC8C8” },
+{ code: “T11”, name: “Flow”,      glyph: “~>”,  belt: “base”,     primary: “How does this transform over time?”,      martial: “Do not study the punch frozen in air; study the path it traces.”, use: “The shape of change matters more than the static snapshot.”, fail: “Assuming stable flow where thresholds or shocks dominate.”, color: “#C87EB8” },
+{ code: “T12”, name: “Lock”,      glyph: “⊙”,   belt: “base”,     primary: “What remains invariant?”,                 martial: “In every motion, keep one point still.”, use: “You need trust, continuity, or transfer across domains.”, fail: “Treating a temporary regularity as eternal law.”, color: “#E8D08A” },
+{ code: “T13”, name: “Invert”,    glyph: “↺”,   belt: “advanced”, primary: “What is the reverse path?”,               martial: “Walk the footprint backward to the hidden gate.”, use: “Debugging, causality tracing, source reconstruction.”, fail: “Assuming every operation has a clean inverse.”, color: “#C87E95” },
+{ code: “T14”, name: “Rescale”,   glyph: “⇔”,   belt: “advanced”, primary: “What changes across size or time?”,       martial: “A jab at one scale is a campaign at another.”, use: “Micro ↔ macro translation, scale-dominant laws.”, fail: “Applying local laws at the wrong scale.”, color: “#7E8FC8” },
+{ code: “T15”, name: “Threshold”, glyph: “|”,   belt: “advanced”, primary: “Where does behavior change regime?”,      martial: “Do not waste force before the hinge. Strike at the hinge.”, use: “Tipping points, activation energy, Kairos windows.”, fail: “Missing the actual hinge location.”, color: “#C8A0A0” },
+{ code: “T16”, name: “Weave”,     glyph: “#”,   belt: “advanced”, primary: “How do multiple chains interlock?”,       martial: “One thread breaks; a braid pulls ships.”, use: “Narrative systems, institutions, multi-layer causality.”, fail: “Creating interdependence that locks the system.”, color: “#A0C8A0” },
+{ code: “T17”, name: “Delay”,     glyph: “…”,   belt: “advanced”, primary: “What improves by waiting?”,               martial: “The unopened hand is still a move.”, use: “Option preservation, signal clarification, timing arbitrage.”, fail: “Mistaking paralysis for strategic patience.”, color: “#C0B0C8” },
+{ code: “T18”, name: “Null”,      glyph: “∅”,   belt: “advanced”, primary: “What role does absence play?”,            martial: “What you do not strike shapes the field of what can be struck.”, use: “Contrast generation, reset, negative space.”, fail: “Treating absence as non-structure.”, color: “#A0A0A0” },
+{ code: “T19”, name: “Fuse”,      glyph: “⊕”,   belt: “advanced”, primary: “What larger frame contains both opposites?”, martial: “Do not choose between the two blades until you know the hand that holds them.”, use: “Wave/particle dualities, compression/expressivity.”, fail: “False synthesis that papers over real tension.”, color: “#C8B07E” },
+{ code: “T20”, name: “Relay”,     glyph: “≫”,   belt: “advanced”, primary: “What do multiple viewpoints agree on?”,   martial: “One angle lies; three angles triangulate.”, use: “Proof refinement, cross-domain verification.”, fail: “Echo chambers mistaken for triangulation.”, color: “#7EC8B0” },
+{ code: “T21”, name: “Canonize”,  glyph: “★”,   belt: “advanced”, primary: “What deserves to become doctrine?”,       martial: “Do not relearn the same strike every winter. Name it and keep it.”, use: “Standardization, toolkit building, memory formation.”, fail: “Canonizing a local pattern as universal law.”, color: “#E8C870” },
+];
+
+const KATAS = [
+{ name: “The Lantern”,   subtitle: “For unclear ideas”,         chain: [“Null”,“Mirror”,“Expand”],               description: “Start with silence, reflect the shape, then unfold.” },
+{ name: “The Bridge”,    subtitle: “For domain translation”,    chain: [“Map”,“Lock”,“Project”],                  description: “Find correspondence, preserve invariant, instantiate in target domain.” },
+{ name: “The Sieve”,     subtitle: “For noisy systems”,         chain: [“Split”,“Filter”,“Canonize”],             description: “Separate strands, keep signal, store the reusable rule.” },
+{ name: “The Hawk Turn”, subtitle: “For stuck problems”,        chain: [“Lift”,“Rotate”,“Project”],               description: “Go up a level, change basis, return to action.” },
+{ name: “The Braid”,     subtitle: “For complex systems”,       chain: [“Weave”,“Flow”,“Threshold”],              description: “Trace interlocks, observe evolution, find the hinge.” },
+{ name: “The Forge”,     subtitle: “For invention”,             chain: [“Bind”,“Fuse”,“Canonize”],                description: “Combine pieces, stabilize apparent opposites, formalize the new pattern.” },
+{ name: “The Ghost Step”,subtitle: “For timing”,                chain: [“Delay”,“Threshold”,“Act →”],             description: “Preserve optionality until the hinge appears.” },
+];
+
+const BELTS = [
+{ name: “White”,  desc: “Recognition — name the system, name the domain, identify what move is already present.” },
+{ name: “Yellow”, desc: “Single-Move Application — solve problems with one transformation at a time.” },
+{ name: “Green”,  desc: “Combination Forms — chain two or three transformations, each answering the weakness of the last.” },
+{ name: “Blue”,   desc: “Cross-Domain Combat — borrow the skeleton, not the skin.” },
+{ name: “Brown”,  desc: “Opponent Study — analyze confusion, contradiction, misdirection. Most confusion is an unmarked transformation.” },
+{ name: “Black”,  desc: “Invariant Combat — move freely through all forms without losing truth. Mastery is preserving the invariant through all moves.” },
+];
+
+const BELT_COLORS = { White: “#E8E8E8”, Yellow: “#E8D870”, Green: “#70C870”, Blue: “#7090E8”, Brown: “#A07050”, Black: “#202020” };
+
+export default function App() {
+const [view, setView] = useState(“index”);
+const [selected, setSelected] = useState(null);
+const [beltView, setBeltView] = useState(null);
+const [kataView, setKataView] = useState(null);
+const [filter, setFilter] = useState(“all”);
+
+const base = TRANSFORMS.filter(t => t.belt === “base”);
+const advanced = TRANSFORMS.filter(t => t.belt === “advanced”);
+const visible = filter === “all” ? TRANSFORMS : TRANSFORMS.filter(t => t.belt === filter);
+
+const getT = (name) => TRANSFORMS.find(t => t.name === name);
+
+return (
+<div style={{
+minHeight: “100vh”,
+background: “#0D0D0D”,
+color: “#D4CCBE”,
+fontFamily: “‘Palatino Linotype’, Palatino, ‘Book Antiqua’, serif”,
+padding: “0”,
+}}>
+{/* Header */}
+<div style={{
+borderBottom: “1px solid #2A2A2A”,
+padding: “32px 40px 24px”,
+background: “linear-gradient(180deg, #111 0%, #0D0D0D 100%)”,
+position: “sticky”, top: 0, zIndex: 100,
+}}>
+<div style={{ maxWidth: 1100, margin: “0 auto”, display: “flex”, alignItems: “flex-end”, justifyContent: “space-between”, flexWrap: “wrap”, gap: 16 }}>
+<div>
+<div style={{ fontSize: 11, letterSpacing: “0.3em”, color: “#6A6050”, textTransform: “uppercase”, marginBottom: 6 }}>Field Manual · 21 Forms</div>
+<div style={{ fontSize: 28, fontWeight: 400, color: “#E8DDD0”, letterSpacing: “0.02em” }}>The Book of Transformations</div>
+</div>
+<div style={{ display: “flex”, gap: 8 }}>
+{[“index”,“katas”,“belts”].map(v => (
+<button key={v} onClick={() => { setView(v); setSelected(null); setBeltView(null); setKataView(null); }} style={{
+padding: “7px 18px”, fontSize: 12, letterSpacing: “0.15em”,
+textTransform: “uppercase”, cursor: “pointer”, border: “1px solid”,
+borderColor: view === v ? “#C8A97E” : “#2A2A2A”,
+background: view === v ? “#1A1510” : “transparent”,
+color: view === v ? “#C8A97E” : “#6A6050”,
+borderRadius: 2, transition: “all 0.2s”,
+}}>{v}</button>
+))}
+</div>
+</div>
+</div>
+
+```
+  <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 40px" }}>
+
+    {/* === INDEX VIEW === */}
+    {view === "index" && !selected && (
+      <div>
+        {/* Filter */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 36 }}>
+          {["all","base","advanced"].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{
+              padding: "5px 16px", fontSize: 11, letterSpacing: "0.2em",
+              textTransform: "uppercase", cursor: "pointer",
+              border: "1px solid",
+              borderColor: filter === f ? "#7EAFC8" : "#2A2A2A",
+              background: "transparent",
+              color: filter === f ? "#7EAFC8" : "#4A4A4A",
+              borderRadius: 2,
+            }}>
+              {f === "all" ? "All 21" : f === "base" ? "12 Base Forms" : "9 Advanced Forms"}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 2 }}>
+          {visible.map(t => (
+            <div key={t.code} onClick={() => setSelected(t)} style={{
+              padding: "20px 22px",
+              border: "1px solid #1A1A1A",
+              cursor: "pointer",
+              background: "#0F0F0F",
+              transition: "all 0.2s",
+              position: "relative",
+              overflow: "hidden",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#141410"; e.currentTarget.style.borderColor = t.color + "44"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#0F0F0F"; e.currentTarget.style.borderColor = "#1A1A1A"; }}
+            >
+              <div style={{ position: "absolute", top: 12, right: 14, fontSize: 28, opacity: 0.12, color: t.color }}>{t.glyph}</div>
+              <div style={{ fontSize: 10, color: "#4A4040", letterSpacing: "0.25em", marginBottom: 8 }}>{t.code} · {t.belt.toUpperCase()}</div>
+              <div style={{ fontSize: 18, color: t.color, fontWeight: 400, marginBottom: 8 }}>{t.name}</div>
+              <div style={{ fontSize: 12, color: "#7A7060", lineHeight: 1.6, fontStyle: "italic" }}>{t.primary}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 60, padding: "28px 32px", background: "#0A0A0A", border: "1px solid #1E1E1A" }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.3em", color: "#5A5040", marginBottom: 16, textTransform: "uppercase" }}>Master Rule</div>
+          <div style={{ fontSize: 15, color: "#A09070", lineHeight: 1.9, maxWidth: 700 }}>
+            All thought-work is transformation-work. To work well, identify: the input form · the desired output form · the invariant · the proper operator · the cost of distortion.
+          </div>
+          <div style={{ marginTop: 20, fontSize: 17, color: "#C8A97E", fontStyle: "italic" }}>Do not worship the form. Preserve the invariant.</div>
+        </div>
+      </div>
+    )}
+
+    {/* === SINGLE TRANSFORM DETAIL === */}
+    {view === "index" && selected && (
+      <div>
+        <button onClick={() => setSelected(null)} style={{
+          marginBottom: 32, padding: "6px 16px", fontSize: 11, letterSpacing: "0.2em",
+          textTransform: "uppercase", cursor: "pointer", border: "1px solid #2A2A2A",
+          background: "transparent", color: "#6A6050", borderRadius: 2,
+        }}>← Back</button>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, marginBottom: 2 }}>
+          <div style={{ padding: "40px", background: "#0C0C0C", border: "1px solid #1A1A1A" }}>
+            <div style={{ fontSize: 80, color: selected.color, opacity: 0.7, lineHeight: 1, marginBottom: 20 }}>{selected.glyph}</div>
+            <div style={{ fontSize: 11, color: "#4A4040", letterSpacing: "0.3em", marginBottom: 12 }}>{selected.code} · {selected.belt.toUpperCase()}</div>
+            <div style={{ fontSize: 36, color: selected.color, marginBottom: 16 }}>{selected.name}</div>
+            <div style={{ fontSize: 14, color: "#7A7060", fontStyle: "italic", lineHeight: 1.7 }}>{selected.primary}</div>
+          </div>
+          <div style={{ padding: "40px", background: "#0A0C0A", border: "1px solid #1A1A1A", borderLeft: "none" }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.25em", color: "#4A5040", marginBottom: 16, textTransform: "uppercase" }}>Martial Instruction</div>
+            <div style={{ fontSize: 15, color: "#9A9080", lineHeight: 1.9, fontStyle: "italic" }}>"{selected.martial}"</div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+          <div style={{ padding: "28px 32px", background: "#0C0C0C", border: "1px solid #1A1A1A" }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.25em", color: "#4A4040", marginBottom: 12, textTransform: "uppercase" }}>Use When</div>
+            <div style={{ fontSize: 14, color: "#8A8070", lineHeight: 1.7 }}>{selected.use}</div>
+          </div>
+          <div style={{ padding: "28px 32px", background: "#0C0C0C", border: "1px solid #1A1A1A", borderLeft: "none" }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.25em", color: "#5A4040", marginBottom: 12, textTransform: "uppercase" }}>Failure Mode</div>
+            <div style={{ fontSize: 14, color: "#9A7060", lineHeight: 1.7 }}>{selected.fail}</div>
+          </div>
+        </div>
+
+        {/* Related katas */}
+        <div style={{ marginTop: 2, padding: "28px 32px", background: "#0C0C0C", border: "1px solid #1A1A1A" }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.25em", color: "#4A4040", marginBottom: 16, textTransform: "uppercase" }}>Appears in Kata</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {KATAS.filter(k => k.chain.includes(selected.name)).map(k => (
+              <button key={k.name} onClick={() => { setView("katas"); setKataView(k); setSelected(null); }} style={{
+                padding: "6px 16px", fontSize: 12, cursor: "pointer", border: "1px solid #2A2A2A",
+                background: "#141410", color: "#C8A97E", letterSpacing: "0.1em",
+              }}>{k.name}</button>
+            ))}
+            {KATAS.filter(k => k.chain.includes(selected.name)).length === 0 && (
+              <span style={{ fontSize: 13, color: "#4A4A4A", fontStyle: "italic" }}>No kata contains this form yet.</span>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* === KATAS VIEW === */}
+    {view === "katas" && !kataView && (
+      <div>
+        <div style={{ fontSize: 11, letterSpacing: "0.3em", color: "#5A5040", marginBottom: 32, textTransform: "uppercase" }}>Seven Repeatable Drills</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 2 }}>
+          {KATAS.map((k, i) => (
+            <div key={k.name} onClick={() => setKataView(k)} style={{
+              padding: "28px 28px", background: "#0C0C0C", border: "1px solid #1A1A1A",
+              cursor: "pointer", transition: "all 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#3A3028"; e.currentTarget.style.background = "#101008"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1A1A1A"; e.currentTarget.style.background = "#0C0C0C"; }}
+            >
+              <div style={{ fontSize: 11, color: "#4A4040", letterSpacing: "0.25em", marginBottom: 10 }}>KATA {i + 1}</div>
+              <div style={{ fontSize: 22, color: "#C8A97E", marginBottom: 6 }}>{k.name}</div>
+              <div style={{ fontSize: 12, color: "#5A5040", marginBottom: 16, fontStyle: "italic" }}>{k.subtitle}</div>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                {k.chain.map((step, si) => (
+                  <span key={si} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 12, padding: "3px 10px", background: "#151510", border: "1px solid #2A2A20", color: getT(step)?.color || "#8A8070" }}>{step}</span>
+                    {si < k.chain.length - 1 && <span style={{ color: "#3A3020", fontSize: 14 }}>→</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {view === "katas" && kataView && (
+      <div>
+        <button onClick={() => setKataView(null)} style={{
+          marginBottom: 32, padding: "6px 16px", fontSize: 11, letterSpacing: "0.2em",
+          textTransform: "uppercase", cursor: "pointer", border: "1px solid #2A2A2A",
+          background: "transparent", color: "#6A6050", borderRadius: 2,
+        }}>← Back to Katas</button>
+
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 11, color: "#5A5040", letterSpacing: "0.3em", marginBottom: 12, textTransform: "uppercase" }}>{kataView.subtitle}</div>
+          <div style={{ fontSize: 40, color: "#C8A97E" }}>{kataView.name}</div>
+        </div>
+
+        <div style={{ fontSize: 15, color: "#8A8070", fontStyle: "italic", marginBottom: 40, lineHeight: 1.7 }}>{kataView.description}</div>
+
+        <div style={{ display: "flex", gap: 0, alignItems: "stretch", marginBottom: 40, flexWrap: "wrap" }}>
+          {kataView.chain.map((step, i) => {
+            const t = getT(step);
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center" }}>
+                <div style={{ padding: "28px 32px", background: "#0C0C0C", border: "1px solid #1A1A1A", minWidth: 180 }}>
+                  <div style={{ fontSize: 11, color: "#4A4040", letterSpacing: "0.2em", marginBottom: 8 }}>STEP {i + 1}</div>
+                  <div style={{ fontSize: 28, color: t?.color || "#C8A97E", marginBottom: 8 }}>{t?.glyph || "→"}</div>
+                  <div style={{ fontSize: 18, color: t?.color || "#C8A97E" }}>{step}</div>
+                  {t && <div style={{ fontSize: 11, color: "#5A5040", marginTop: 8, fontStyle: "italic", lineHeight: 1.5 }}>{t.primary}</div>}
+                </div>
+                {i < kataView.chain.length - 1 && (
+                  <div style={{ fontSize: 24, color: "#2A2A20", padding: "0 8px" }}>→</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ padding: "28px 32px", background: "#0A0A0A", border: "1px solid #1E1E1A" }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.3em", color: "#5A5040", marginBottom: 12, textTransform: "uppercase" }}>Drill Instructions</div>
+          {kataView.chain.map((step, i) => {
+            const t = getT(step);
+            if (!t) return null;
+            return (
+              <div key={i} style={{ marginBottom: 16, paddingLeft: 20, borderLeft: `2px solid ${t.color}22` }}>
+                <div style={{ fontSize: 12, color: t.color, marginBottom: 4 }}>{i + 1}. {step}</div>
+                <div style={{ fontSize: 13, color: "#6A6050", lineHeight: 1.7, fontStyle: "italic" }}>{t.martial}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
+    {/* === BELTS VIEW === */}
+    {view === "belts" && !beltView && (
+      <div>
+        <div style={{ fontSize: 11, letterSpacing: "0.3em", color: "#5A5040", marginBottom: 32, textTransform: "uppercase" }}>Martial Arts Instruction Manual</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {BELTS.map((b, i) => (
+            <div key={b.name} onClick={() => setBeltView(b)} style={{
+              padding: "24px 32px", background: "#0C0C0C", border: "1px solid #1A1A1A",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 28,
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = BELT_COLORS[b.name] + "33"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1A1A1A"; }}
+            >
+              <div style={{
+                width: 48, height: 14, background: BELT_COLORS[b.name],
+                flexShrink: 0, boxShadow: `0 0 12px ${BELT_COLORS[b.name]}40`,
+              }} />
+              <div>
+                <div style={{ fontSize: 11, letterSpacing: "0.2em", color: BELT_COLORS[b.name], marginBottom: 6, textTransform: "uppercase" }}>{b.name} Belt</div>
+                <div style={{ fontSize: 14, color: "#7A7060", lineHeight: 1.6 }}>{b.desc.split("—")[0]} —</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {view === "belts" && beltView && (
+      <div>
+        <button onClick={() => setBeltView(null)} style={{
+          marginBottom: 32, padding: "6px 16px", fontSize: 11, letterSpacing: "0.2em",
+          textTransform: "uppercase", cursor: "pointer", border: "1px solid #2A2A2A",
+          background: "transparent", color: "#6A6050", borderRadius: 2,
+        }}>← Back to Belts</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 32 }}>
+          <div style={{ width: 72, height: 18, background: BELT_COLORS[beltView.name], boxShadow: `0 0 16px ${BELT_COLORS[beltView.name]}50` }} />
+          <div style={{ fontSize: 32, color: BELT_COLORS[beltView.name] }}>{beltView.name} Belt</div>
+        </div>
+        <div style={{ fontSize: 16, color: "#8A8070", lineHeight: 1.9, maxWidth: 640, marginBottom: 40 }}>{beltView.desc}</div>
+        <div style={{ padding: "24px 32px", background: "#0A0A0A", border: `1px solid ${BELT_COLORS[beltView.name]}22` }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.25em", color: "#4A4040", marginBottom: 16, textTransform: "uppercase" }}>Primary Moves at This Level</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(beltView.name === "White" ? ["Map","Split","Flow"] :
+              beltView.name === "Yellow" ? ["Lift","Project","Filter","Split","Compress"] :
+              beltView.name === "Green" ? ["Split→Filter→Bind","Map→Mirror→Lock","Lift→Rotate→Project"] :
+              beltView.name === "Blue" ? ["Map","Lock","Project"] :
+              beltView.name === "Brown" ? ["Mirror","Invert","Null","Threshold","Relay"] :
+              ["All 21 Forms"]).map(m => (
+                <span key={m} style={{ padding: "5px 14px", fontSize: 12, background: "#141410", border: "1px solid #2A2A1A", color: "#C8A97E", letterSpacing: "0.05em" }}>{m}</span>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    )}
+
+  </div>
+
+  {/* Footer */}
+  <div style={{ borderTop: "1px solid #1A1A1A", padding: "24px 40px", marginTop: 40, background: "#0A0A0A" }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+      <div style={{ fontSize: 11, color: "#3A3028", letterSpacing: "0.2em" }}>T1–T12 BASE · T13–T21 ADVANCED · 7 KATAS · 6 BELTS</div>
+      <div style={{ fontSize: 12, color: "#4A4030", fontStyle: "italic" }}>Do not worship the form. Preserve the invariant.</div>
+    </div>
+  </div>
+</div>
+```
+
+);
+}
