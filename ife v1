@@ -1,0 +1,1083 @@
+import React, {
+useState,
+useCallback,
+useMemo,
+useRef,
+useEffect,
+} from “react”;
+
+const C = {
+bg: “#080b0f”,
+panel: “#0d1118”,
+border: “#1a2230”,
+accent: “#c8a96e”,
+accentD: “#8a6e3e”,
+accentL: “#e2c98e”,
+red: “#e74c3c”,
+green: “#2ecc71”,
+blue: “#3498db”,
+yellow: “#f1c40f”,
+purple: “#9b59b6”,
+teal: “#1abc9c”,
+text: “#d4cfc7”,
+dim: “#6b7280”,
+muted: “#3a4555”,
+};
+
+const REWARD_CATS = [“money”,“time”,“status”,“security”,“autonomy”,“reputation”,“survival”];
+const HORIZONS = [“Immediate”,“Quarterly”,“Annual”,“Career”,“Lifetime”,“Intergenerational”];
+const CONSTRAINT_TYPES = [“Hard”,“Soft”,“Invisible”];
+const EDGE_TYPES = [“rewards”,“punishes”,“subsidizes”,“extracts from”,“hides costs from”,“locks in”,“depends on”,“signals”];
+const ACTOR_COLORS = [C.accent, C.blue, C.green, C.red, C.purple, C.teal, C.yellow];
+
+const MISALIGNMENT_PATTERNS = [
+{ id: “rcsep”,  label: “Reward-Cost Separation”, icon: “⚡”, color: C.red,    check: (actors) => actors.some((a) => a.externalities > 3 && a.rewardWeight > 0.6) },
+{ id: “thmm”,   label: “Time Horizon Mismatch”,  icon: “⏳”, color: C.yellow, check: (actors) => actors.some((a) => [“Immediate”,“Quarterly”].includes(a.horizon) && a.lockin > 3) },
+{ id: “proxy”,  label: “Proxy Capture”,           icon: “🎭”, color: “#e67e22”,check: (actors) => actors.some((a) => a.proxyRisk > 3) },
+{ id: “lockin”, label: “Lock-in Trap”,            icon: “🔒”, color: C.red,    check: (actors) => actors.some((a) => a.lockin >= 4 && a.exitCost >= 4) },
+{ id: “infoas”, label: “Information Asymmetry”,   icon: “👁”, color: C.blue,   check: (actors) => actors.some((a) => a.infoAdvantage > 3) },
+];
+
+const TEMPLATES = {
+“Student Loan System”: {
+desc: “Federal student lending. Universities set tuition, government underwrites loans, students borrow to access credentials employers use as filters.”,
+actors: [
+{ name: “Students”,     horizon: “Career”,    weights: { money:0.4,status:0.2,time:0.1,security:0.1,autonomy:0.1,reputation:0.05,survival:0.05 }, lockin:4, exitCost:5, infoAdvantage:1, proxyRisk:2, externalities:4, rewardWeight:0.3 },
+{ name: “Universities”, horizon: “Annual”,    weights: { money:0.5,status:0.3,time:0.05,security:0.05,autonomy:0.05,reputation:0.05,survival:0.0 }, lockin:1, exitCost:1, infoAdvantage:4, proxyRisk:5, externalities:4, rewardWeight:0.8 },
+{ name: “Lenders/Gov”,  horizon: “Quarterly”, weights: { money:0.6,status:0.1,time:0.1,security:0.1,autonomy:0.0,reputation:0.1,survival:0.0 }, lockin:1, exitCost:1, infoAdvantage:4, proxyRisk:4, externalities:5, rewardWeight:0.9 },
+{ name: “Employers”,    horizon: “Annual”,    weights: { money:0.4,status:0.2,time:0.3,security:0.05,autonomy:0.05,reputation:0.0,survival:0.0 }, lockin:2, exitCost:2, infoAdvantage:3, proxyRisk:4, externalities:3, rewardWeight:0.7 },
+],
+constraints: [
+{ label: “Non-dischargeable debt”,    type: “Hard”,      impact: 5 },
+{ label: “Accreditation gatekeeping”, type: “Hard”,      impact: 4 },
+{ label: “Social credential norm”,    type: “Soft”,      impact: 4 },
+{ label: “Compound interest”,         type: “Invisible”, impact: 5 },
+],
+edges: [
+{ from: 1, to: 0, type: “locks in”,         weight: 5 },
+{ from: 2, to: 0, type: “extracts from”,    weight: 5 },
+{ from: 1, to: 2, type: “depends on”,       weight: 4 },
+{ from: 3, to: 0, type: “hides costs from”, weight: 3 },
+{ from: 1, to: 0, type: “hides costs from”, weight: 4 },
+],
+},
+“Ad-Driven Platform”: {
+desc: “Social media funded by advertising. Attention is the product. User wellbeing is not in the objective function.”,
+actors: [
+{ name: “Platform”,    horizon: “Quarterly”, weights: { money:0.6,status:0.2,time:0.05,security:0.05,autonomy:0.05,reputation:0.05,survival:0.0 }, lockin:1, exitCost:1, infoAdvantage:5, proxyRisk:5, externalities:5, rewardWeight:0.9 },
+{ name: “Advertisers”, horizon: “Quarterly”, weights: { money:0.7,status:0.1,time:0.1,security:0.0,autonomy:0.0,reputation:0.1,survival:0.0 }, lockin:2, exitCost:2, infoAdvantage:4, proxyRisk:4, externalities:4, rewardWeight:0.8 },
+{ name: “Users”,       horizon: “Immediate”, weights: { money:0.1,status:0.4,time:0.1,security:0.1,autonomy:0.1,reputation:0.2,survival:0.0 }, lockin:4, exitCost:4, infoAdvantage:1, proxyRisk:2, externalities:1, rewardWeight:0.2 },
+],
+constraints: [
+{ label: “Network effects”,         type: “Soft”,      impact: 5 },
+{ label: “Attention economy norm”,  type: “Invisible”, impact: 4 },
+{ label: “Data lock-in”,            type: “Soft”,      impact: 4 },
+],
+edges: [
+{ from: 0, to: 2, type: “extracts from”,    weight: 5 },
+{ from: 0, to: 2, type: “locks in”,         weight: 4 },
+{ from: 1, to: 0, type: “rewards”,          weight: 4 },
+{ from: 0, to: 2, type: “hides costs from”, weight: 5 },
+],
+},
+“Private Equity”: {
+desc: “PE firm acquires company, loads debt, extracts fees, exits. Workers and creditors bear residual risk.”,
+actors: [
+{ name: “PE Firm”,    horizon: “Career”,   weights: { money:0.7,status:0.1,time:0.1,security:0.05,autonomy:0.05,reputation:0.0,survival:0.0 }, lockin:1, exitCost:1, infoAdvantage:5, proxyRisk:3, externalities:5, rewardWeight:0.95 },
+{ name: “Management”, horizon: “Annual”,   weights: { money:0.5,status:0.2,time:0.1,security:0.1,autonomy:0.1,reputation:0.0,survival:0.0 }, lockin:3, exitCost:3, infoAdvantage:3, proxyRisk:4, externalities:3, rewardWeight:0.6 },
+{ name: “Workers”,    horizon: “Lifetime”, weights: { money:0.3,status:0.1,time:0.1,security:0.3,autonomy:0.1,reputation:0.0,survival:0.1 }, lockin:5, exitCost:5, infoAdvantage:1, proxyRisk:1, externalities:1, rewardWeight:0.1 },
+{ name: “Creditors”,  horizon: “Career”,   weights: { money:0.6,status:0.1,time:0.1,security:0.2,autonomy:0.0,reputation:0.0,survival:0.0 }, lockin:3, exitCost:2, infoAdvantage:2, proxyRisk:2, externalities:2, rewardWeight:0.5 },
+],
+constraints: [
+{ label: “Debt covenant”,       type: “Hard”,      impact: 5 },
+{ label: “Board control”,       type: “Hard”,      impact: 5 },
+{ label: “At-will employment”,  type: “Soft”,      impact: 4 },
+{ label: “Bankruptcy exposure”, type: “Invisible”, impact: 5 },
+],
+edges: [
+{ from: 0, to: 2, type: “extracts from”,    weight: 5 },
+{ from: 0, to: 3, type: “extracts from”,    weight: 4 },
+{ from: 0, to: 2, type: “locks in”,         weight: 5 },
+{ from: 0, to: 1, type: “rewards”,          weight: 3 },
+{ from: 0, to: 2, type: “hides costs from”, weight: 4 },
+],
+},
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 8);
+
+const DEFAULT_ACTOR = () => ({
+id: uid(), name: “”, horizon: “Annual”,
+weights: { money:0.3, status:0.15, time:0.15, security:0.15, autonomy:0.1, reputation:0.1, survival:0.05 },
+lockin: 2, exitCost: 2, infoAdvantage: 2, proxyRisk: 2, externalities: 2, rewardWeight: 0.5,
+});
+
+const DEFAULT_CONSTRAINT = () => ({ id: uid(), label: “”, type: “Soft”, impact: 3 });
+const DEFAULT_EDGE = (actorCount) => ({ id: uid(), from: 0, to: actorCount > 1 ? 1 : 0, type: “rewards”, weight: 3 });
+
+// ── SIMULATION ENGINE ────────────────────────────────────────────────────────
+function computePayoff(actor) {
+const baseReward  = actor.rewardWeight * 5;
+const costPenalty = (actor.externalities / 5) * (1 - actor.rewardWeight) * 3;
+const lockBonus   = actor.rewardWeight > 0.6 ? actor.lockin * 0.4 : 0;
+const infoBonus   = actor.infoAdvantage * actor.rewardWeight * 0.3;
+const timeFactor  = { Immediate:1.2, Quarterly:1.1, Annual:1.0, Career:0.85, Lifetime:0.7, Intergenerational:0.5 }[actor.horizon] || 1.0;
+const noise       = (Math.random() - 0.5) * 0.3;
+return (baseReward + lockBonus + infoBonus - costPenalty) * timeFactor + noise;
+}
+
+function runSimulation(actors, constraints, edges, steps = 40) {
+if (actors.length === 0) return { frames: [], equilibrium: null, collapseDetected: false, attractors: [] };
+
+const hardPenalty   = constraints.filter((c) => c.type === “Hard”).reduce((s, c) => s + c.impact, 0) / 10;
+const invisibleLoad = constraints.filter((c) => c.type === “Invisible”).reduce((s, c) => s + c.impact, 0) / 10;
+
+const frames = [];
+let state = actors.map(() => ({ payoff: 3, welfare: 3, position: Math.random() * 4 + 1 }));
+
+for (let step = 0; step < steps; step++) {
+const next = state.map((s, i) => {
+const actor     = actors[i];
+const raw       = computePayoff(actor);
+const edgeBonus = edges.filter((e) => e.from === i).reduce((sum, e) => sum + e.weight * 0.15, 0);
+const edgeCost  = edges.filter((e) => e.to === i && [“extracts from”,“locks in”,“punishes”].includes(e.type)).reduce((sum, e) => sum + e.weight * 0.2, 0);
+const payoff    = Math.max(0, Math.min(10, raw + edgeBonus - edgeCost - hardPenalty * 0.5));
+const welfare   = Math.max(0, Math.min(10, payoff - (invisibleLoad * actor.externalities) / 5));
+const drift     = (payoff - s.payoff) * 0.3;
+const position  = Math.max(0, Math.min(10, s.position + drift * 0.5 + (Math.random() - 0.5) * 0.2));
+return { payoff, welfare, position };
+});
+frames.push(next.map((s) => ({ …s })));
+state = next;
+}
+
+const lastN     = frames.slice(-8);
+const variances = actors.map((_, i) => {
+const vals = lastN.map((f) => f[i].payoff);
+const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
+return vals.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / vals.length;
+});
+const maxVar = Math.max(…variances);
+
+let equilibrium = null, collapseDetected = false, attractors = [];
+
+if (maxVar < 0.15) {
+const finalPayoffs = actors.map((*, i) => frames[frames.length - 1][i].payoff);
+const avgPayoff    = finalPayoffs.reduce((s, v) => s + v, 0) / finalPayoffs.length;
+const lowActors    = actors.filter((*, i) => frames[frames.length - 1][i].welfare < 2.5);
+equilibrium = {
+stable: true,
+avgPayoff: avgPayoff.toFixed(2),
+type: avgPayoff > 6 ? “cooperative” : avgPayoff > 4 ? “neutral” : “extractive”,
+trapped: lowActors.map((a) => a.name),
+};
+} else if (maxVar > 1.5) {
+collapseDetected = true;
+} else {
+const finalPos = actors.map((*, i) => frames[frames.length - 1][i].position);
+const high     = actors.filter((*, i) => finalPos[i] > 6).map((a) => a.name);
+const low      = actors.filter((_, i) => finalPos[i] < 4).map((a) => a.name);
+if (high.length > 0 && low.length > 0) {
+attractors = [
+{ label: “High-payoff basin”, actors: high },
+{ label: “Low-payoff basin”,  actors: low  },
+];
+}
+}
+
+return { frames, equilibrium, collapseDetected, attractors };
+}
+
+// ── AI ANALYSIS ───────────────────────────────────────────────────────────────
+async function callIFE(systemDesc, actors, constraints, edges, simResult) {
+const actorLines = actors.map((a) =>
+`${a.name || "Unnamed"}: horizon=${a.horizon}, lockin=${a.lockin}/5, infoAdvantage=${a.infoAdvantage}/5, externalities=${a.externalities}/5, rewardWeight=${a.rewardWeight}`
+).join(”\n”);
+
+const constraintLines = constraints.map((c) => `[${c.type}] ${c.label} (impact ${c.impact}/5)`).join(”\n”);
+
+const eqSummary = simResult?.equilibrium
+? `Stable ${simResult.equilibrium.type} equilibrium. Avg payoff ${simResult.equilibrium.avgPayoff}. Trapped: ${simResult.equilibrium.trapped.join(", ") || "none"}.`
+: simResult?.collapseDetected ? “No convergence detected. System cycling or collapsing.”
+: simResult?.attractors?.length > 0
+? `Bistable: ${simResult.attractors.map((a) => `${a.label} (${a.actors.join(”, “)})`).join(" | ")}`
+: “Simulation inconclusive.”;
+
+const prompt = `You are the Incentive Field Engine (IFE v1.0) of PantheonOS.
+
+Core doctrine: Systems are not controlled by rules alone. They are controlled by what gets rewarded, punished, delayed, hidden, subsidized, or made legible. Incentives are field geometry. Actors move along gradients. System design is terrain-shaping.
+
+SYSTEM:
+${systemDesc}
+
+ACTORS:
+${actorLines}
+
+CONSTRAINTS:
+${constraintLines || “(none defined)”}
+
+SIMULATION RESULT:
+${eqSummary}
+
+Respond ONLY with valid JSON. No markdown fences. No text outside the JSON object.
+{
+“fieldDiagnosis”: “2-3 sentence description of the incentive field geometry”,
+“equilibriumInterpretation”: “what the simulation convergence reveals about the system attractor state”,
+“misalignments”: [
+{ “pattern”: “one of: Reward-Cost Separation, Time Horizon Mismatch, Proxy Capture, Lock-in Trap, Information Asymmetry”, “actors”: “specific actors”, “mechanism”: “how it operates” }
+],
+“collapseVectors”: [“specific destabilization path 1”, “specific destabilization path 2”],
+“steeringOptions”: [
+{ “operator”: “one of: Reward Rewrite, Cost Reinternalization, Delay Injection, Visibility Correction, Exit Restoration, Positive-Sum Reframe”, “intervention”: “specific action”, “expectedEffect”: “field geometry change”, “risk”: “unintended consequence” }
+],
+“positiveSum”: “one concrete redesign that makes cooperation pay more than extraction”,
+“pantheonVerdict”: “one sentence Pantheon assessment”
+}`;
+
+const res = await fetch(“https://api.anthropic.com/v1/messages”, {
+method: “POST”,
+headers: { “Content-Type”: “application/json” },
+body: JSON.stringify({
+model: “claude-sonnet-4-20250514”,
+max_tokens: 1200,
+messages: [{ role: “user”, content: prompt }],
+}),
+});
+
+if (!res.ok) throw new Error(`API error ${res.status}`);
+const data  = await res.json();
+const raw   = (data.content || []).map((b) => b.text || “”).join(””).trim();
+const clean = raw.replace(/^`(?:json)?\s*/i, "").replace(/\s*`\s*$/i, “”).trim();
+
+let parsed;
+try { parsed = JSON.parse(clean); }
+catch {
+const m = clean.match(/{[\s\S]*}/);
+if (m) parsed = JSON.parse(m[0]);
+else throw new Error(“Model returned invalid JSON.”);
+}
+
+return {
+fieldDiagnosis:            typeof parsed.fieldDiagnosis === “string”            ? parsed.fieldDiagnosis : “”,
+equilibriumInterpretation: typeof parsed.equilibriumInterpretation === “string” ? parsed.equilibriumInterpretation : “”,
+misalignments:             Array.isArray(parsed.misalignments)                  ? parsed.misalignments : [],
+collapseVectors:           Array.isArray(parsed.collapseVectors)                ? parsed.collapseVectors : [],
+steeringOptions:           Array.isArray(parsed.steeringOptions)                ? parsed.steeringOptions : [],
+positiveSum:               typeof parsed.positiveSum === “string”               ? parsed.positiveSum : “”,
+pantheonVerdict:           typeof parsed.pantheonVerdict === “string”           ? parsed.pantheonVerdict : “”,
+};
+}
+
+// ── PRIMITIVE COMPONENTS ──────────────────────────────────────────────────────
+const Panel = ({ children, style = {} }) => (
+
+  <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", ...style }}>
+    {children}
+  </div>
+);
+
+const Tag = ({ label, color = C.accent, small = false }) => (
+<span style={{
+display: “inline-block”, fontSize: small ? 10 : 11, padding: small ? “1px 6px” : “2px 8px”,
+borderRadius: 12, background: `${color}22`, color, border: `1px solid ${color}44`,
+marginRight: 4, marginBottom: 4, userSelect: “none”,
+}}>{label}</span>
+);
+
+const Btn = ({ children, onClick, color = C.accent, small = false, outline = false, disabled = false, style = {} }) => (
+<button onClick={onClick} disabled={disabled} style={{
+background: outline ? “transparent” : disabled ? C.muted : color,
+border: `1px solid ${disabled ? C.muted : color}`,
+color: outline ? (disabled ? C.dim : color) : “#080b0f”,
+padding: small ? “4px 10px” : “8px 16px”, borderRadius: 4,
+cursor: disabled ? “not-allowed” : “pointer”,
+fontSize: small ? 11 : 13, fontFamily: “inherit”, fontWeight: 600,
+letterSpacing: “0.04em”, opacity: disabled ? 0.6 : 1, …style,
+}}>{children}</button>
+);
+
+const FInput = ({ value, onChange, placeholder, multiline = false, style = {} }) => {
+const base = {
+background: “#0d1218”, border: `1px solid ${C.border}`, color: C.text,
+padding: “8px 10px”, borderRadius: 4, fontSize: 12, fontFamily: “inherit”,
+width: “100%”, boxSizing: “border-box”, outline: “none”, resize: “vertical”, …style,
+};
+return multiline
+? <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} style={base} />
+: <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={base} />;
+};
+
+const FSelect = ({ value, onChange, options, style = {}, renderOption }) => (
+<select value={value} onChange={(e) => onChange(e.target.value)} style={{
+background: “#0d1218”, border: `1px solid ${C.border}`, color: C.text,
+padding: “6px 8px”, borderRadius: 4, fontSize: 12, fontFamily: “inherit”,
+cursor: “pointer”, width: “100%”, …style,
+}}>
+{options.map((o) => (
+<option key={String(o)} value={o}>{renderOption ? renderOption(o) : o}</option>
+))}
+</select>
+);
+
+const MiniSlider = ({ label, value, onChange, color = C.accent }) => (
+
+  <div style={{ marginBottom: 8 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+      <span style={{ fontSize: 10, color: C.dim }}>{label}</span>
+      <span style={{ fontSize: 11, color, fontFamily: "monospace" }}>{value}</span>
+    </div>
+    <input type="range" min={0} max={5} value={value} onChange={(e) => onChange(Number(e.target.value))}
+      style={{ width: "100%", accentColor: color, cursor: "pointer" }} />
+  </div>
+);
+
+// ── CANVASES ──────────────────────────────────────────────────────────────────
+function FieldCanvas({ actors, edges, frames, currentStep }) {
+const canvasRef = useRef(null);
+const W = 480, H = 280;
+
+useEffect(() => {
+const canvas = canvasRef.current;
+if (!canvas) return;
+const ctx = canvas.getContext(“2d”);
+ctx.clearRect(0, 0, W, H);
+
+```
+ctx.strokeStyle = C.border + "88";
+ctx.lineWidth = 0.5;
+for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+const grad = ctx.createLinearGradient(0, 0, W, 0);
+grad.addColorStop(0,   C.red    + "22");
+grad.addColorStop(0.5, C.yellow + "11");
+grad.addColorStop(1,   C.green  + "22");
+ctx.fillStyle = grad;
+ctx.fillRect(0, 0, W, H);
+
+ctx.fillStyle = C.dim;
+ctx.font = "9px 'IBM Plex Mono', monospace";
+ctx.fillText("<- EXTRACTION", 6, H - 6);
+ctx.fillText("COOPERATION ->", W - 90, H - 6);
+ctx.fillText("PAYOFF", 6, 14);
+
+if (actors.length === 0) {
+  ctx.fillStyle = C.dim;
+  ctx.font = "12px 'IBM Plex Mono', monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("Add actors to see field", W / 2, H / 2);
+  ctx.textAlign = "left";
+  return;
+}
+
+const step = Math.min(currentStep, Math.max((frames?.length || 1) - 1, 0));
+
+const positions = actors.map((a, i) => {
+  const frame   = frames?.length ? frames[step][i] : null;
+  const x       = frame
+    ? (frame.position / 10) * (W - 60) + 30
+    : actors.length > 1 ? (i / (actors.length - 1)) * (W - 80) + 40 : W / 2;
+  const payoff  = frame ? frame.payoff : 5;
+  const y       = H - 30 - (payoff / 10) * (H - 60);
+  return { x, y };
+});
+
+edges.forEach((e) => {
+  if (e.from >= actors.length || e.to >= actors.length) return;
+  const src = positions[e.from];
+  const dst = positions[e.to];
+  const col = ["extracts from","locks in","punishes"].includes(e.type) ? C.red : C.green;
+  ctx.beginPath();
+  ctx.moveTo(src.x, src.y);
+  const cx = (src.x + dst.x) / 2;
+  const cy = Math.min(src.y, dst.y) - 30;
+  ctx.quadraticCurveTo(cx, cy, dst.x, dst.y);
+  ctx.strokeStyle = col + "66";
+  ctx.lineWidth = e.weight * 0.6;
+  ctx.stroke();
+  const angle = Math.atan2(dst.y - cy, dst.x - cx);
+  ctx.beginPath();
+  ctx.moveTo(dst.x, dst.y);
+  ctx.lineTo(dst.x - 8 * Math.cos(angle - 0.4), dst.y - 8 * Math.sin(angle - 0.4));
+  ctx.lineTo(dst.x - 8 * Math.cos(angle + 0.4), dst.y - 8 * Math.sin(angle + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = col + "99";
+  ctx.fill();
+});
+
+actors.forEach((a, i) => {
+  const frame   = frames?.length ? frames[step][i] : null;
+  const x       = frame
+    ? (frame.position / 10) * (W - 60) + 30
+    : actors.length > 1 ? (i / (actors.length - 1)) * (W - 80) + 40 : W / 2;
+  const payoff  = frame ? frame.payoff : 5;
+  const welfare = frame ? frame.welfare : 5;
+  const y       = H - 30 - (payoff / 10) * (H - 60);
+  const col     = ACTOR_COLORS[i % ACTOR_COLORS.length];
+  const r       = 8 + a.lockin;
+
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, r + 10);
+  glow.addColorStop(0, col + "44");
+  glow.addColorStop(1, "transparent");
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(x, y, r + 10, 0, Math.PI * 2); ctx.fill();
+
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = col + "cc"; ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+
+  const barW = 28, barH = 4;
+  ctx.fillStyle = C.border;
+  ctx.fillRect(x - barW / 2, y + r + 4, barW, barH);
+  const wCol = welfare > 6 ? C.green : welfare > 3 ? C.yellow : C.red;
+  ctx.fillStyle = wCol;
+  ctx.fillRect(x - barW / 2, y + r + 4, barW * (welfare / 10), barH);
+
+  ctx.fillStyle = C.text;
+  ctx.font = "bold 10px 'IBM Plex Mono', monospace";
+  ctx.textAlign = "center";
+  ctx.fillText((a.name || "Actor").slice(0, 10), x, y + r + 18);
+  ctx.textAlign = "left";
+});
+```
+
+}, [actors, edges, frames, currentStep]);
+
+return (
+<canvas ref={canvasRef} width={W} height={H}
+style={{ width: “100%”, height: “auto”, borderRadius: 4, display: “block”, background: C.bg }} />
+);
+}
+
+function PayoffChart({ actors, frames, currentStep }) {
+const W = 480, H = 160;
+const canvasRef = useRef(null);
+
+useEffect(() => {
+const canvas = canvasRef.current;
+if (!canvas) return;
+const ctx = canvas.getContext(“2d”);
+ctx.clearRect(0, 0, W, H);
+
+```
+ctx.strokeStyle = C.border + "88";
+ctx.lineWidth = 0.5;
+for (let y = 0; y <= H; y += H / 5) { ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+ctx.fillStyle = C.dim;
+ctx.font = "8px monospace";
+[10, 7.5, 5, 2.5, 0].forEach((v, i) => ctx.fillText(String(v), 2, 10 + i * (H / 5)));
+
+if (!frames.length || !actors.length) return;
+
+const xScale = (W - 30) / Math.max(frames.length - 1, 1);
+
+actors.forEach((a, i) => {
+  const col = ACTOR_COLORS[i % ACTOR_COLORS.length];
+  ctx.beginPath();
+  frames.forEach((f, s) => {
+    const x = 30 + s * xScale;
+    const y = H - (f[i].welfare / 10) * H;
+    if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+
+  if (currentStep < frames.length) {
+    const x = 30 + currentStep * xScale;
+    const y = H - (frames[currentStep][i].welfare / 10) * H;
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = col; ctx.fill();
+  }
+});
+
+if (currentStep < frames.length) {
+  const x = 30 + currentStep * xScale;
+  ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H);
+  ctx.strokeStyle = C.accent + "66"; ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+}
+```
+
+}, [actors, frames, currentStep]);
+
+return (
+<canvas ref={canvasRef} width={W} height={H}
+style={{ width: “100%”, height: “auto”, display: “block”, borderRadius: 4, background: C.bg }} />
+);
+}
+
+// ── ACTOR PANEL ───────────────────────────────────────────────────────────────
+function ActorPanel({ actor, idx, onUpdate, onDelete }) {
+const [open, setOpen] = useState(false);
+const col = ACTOR_COLORS[idx % ACTOR_COLORS.length];
+
+return (
+<Panel style={{ marginBottom: 10, borderLeft: `3px solid ${col}55` }}>
+<div style={{ display: “flex”, alignItems: “center”, gap: 10, cursor: “pointer” }} onClick={() => setOpen(!open)}>
+<div style={{
+width: 28, height: 28, borderRadius: “50%”, background: `${col}33`, border: `2px solid ${col}`,
+display: “flex”, alignItems: “center”, justifyContent: “center”, fontSize: 12, fontWeight: 700, color: col, flexShrink: 0,
+}}>{idx + 1}</div>
+<div style={{ flex: 1 }}>
+<div style={{ fontWeight: 700, color: C.text, fontSize: 13 }}>{actor.name || “Unnamed Actor”}</div>
+<div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>
+{actor.horizon} · lock-in {actor.lockin}/5 · info-adv {actor.infoAdvantage}/5
+</div>
+</div>
+<Tag label={`rw ${actor.rewardWeight}`} color={actor.rewardWeight > 0.7 ? C.red : actor.rewardWeight > 0.5 ? C.yellow : C.green} small />
+<span style={{ fontSize: 13, color: C.muted }}>{open ? “▲” : “▼”}</span>
+</div>
+
+```
+  {open && (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+        <div>
+          <label style={{ fontSize: 10, color: C.dim, display: "block", marginBottom: 4 }}>NAME</label>
+          <FInput value={actor.name} onChange={(v) => onUpdate({ ...actor, name: v })} placeholder="Actor name" />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, color: C.dim, display: "block", marginBottom: 4 }}>TIME HORIZON</label>
+          <FSelect value={actor.horizon} onChange={(v) => onUpdate({ ...actor, horizon: v })} options={HORIZONS} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 10, color: C.dim, marginBottom: 8, letterSpacing: "0.08em" }}>OBJECTIVE WEIGHTS</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 16px" }}>
+          {REWARD_CATS.map((cat) => (
+            <MiniSlider key={cat} label={cat}
+              value={Math.round((actor.weights[cat] || 0) * 10)}
+              onChange={(v) => onUpdate({ ...actor, weights: { ...actor.weights, [cat]: v / 10 } })}
+              color={col} />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 16px", marginBottom: 14 }}>
+        <MiniSlider label="Lock-in" value={actor.lockin} onChange={(v) => onUpdate({ ...actor, lockin: v })} color={actor.lockin >= 4 ? C.red : C.yellow} />
+        <MiniSlider label="Exit Cost" value={actor.exitCost} onChange={(v) => onUpdate({ ...actor, exitCost: v })} color={C.dim} />
+        <MiniSlider label="Information Advantage" value={actor.infoAdvantage} onChange={(v) => onUpdate({ ...actor, infoAdvantage: v })} color={actor.infoAdvantage >= 4 ? C.red : C.dim} />
+        <MiniSlider label="Proxy Risk" value={actor.proxyRisk} onChange={(v) => onUpdate({ ...actor, proxyRisk: v })} color={C.dim} />
+        <MiniSlider label="Externalities" value={actor.externalities} onChange={(v) => onUpdate({ ...actor, externalities: v })} color={actor.externalities >= 4 ? C.red : C.dim} />
+        <MiniSlider label="Reward Weight (0=victim 5=extractor)" value={Math.round(actor.rewardWeight * 10)}
+          onChange={(v) => onUpdate({ ...actor, rewardWeight: v / 10 })}
+          color={actor.rewardWeight > 0.7 ? C.red : actor.rewardWeight > 0.5 ? C.yellow : C.green} />
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Btn onClick={onDelete} small outline color={C.red}>Remove</Btn>
+      </div>
+    </div>
+  )}
+</Panel>
+```
+
+);
+}
+
+// ── MAIN ──────────────────────────────────────────────────────────────────────
+export default function IFE() {
+const [tab, setTab]           = useState(“actors”);
+const [desc, setDesc]         = useState(””);
+const [actors, setActors]     = useState([]);
+const [constraints, setConsts] = useState([]);
+const [edges, setEdges]       = useState([]);
+const [simResult, setSimResult] = useState(null);
+const [simRunning, setSimRunning] = useState(false);
+const [currentStep, setStep]  = useState(0);
+const [playing, setPlaying]   = useState(false);
+const [aiResult, setAiResult] = useState(null);
+const [aiLoading, setAiLoading] = useState(false);
+const [aiError, setAiError]   = useState(””);
+const [showTemplates, setShowTemplates] = useState(false);
+const playRef = useRef(null);
+const templateRef = useRef(null);
+
+// Click-outside close for template dropdown
+useEffect(() => {
+if (!showTemplates) return;
+const handler = (e) => { if (templateRef.current && !templateRef.current.contains(e.target)) setShowTemplates(false); };
+document.addEventListener(“mousedown”, handler);
+return () => document.removeEventListener(“mousedown”, handler);
+}, [showTemplates]);
+
+// Playback
+useEffect(() => {
+if (playing && simResult) {
+playRef.current = setInterval(() => {
+setStep((s) => {
+if (s >= simResult.frames.length - 1) { setPlaying(false); return s; }
+return s + 1;
+});
+}, 80);
+} else if (playRef.current) {
+clearInterval(playRef.current);
+}
+return () => { if (playRef.current) clearInterval(playRef.current); };
+}, [playing, simResult]);
+
+const loadTemplate = (name) => {
+const t = TEMPLATES[name];
+if (!t) return;
+setDesc(t.desc);
+setActors(t.actors.map((a) => ({ …DEFAULT_ACTOR(), …a, id: uid() })));
+setConsts(t.constraints.map((c) => ({ …DEFAULT_CONSTRAINT(), …c, id: uid() })));
+setEdges(t.edges.map((e) => ({ …DEFAULT_EDGE(t.actors.length), …e, id: uid() })));
+setSimResult(null); setAiResult(null); setAiError(””); setStep(0); setPlaying(false);
+setShowTemplates(false); setTab(“actors”);
+};
+
+const runSim = useCallback(() => {
+if (actors.length === 0) return;
+setSimRunning(true);
+setTimeout(() => {
+const result = runSimulation(actors, constraints, edges, 40);
+setSimResult(result); setStep(0); setPlaying(false); setSimRunning(false); setTab(“field”);
+}, 200);
+}, [actors, constraints, edges]);
+
+const runAI = async () => {
+if (!simResult) return;
+setAiLoading(true); setAiResult(null); setAiError(””); setTab(“analysis”);
+try {
+const r = await callIFE(desc, actors, constraints, edges, simResult);
+setAiResult(r);
+} catch (e) {
+setAiError(e.message || “Analysis failed.”);
+} finally {
+setAiLoading(false);
+}
+};
+
+const detectedPatterns = useMemo(
+() => MISALIGNMENT_PATTERNS.filter((p) => actors.length > 0 && p.check(actors)),
+[actors]
+);
+
+const eqColor = simResult?.equilibrium
+? simResult.equilibrium.type === “cooperative” ? C.green
+: simResult.equilibrium.type === “neutral” ? C.yellow : C.red
+: simResult?.collapseDetected ? C.red : C.dim;
+
+const eqLabel = simResult?.equilibrium
+? simResult.equilibrium.type.toUpperCase() + “ EQUILIBRIUM”
+: simResult?.collapseDetected ? “NO CONVERGENCE”
+: simResult?.attractors?.length > 0 ? “BISTABLE”
+: “NOT RUN”;
+
+const TABS = [
+{ id: “actors”,      label: “Actors”,      icon: “👤” },
+{ id: “constraints”, label: “Constraints”, icon: “⛓” },
+{ id: “edges”,       label: “Edges”,       icon: “↔”  },
+{ id: “field”,       label: “Field”,       icon: “🌐” },
+{ id: “analysis”,    label: “IFE Analysis”,icon: “⚡” },
+];
+
+return (
+<div style={{ minHeight: “100vh”, background: C.bg, color: C.text, fontFamily: “‘IBM Plex Mono’,‘Courier New’,monospace”, paddingBottom: 60 }}>
+
+```
+  {/* HEADER */}
+  <div style={{ background: "#080c12", borderBottom: `1px solid ${C.border}`, padding: "14px 22px", display: "flex", alignItems: "center", gap: 14 }}>
+    <div style={{ width: 36, height: 36, borderRadius: 6, flexShrink: 0, background: `linear-gradient(135deg,${C.accentD},${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+      ⚙
+    </div>
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: C.accent, letterSpacing: "0.12em" }}>INCENTIVE FIELD ENGINE</div>
+      <div style={{ fontSize: 9, color: C.dim, letterSpacing: "0.1em" }}>IFE v1.0 · PANTHEON OS · CONSTRAINT-SATISFACTION + FIELD DYNAMICS</div>
+    </div>
+    <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+      <div style={{ textAlign: "right" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: eqColor, letterSpacing: "0.08em" }}>{eqLabel}</div>
+        {simResult?.equilibrium && <div style={{ fontSize: 10, color: C.dim }}>avg payoff {simResult.equilibrium.avgPayoff}/10</div>}
+      </div>
+      <div style={{ textAlign: "right" }}>
+        <div style={{ fontSize: 11, color: C.dim }}>PATTERNS</div>
+        <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "monospace", color: detectedPatterns.length > 2 ? C.red : detectedPatterns.length > 0 ? C.yellow : C.green }}>
+          {detectedPatterns.length}/{MISALIGNMENT_PATTERNS.length}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* DESC + CONTROLS */}
+  <div style={{ padding: "12px 22px", background: "#0a0f16", borderBottom: `1px solid ${C.border}` }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em" }}>SYSTEM DESCRIPTION</div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ position: "relative" }} ref={templateRef}>
+          <Btn onClick={() => setShowTemplates(!showTemplates)} small outline>
+            {showTemplates ? "Close" : "Load Template ▾"}
+          </Btn>
+          {showTemplates && (
+            <div style={{ position: "absolute", right: 0, top: "110%", zIndex: 100, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 6, padding: 6, minWidth: 200 }}>
+              {Object.keys(TEMPLATES).map((n) => (
+                <div key={n} onClick={() => loadTemplate(n)}
+                  style={{ padding: "8px 10px", cursor: "pointer", fontSize: 11, color: C.text, borderRadius: 3 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = C.border; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                  {n}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <Btn onClick={runSim} color={C.green} disabled={actors.length === 0 || simRunning} style={{ minWidth: 120 }}>
+          {simRunning ? "⟳ SIMULATING..." : "▶ RUN SIMULATION"}
+        </Btn>
+        <Btn onClick={runAI} color={C.accent} disabled={!simResult || aiLoading}>
+          {aiLoading ? "⟳ ANALYZING..." : "⚡ IFE ANALYSIS"}
+        </Btn>
+      </div>
+    </div>
+    <FInput value={desc} onChange={setDesc} placeholder="Describe the system: actors, stated goals, observed dysfunctions..." multiline style={{ minHeight: 50 }} />
+  </div>
+
+  {/* TABS */}
+  <div style={{ display: "flex", background: "#080c12", borderBottom: `1px solid ${C.border}`, padding: "0 22px", overflowX: "auto" }}>
+    {TABS.map((t) => (
+      <button key={t.id} onClick={() => setTab(t.id)} style={{
+        background: "none", border: "none", color: tab === t.id ? C.accent : C.dim,
+        padding: "11px 14px", cursor: "pointer", fontSize: 11, fontFamily: "inherit",
+        borderBottom: `2px solid ${tab === t.id ? C.accent : "transparent"}`,
+        letterSpacing: "0.06em", fontWeight: tab === t.id ? 700 : 400, whiteSpace: "nowrap",
+      }}>{t.icon} {t.label}</button>
+    ))}
+  </div>
+
+  {/* CONTENT */}
+  <div style={{ padding: "18px 22px", maxWidth: 960, margin: "0 auto" }}>
+
+    {/* ACTORS */}
+    {tab === "actors" && (
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.accent, letterSpacing: "0.12em", textTransform: "uppercase" }}>Actor Model</h2>
+            <p style={{ margin: "4px 0 0", fontSize: 11, color: C.dim }}>Each actor maximizes reward - cost - risk subject to constraints. Weights = behavior, not stated values.</p>
+          </div>
+          <Btn onClick={() => setActors((a) => [...a, DEFAULT_ACTOR()])} small outline>+ Add Actor</Btn>
+        </div>
+
+        {detectedPatterns.length > 0 && (
+          <Panel style={{ marginBottom: 14, borderLeft: `3px solid ${C.yellow}` }}>
+            <div style={{ fontSize: 10, color: C.yellow, letterSpacing: "0.1em", marginBottom: 8 }}>PATTERNS DETECTED FROM ACTOR DATA</div>
+            <div>{detectedPatterns.map((p) => <Tag key={p.id} label={`${p.icon} ${p.label}`} color={p.color} />)}</div>
+          </Panel>
+        )}
+
+        {actors.map((actor, idx) => (
+          <ActorPanel key={actor.id} actor={actor} idx={idx}
+            onUpdate={(u) => setActors((a) => a.map((x) => x.id === actor.id ? { ...u, id: actor.id } : x))}
+            onDelete={() => setActors((a) => a.filter((x) => x.id !== actor.id))} />
+        ))}
+
+        {actors.length === 0 && (
+          <Panel style={{ textAlign: "center", padding: 32, border: `1px dashed ${C.border}` }}>
+            <div style={{ fontSize: 22, marginBottom: 10 }}>👤</div>
+            <div style={{ color: C.dim, fontSize: 12 }}>No actors yet. Load a template or add actors manually.</div>
+            <div style={{ color: C.accentD, fontSize: 11, marginTop: 6 }}>Model behavior, not stated intent.</div>
+          </Panel>
+        )}
+      </div>
+    )}
+
+    {/* CONSTRAINTS */}
+    {tab === "constraints" && (
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.accent, letterSpacing: "0.12em", textTransform: "uppercase" }}>Constraint Layer</h2>
+            <p style={{ margin: "4px 0 0", fontSize: 11, color: C.dim }}>Hard = cannot violate. Soft = penalty increases. Invisible = actors don't perceive them — highest distortion risk.</p>
+          </div>
+          <Btn onClick={() => setConsts((c) => [...c, DEFAULT_CONSTRAINT()])} small outline>+ Add Constraint</Btn>
+        </div>
+
+        {constraints.map((c) => (
+          <Panel key={c.id} style={{ marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 10, alignItems: "center" }}>
+              <FInput value={c.label}
+                onChange={(v) => setConsts((cs) => cs.map((x) => x.id === c.id ? { ...x, label: v } : x))}
+                placeholder="Constraint description" />
+              <FSelect value={c.type}
+                onChange={(v) => setConsts((cs) => cs.map((x) => x.id === c.id ? { ...x, type: v } : x))}
+                options={CONSTRAINT_TYPES} style={{ width: 110 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 100 }}>
+                <input type="range" min={1} max={5} value={c.impact}
+                  onChange={(e) => setConsts((cs) => cs.map((x) => x.id === c.id ? { ...x, impact: Number(e.target.value) } : x))}
+                  style={{ width: 70, accentColor: C.accent }} />
+                <span style={{ fontSize: 11, color: C.accent, fontFamily: "monospace", minWidth: 20 }}>{c.impact}</span>
+              </div>
+              <Btn onClick={() => setConsts((cs) => cs.filter((x) => x.id !== c.id))} small outline color={C.red}>x</Btn>
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <Tag label={c.type} color={c.type === "Hard" ? C.red : c.type === "Invisible" ? C.purple : C.yellow} small />
+              <Tag label={`impact ${c.impact}/5`} color={C.accent} small />
+            </div>
+          </Panel>
+        ))}
+
+        {constraints.length === 0 && (
+          <Panel style={{ textAlign: "center", padding: 28, border: `1px dashed ${C.border}` }}>
+            <div style={{ color: C.dim, fontSize: 12 }}>No constraints. Invisible constraints are the highest-distortion type.</div>
+          </Panel>
+        )}
+      </div>
+    )}
+
+    {/* EDGES */}
+    {tab === "edges" && (
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.accent, letterSpacing: "0.12em", textTransform: "uppercase" }}>Actor Relationships</h2>
+            <p style={{ margin: "4px 0 0", fontSize: 11, color: C.dim }}>Directional edges define how actors affect each other's payoff landscape.</p>
+          </div>
+          <Btn onClick={() => actors.length >= 2 && setEdges((e) => [...e, DEFAULT_EDGE(actors.length)])}
+            small outline disabled={actors.length < 2}>+ Add Edge</Btn>
+        </div>
+
+        {edges.map((e) => (
+          <Panel key={e.id} style={{ marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto auto auto", gap: 8, alignItems: "center" }}>
+              <FSelect value={String(e.from)}
+                onChange={(v) => setEdges((es) => es.map((x) => x.id === e.id ? { ...x, from: Number(v) } : x))}
+                options={actors.map((_, i) => String(i))}
+                renderOption={(o) => `${o}: ${actors[Number(o)]?.name || "?"}`} />
+              <span style={{ color: C.dim, fontSize: 12, padding: "0 4px" }}>to</span>
+              <FSelect value={String(e.to)}
+                onChange={(v) => setEdges((es) => es.map((x) => x.id === e.id ? { ...x, to: Number(v) } : x))}
+                options={actors.map((_, i) => String(i))}
+                renderOption={(o) => `${o}: ${actors[Number(o)]?.name || "?"}`} />
+              <FSelect value={e.type}
+                onChange={(v) => setEdges((es) => es.map((x) => x.id === e.id ? { ...x, type: v } : x))}
+                options={EDGE_TYPES} style={{ width: 150 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 90 }}>
+                <input type="range" min={1} max={5} value={e.weight}
+                  onChange={(ev) => setEdges((es) => es.map((x) => x.id === e.id ? { ...x, weight: Number(ev.target.value) } : x))}
+                  style={{ width: 60, accentColor: C.accent }} />
+                <span style={{ fontSize: 11, color: C.accent, fontFamily: "monospace" }}>{e.weight}</span>
+              </div>
+              <Btn onClick={() => setEdges((es) => es.filter((x) => x.id !== e.id))} small outline color={C.red}>x</Btn>
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <Tag label={`${actors[e.from]?.name || "?"} -> ${actors[e.to]?.name || "?"}`} color={C.accent} small />
+              <Tag label={e.type} color={["extracts from","locks in","punishes"].includes(e.type) ? C.red : C.green} small />
+              <Tag label={`weight ${e.weight}`} color={C.dim} small />
+            </div>
+          </Panel>
+        ))}
+
+        {actors.length < 2 && (
+          <Panel style={{ textAlign: "center", padding: 28, border: `1px dashed ${C.border}` }}>
+            <div style={{ color: C.dim, fontSize: 12 }}>Add at least 2 actors to define relationships.</div>
+          </Panel>
+        )}
+        {actors.length >= 2 && edges.length === 0 && (
+          <Panel style={{ textAlign: "center", padding: 28, border: `1px dashed ${C.border}` }}>
+            <div style={{ color: C.dim, fontSize: 12 }}>No edges yet. Define how actors reward, punish, extract from, or lock in each other.</div>
+          </Panel>
+        )}
+      </div>
+    )}
+
+    {/* FIELD */}
+    {tab === "field" && (
+      <div>
+        <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: C.accent, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          Decision Field · Simulation
+        </h2>
+
+        {!simResult && (
+          <Panel style={{ textAlign: "center", padding: 40, border: `1px dashed ${C.border}` }}>
+            <div style={{ fontSize: 24, marginBottom: 12 }}>⚙</div>
+            <div style={{ color: C.dim, fontSize: 13 }}>No simulation run yet.</div>
+            <div style={{ marginTop: 14 }}>
+              <Btn onClick={runSim} color={C.green} disabled={actors.length === 0 || simRunning}>▶ Run Now</Btn>
+            </div>
+          </Panel>
+        )}
+
+        {simResult && (
+          <>
+            <Panel style={{ marginBottom: 14, borderLeft: `3px solid ${eqColor}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: eqColor }}>{eqLabel}</div>
+                  {simResult.equilibrium && (
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>
+                      Avg payoff {simResult.equilibrium.avgPayoff}/10
+                      {simResult.equilibrium.trapped.length > 0 && ` · Trapped: ${simResult.equilibrium.trapped.join(", ")}`}
+                    </div>
+                  )}
+                  {simResult.collapseDetected && <div style={{ fontSize: 11, color: C.red, marginTop: 3 }}>System cycling or drifting. No stable attractor found.</div>}
+                  {simResult.attractors.length > 0 && simResult.attractors.map((at, i) => (
+                    <div key={i} style={{ fontSize: 11, color: C.yellow, marginTop: 2 }}>{at.label}: {at.actors.join(", ")}</div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn onClick={() => { setStep(0); setPlaying(true); }} small color={C.green} disabled={playing}>▶ Play</Btn>
+                  <Btn onClick={() => setPlaying(false)} small outline disabled={!playing}>|| Pause</Btn>
+                  <Btn onClick={() => { setStep(0); setPlaying(false); }} small outline>Reset</Btn>
+                </div>
+              </div>
+            </Panel>
+
+            <Panel style={{ marginBottom: 12, padding: "12px" }}>
+              <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", marginBottom: 8 }}>
+                DECISION FIELD · STEP {currentStep + 1}/{simResult.frames.length} · X=COOPERATION AXIS · Y=PAYOFF
+              </div>
+              <FieldCanvas actors={actors} edges={edges} frames={simResult.frames} currentStep={currentStep} />
+              <input type="range" min={0} max={simResult.frames.length - 1} value={currentStep}
+                onChange={(e) => { setStep(Number(e.target.value)); setPlaying(false); }}
+                style={{ width: "100%", marginTop: 8, accentColor: C.accent }} />
+            </Panel>
+
+            <Panel style={{ padding: "12px" }}>
+              <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", marginBottom: 8 }}>
+                WELFARE OVER TIME
+                <span style={{ marginLeft: 12 }}>
+                  {actors.map((a, i) => (
+                    <span key={i} style={{ color: ACTOR_COLORS[i % ACTOR_COLORS.length], marginRight: 10, fontSize: 10 }}>
+                      * {a.name}
+                    </span>
+                  ))}
+                </span>
+              </div>
+              <PayoffChart actors={actors} frames={simResult.frames} currentStep={currentStep} />
+            </Panel>
+          </>
+        )}
+      </div>
+    )}
+
+    {/* ANALYSIS */}
+    {tab === "analysis" && (
+      <div>
+        <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: C.accent, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          IFE Analysis — Spider to Hound to Dragonfly to Mirror
+        </h2>
+
+        {!simResult && (
+          <Panel style={{ textAlign: "center", padding: 32, border: `1px dashed ${C.border}` }}>
+            <div style={{ color: C.dim, fontSize: 13 }}>Run the simulation first. IFE analysis requires a simulation result.</div>
+          </Panel>
+        )}
+
+        {simResult && !aiResult && !aiLoading && !aiError && (
+          <Panel style={{ textAlign: "center", padding: 32, border: `1px dashed ${C.border}` }}>
+            <div style={{ fontSize: 22, marginBottom: 10 }}>⚡</div>
+            <div style={{ color: C.dim, fontSize: 13, marginBottom: 12 }}>Simulation complete. Ready for field analysis.</div>
+            <Btn onClick={runAI} color={C.accent}>⚡ Run IFE Analysis</Btn>
+          </Panel>
+        )}
+
+        {aiLoading && (
+          <Panel style={{ textAlign: "center", padding: 40 }}>
+            <div style={{ fontSize: 24, marginBottom: 12 }}>⟳</div>
+            <div style={{ color: C.dim, fontSize: 13 }}>Running field analysis...</div>
+            <div style={{ color: C.accentD, fontSize: 11, marginTop: 6 }}>Mapping gradients · Detecting attractors · Forging redesigns</div>
+          </Panel>
+        )}
+
+        {aiError && (
+          <Panel style={{ borderLeft: `3px solid ${C.red}` }}>
+            <div style={{ color: C.red, fontSize: 12, marginBottom: 4 }}>Analysis Error</div>
+            <div style={{ color: C.dim, fontSize: 11 }}>{aiError}</div>
+          </Panel>
+        )}
+
+        {aiResult && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {aiResult.fieldDiagnosis && (
+              <Panel style={{ borderLeft: `3px solid ${C.accent}` }}>
+                <div style={{ fontSize: 10, color: C.accent, letterSpacing: "0.1em", marginBottom: 8 }}>FIELD DIAGNOSIS</div>
+                <p style={{ margin: 0, fontSize: 13, color: C.text, lineHeight: 1.7 }}>{aiResult.fieldDiagnosis}</p>
+              </Panel>
+            )}
+            {aiResult.equilibriumInterpretation && (
+              <Panel style={{ borderLeft: `3px solid ${eqColor}` }}>
+                <div style={{ fontSize: 10, color: eqColor, letterSpacing: "0.1em", marginBottom: 8 }}>EQUILIBRIUM INTERPRETATION</div>
+                <p style={{ margin: 0, fontSize: 13, color: C.text, lineHeight: 1.7 }}>{aiResult.equilibriumInterpretation}</p>
+              </Panel>
+            )}
+            {aiResult.misalignments.length > 0 && (
+              <Panel>
+                <div style={{ fontSize: 10, color: C.accent, letterSpacing: "0.1em", marginBottom: 10 }}>MISALIGNMENT PATTERNS</div>
+                {aiResult.misalignments.map((m, i) => {
+                  const pat = MISALIGNMENT_PATTERNS.find((p) => p.label === m.pattern) || MISALIGNMENT_PATTERNS[0];
+                  return (
+                    <div key={i} style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 4, background: `${pat.color}11`, border: `1px solid ${pat.color}33` }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
+                        <span>{pat.icon}</span>
+                        <span style={{ fontWeight: 700, color: pat.color, fontSize: 12 }}>{m.pattern}</span>
+                        {m.actors && <Tag label={m.actors} color={pat.color} small />}
+                      </div>
+                      <p style={{ margin: 0, fontSize: 11, color: C.dim, lineHeight: 1.5 }}>{m.mechanism}</p>
+                    </div>
+                  );
+                })}
+              </Panel>
+            )}
+            {aiResult.collapseVectors.length > 0 && (
+              <Panel style={{ borderLeft: `3px solid ${C.red}` }}>
+                <div style={{ fontSize: 10, color: C.red, letterSpacing: "0.1em", marginBottom: 10 }}>COLLAPSE VECTORS</div>
+                {aiResult.collapseVectors.map((v, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "flex-start" }}>
+                    <span style={{ color: C.red, fontSize: 10, marginTop: 3, flexShrink: 0 }}>◆</span>
+                    <span style={{ fontSize: 12, color: C.text, lineHeight: 1.5 }}>{v}</span>
+                  </div>
+                ))}
+              </Panel>
+            )}
+            {aiResult.steeringOptions.length > 0 && (
+              <Panel>
+                <div style={{ fontSize: 10, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>STEERING OPTIONS</div>
+                {aiResult.steeringOptions.map((s, i) => {
+                  const cols = [C.green, C.blue, C.purple];
+                  const col  = cols[i % cols.length];
+                  return (
+                    <div key={i} style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 4, background: `${col}0d`, border: `1px solid ${col}33` }}>
+                      <div style={{ fontWeight: 700, color: col, fontSize: 12, marginBottom: 4 }}>{s.operator}</div>
+                      <p style={{ margin: "0 0 4px", fontSize: 12, color: C.text, lineHeight: 1.5 }}>{s.intervention}</p>
+                      <p style={{ margin: "0 0 2px", fontSize: 11, color: C.dim }}>Expected: {s.expectedEffect}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: C.dim }}>Risk: {s.risk}</p>
+                    </div>
+                  );
+                })}
+              </Panel>
+            )}
+            {aiResult.positiveSum && (
+              <Panel style={{ borderLeft: `3px solid ${C.teal}` }}>
+                <div style={{ fontSize: 10, color: C.teal, letterSpacing: "0.1em", marginBottom: 8 }}>POSITIVE-SUM REDESIGN</div>
+                <p style={{ margin: 0, fontSize: 12, color: C.text, lineHeight: 1.6 }}>{aiResult.positiveSum}</p>
+              </Panel>
+            )}
+            {aiResult.pantheonVerdict && (
+              <Panel style={{ background: `${C.accent}0d`, borderColor: C.accent }}>
+                <div style={{ fontSize: 10, color: C.accent, letterSpacing: "0.1em", marginBottom: 8 }}>PANTHEON VERDICT</div>
+                <p style={{ margin: 0, fontSize: 14, color: C.accentL, lineHeight: 1.6, fontStyle: "italic" }}>{aiResult.pantheonVerdict}</p>
+              </Panel>
+            )}
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+
+  <style>{`
+    input[type=range] { height: 4px; }
+    select option { background: #0d1118; }
+    textarea::placeholder, input::placeholder { color: #3a4555; }
+    * { box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #080b0f; }
+    ::-webkit-scrollbar-thumb { background: #1a2230; border-radius: 3px; }
+  `}</style>
+</div>
+```
+
+);
+}
