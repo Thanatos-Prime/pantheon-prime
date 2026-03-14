@@ -1,0 +1,684 @@
+import { useState, useCallback } from “react”;
+
+// ── palette & shared styles ──────────────────────────────────────────────────
+const C = {
+bg:      “#0a0c0f”,
+panel:   “#0f1318”,
+border:  “#1e2530”,
+accent:  “#c8a96e”,        // amber-gold
+accentD: “#8a6e3e”,
+red:     “#c0392b”,
+green:   “#27ae60”,
+blue:    “#2980b9”,
+muted:   “#4a5568”,
+text:    “#d4cfc7”,
+textDim: “#6b7280”,
+raven:   “#9b59b6”,
+};
+
+const MISALIGNMENT_TYPES = [
+{ id:“proxy”,     label:“Proxy Capture”,        icon:“🎭”, color:”#e67e22”, desc:“Metric replaces mission — people game the measure.” },
+{ id:“extern”,    label:“Externalized Harm”,     icon:“🔥”, color:C.red,    desc:“One actor gains; another absorbs the cost.” },
+{ id:“timescale”, label:“Timescale Inversion”,   icon:“⏳”, color:”#8e44ad”,desc:“Short-term gain produces long-term damage.” },
+{ id:“info”,      label:“Information Asymmetry”, icon:“👁”, color:C.blue,   desc:“One side knows the game better than the other.” },
+{ id:“lockin”,    label:“Lock-in Asymmetry”,     icon:“🔒”, color:”#c0392b”,desc:“One side can exit; the other cannot.” },
+{ id:“moral”,     label:“Moral Camouflage”,      icon:“🎪”, color:”#16a085”,desc:“Extraction justified by a noble story.” },
+];
+
+const STEERING_TOOLS = [
+{ id:“reward”,   label:“Reward Rewrite”,         icon:“⚡”, desc:“Change what gets rewarded. Bad-but-rational behavior responds to payoff changes, not moralizing.” },
+{ id:“cost”,     label:“Cost Reinternalization”,  icon:“↩”, desc:“Force hidden costs back onto the decision-maker who generates them.” },
+{ id:“delay”,    label:“Delay Injection”,         icon:“⏱”, desc:“Add friction where harmful speed is the problem. Cooling-off, staged approvals, escrow.” },
+{ id:“vis”,      label:“Visibility Correction”,   icon:“🔭”, desc:“Make hidden consequences legible before increasing force.” },
+{ id:“exit”,     label:“Exit Restoration”,        icon:“🚪”, desc:“Increase reversibility and bargaining power. High exit = low abuse.” },
+{ id:“possum”,   label:“Positive-Sum Reframe”,    icon:“🌀”, desc:“Dragonfly move: redesign the game so cooperation pays more than extraction.” },
+];
+
+const SCORE_DIMS = [
+{ id:“clarity”,   label:“Incentive Clarity”,       inv:false },
+{ id:“proxy”,     label:“Proxy Distortion”,         inv:true  },
+{ id:“extern”,    label:“Externality Load”,         inv:true  },
+{ id:“lockin”,    label:“Lock-in Severity”,         inv:true  },
+{ id:“exit”,      label:“Exit Availability”,        inv:false },
+{ id:“timescale”, label:“Timescale Coherence”,      inv:false },
+{ id:“info”,      label:“Information Symmetry”,     inv:false },
+{ id:“possum”,    label:“Positive-Sum Potential”,   inv:false },
+{ id:“ethics”,    label:“Ethics Stability”,         inv:false },
+{ id:“gaming”,    label:“Resistance to Gaming”,     inv:false },
+];
+
+const PATTERN_LIBRARY = [
+“Tragedy of the Commons”,“Principal-Agent Drift”,“Monopolistic Extraction”,
+“Prestige Spiral”,“Debt Lock-in”,“Dashboard Gaming”,“Moral Camouflage”,
+“Regulatory Capture”,“Race-to-Bottom Equilibrium”,“Positive-Sum Flywheel”,
+];
+
+const REWARD_CHANNELS = [“Money”,“Status”,“Time saved”,“Legal protection”,“Emotional relief”,“Social approval”,“Metrics / dashboards”,“Access / permissions”];
+const PENALTY_CHANNELS = [“Shame”,“Loss”,“Public blame”,“Regulation”,“Friction”,“Uncertainty”,“Delay”,“Pain”,“Exclusion”];
+const HORIZONS = [“Immediate”,“Daily”,“Quarterly”,“Annual”,“Election cycle”,“Career cycle”,“Lifetime”,“Intergenerational”];
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+const slug = () => Math.random().toString(36).slice(2,8);
+
+const computeMI = (scores) => {
+const bad  = [“proxy”,“extern”,“lockin”,“info”].reduce((s,k)=>(s+(scores[k]||0)),0);
+const good = [“exit”,“timescale”].reduce((s,k)=>(s+(scores[k]||0)),0);
+return Math.max(0, Math.min(20, bad - good));
+};
+
+const miColor = (mi) => mi>=12 ? C.red : mi>=7 ? “#e67e22” : mi>=4 ? “#f1c40f” : C.green;
+const miLabel = (mi) => mi>=12?“CRITICAL”:mi>=7?“HIGH”:mi>=4?“MODERATE”:“LOW”;
+
+// ── tiny components ──────────────────────────────────────────────────────────
+const Panel = ({children, style={}}) => (
+
+  <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:6,padding:"16px 18px",...style}}>
+    {children}
+  </div>
+);
+
+const Tag = ({label,color=C.accent,onClick}) => (
+<span onClick={onClick} style={{
+display:“inline-block”,fontSize:11,padding:“2px 8px”,borderRadius:12,
+background:`${color}22`,color,border:`1px solid ${color}55`,
+cursor:onClick?“pointer”:“default”,marginRight:4,marginBottom:4,
+userSelect:“none”
+}}>{label}</span>
+);
+
+const Btn = ({children,onClick,color=C.accent,small=false,outline=false,style={}}) => (
+<button onClick={onClick} style={{
+background:outline?“transparent”:color,
+border:`1px solid ${color}`,
+color:outline?color:”#0a0c0f”,
+padding:small?“4px 12px”:“8px 18px”,
+borderRadius:4,cursor:“pointer”,
+fontSize:small?11:13,fontFamily:“inherit”,fontWeight:600,
+letterSpacing:“0.04em”,…style
+}}>{children}</button>
+);
+
+const Input = ({value,onChange,placeholder,multiline=false,style={}}) => {
+const base = {
+background:”#12171e”,border:`1px solid ${C.border}`,color:C.text,
+padding:“8px 10px”,borderRadius:4,fontSize:13,fontFamily:“inherit”,
+width:“100%”,boxSizing:“border-box”,outline:“none”,resize:“vertical”,…style
+};
+return multiline
+? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={base}/>
+: <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={base}/>;
+};
+
+const Select = ({value,onChange,options,style={}}) => (
+<select value={value} onChange={e=>onChange(e.target.value)} style={{
+background:”#12171e”,border:`1px solid ${C.border}`,color:C.text,
+padding:“7px 10px”,borderRadius:4,fontSize:13,fontFamily:“inherit”,
+cursor:“pointer”,…style
+}}>
+{options.map(o=><option key={o} value={o}>{o}</option>)}
+</select>
+);
+
+const ScoreSlider = ({label,value,onChange,inverted=false}) => {
+const hue = inverted
+? value<=2?”#27ae60”:value<=3?”#f1c40f”:value<=4?”#e67e22”:C.red
+: value>=4?”#27ae60”:value>=3?”#f1c40f”:value>=2?”#e67e22”:C.red;
+return (
+<div style={{marginBottom:10}}>
+<div style={{display:“flex”,justifyContent:“space-between”,marginBottom:4}}>
+<span style={{fontSize:12,color:C.textDim}}>{label}</span>
+<span style={{fontSize:13,fontWeight:700,color:hue}}>{value}/5</span>
+</div>
+<input type=“range” min={0} max={5} value={value} onChange={e=>onChange(+e.target.value)}
+style={{width:“100%”,accentColor:hue}}/>
+</div>
+);
+};
+
+const SectionHead = ({children,sub}) => (
+
+  <div style={{marginBottom:16}}>
+    <h2 style={{margin:0,fontSize:16,fontWeight:700,color:C.accent,letterSpacing:"0.12em",textTransform:"uppercase"}}>{children}</h2>
+    {sub&&<p style={{margin:"4px 0 0",fontSize:12,color:C.textDim}}>{sub}</p>}
+  </div>
+);
+
+// ── AI Analysis via Anthropic API ─────────────────────────────────────────────
+async function runIALAnalysis(systemDesc, actors, scores) {
+const actorSummary = actors.map(a=>
+`Actor: ${a.name}\n  Objective: ${a.objective}\n  Reward: ${a.rewardChannel}\n  Penalty: ${a.penaltyChannel}\n  Horizon: ${a.horizon}\n  Visibility: ${a.visibility}/5\n  Externalities: ${a.externalities}\n  Lock-in: ${a.lockin}/5`
+).join(”\n\n”);
+
+const scoreSummary = SCORE_DIMS.map(d=>`${d.label}: ${scores[d.id]||0}/5`).join(”, “);
+const mi = computeMI(scores);
+
+const prompt = `You are the Incentive Alignment Layer (IAL v2.0) of PantheonOS — a Pantheon module for mapping, diagnosing, and redesigning incentive fields in complex systems.
+
+Core doctrine: Most persistent dysfunction is not caused by bad stated values but by misaligned reward geometry across actors, timescales, and visibility layers. Incentives are gradients. Governance is terrain-shaping.
+
+SYSTEM DESCRIPTION:
+${systemDesc}
+
+ACTOR MAP:
+${actorSummary || “(no actors defined yet)”}
+
+SCORING MATRIX:
+${scoreSummary}
+Misalignment Index: ${mi}/20 (${miLabel(mi)})
+
+Respond ONLY with a valid JSON object (no markdown, no preamble) with this exact structure:
+{
+“summary”: “2-3 sentence diagnosis of the core incentive dysfunction”,
+“misalignments”: [
+{“type”: “one of: Proxy Capture / Externalized Harm / Timescale Inversion / Information Asymmetry / Lock-in Asymmetry / Moral Camouflage”, “actors”: “which actors”, “detail”: “specific manifestation in this system”}
+],
+“secondOrder”: [“3-5 second-order effects if misalignment continues unaddressed”],
+“patterns”: [“2-3 matching canonical patterns from: Tragedy of the Commons, Principal-Agent Drift, Monopolistic Extraction, Prestige Spiral, Debt Lock-in, Dashboard Gaming, Moral Camouflage, Regulatory Capture, Race-to-Bottom Equilibrium, Positive-Sum Flywheel”],
+“redesigns”: {
+“light”: {“label”: “Light-Touch”, “operator”: “one of the 6 steering operators”, “action”: “specific intervention”, “risk”: “what could go wrong”},
+“structural”: {“label”: “Structural”, “operator”: “one of the 6 steering operators”, “action”: “specific intervention”, “risk”: “what could go wrong”},
+“ambitious”: {“label”: “Ambitious Positive-Sum”, “operator”: “Positive-Sum Reframe”, “action”: “specific intervention”, “risk”: “what could go wrong”}
+},
+“ethicsGate”: {“consent”: true, “reversibility”: true, “nonCoercion”: true, “dignity”: true, “gamingResistance”: true, “loadFairness”: true, “notes”: “brief ethics assessment”}
+}`;
+
+const res = await fetch(“https://api.anthropic.com/v1/messages”, {
+method:“POST”,
+headers:{“Content-Type”:“application/json”},
+body: JSON.stringify({
+model:“claude-sonnet-4-20250514”,
+max_tokens:1000,
+messages:[{role:“user”,content:prompt}]
+})
+});
+const data = await res.json();
+const text = data.content?.map(i=>i.text||””).join(””) || “”;
+return JSON.parse(text.replace(/`json|`/g,””).trim());
+}
+
+// ── Actor Card ───────────────────────────────────────────────────────────────
+function ActorCard({actor, onUpdate, onDelete}) {
+const [open, setOpen] = useState(false);
+return (
+<Panel style={{marginBottom:10}}>
+<div style={{display:“flex”,alignItems:“center”,gap:8,cursor:“pointer”}} onClick={()=>setOpen(!open)}>
+<span style={{fontSize:18}}>👤</span>
+<span style={{flex:1,fontWeight:700,color:C.text,fontSize:14}}>{actor.name||“Unnamed Actor”}</span>
+<span style={{fontSize:11,color:C.textDim}}>{actor.horizon}</span>
+<span style={{fontSize:16,color:C.muted}}>{open?“▲”:“▼”}</span>
+</div>
+{open && (
+<div style={{marginTop:14,display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:10}}>
+<div style={{gridColumn:“1/-1”}}>
+<label style={{fontSize:11,color:C.textDim,display:“block”,marginBottom:4}}>ACTOR NAME</label>
+<Input value={actor.name} onChange={v=>onUpdate({…actor,name:v})} placeholder=“e.g. University, Manager, Platform”/>
+</div>
+<div style={{gridColumn:“1/-1”}}>
+<label style={{fontSize:11,color:C.textDim,display:“block”,marginBottom:4}}>ACTUAL OBJECTIVE FUNCTION (behavior-inferred)</label>
+<Input value={actor.objective} onChange={v=>onUpdate({…actor,objective:v})} placeholder=“What are they actually maximizing? Not what they say.”/>
+</div>
+<div>
+<label style={{fontSize:11,color:C.textDim,display:“block”,marginBottom:4}}>REWARD CHANNEL</label>
+<Select value={actor.rewardChannel} onChange={v=>onUpdate({…actor,rewardChannel:v})} options={REWARD_CHANNELS}/>
+</div>
+<div>
+<label style={{fontSize:11,color:C.textDim,display:“block”,marginBottom:4}}>PENALTY CHANNEL</label>
+<Select value={actor.penaltyChannel} onChange={v=>onUpdate({…actor,penaltyChannel:v})} options={PENALTY_CHANNELS}/>
+</div>
+<div>
+<label style={{fontSize:11,color:C.textDim,display:“block”,marginBottom:4}}>TIME HORIZON</label>
+<Select value={actor.horizon} onChange={v=>onUpdate({…actor,horizon:v})} options={HORIZONS}/>
+</div>
+<div>
+<label style={{fontSize:11,color:C.textDim,display:“block”,marginBottom:4}}>VISIBILITY (can system see true outcome?) 0–5</label>
+<input type=“range” min={0} max={5} value={actor.visibility} onChange={e=>onUpdate({…actor,visibility:+e.target.value})}
+style={{width:“100%”,accentColor:C.accent,marginTop:8}}/>
+<span style={{fontSize:12,color:C.accent}}>{actor.visibility}/5</span>
+</div>
+<div style={{gridColumn:“1/-1”}}>
+<label style={{fontSize:11,color:C.textDim,display:“block”,marginBottom:4}}>EXTERNALITIES (who pays for their gain?)</label>
+<Input value={actor.externalities} onChange={v=>onUpdate({…actor,externalities:v})} placeholder=“e.g. Students absorb default risk that lenders generate”/>
+</div>
+<div style={{display:“flex”,alignItems:“center”,gap:8}}>
+<label style={{fontSize:11,color:C.textDim}}>LOCK-IN SEVERITY</label>
+<span style={{fontSize:12,color:C.accent}}>{actor.lockin}/5</span>
+</div>
+<input type=“range” min={0} max={5} value={actor.lockin} onChange={e=>onUpdate({…actor,lockin:+e.target.value})}
+style={{width:“100%”,accentColor:C.red,gridColumn:“2/3”}}/>
+<div style={{gridColumn:“1/-1”,display:“flex”,justifyContent:“flex-end”}}>
+<Btn onClick={onDelete} color={C.red} small outline>Remove Actor</Btn>
+</div>
+</div>
+)}
+</Panel>
+);
+}
+
+// ── Analysis Results ─────────────────────────────────────────────────────────
+function AnalysisPanel({result}) {
+if (!result) return null;
+const {summary,misalignments,secondOrder,patterns,redesigns,ethicsGate} = result;
+
+const ethicsPass = Object.values(ethicsGate).filter(v=>v===true).length;
+
+return (
+<div style={{display:“flex”,flexDirection:“column”,gap:14}}>
+{/* Summary */}
+<Panel style={{borderLeft:`3px solid ${C.accent}`}}>
+<div style={{fontSize:11,color:C.accent,letterSpacing:“0.1em”,marginBottom:8}}>PANTHEON DIAGNOSIS</div>
+<p style={{margin:0,color:C.text,fontSize:14,lineHeight:1.6}}>{summary}</p>
+</Panel>
+
+```
+  {/* Misalignments */}
+  {misalignments?.length>0 && (
+    <Panel>
+      <div style={{fontSize:11,color:C.accent,letterSpacing:"0.1em",marginBottom:10}}>DETECTED MISALIGNMENTS</div>
+      {misalignments.map((m,i)=>{
+        const mt = MISALIGNMENT_TYPES.find(t=>t.label===m.type)||MISALIGNMENT_TYPES[0];
+        return (
+          <div key={i} style={{
+            marginBottom:8,padding:"10px 12px",borderRadius:4,
+            background:`${mt.color}11`,border:`1px solid ${mt.color}44`
+          }}>
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
+              <span>{mt.icon}</span>
+              <span style={{fontWeight:700,color:mt.color,fontSize:13}}>{m.type}</span>
+              <Tag label={m.actors} color={mt.color}/>
+            </div>
+            <p style={{margin:0,fontSize:12,color:C.textDim}}>{m.detail}</p>
+          </div>
+        );
+      })}
+    </Panel>
+  )}
+
+  {/* Second-order effects */}
+  {secondOrder?.length>0 && (
+    <Panel>
+      <div style={{fontSize:11,color:C.accent,letterSpacing:"0.1em",marginBottom:10}}>SECOND-ORDER EFFECTS</div>
+      {secondOrder.map((e,i)=>(
+        <div key={i} style={{display:"flex",gap:8,marginBottom:6,alignItems:"flex-start"}}>
+          <span style={{color:C.red,fontSize:12,marginTop:2}}>◆</span>
+          <span style={{fontSize:13,color:C.text}}>{e}</span>
+        </div>
+      ))}
+    </Panel>
+  )}
+
+  {/* Canonical patterns */}
+  {patterns?.length>0 && (
+    <Panel>
+      <div style={{fontSize:11,color:C.accent,letterSpacing:"0.1em",marginBottom:8}}>CANONICAL PATTERNS MATCHED</div>
+      <div>{patterns.map(p=><Tag key={p} label={p} color={C.raven}/>)}</div>
+    </Panel>
+  )}
+
+  {/* Redesigns */}
+  {redesigns && (
+    <Panel>
+      <div style={{fontSize:11,color:C.accent,letterSpacing:"0.1em",marginBottom:12}}>ALIGNMENT FORGE — REDESIGN OPTIONS</div>
+      {Object.values(redesigns).map((r,i)=>{
+        const tool = STEERING_TOOLS.find(t=>t.label===r.operator)||STEERING_TOOLS[0];
+        const colors = [C.green, C.blue, C.raven];
+        return (
+          <div key={i} style={{
+            marginBottom:10,padding:"12px 14px",borderRadius:4,
+            background:`${colors[i]}0d`,border:`1px solid ${colors[i]}44`
+          }}>
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:14}}>{tool.icon}</span>
+              <span style={{fontWeight:700,color:colors[i],fontSize:13}}>{r.label}</span>
+              <Tag label={r.operator} color={colors[i]}/>
+            </div>
+            <p style={{margin:"0 0 6px",fontSize:13,color:C.text}}>{r.action}</p>
+            <p style={{margin:0,fontSize:11,color:C.textDim}}>⚠ {r.risk}</p>
+          </div>
+        );
+      })}
+    </Panel>
+  )}
+
+  {/* Ethics Gate */}
+  {ethicsGate && (
+    <Panel style={{borderLeft:`3px solid ${ethicsPass>=5?C.green:ethicsPass>=3?"#e67e22":C.red}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{fontSize:11,color:C.accent,letterSpacing:"0.1em"}}>ETHICS GATE — MIRROR CHECK</div>
+        <span style={{fontSize:13,fontWeight:700,color:ethicsPass>=5?C.green:ethicsPass>=3?"#e67e22":C.red}}>
+          {ethicsPass}/6 PASS
+        </span>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+        {["consent","reversibility","nonCoercion","dignity","gamingResistance","loadFairness"].map(k=>(
+          <Tag key={k} label={k.replace(/([A-Z])/g," $1").toUpperCase()} color={ethicsGate[k]?C.green:C.red}/>
+        ))}
+      </div>
+      {ethicsGate.notes && <p style={{margin:0,fontSize:12,color:C.textDim,fontStyle:"italic"}}>{ethicsGate.notes}</p>}
+    </Panel>
+  )}
+</div>
+```
+
+);
+}
+
+// ── MAIN APP ─────────────────────────────────────────────────────────────────
+export default function IAL() {
+const [tab, setTab] = useState(“map”);
+const [systemDesc, setSystemDesc] = useState(””);
+const [actors, setActors] = useState([]);
+const [scores, setScores] = useState({clarity:3,proxy:2,extern:2,lockin:2,exit:3,timescale:3,info:3,possum:3,ethics:3,gaming:3});
+const [loading, setLoading] = useState(false);
+const [result, setResult] = useState(null);
+const [error, setError] = useState(””);
+
+const addActor = useCallback(()=>{
+setActors(a=>[…a,{id:slug(),name:””,objective:””,rewardChannel:“Money”,penaltyChannel:“Loss”,horizon:“Quarterly”,visibility:3,externalities:””,lockin:2}]);
+},[]);
+
+const updateActor = useCallback((id,updated)=>{
+setActors(a=>a.map(x=>x.id===id?{…updated,id}:x));
+},[]);
+
+const removeActor = useCallback((id)=>{
+setActors(a=>a.filter(x=>x.id!==id));
+},[]);
+
+const mi = computeMI(scores);
+const miC = miColor(mi);
+const miL = miLabel(mi);
+
+const runAnalysis = async () => {
+if (!systemDesc.trim()) { setError(“Describe the system first.”); return; }
+setError(””); setLoading(true); setResult(null); setTab(“analysis”);
+try {
+const r = await runIALAnalysis(systemDesc, actors, scores);
+setResult(r);
+} catch(e) {
+setError(“Analysis failed: “+e.message);
+} finally {
+setLoading(false);
+}
+};
+
+const TABS = [
+{id:“map”,label:“Actor Map”,icon:“🕸”},
+{id:“score”,label:“Scoring Matrix”,icon:“📊”},
+{id:“ref”,label:“Reference”,icon:“📚”},
+{id:“analysis”,label:“IAL Analysis”,icon:“⚡”},
+];
+
+return (
+<div style={{
+minHeight:“100vh”,background:C.bg,color:C.text,
+fontFamily:”‘IBM Plex Mono’, ‘Courier New’, monospace”,
+padding:“0 0 60px”
+}}>
+{/* Header */}
+<div style={{
+background:”#0c1016”,borderBottom:`1px solid ${C.border}`,
+padding:“18px 24px”,display:“flex”,alignItems:“center”,gap:16
+}}>
+<div style={{
+width:38,height:38,borderRadius:6,
+background:`linear-gradient(135deg,${C.accentD},${C.accent})`,
+display:“flex”,alignItems:“center”,justifyContent:“center”,
+fontSize:20,flexShrink:0
+}}>⚖</div>
+<div style={{flex:1}}>
+<div style={{fontSize:15,fontWeight:700,color:C.accent,letterSpacing:“0.1em”}}>
+INCENTIVE ALIGNMENT LAYER
+</div>
+<div style={{fontSize:10,color:C.textDim,letterSpacing:“0.12em”}}>
+IAL v2.0 · PANTHEON OS MODULE · DECISION TOPOLOGY ENGINEERING
+</div>
+</div>
+<div style={{textAlign:“right”}}>
+<div style={{fontSize:20,fontWeight:800,color:miC}}>{mi}/20</div>
+<div style={{fontSize:10,color:miC,letterSpacing:“0.1em”}}>{miL} MISALIGNMENT</div>
+</div>
+</div>
+
+```
+  {/* System description */}
+  <div style={{padding:"16px 24px",background:"#0d1117",borderBottom:`1px solid ${C.border}`}}>
+    <div style={{fontSize:11,color:C.textDim,letterSpacing:"0.1em",marginBottom:6}}>
+      SYSTEM UNDER ANALYSIS
+    </div>
+    <div style={{display:"flex",gap:10}}>
+      <Input
+        value={systemDesc}
+        onChange={setSystemDesc}
+        placeholder="Describe the system: actors, context, stated goals, observed dysfunctions..."
+        multiline
+        style={{flex:1,minHeight:60}}
+      />
+    </div>
+    {error && <div style={{marginTop:8,color:C.red,fontSize:12}}>{error}</div>}
+  </div>
+
+  {/* Tabs */}
+  <div style={{display:"flex",gap:0,background:"#0c1016",borderBottom:`1px solid ${C.border}`,padding:"0 24px"}}>
+    {TABS.map(t=>(
+      <button key={t.id} onClick={()=>setTab(t.id)} style={{
+        background:"none",border:"none",color:tab===t.id?C.accent:C.textDim,
+        padding:"12px 16px",cursor:"pointer",fontSize:12,fontFamily:"inherit",
+        borderBottom:`2px solid ${tab===t.id?C.accent:"transparent"}`,
+        letterSpacing:"0.08em",fontWeight:tab===t.id?700:400
+      }}>
+        {t.icon} {t.label}
+      </button>
+    ))}
+    <div style={{flex:1}}/>
+    <Btn onClick={runAnalysis} color={C.accent} style={{margin:"8px 0",alignSelf:"center"}}>
+      {loading?"⟳ ANALYZING...":"⚡ RUN IAL ANALYSIS"}
+    </Btn>
+  </div>
+
+  {/* Tab content */}
+  <div style={{padding:"20px 24px",maxWidth:900,margin:"0 auto"}}>
+
+    {/* ACTOR MAP TAB */}
+    {tab==="map" && (
+      <div>
+        <SectionHead sub="Build the incentive card for each actor in the system.">
+          Actor Incentive Map
+        </SectionHead>
+        {actors.map(a=>(
+          <ActorCard key={a.id} actor={a}
+            onUpdate={u=>updateActor(a.id,u)}
+            onDelete={()=>removeActor(a.id)}
+          />
+        ))}
+        <Btn onClick={addActor} outline style={{width:"100%",padding:"10px"}}>
+          + Add Actor
+        </Btn>
+        {actors.length===0 && (
+          <div style={{textAlign:"center",color:C.textDim,fontSize:12,marginTop:24,padding:"24px",
+            border:`1px dashed ${C.border}`,borderRadius:6
+          }}>
+            No actors yet. Add actors to begin mapping the incentive field.<br/>
+            <span style={{color:C.accentD}}>Every actor has a true objective function — often different from their stated one.</span>
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* SCORING MATRIX TAB */}
+    {tab==="score" && (
+      <div>
+        <SectionHead sub="Score the system across 10 alignment dimensions (0=worst, 5=best).">
+          System Scoring Matrix
+        </SectionHead>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          <Panel>
+            <div style={{fontSize:11,color:C.accent,marginBottom:12,letterSpacing:"0.08em"}}>HEALTH DIMENSIONS</div>
+            {SCORE_DIMS.filter(d=>!d.inv).map(d=>(
+              <ScoreSlider key={d.id} label={d.label} value={scores[d.id]||0}
+                onChange={v=>setScores(s=>({...s,[d.id]:v}))} inverted={false}/>
+            ))}
+          </Panel>
+          <Panel>
+            <div style={{fontSize:11,color:C.red,marginBottom:12,letterSpacing:"0.08em"}}>DYSFUNCTION DIMENSIONS</div>
+            {SCORE_DIMS.filter(d=>d.inv).map(d=>(
+              <ScoreSlider key={d.id} label={d.label} value={scores[d.id]||0}
+                onChange={v=>setScores(s=>({...s,[d.id]:v}))} inverted={true}/>
+            ))}
+          </Panel>
+        </div>
+
+        {/* MI visualization */}
+        <Panel style={{marginTop:16,borderColor:miC}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:miC}}>MISALIGNMENT INDEX</div>
+              <div style={{fontSize:11,color:C.textDim}}>Proxy + Extern + Lock-in + Info Asymmetry − Exit − Timescale</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:36,fontWeight:800,color:miC,lineHeight:1}}>{mi}</div>
+              <div style={{fontSize:11,color:miC}}>/ 20 · {miL}</div>
+            </div>
+          </div>
+          <div style={{height:8,background:C.border,borderRadius:4,overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${(mi/20)*100}%`,background:miC,transition:"width 0.4s"}}/>
+          </div>
+          <div style={{marginTop:12,fontSize:12,color:C.textDim}}>
+            {mi>=12?"⚠ CRITICAL: System will drift exploitative without active governance."
+            :mi>=7?"⚡ HIGH: Significant misalignment detected. Structural intervention likely needed."
+            :mi>=4?"◆ MODERATE: Observable tensions. Monitor and apply targeted steering."
+            :"✓ LOW: Incentives reasonably coherent. Maintain visibility and governance."}
+          </div>
+        </Panel>
+      </div>
+    )}
+
+    {/* REFERENCE TAB */}
+    {tab==="ref" && (
+      <div>
+        <SectionHead sub="Canonical classes, steering operators, and pattern library.">
+          IAL Reference Doctrine
+        </SectionHead>
+
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,color:C.accent,marginBottom:10,letterSpacing:"0.1em"}}>6 CANONICAL MISALIGNMENT CLASSES</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {MISALIGNMENT_TYPES.map(m=>(
+              <Panel key={m.id} style={{borderLeft:`3px solid ${m.color}`}}>
+                <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+                  <span style={{fontSize:18}}>{m.icon}</span>
+                  <span style={{fontWeight:700,color:m.color,fontSize:13}}>{m.label}</span>
+                </div>
+                <p style={{margin:0,fontSize:12,color:C.textDim}}>{m.desc}</p>
+              </Panel>
+            ))}
+          </div>
+        </div>
+
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,color:C.accent,marginBottom:10,letterSpacing:"0.1em"}}>6 STEERING OPERATORS</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {STEERING_TOOLS.map(t=>(
+              <Panel key={t.id} style={{borderLeft:`3px solid ${C.green}`}}>
+                <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+                  <span style={{fontSize:18}}>{t.icon}</span>
+                  <span style={{fontWeight:700,color:C.green,fontSize:13}}>{t.label}</span>
+                </div>
+                <p style={{margin:0,fontSize:12,color:C.textDim}}>{t.desc}</p>
+              </Panel>
+            ))}
+          </div>
+        </div>
+
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,color:C.accent,marginBottom:10,letterSpacing:"0.1em"}}>INCENTIVE PATTERN LIBRARY</div>
+          <Panel>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {PATTERN_LIBRARY.map(p=><Tag key={p} label={p} color={C.raven}/>)}
+            </div>
+          </Panel>
+        </div>
+
+        <Panel style={{borderLeft:`3px solid ${C.accent}`}}>
+          <div style={{fontSize:12,color:C.accent,marginBottom:10,letterSpacing:"0.1em"}}>PANTHEON WORKFLOW — T0→T4</div>
+          {[
+            {t:"T0",label:"Perception Governor",desc:"Slow down. Avoid moral overfitting. See the gradient, not the person."},
+            {t:"T1",label:"Spider + Hound",desc:"Map actors, flows, constraints, objective functions → actor graph, incentive cards, reward/penalty edges."},
+            {t:"T2",label:"Dragonfly + Combinatorix",desc:"Generate alternative payoff geometries → candidate reforms, second-order effects, positive-sum opportunities."},
+            {t:"T3",label:"Raven + Mirror",desc:"Narrative synthesis + invariant check: preserves agency? reversible? who gets squeezed? new exploits?"},
+            {t:"T4",label:"Elysara Frame",desc:"Can conflict be transmuted into coordination? Not always. But often enough to check."},
+          ].map(s=>(
+            <div key={s.t} style={{display:"flex",gap:12,marginBottom:10,alignItems:"flex-start"}}>
+              <div style={{
+                flexShrink:0,width:36,height:22,borderRadius:3,
+                background:`${C.accent}22`,border:`1px solid ${C.accentD}`,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:10,fontWeight:700,color:C.accent
+              }}>{s.t}</div>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{s.label}</div>
+                <div style={{fontSize:11,color:C.textDim}}>{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </Panel>
+
+        <Panel style={{marginTop:12,background:"#0c1016",borderStyle:"dashed"}}>
+          <div style={{fontSize:11,color:C.accent,letterSpacing:"0.1em",marginBottom:8}}>CORE INVARIANTS</div>
+          {[
+            "Do not confuse incentives with essence",
+            "Do not optimize one proxy at the expense of mission",
+            "Preserve reversibility where possible",
+            "Increase legibility before increasing force",
+            "Prefer positive-sum redesign over coercive control",
+            "Surface hidden costs to their source",
+            "Align timescale of reward with timescale of consequence",
+          ].map((r,i)=>(
+            <div key={i} style={{fontSize:12,color:C.textDim,marginBottom:4}}>
+              <span style={{color:C.accentD}}>◆</span> {r}
+            </div>
+          ))}
+        </Panel>
+      </div>
+    )}
+
+    {/* ANALYSIS TAB */}
+    {tab==="analysis" && (
+      <div>
+        <SectionHead sub="Spider → Hound → Goblin → Dragonfly → Mirror → Badger">
+          IAL Analysis Output
+        </SectionHead>
+        {loading && (
+          <Panel style={{textAlign:"center",padding:40}}>
+            <div style={{fontSize:24,marginBottom:12,animation:"spin 1s linear infinite"}}>⟳</div>
+            <div style={{color:C.textDim,fontSize:13}}>Running incentive field analysis...</div>
+            <div style={{color:C.accentD,fontSize:11,marginTop:8}}>Mapping gradients · Detecting misalignments · Forging redesigns</div>
+          </Panel>
+        )}
+        {!loading && !result && (
+          <Panel style={{textAlign:"center",padding:40,border:`1px dashed ${C.border}`}}>
+            <div style={{fontSize:28,marginBottom:12}}>⚖</div>
+            <div style={{color:C.textDim,fontSize:13}}>No analysis yet.</div>
+            <div style={{color:C.accentD,fontSize:11,marginTop:8}}>
+              Describe the system, map actors, set scores, then click RUN IAL ANALYSIS.
+            </div>
+          </Panel>
+        )}
+        {result && <AnalysisPanel result={result}/>}
+      </div>
+    )}
+  </div>
+
+  <style>{`
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    input[type=range] { height: 4px; }
+    select option { background: #12171e; }
+    * { box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 6px; } 
+    ::-webkit-scrollbar-track { background: ${C.bg}; }
+    ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; }
+  `}</style>
+</div>
+```
+
+);
+}
