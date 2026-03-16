@@ -1,0 +1,487 @@
+Excellent. Here’s the next-layer package: wireframe, starter architecture, and a fundable pitch skeleton.
+
+⸻
+
+ETI v1.0 — Build Pack
+
+1. UI Wireframe
+
+Screen A — Dashboard
+
+┌──────────────────────────────────────────────┐
+│ ETI / Body Twin                             │
+├──────────────────────────────────────────────┤
+│ [Today] [Week] [Month] [Timeline Slider]    │
+│                                              │
+│   ┌──────────────────────────────────────┐   │
+│   │          BODY MODEL VIEW             │   │
+│   │      front / back / side toggle      │   │
+│   │                                      │   │
+│   │   click zones to add state markers   │   │
+│   └──────────────────────────────────────┘   │
+│                                              │
+│ Right Panel:                                 │
+│ - Pain intensity                             │
+│ - Energy                                     │
+│ - Mood                                       │
+│ - Sleep                                      │
+│ - Notes                                      │
+│ - Tags                                       │
+│                                              │
+│ [Save State] [Compare] [Export Summary]      │
+└──────────────────────────────────────────────┘
+
+Screen B — Delta View
+
+┌──────────────────────────────────────────────┐
+│ Change Over Time                             │
+├──────────────────────────────────────────────┤
+│ Timeline:  o----o---O------o-----o           │
+│                                              │
+│ Previous State      →      Current State     │
+│ [body heatmap]             [body heatmap]    │
+│                                              │
+│ Delta Panel:                                 │
+│ - Neck pain +2                               │
+│ - Sleep quality -1                           │
+│ - Energy +3                                  │
+│ - Mood shifted: anxious → steady             │
+│                                              │
+│ Pattern Notes:                               │
+│ “Neck pain clusters after poor sleep.”       │
+└──────────────────────────────────────────────┘
+
+Screen C — Pattern Engine
+
+┌──────────────────────────────────────────────┐
+│ Pattern Detection                            │
+├──────────────────────────────────────────────┤
+│ Recurring Clusters:                          │
+│ - jaw / neck / shoulders                     │
+│ - late afternoon fatigue                     │
+│ - left knee after long walks                 │
+│                                              │
+│ Correlations:                                │
+│ - low sleep ↔ high pain                      │
+│ - high stress ↔ chest tightness              │
+│                                              │
+│ Suggested Actions:                           │
+│ - stretch sequence                           │
+│ - sleep consistency                          │
+│ - hydration prompt                           │
+└──────────────────────────────────────────────┘
+
+
+⸻
+
+2. Core Data Model
+
+{
+  "entity_id": "user_body",
+  "timestamp": "2026-03-16T17:30:00-04:00",
+  "view": "front",
+  "markers": [
+    {
+      "zone": "neck",
+      "type": "pain",
+      "intensity": 7,
+      "color": "red",
+      "note": "stiff after waking"
+    },
+    {
+      "zone": "chest",
+      "type": "stress",
+      "intensity": 4,
+      "color": "orange",
+      "note": "mild tightness"
+    }
+  ],
+  "globals": {
+    "energy": 5,
+    "mood": "steady",
+    "sleep_quality": 4
+  },
+  "tags": ["morning", "workday"]
+}
+
+
+⸻
+
+3. React / WebGL Starter Architecture
+
+Component tree
+
+<App>
+  <ETIDashboard>
+    <TimelineBar />
+    <BodyCanvas />
+    <InspectorPanel />
+    <PatternPanel />
+  </ETIDashboard>
+</App>
+
+State shape
+
+type Marker = {
+  zone: string;
+  type: "pain" | "stress" | "energy" | "injury" | "note";
+  intensity: number;
+  note?: string;
+};
+
+type Snapshot = {
+  id: string;
+  timestamp: string;
+  markers: Marker[];
+  globals: {
+    energy: number;
+    mood: string;
+    sleep_quality: number;
+  };
+};
+
+type ETIState = {
+  snapshots: Snapshot[];
+  selectedSnapshotId: string | null;
+  selectedZone: string | null;
+};
+
+Minimal React scaffold
+
+import { useMemo, useState } from "react";
+
+type Marker = {
+  zone: string;
+  type: "pain" | "stress" | "energy" | "injury" | "note";
+  intensity: number;
+  note?: string;
+};
+
+type Snapshot = {
+  id: string;
+  timestamp: string;
+  markers: Marker[];
+  globals: {
+    energy: number;
+    mood: string;
+    sleep_quality: number;
+  };
+};
+
+const BODY_ZONES = [
+  "head",
+  "neck",
+  "chest",
+  "abdomen",
+  "left_shoulder",
+  "right_shoulder",
+  "left_arm",
+  "right_arm",
+  "left_leg",
+  "right_leg"
+];
+
+export default function ETIDashboard() {
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [currentType, setCurrentType] = useState<Marker["type"]>("pain");
+  const [currentIntensity, setCurrentIntensity] = useState(5);
+  const [note, setNote] = useState("");
+
+  const currentSnapshot = useMemo<Snapshot>(() => {
+    return {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      markers: [],
+      globals: {
+        energy: 5,
+        mood: "neutral",
+        sleep_quality: 5
+      }
+    };
+  }, []);
+
+  function saveMarker() {
+    if (!selectedZone) return;
+
+    const next: Snapshot = {
+      ...currentSnapshot,
+      markers: [
+        ...currentSnapshot.markers,
+        {
+          zone: selectedZone,
+          type: currentType,
+          intensity: currentIntensity,
+          note
+        }
+      ]
+    };
+
+    setSnapshots(prev => [next, ...prev]);
+    setNote("");
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+      <section>
+        <h2>ETI Body Twin</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 120px)", gap: 8 }}>
+          {BODY_ZONES.map(zone => (
+            <button key={zone} onClick={() => setSelectedZone(zone)}>
+              {zone}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <aside>
+        <h3>Inspector</h3>
+        <p>Selected zone: {selectedZone ?? "none"}</p>
+
+        <label>Type</label>
+        <select value={currentType} onChange={e => setCurrentType(e.target.value as Marker["type"])}>
+          <option value="pain">pain</option>
+          <option value="stress">stress</option>
+          <option value="energy">energy</option>
+          <option value="injury">injury</option>
+          <option value="note">note</option>
+        </select>
+
+        <label>Intensity</label>
+        <input
+          type="range"
+          min={1}
+          max={10}
+          value={currentIntensity}
+          onChange={e => setCurrentIntensity(Number(e.target.value))}
+        />
+
+        <label>Note</label>
+        <textarea value={note} onChange={e => setNote(e.target.value)} />
+
+        <button onClick={saveMarker}>Save marker</button>
+      </aside>
+    </div>
+  );
+}
+
+
+⸻
+
+4. Tensor / Pattern Layer
+
+The real upgrade is not the markers. It’s the delta field.
+
+ETI tensor concept
+
+Let each body zone be a coordinate and each state type be a channel.
+
+T[z, c, t]
+
+Where:
+	•	z = zone
+	•	c = channel such as pain, stress, energy
+	•	t = time
+
+This gives you:
+	•	clustering
+	•	trend detection
+	•	anomaly detection
+	•	cross-channel correlation
+
+Example
+
+T[neck, pain, t] = 7
+T[chest, stress, t] = 4
+T[global, sleep, t] = 3
+
+Then derive:
+
+delta = T[..., t] - T[..., t-1]
+
+That becomes your Pattern Engine fuel.
+
+⸻
+
+5. Fast WebGL Path
+
+Since you already like the tensor-surface direction, the simplest upgrade path is:
+
+v0
+
+2D SVG body map
+Cheap, fast, shippable.
+
+v1
+
+Three.js or react-three-fiber body mesh
+Clickable regions with overlays.
+
+v2
+
+Tensor-surface shading
+Heatmaps, pulse animation, temporal diffusion.
+
+v3
+
+Spectral layer
+Detect recurring modes and hidden state harmonics.
+
+⸻
+
+6. Fundable Startup Angle
+
+Working names
+	•	Body Twin
+	•	SignalSkin
+	•	SomaMap
+	•	Inner Atlas
+	•	ETI Health
+
+One-line pitch
+
+A spatial health interface that turns symptoms, stress, and recovery into a living body map patients and clinicians can understand instantly.
+
+Problem
+
+Medical data is fragmented, text-heavy, and poor at showing pattern continuity.
+
+Solution
+
+A living visual twin that tracks symptoms, states, and deltas over time.
+
+Why now
+	•	wearables are mainstream
+	•	AI can detect patterns
+	•	patients want ownership of their health data
+	•	clinicians are overloaded by text and forms
+
+Initial wedge
+
+Start with:
+	•	chronic pain
+	•	physical therapy
+	•	migraine tracking
+	•	autoimmune flare mapping
+	•	dermatology progression
+
+These all benefit from where + when + intensity.
+
+Monetization
+	•	consumer subscription
+	•	clinician dashboard seats
+	•	enterprise integration with telehealth / PT clinics
+	•	white-label SDK for healthcare apps
+
+⸻
+
+7. Pitch Deck Skeleton
+
+Slide 1 — Title
+
+ETI Health: The Body as Interface
+
+Slide 2 — Problem
+
+Medical records are rich in data but poor in geometry.
+
+Slide 3 — Insight
+
+Humans understand state faster when it is mapped onto form.
+
+Slide 4 — Product
+
+Interactive body twin with timeline, pattern engine, and exportable summaries.
+
+Slide 5 — Demo
+
+Show symptom heatmap, time slider, and detected correlation.
+
+Slide 6 — Market
+
+Pain tracking, PT, telehealth, chronic care, wellness.
+
+Slide 7 — Why Defensible
+
+Spatial dataset + behavioral history + personalized pattern engine.
+
+Slide 8 — GTM
+
+Start with direct-to-consumer and PT / chronic pain clinics.
+
+Slide 9 — Vision
+
+Embodied interfaces for health, cognition, narrative, and systems.
+
+Slide 10 — Ask
+
+Pilot partners, design collaborators, and early capital.
+
+⸻
+
+8. Pantheon Module Formalization
+
+Module
+
+ETI / Embodied Tensor Interface
+
+Role
+
+Converts invisible state into structured visible geometry.
+
+Daemon mapping
+	•	Spider: topology mapping
+	•	Hound: anomaly scenting
+	•	Mirror: interpretive honesty
+	•	Conductor: route user input into signal layers
+	•	EchoFrame: temporal distillation of snapshots
+
+Invariant phrase
+
+Geometry first, text second.
+
+⸻
+
+9. Best First Move
+
+Your highest-ROI path is not full 3D first.
+
+Build this in order:
+	1.	clickable 2D body map
+	2.	save snapshots locally
+	3.	timeline comparison
+	4.	pattern summary
+	5.	export report
+	6.	only then add 3D/WebGL
+
+That gets you from concept to demo fast.
+
+⸻
+
+10. Repo-ready compression block
+
+artifact:
+  name: ETI_v1
+  title: Embodied Tensor Interface
+  thesis: Meaning can be encoded spatially on a representative structure and tracked as deltas over time.
+  first_product:
+    name: Body Twin
+    format: interactive body map
+    features:
+      - zone markers
+      - intensity encoding
+      - timeline snapshots
+      - pattern detection
+      - export summary
+  moat:
+    - embodied UI
+    - longitudinal signal structure
+    - interpretable geometry
+  integrations:
+    - tensor_surface
+    - NTE
+    - Spider
+    - Hound
+    - Mirror
+
+If you want, I’ll turn this next into a single polished README/spec doc you can drop straight into the repo.
