@@ -1,0 +1,254 @@
+This is a strong v0.1. The bones are good.
+
+The main thing breaking it is not the architecture — it’s the pasted typography. You’ve got smart quotes and a few Unicode punctuation characters in places React/JS will reject.
+
+What’s wrong
+
+You pasted code with:
+	•	“ ” instead of "
+	•	‘ ’ instead of '
+	•	… or odd dash characters in some text contexts
+	•	[…filtered, ...] using a smart/bracket variant instead of normal JS [...]
+	•	CSS custom property typing in inline style that TypeScript may complain about
+
+So the app concept is good, but the code needs to be de-corrupted into plain ASCII JS/TSX.
+
+⸻
+
+Biggest fixes
+
+1. Imports
+
+Use normal quotes:
+
+import { useState, useEffect } from "react";
+
+2. Arrays/objects
+
+Every string needs plain quotes:
+
+const BODY_ZONES = [
+  { id: "head", label: "Head", cx: 200, cy: 52 },
+  { id: "neck", label: "Neck", cx: 200, cy: 90 },
+];
+
+3. Broken spread line
+
+This line is invalid as pasted:
+
+return […filtered, { zone: activeZone, type: activeType, intensity: activeIntensity }];
+
+It must be:
+
+return [...filtered, { zone: activeZone, type: activeType, intensity: activeIntensity }];
+
+4. localStorage keys
+
+Replace smart quotes:
+
+const saved = localStorage.getItem("inner_atlas_v1");
+localStorage.setItem("inner_atlas_v1", JSON.stringify(snapshots));
+
+5. Timeline/map view strings
+
+Use plain strings:
+
+const [view, setView] = useState("map"); // map | timeline | patterns
+
+6. CSS variable in inline style
+
+This can annoy TypeScript:
+
+style={{ "--pct": `${(activeIntensity - 1) / 9 * 100}%` }}
+
+Safer version:
+
+style={{ ["--pct" as string]: `${((activeIntensity - 1) / 9) * 100}%` }}
+
+
+⸻
+
+Structural feedback
+
+Your current architecture is actually solid for a first demo:
+	•	Map view works as input surface
+	•	Timeline view works as historical inspection
+	•	Patterns view gives immediate value
+	•	localStorage persistence is exactly right for MVP
+	•	body zones are clean and easy to extend
+
+That said, I’d tighten a few things.
+
+⸻
+
+Best next improvements
+
+1. Add snapshot notes
+
+Right now snapshots only store markers. Add a short note per snapshot:
+
+const [snapshotNote, setSnapshotNote] = useState("");
+
+const snap = {
+  id: uid(),
+  timestamp: Date.now(),
+  markers: currentMarkers,
+  note: snapshotNote.trim(),
+};
+
+That gives context like:
+	•	“after workout”
+	•	“poor sleep”
+	•	“stressful meeting”
+
+That will make pattern detection much better later.
+
+⸻
+
+2. Preserve same-zone stacking order better
+
+Right now MarkerDot offsets markers diagonally. Fine for now, but later use radial offsets so stacks stay readable.
+
+Example idea:
+
+const angle = (i / zoneMarkers.length) * Math.PI * 2;
+const offsetX = Math.cos(angle) * 8;
+const offsetY = Math.sin(angle) * 8;
+
+
+⸻
+
+3. Delta logic should also detect removals
+
+Right now computeDelta only maps over current markers, so if a marker disappeared from the previous snapshot, you miss that change.
+
+A better version compares the union of marker keys from both snapshots.
+
+function computeDelta(curr, prev) {
+  if (!curr || !prev) return [];
+
+  const keyOf = m => `${m.zone}__${m.type}`;
+  const currMap = new Map(curr.markers.map(m => [keyOf(m), m]));
+  const prevMap = new Map(prev.markers.map(m => [keyOf(m), m]));
+  const allKeys = new Set([...currMap.keys(), ...prevMap.keys()]);
+
+  return [...allKeys]
+    .map(key => {
+      const c = currMap.get(key);
+      const p = prevMap.get(key);
+      const [zone, type] = key.split("__");
+      return {
+        zone,
+        type,
+        delta: (c?.intensity ?? 0) - (p?.intensity ?? 0),
+      };
+    })
+    .filter(d => d.delta !== 0);
+}
+
+That’s a real upgrade.
+
+⸻
+
+4. Add export/import
+
+Very high ROI. Let users save their logs:
+
+function exportSnapshots() {
+  const blob = new Blob([JSON.stringify(snapshots, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "inner-atlas-export.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+That makes the app feel real immediately.
+
+⸻
+
+Cleaned core utilities
+
+Here’s a cleaned version of your helpers:
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function fmtTime(ts: number) {
+  return new Date(ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function fmtDate(ts: number) {
+  return new Date(ts).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function computeDelta(curr: any, prev: any) {
+  if (!curr || !prev) return [];
+
+  const keyOf = (m: any) => `${m.zone}__${m.type}`;
+  const currMap = new Map(curr.markers.map((m: any) => [keyOf(m), m]));
+  const prevMap = new Map(prev.markers.map((m: any) => [keyOf(m), m]));
+  const allKeys = new Set([...currMap.keys(), ...prevMap.keys()]);
+
+  return [...allKeys]
+    .map((key) => {
+      const c = currMap.get(key);
+      const p = prevMap.get(key);
+      const [zone, type] = key.split("__");
+      return {
+        zone,
+        type,
+        delta: (c?.intensity ?? 0) - (p?.intensity ?? 0),
+      };
+    })
+    .filter((d) => d.delta !== 0);
+}
+
+function findClusters(snapshots: any[]) {
+  const counts: Record<string, number> = {};
+
+  snapshots.forEach((s) =>
+    s.markers.forEach((m: any) => {
+      const key = `${m.zone}__${m.type}`;
+      counts[key] = (counts[key] || 0) + 1;
+    })
+  );
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([key, count]) => {
+      const [zone, type] = key.split("__");
+      return { zone, type, count };
+    });
+}
+
+
+⸻
+
+My verdict
+
+This is no longer “just an idea.”
+This is an actual prototype skeleton.
+
+What you have is already enough to become:
+	•	a clickable MVP
+	•	a repo demo
+	•	a landing-page-backed prototype
+	•	the seed crystal for Inner Atlas
+
+The next best move is not more ideation. It’s to clean this into runnable TSX and then add two things:
+	1.	snapshot notes
+	2.	export/import
+
+Paste the rest of the file in plain quotes, or say “clean the whole component” and I’ll return the entire corrected runnable component.
