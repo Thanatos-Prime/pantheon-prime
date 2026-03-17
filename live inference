@@ -1,0 +1,553 @@
+import { useState, useRef, useEffect, useCallback } from "react";
+
+// ─── DOMAIN REGISTRY ────────────────────────────────────────────────────────
+const DOMAINS = [
+  { id: "semantic",       label: "Semantic",      glyph: "語",  color: "#6C63FF", q: "How should this be described?" },
+  { id: "structural",     label: "Structural",    glyph: "∑",   color: "#38BDF8", q: "What patterns hold under change?" },
+  { id: "empirical",      label: "Empirical",     glyph: "⚛",   color: "#34D399", q: "What does reality allow?" },
+  { id: "biological",     label: "Biological",    glyph: "⟳",   color: "#6EE7B7", q: "What survives? What adapts?" },
+  { id: "economic",       label: "Economic",      glyph: "⇌",   color: "#FCD34D", q: "Where does value flow?" },
+  { id: "business",       label: "Business",      glyph: "◈",   color: "#FBBF24", q: "Can this survive reality?" },
+  { id: "psychological",  label: "Psychological", glyph: "◎",   color: "#F9A8D4", q: "What is perceived vs constructed?" },
+  { id: "architectural",  label: "Architectural", glyph: "⬡",   color: "#67E8F9", q: "Where does this break?" },
+  { id: "aesthetic",      label: "Aesthetic",     glyph: "◇",   color: "#D8B4FE", q: "What moves people?" },
+  { id: "musical",        label: "Musical",       glyph: "♩",   color: "#FCA5A5", q: "What is the rhythm here?" },
+  { id: "historical",     label: "Historical",    glyph: "⊛",   color: "#D6B093", q: "Has this appeared before?" },
+  { id: "ethical",        label: "Ethical",       glyph: "⊗",   color: "#93C5FD", q: "Should this be done?" },
+  { id: "computational",  label: "Computational", glyph: "⟨⟩",  color: "#86EFAC", q: "How is this executed?" },
+  { id: "strategic",      label: "Strategic",     glyph: "⚔",   color: "#F87171", q: "What wins under opposition?" },
+  { id: "memetic",        label: "Memetic",       glyph: "≋",   color: "#A78BFA", q: "Will this spread and hold?" },
+  { id: "philosophical",  label: "Philosophical", glyph: "∞",   color: "#C4B5FD", q: "What does this mean?" },
+  { id: "mythic",         label: "Mythic",        glyph: "⟁",   color: "#FDE68A", q: "What story carries this?" },
+  { id: "legal",          label: "Legal",         glyph: "⊢",   color: "#BAE6FD", q: "What rules govern this?" },
+  { id: "gametheoretic",  label: "Game-Theoretic",glyph: "⋈",   color: "#BEF264", q: "What if others react?" },
+  { id: "cybernetic",     label: "Cybernetic",    glyph: "⟲",   color: "#99F6E4", q: "Is this system stable?" },
+  { id: "cultural",       label: "Cultural",      glyph: "⌘",   color: "#FED7AA", q: "How do groups hold this?" },
+];
+
+const SYSTEM_PROMPT = `You are the Pantheon Atlas Kernel — a multi-basis reasoning engine.
+
+Your role: given a user input (a state, problem, or situation), interpret it through the requested domain lenses. Each domain is a distinct constraint system that reveals a non-redundant facet of reality.
+
+DOMAIN DEFINITIONS (answer these questions):
+- semantic: How should this be described? What framing matters?
+- structural: What mathematical patterns hold? What transforms while staying equal?
+- empirical: What does physics/chemistry say? What constraints apply?
+- biological: What adapts or fails? What survives?
+- economic: Where does value/energy flow? What are the incentives?
+- business: Can this execute in reality? Who owns it? What's the feedback loop?
+- psychological: What is perceived vs constructed? What biases are active?
+- architectural: How is this structured? Where does it break?
+- aesthetic: What captures attention? What resonates emotionally?
+- musical: What is the rhythm and timing? What cadence governs this?
+- historical: Has this pattern appeared before? What cycle is this?
+- ethical: Should this be done? What constraints apply?
+- computational: How is this encoded and executed efficiently?
+- strategic: What wins under opposition? What is the tempo advantage?
+- memetic: Will this spread? How stable is the replication?
+- philosophical: What does this mean? What direction does it point?
+- mythic: What symbolic story carries this? What archetype is active?
+- legal: What rules govern this? What happens if violated?
+- gametheoretic: What if others react intelligently? What is the equilibrium?
+- cybernetic: Is this system stable? What feedback loops are active?
+- cultural: How do groups interpret and reinforce this?
+
+RULES:
+1. Each interpretation must be 1-3 sentences. Precise. No padding.
+2. SEPARATE: signal (measured fact) from interpretation (inference) from narrative (framing).
+3. Tag each interpretation's signal level: LOW, MEDIUM, or HIGH.
+4. At the end, provide: a synthesis (2-3 sentences max), a ranked action list (max 5), and overall confidence (HIGH/MEDIUM/LOW/WEAK).
+5. Mythic interpretations must remain symbolic — never literal supernatural claims.
+6. Use minimum sufficient domains. If a domain genuinely adds nothing for this input, say so briefly.
+
+Respond ONLY with valid JSON. No markdown. No preamble. Schema:
+{
+  "interpretations": {
+    "<domain_id>": {
+      "text": "<interpretation>",
+      "signal": "LOW|MEDIUM|HIGH",
+      "category": "signal|interpretation|narrative"
+    }
+  },
+  "synthesis": "<2-3 sentence cross-domain synthesis>",
+  "actions": ["<action 1>", "<action 2>", ...],
+  "confidence": "HIGH|MEDIUM|LOW|WEAK",
+  "route_note": "<one sentence on why these domains were selected>"
+}`;
+
+// ─── CONFIDENCE COLORS ───────────────────────────────────────────────────────
+const CONF_COLOR = { HIGH: "#34D399", MEDIUM: "#FCD34D", LOW: "#F87171", WEAK: "#6B7280" };
+const SIG_COLOR  = { HIGH: "#34D399", MEDIUM: "#FCD34D", LOW: "#94A3B8" };
+
+export default function PantheonAtlas() {
+  const [active, setActive] = useState(new Set([
+    "structural","empirical","biological","economic","psychological","cybernetic"
+  ]));
+  const [input, setInput]           = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [result, setResult]         = useState(null);
+  const [error, setError]           = useState(null);
+  const [hoverId, setHoverId]       = useState(null);
+  const [streamText, setStreamText] = useState("");
+  const [phase, setPhase]           = useState("idle"); // idle|routing|interpreting|synthesizing|done
+  const textareaRef = useRef(null);
+
+  const toggle = (id) => setActive(prev => {
+    const n = new Set(prev);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
+
+  const handleRun = useCallback(async () => {
+    if (!input.trim() || loading) return;
+    setLoading(true);
+    setResult(null);
+    setError(null);
+    setStreamText("");
+    setPhase("routing");
+
+    const activeDomains = DOMAINS.filter(d => active.has(d.id));
+    const domainList = activeDomains.map(d => d.id).join(", ");
+
+    const userMsg = `Input: "${input.trim()}"
+
+Active domains: ${domainList}
+
+Interpret this input through each active domain. Apply the minimum sufficient set — if any active domain genuinely adds nothing here, note it briefly but still include the key.`;
+
+    try {
+      // Phase animation
+      const phases = ["routing","interpreting","synthesizing"];
+      let pi = 0;
+      const phaseTimer = setInterval(() => {
+        pi++;
+        if (pi < phases.length) setPhase(phases[pi]);
+      }, 800);
+
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: "user", content: userMsg }],
+        }),
+      });
+
+      clearInterval(phaseTimer);
+      const data = await resp.json();
+
+      if (!resp.ok) throw new Error(data.error?.message || "API error");
+
+      const raw = data.content?.find(b => b.type === "text")?.text || "";
+      setStreamText(raw);
+
+      // Strip any markdown fences
+      const cleaned = raw.replace(/```json\n?/g,"").replace(/```/g,"").trim();
+      const parsed = JSON.parse(cleaned);
+      setResult(parsed);
+      setPhase("done");
+    } catch (e) {
+      setError(e.message);
+      setPhase("idle");
+    } finally {
+      setLoading(false);
+    }
+  }, [input, active, loading]);
+
+  useEffect(() => {
+    const handler = (e) => { if ((e.metaKey||e.ctrlKey) && e.key === "Enter") handleRun(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleRun]);
+
+  const activeDomains = DOMAINS.filter(d => active.has(d.id));
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#080810",
+      color: "#DDD8F0",
+      fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+      display: "flex",
+      flexDirection: "column",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ::-webkit-scrollbar { width: 3px; height: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+        textarea { resize: none; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+          0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+        }
+        @keyframes scanline {
+          from { transform: translateY(-100%); }
+          to   { transform: translateY(100vh); }
+        }
+        .card-in { animation: fadeUp 0.35s ease both; }
+        .blink { animation: pulse 1.4s ease infinite; }
+        .domain-pill:hover { filter: brightness(1.2); }
+      `}</style>
+
+      {/* Scanline overlay */}
+      <div style={{
+        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden", opacity: 0.015,
+      }}>
+        <div style={{
+          position: "absolute", left: 0, right: 0, height: "2px",
+          background: "linear-gradient(transparent, #fff, transparent)",
+          animation: "scanline 8s linear infinite",
+        }}/>
+      </div>
+
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+      <header style={{
+        padding: "20px 32px 16px",
+        borderBottom: "1px solid #14142a",
+        display: "flex",
+        alignItems: "baseline",
+        gap: "20px",
+        position: "relative",
+        zIndex: 1,
+      }}>
+        <span style={{ fontFamily: "Fraunces, serif", fontSize: "22px", fontWeight: 500, color: "#fff", letterSpacing: "-0.02em" }}>
+          PANTHEON
+        </span>
+        <span style={{ fontSize: "10px", color: "#4a4a7a", letterSpacing: "0.25em" }}>ATLAS KERNEL v1.0</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "12px" }}>
+          {loading && (
+            <span className="blink" style={{ fontSize: "9px", color: "#6C63FF", letterSpacing: "0.2em" }}>
+              {phase.toUpperCase()}
+            </span>
+          )}
+          <span style={{ fontSize: "9px", color: "#3a3a6a", letterSpacing: "0.15em" }}>
+            {active.size} / {DOMAINS.length} DOMAINS
+          </span>
+        </div>
+      </header>
+
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 1 }}>
+
+        {/* ── LEFT SIDEBAR ─────────────────────────────────────────────────── */}
+        <aside style={{
+          width: "220px",
+          minWidth: "220px",
+          borderRight: "1px solid #12122a",
+          padding: "16px 0",
+          overflowY: "auto",
+          background: "#07070f",
+        }}>
+          <div style={{ padding: "0 14px 10px", fontSize: "8px", letterSpacing: "0.3em", color: "#2e2e5e", textTransform: "uppercase" }}>
+            Lens Control
+          </div>
+          <div style={{ padding: "0 10px 12px", display: "flex", gap: "4px" }}>
+            {[["ALL", () => setActive(new Set(DOMAINS.map(d=>d.id)))],
+              ["NONE", () => setActive(new Set())],
+            ].map(([label, fn]) => (
+              <button key={label} onClick={fn} style={{
+                flex: 1, padding: "4px 0", fontSize: "8px", letterSpacing: "0.2em",
+                background: "transparent", border: "1px solid #1e1e3e", color: "#5a5a8a",
+                cursor: "pointer", textTransform: "uppercase", fontFamily: "inherit",
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {DOMAINS.map(d => {
+            const on = active.has(d.id);
+            const hov = hoverId === d.id;
+            return (
+              <div key={d.id}
+                className="domain-pill"
+                onClick={() => toggle(d.id)}
+                onMouseEnter={() => setHoverId(d.id)}
+                onMouseLeave={() => setHoverId(null)}
+                style={{
+                  padding: "7px 14px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "9px",
+                  borderLeft: `2px solid ${on ? d.color : "transparent"}`,
+                  background: on ? `${d.color}0d` : hov ? "#0f0f1e" : "transparent",
+                  transition: "all 0.12s",
+                  marginBottom: "1px",
+                }}>
+                <span style={{ fontSize: "13px", color: on ? d.color : "#2e2e5e", width: "18px", textAlign: "center" }}>
+                  {d.glyph}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "10px", color: on ? "#e8e4f0" : "#3a3a6a", letterSpacing: "0.06em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {d.label}
+                  </div>
+                </div>
+                <div style={{
+                  width: "5px", height: "5px", borderRadius: "50%",
+                  background: on ? d.color : "#1a1a3a",
+                  boxShadow: on ? `0 0 6px ${d.color}80` : "none",
+                  flexShrink: 0,
+                }}/>
+              </div>
+            );
+          })}
+
+          {/* Hovered domain tooltip */}
+          {hoverId && (() => {
+            const d = DOMAINS.find(x => x.id === hoverId);
+            return d ? (
+              <div style={{
+                margin: "12px 10px 0",
+                padding: "10px",
+                border: `1px solid ${d.color}30`,
+                background: `${d.color}08`,
+                fontSize: "9px",
+                lineHeight: "1.5",
+              }}>
+                <div style={{ color: d.color, letterSpacing: "0.15em", marginBottom: "4px" }}>ASK</div>
+                <div style={{ color: "#8080aa", fontStyle: "italic" }}>{d.q}</div>
+              </div>
+            ) : null;
+          })()}
+        </aside>
+
+        {/* ── MAIN ─────────────────────────────────────────────────────────── */}
+        <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+          {/* Input zone */}
+          <div style={{ padding: "20px 28px 16px", borderBottom: "1px solid #12122a", background: "#09091a" }}>
+            <div style={{ fontSize: "8px", letterSpacing: "0.3em", color: "#2e2e5e", marginBottom: "8px" }}>
+              SIGNAL INPUT  ·  ⌘↵ TO RUN
+            </div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="Describe a state, problem, or situation..."
+                rows={2}
+                style={{
+                  flex: 1,
+                  background: "#0c0c1e",
+                  border: "1px solid #1e1e3e",
+                  color: "#c8c4e0",
+                  padding: "10px 14px",
+                  fontSize: "13px",
+                  fontFamily: "inherit",
+                  outline: "none",
+                  letterSpacing: "0.02em",
+                  lineHeight: "1.5",
+                  borderRadius: "2px",
+                }}
+              />
+              <button
+                onClick={handleRun}
+                disabled={loading || !input.trim() || active.size === 0}
+                style={{
+                  padding: "10px 20px",
+                  background: (!loading && input.trim() && active.size > 0) ? "#1a1a4e" : "#0d0d1e",
+                  border: "1px solid #3a3a7e",
+                  color: (!loading && input.trim() && active.size > 0) ? "#8888ef" : "#3a3a6a",
+                  fontSize: "10px",
+                  letterSpacing: "0.2em",
+                  cursor: (!loading && input.trim() && active.size > 0) ? "pointer" : "default",
+                  fontFamily: "inherit",
+                  textTransform: "uppercase",
+                  height: "100%",
+                  alignSelf: "stretch",
+                  borderRadius: "2px",
+                  transition: "all 0.15s",
+                }}
+              >
+                {loading ? "···" : "RUN →"}
+              </button>
+            </div>
+          </div>
+
+          {/* Output zone */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 28px" }}>
+
+            {/* Idle state */}
+            {phase === "idle" && !result && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "200px" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "28px", marginBottom: "12px", opacity: 0.15 }}>⟁</div>
+                  <div style={{ fontSize: "10px", color: "#2e2e5e", letterSpacing: "0.25em" }}>
+                    SELECT DOMAINS · ENTER SIGNAL · RUN
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading state */}
+            {loading && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div className="blink" style={{ fontSize: "9px", color: "#6C63FF", letterSpacing: "0.2em", marginBottom: "8px" }}>
+                  {phase === "routing" && "CONDUCTOR ROUTING DOMAINS..."}
+                  {phase === "interpreting" && "PROJECTING ACROSS LENSES..."}
+                  {phase === "synthesizing" && "SYNTHESIZING CROSS-DOMAIN..."}
+                </div>
+                {activeDomains.map((d, i) => (
+                  <div key={d.id} style={{
+                    height: "60px",
+                    border: `1px solid ${d.color}20`,
+                    background: `${d.color}06`,
+                    borderRadius: "2px",
+                    animation: `pulse ${0.8 + i * 0.05}s ease infinite`,
+                  }}/>
+                ))}
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div style={{ padding: "16px", border: "1px solid #F8717140", background: "#F8717108", color: "#F87171", fontSize: "11px" }}>
+                ⊗ {error}
+              </div>
+            )}
+
+            {/* Results */}
+            {result && !loading && (
+              <div>
+                {/* Route note */}
+                {result.route_note && (
+                  <div style={{
+                    marginBottom: "16px",
+                    padding: "10px 14px",
+                    border: "1px solid #2a2a5a",
+                    background: "#0f0f22",
+                    fontSize: "10px",
+                    color: "#6868aa",
+                    letterSpacing: "0.04em",
+                    lineHeight: "1.5",
+                  }}>
+                    <span style={{ color: "#4a4a8a", marginRight: "8px", letterSpacing: "0.2em" }}>CONDUCTOR</span>
+                    {result.route_note}
+                  </div>
+                )}
+
+                {/* Domain grid */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                  gap: "10px",
+                  marginBottom: "20px",
+                }}>
+                  {activeDomains.map((d, i) => {
+                    const interp = result.interpretations?.[d.id];
+                    if (!interp) return null;
+                    return (
+                      <div key={d.id}
+                        className="card-in"
+                        style={{
+                          border: `1px solid ${d.color}25`,
+                          background: `linear-gradient(135deg, ${d.color}08 0%, #0b0b18 100%)`,
+                          padding: "14px",
+                          borderRadius: "2px",
+                          animationDelay: `${i * 0.03}s`,
+                        }}>
+                        {/* Header */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                          <span style={{ fontSize: "14px", color: d.color, width: "22px", textAlign: "center" }}>{d.glyph}</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: "9px", color: d.color, letterSpacing: "0.2em", textTransform: "uppercase" }}>{d.label}</div>
+                          </div>
+                          <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                            <span style={{
+                              fontSize: "7px", letterSpacing: "0.1em",
+                              color: SIG_COLOR[interp.signal] || "#6B7280",
+                              border: `1px solid ${SIG_COLOR[interp.signal] || "#6B7280"}40`,
+                              padding: "1px 5px",
+                            }}>
+                              {interp.signal}
+                            </span>
+                            <span style={{
+                              fontSize: "7px", letterSpacing: "0.1em", color: "#4a4a7a",
+                              border: "1px solid #2a2a5a", padding: "1px 5px",
+                            }}>
+                              {interp.category}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Text */}
+                        <div style={{ fontSize: "11px", color: "#b8b4d0", lineHeight: "1.6", letterSpacing: "0.02em" }}>
+                          {interp.text}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Synthesis + Actions */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px",
+                  marginBottom: "16px",
+                }}>
+                  {/* Synthesis */}
+                  <div className="card-in" style={{
+                    border: "1px solid #3a3a6a",
+                    background: "#0e0e22",
+                    padding: "16px",
+                    borderRadius: "2px",
+                    animationDelay: `${activeDomains.length * 0.03}s`,
+                  }}>
+                    <div style={{ fontSize: "8px", color: "#5a5a9a", letterSpacing: "0.25em", marginBottom: "10px" }}>SYNTHESIS</div>
+                    <div style={{ fontSize: "12px", color: "#c8c4e0", lineHeight: "1.65", letterSpacing: "0.02em" }}>
+                      {result.synthesis}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="card-in" style={{
+                    border: "1px solid #2a3a2a",
+                    background: "#0d140d",
+                    padding: "16px",
+                    borderRadius: "2px",
+                    animationDelay: `${(activeDomains.length + 1) * 0.03}s`,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                      <div style={{ fontSize: "8px", color: "#4a7a4a", letterSpacing: "0.25em" }}>ACTIONS</div>
+                      <div style={{
+                        fontSize: "8px", letterSpacing: "0.15em",
+                        color: CONF_COLOR[result.confidence] || "#6B7280",
+                        border: `1px solid ${CONF_COLOR[result.confidence] || "#6B7280"}40`,
+                        padding: "2px 7px",
+                      }}>
+                        {result.confidence}
+                      </div>
+                    </div>
+                    {(result.actions || []).map((a, i) => (
+                      <div key={i} style={{ display: "flex", gap: "8px", marginBottom: "7px", alignItems: "flex-start" }}>
+                        <span style={{ fontSize: "9px", color: "#34D399", marginTop: "2px", flexShrink: 0 }}>{i + 1}.</span>
+                        <span style={{ fontSize: "11px", color: "#a8c8a8", lineHeight: "1.5", letterSpacing: "0.02em" }}>{a}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Reset */}
+                <div style={{ textAlign: "center", paddingBottom: "8px" }}>
+                  <button onClick={() => { setResult(null); setPhase("idle"); setInput(""); }}
+                    style={{
+                      background: "transparent", border: "none", color: "#3a3a6a",
+                      fontSize: "9px", letterSpacing: "0.25em", cursor: "pointer",
+                      fontFamily: "inherit", textTransform: "uppercase",
+                    }}>
+                    ← NEW SIGNAL
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
