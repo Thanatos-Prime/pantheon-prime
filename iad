@@ -1,0 +1,1426 @@
+This is much better structurally. The remaining problem is still the same: smart quotes and smart ellipsis/spread characters are breaking the file.
+
+I cleaned it into a runnable plain-quote React component below.
+
+import { useState, useEffect } from "react";
+
+const BODY_ZONES = [
+  { id: "head", label: "Head", cx: 200, cy: 52 },
+  { id: "neck", label: "Neck", cx: 200, cy: 90 },
+  { id: "l-shoulder", label: "L.Shoulder", cx: 140, cy: 118 },
+  { id: "r-shoulder", label: "R.Shoulder", cx: 260, cy: 118 },
+  { id: "chest", label: "Chest", cx: 200, cy: 148 },
+  { id: "l-arm", label: "L.Arm", cx: 112, cy: 178 },
+  { id: "r-arm", label: "R.Arm", cx: 288, cy: 178 },
+  { id: "abdomen", label: "Abdomen", cx: 200, cy: 200 },
+  { id: "l-hand", label: "L.Hand", cx: 96, cy: 236 },
+  { id: "r-hand", label: "R.Hand", cx: 304, cy: 236 },
+  { id: "l-hip", label: "L.Hip", cx: 170, cy: 248 },
+  { id: "r-hip", label: "R.Hip", cx: 230, cy: 248 },
+  { id: "l-thigh", label: "L.Thigh", cx: 162, cy: 298 },
+  { id: "r-thigh", label: "R.Thigh", cx: 238, cy: 298 },
+  { id: "l-knee", label: "L.Knee", cx: 158, cy: 348 },
+  { id: "r-knee", label: "R.Knee", cx: 242, cy: 348 },
+  { id: "l-shin", label: "L.Shin", cx: 155, cy: 396 },
+  { id: "r-shin", label: "R.Shin", cx: 245, cy: 396 },
+  { id: "l-foot", label: "L.Foot", cx: 155, cy: 440 },
+  { id: "r-foot", label: "R.Foot", cx: 245, cy: 440 },
+];
+
+const MARKER_TYPES = [
+  { id: "pain", label: "Pain", color: "#ef4444", glyph: "x" },
+  { id: "stress", label: "Stress", color: "#f97316", glyph: "#" },
+  { id: "energy", label: "Energy", color: "#22c55e", glyph: "^" },
+  { id: "mood", label: "Mood", color: "#3b82f6", glyph: "o" },
+  { id: "tension", label: "Tension", color: "#a855f7", glyph: "~" },
+];
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function fmtTime(ts: number) {
+  return new Date(ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function fmtDate(ts: number) {
+  return new Date(ts).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+type Marker = {
+  zone: string;
+  type: string;
+  intensity: number;
+};
+
+type Snapshot = {
+  id: string;
+  timestamp: number;
+  markers: Marker[];
+  note?: string;
+};
+
+function keyOf(m: Marker) {
+  return `${m.zone}__${m.type}`;
+}
+
+function computeDelta(curr: Snapshot | null, prev: Snapshot | null) {
+  if (!curr || !prev) return [];
+
+  const currMap = new Map(curr.markers.map((m) => [keyOf(m), m]));
+  const prevMap = new Map(prev.markers.map((m) => [keyOf(m), m]));
+  const allKeys = new Set([...currMap.keys(), ...prevMap.keys()]);
+
+  return Array.from(allKeys)
+    .map((key) => {
+      const c = currMap.get(key);
+      const p = prevMap.get(key);
+      const parts = key.split("__");
+      return {
+        zone: parts[0],
+        type: parts[1],
+        delta: (c ? c.intensity : 0) - (p ? p.intensity : 0),
+      };
+    })
+    .filter((d) => d.delta !== 0);
+}
+
+function findClusters(snapshots: Snapshot[]) {
+  const counts: Record<string, number> = {};
+
+  snapshots.forEach((s) =>
+    s.markers.forEach((m) => {
+      const k = keyOf(m);
+      counts[k] = (counts[k] || 0) + 1;
+    })
+  );
+
+  return Object.entries(counts)
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .slice(0, 5)
+    .map(([k, count]) => {
+      const p = k.split("__");
+      return { zone: p[0], type: p[1], count: Number(count) };
+    });
+}
+
+function getZone(id: string) {
+  return BODY_ZONES.find((z) => z.id === id);
+}
+
+function getType(id: string) {
+  return MARKER_TYPES.find((t) => t.id === id);
+}
+
+function doExport(snapshots: Snapshot[]) {
+  const blob = new Blob([JSON.stringify(snapshots, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "inner-atlas-export.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function BodyOutline() {
+  return (
+    <g stroke="#334155" strokeWidth="1" fill="none" opacity="0.6">
+      <ellipse cx="200" cy="48" rx="26" ry="30" />
+      <rect x="190" y="76" width="20" height="22" rx="4" />
+      <path d="M148 98 L140 100 L118 120 L108 240 L192 248 L208 248 L292 240 L282 120 L260 100 L252 98 Z" />
+      <path d="M140 100 L112 130 L100 200 L94 240" strokeWidth="14" strokeLinecap="round" />
+      <path d="M260 100 L288 130 L300 200 L306 240" strokeWidth="14" strokeLinecap="round" />
+      <ellipse cx="92" cy="244" rx="10" ry="12" />
+      <ellipse cx="308" cy="244" rx="10" ry="12" />
+      <path d="M168 248 L158 320 L152 400 L150 448" strokeWidth="18" strokeLinecap="round" />
+      <path d="M232 248 L242 320 L248 400 L250 448" strokeWidth="18" strokeLinecap="round" />
+      <ellipse cx="152" cy="452" rx="16" ry="8" />
+      <ellipse cx="248" cy="452" rx="16" ry="8" />
+      <line x1="200" y1="98" x2="200" y2="248" strokeDasharray="3,4" opacity="0.3" />
+      <line x1="140" y1="108" x2="260" y2="108" strokeDasharray="3,4" opacity="0.2" />
+      <line x1="160" y1="248" x2="240" y2="248" strokeDasharray="3,4" opacity="0.2" />
+    </g>
+  );
+}
+
+function MarkerDot({
+  zone,
+  markers,
+}: {
+  zone: { id: string; label: string; cx: number; cy: number };
+  markers: Marker[];
+}) {
+  const zm = markers.filter((m) => m.zone === zone.id);
+  if (!zm.length) return null;
+
+  return (
+    <>
+      {zm.map((m, i) => {
+        const t = getType(m.type);
+        if (!t) return null;
+
+        const r = 4 + m.intensity * 2;
+        const total = zm.length;
+        const angle = total === 1 ? 0 : (i / total) * Math.PI * 2;
+        const spread = total === 1 ? 0 : 9;
+        const ox = Math.cos(angle) * spread;
+        const oy = Math.sin(angle) * spread;
+
+        return (
+          <g key={`${m.zone}${m.type}${i}`}>
+            <circle
+              cx={zone.cx + ox}
+              cy={zone.cy + oy}
+              r={r}
+              fill={t.color}
+              opacity={0.15 + m.intensity * 0.07}
+            />
+            <circle
+              cx={zone.cx + ox}
+              cy={zone.cy + oy}
+              r={r * 0.42}
+              fill={t.color}
+              opacity={0.9}
+            />
+          </g>
+        );
+      })}
+    </>
+  );
+}
+
+function ZoneHit({
+  zone,
+  selected,
+  onClick,
+}: {
+  zone: { id: string; label: string; cx: number; cy: number };
+  selected: boolean;
+  onClick: (zoneId: string) => void;
+}) {
+  return (
+    <circle
+      cx={zone.cx}
+      cy={zone.cy}
+      r={16}
+      fill={selected ? "rgba(99,102,241,0.22)" : "transparent"}
+      stroke={selected ? "#818cf8" : "transparent"}
+      strokeWidth="1.5"
+      style={{ cursor: "pointer" }}
+      onClick={() => onClick(zone.id)}
+    />
+  );
+}
+
+function IntensityBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+      {Array.from({ length: 10 }).map((_, idx) => (
+        <div
+          key={idx}
+          style={{
+            width: 3,
+            height: idx < value ? 10 : 4,
+            background: idx < value ? color : "#1e293b",
+            borderRadius: 1,
+            opacity: idx < value ? 0.4 + idx * 0.06 : 1,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default function InnerAtlas() {
+  const [snapshots, setSnapshots] = useState<Snapshot[]>(() => {
+    try {
+      const s = localStorage.getItem("inner_atlas_v2");
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [activeZone, setActiveZone] = useState<string | null>(null);
+  const [activeType, setActiveType] = useState("pain");
+  const [activeIntensity, setActiveIntensity] = useState(5);
+  const [currentMarkers, setCurrentMarkers] = useState<Marker[]>([]);
+  const [snapshotNote, setSnapshotNote] = useState("");
+  const [view, setView] = useState<"map" | "timeline" | "patterns">("map");
+  const [timelineIndex, setTimelineIndex] = useState(0);
+  const [importError, setImportError] = useState("");
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("inner_atlas_v2", JSON.stringify(snapshots));
+    } catch {}
+  }, [snapshots]);
+
+  function handleZoneClick(zoneId: string) {
+    if (view !== "map") return;
+    setActiveZone(zoneId === activeZone ? null : zoneId);
+  }
+
+  function addMarker() {
+    if (!activeZone) return;
+
+    setCurrentMarkers((prev) => {
+      const filtered = prev.filter(
+        (m) => !(m.zone === activeZone && m.type === activeType)
+      );
+      return [
+        ...filtered,
+        { zone: activeZone, type: activeType, intensity: activeIntensity },
+      ];
+    });
+
+    setActiveZone(null);
+  }
+
+  function removeMarker(zone: string, type: string) {
+    setCurrentMarkers((prev) =>
+      prev.filter((m) => !(m.zone === zone && m.type === type))
+    );
+  }
+
+  function saveSnapshot() {
+    if (!currentMarkers.length) return;
+
+    const snap: Snapshot = {
+      id: uid(),
+      timestamp: Date.now(),
+      markers: currentMarkers,
+      note: snapshotNote.trim(),
+    };
+
+    setSnapshots((prev) => [snap, ...prev]);
+    setCurrentMarkers([]);
+    setSnapshotNote("");
+    setActiveZone(null);
+    setView("timeline");
+    setTimelineIndex(0);
+  }
+
+  function clearCurrent() {
+    setCurrentMarkers([]);
+    setActiveZone(null);
+    setSnapshotNote("");
+  }
+
+  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const raw = evt.target?.result;
+        const data = typeof raw === "string" ? JSON.parse(raw) : null;
+        if (!Array.isArray(data)) throw new Error("expected array");
+
+        setSnapshots(data);
+        setImportError("");
+        setView("timeline");
+        setTimelineIndex(0);
+      } catch {
+        setImportError("Invalid file format");
+      }
+    };
+
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  const clusters = findClusters(snapshots);
+  const currentSnap = snapshots[timelineIndex] || null;
+  const prevSnap = snapshots[timelineIndex + 1] || null;
+  const deltas = computeDelta(currentSnap, prevSnap);
+  const iPct = ((activeIntensity - 1) / 9) * 100;
+  const sliderBg = `linear-gradient(to right,#4f46e5 0%,#4f46e5 ${iPct}%,#1e293b ${iPct}%,#1e293b 100%)`;
+
+  const CSS = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    .nb {
+      background: none;
+      border: 1px solid transparent;
+      color: #64748b;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all .15s;
+      border-radius: 2px;
+    }
+    .nb:hover { color: #cbd5e1; border-color: #1e293b; }
+    .nb.on { color: #818cf8; border-color: #4f46e5; background: rgba(79,70,229,.08); }
+    .ab {
+      background: none;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .08em;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all .15s;
+      border-radius: 2px;
+    }
+    .ab:hover { border-color: #64748b; color: #e2e8f0; }
+    .ab.p { border-color: #4f46e5; color: #818cf8; background: rgba(79,70,229,.1); }
+    .ab.p:hover { background: rgba(79,70,229,.2); }
+    .ab:disabled { opacity: .3; cursor: not-allowed; }
+    .tb {
+      background: transparent;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .08em;
+      padding: 6px 12px;
+      cursor: pointer;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .15s;
+    }
+    .sl {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 3px;
+      outline: none;
+      border-radius: 2px;
+    }
+    .sl::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: #818cf8;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid #080c14;
+    }
+    .ni {
+      width: 100%;
+      background: #0a0f1a;
+      border: 1px solid #1e293b;
+      border-radius: 2px;
+      color: #94a3b8;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      padding: 8px 10px;
+      outline: none;
+      letter-spacing: .04em;
+      resize: none;
+      transition: border-color .15s;
+    }
+    .ni:focus { border-color: #334155; color: #cbd5e1; }
+    .ni::placeholder { color: #334155; }
+    .sb {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-left: 2px solid transparent;
+      border-bottom: 1px solid #0a0f1a;
+      padding: 10px 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: all .1s;
+    }
+    .sb:hover { background: rgba(255,255,255,.02); }
+    .sb.on { background: rgba(79,70,229,.1); border-left-color: #4f46e5; }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+    .gbg {
+      background-image:
+        linear-gradient(#0f172a 1px, transparent 1px),
+        linear-gradient(90deg, #0f172a 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+  `;
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#080c14",
+        color: "#e2e8f0",
+        fontFamily: "'DM Mono','Courier New',monospace",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <style>{CSS}</style>
+
+      <header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "14px 24px",
+          borderBottom: "1px solid #0f172a",
+          background: "rgba(8,12,20,.97)",
+          backdropFilter: "blur(8px)",
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <span
+            style={{
+              fontFamily: "'Syne',sans-serif",
+              fontWeight: 800,
+              fontSize: 16,
+              color: "#e2e8f0",
+              letterSpacing: ".05em",
+            }}
+          >
+            INNER ATLAS
+          </span>
+          <span style={{ fontSize: 10, color: "#1e293b", letterSpacing: ".15em" }}>
+            v0.2
+          </span>
+        </div>
+
+        <nav style={{ display: "flex", gap: 4 }}>
+          {["map", "timeline", "patterns"].map((v) => (
+            <button
+              key={v}
+              className={`nb${view === v ? " on" : ""}`}
+              onClick={() => setView(v as "map" | "timeline" | "patterns")}
+            >
+              {v}
+            </button>
+          ))}
+        </nav>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "#1e293b", letterSpacing: ".1em" }}>
+            {snapshots.length} LOG{snapshots.length !== 1 ? "S" : ""}
+          </span>
+
+          <label style={{ cursor: "pointer" }}>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              style={{ display: "none" }}
+            />
+            <span className="ab" style={{ display: "inline-block" }}>
+              IMPORT
+            </span>
+          </label>
+
+          <button
+            className="ab"
+            onClick={() => doExport(snapshots)}
+            disabled={!snapshots.length}
+          >
+            EXPORT
+          </button>
+
+          <button
+            className="ab p"
+            onClick={saveSnapshot}
+            disabled={!currentMarkers.length}
+          >
+            SAVE STATE
+          </button>
+        </div>
+      </header>
+
+      {importError && (
+        <div
+          style={{
+            background: "#450a0a",
+            borderBottom: "1px solid #7f1d1d",
+            padding: "6px 24px",
+            fontSize: 11,
+            color: "#fca5a5",
+          }}
+        >
+          {importError}
+        </div>
+      )}
+
+      <main style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {view === "map" && (
+          <>
+            <div
+              style={{
+                flex: "0 0 400px",
+                position: "relative",
+                borderRight: "1px solid #0f172a",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#080c14",
+              }}
+              className="gbg"
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  left: 12,
+                  fontSize: 9,
+                  color: "#1e293b",
+                  letterSpacing: ".15em",
+                }}
+              >
+                ETI-SPATIAL-v0
+              </div>
+
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 12,
+                  right: 12,
+                  fontSize: 9,
+                  color: "#1e293b",
+                  letterSpacing: ".1em",
+                }}
+              >
+                {currentMarkers.length} MARK{currentMarkers.length !== 1 ? "S" : ""}
+              </div>
+
+              <svg width="400" height="480" viewBox="0 0 400 480" style={{ cursor: "crosshair" }}>
+                <defs>
+                  <pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#0f172a" strokeWidth="0.5" />
+                  </pattern>
+                </defs>
+
+                <rect width="400" height="480" fill="url(#g)" />
+                <line x1="200" y1="0" x2="200" y2="480" stroke="#0f172a" strokeWidth="0.5" />
+                <line x1="0" y1="240" x2="400" y2="240" stroke="#0f172a" strokeWidth="0.5" />
+
+                <BodyOutline />
+
+                {BODY_ZONES.map((z) => (
+                  <MarkerDot key={z.id} zone={z} markers={currentMarkers} />
+                ))}
+
+                {BODY_ZONES.map((z) => (
+                  <ZoneHit
+                    key={z.id}
+                    zone={z}
+                    selected={activeZone === z.id}
+                    onClick={handleZoneClick}
+                  />
+                ))}
+
+                {activeZone &&
+                  (() => {
+                    const z = getZone(activeZone);
+                    if (!z) return null;
+
+                    return (
+                      <g>
+                        <rect
+                          x={z.cx - 28}
+                          y={z.cy - 32}
+                          width="56"
+                          height="16"
+                          rx="2"
+                          fill="#0f172a"
+                          stroke="#4f46e5"
+                          strokeWidth="0.8"
+                        />
+                        <text
+                          x={z.cx}
+                          y={z.cy - 21}
+                          textAnchor="middle"
+                          fill="#818cf8"
+                          fontSize="9"
+                          fontFamily="DM Mono,monospace"
+                          letterSpacing="0.05em"
+                        >
+                          {z.label.toUpperCase()}
+                        </text>
+                      </g>
+                    );
+                  })()}
+              </svg>
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                padding: "28px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 24,
+                overflowY: "auto",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "#475569",
+                    letterSpacing: ".15em",
+                    marginBottom: 10,
+                  }}
+                >
+                  SELECTED ZONE
+                </div>
+
+                {activeZone ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        background: "#818cf8",
+                        borderRadius: "50%",
+                      }}
+                      className="pulse"
+                    />
+                    <span
+                      style={{
+                        fontFamily: "'Syne',sans-serif",
+                        fontWeight: 700,
+                        fontSize: 18,
+                        color: "#e2e8f0",
+                      }}
+                    >
+                      {(getZone(activeZone) || { label: "" }).label.toUpperCase()}
+                    </span>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 12, color: "#334155" }}>
+                    -- click a zone on the map --
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "#475569",
+                    letterSpacing: ".15em",
+                    marginBottom: 10,
+                  }}
+                >
+                  SIGNAL TYPE
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {MARKER_TYPES.map((t) => (
+                    <button
+                      key={t.id}
+                      className="tb"
+                      onClick={() => setActiveType(t.id)}
+                      style={{
+                        background: activeType === t.id ? `${t.color}18` : "transparent",
+                        border: `1px solid ${activeType === t.id ? t.color : "#1e293b"}`,
+                        color: activeType === t.id ? t.color : "#64748b",
+                      }}
+                    >
+                      <span style={{ fontFamily: "monospace" }}>{t.glyph}</span>
+                      {t.label.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "#475569",
+                    letterSpacing: ".15em",
+                    marginBottom: 10,
+                  }}
+                >
+                  INTENSITY -- <span style={{ color: "#818cf8" }}>{activeIntensity}</span>/10
+                </div>
+
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={activeIntensity}
+                  onChange={(e) => setActiveIntensity(Number(e.target.value))}
+                  className="sl"
+                  style={{ background: sliderBg }}
+                />
+
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                  <span style={{ fontSize: 9, color: "#334155" }}>MILD</span>
+                  <span style={{ fontSize: 9, color: "#334155" }}>SEVERE</span>
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "#475569",
+                    letterSpacing: ".15em",
+                    marginBottom: 8,
+                  }}
+                >
+                  SNAPSHOT NOTE
+                </div>
+
+                <textarea
+                  className="ni"
+                  rows={2}
+                  placeholder="after workout, poor sleep, stressful day..."
+                  value={snapshotNote}
+                  onChange={(e) => setSnapshotNote(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className="ab p"
+                  onClick={addMarker}
+                  disabled={!activeZone}
+                  style={{ flex: 1 }}
+                >
+                  + MARK ZONE
+                </button>
+
+                <button className="ab" onClick={clearCurrent} disabled={!currentMarkers.length}>
+                  CLEAR
+                </button>
+              </div>
+
+              {currentMarkers.length > 0 && (
+                <div>
+                  <div
+                    style={{
+                      fontSize: 9,
+                      color: "#475569",
+                      letterSpacing: ".15em",
+                      marginBottom: 10,
+                    }}
+                  >
+                    CURRENT STATE ({currentMarkers.length})
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {currentMarkers.map((m, i) => {
+                      const t = getType(m.type);
+                      const z = getZone(m.zone);
+                      if (!t || !z) return null;
+
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "7px 10px",
+                            background: "#0a0f1a",
+                            border: "1px solid #0f172a",
+                            borderLeft: `3px solid ${t.color}`,
+                            borderRadius: 2,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ color: t.color, fontFamily: "monospace" }}>{t.glyph}</span>
+                            <span style={{ fontSize: 11, color: "#cbd5e1" }}>{z.label}</span>
+                            <span style={{ fontSize: 10, color: "#475569" }}>
+                              {t.label.toLowerCase()}
+                            </span>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <IntensityBar value={m.intensity} color={t.color} />
+                            <button
+                              onClick={() => removeMarker(m.zone, m.type)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#334155",
+                                cursor: "pointer",
+                                fontSize: 13,
+                                padding: "0 2px",
+                                lineHeight: 1,
+                              }}
+                            >
+                              x
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {view === "timeline" && (
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            {snapshots.length === 0 ? (
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.15 }}>o</div>
+                  <div style={{ fontSize: 12, color: "#475569", letterSpacing: ".1em" }}>
+                    NO LOGS YET
+                  </div>
+                  <div style={{ fontSize: 11, color: "#334155", marginTop: 6 }}>
+                    Save a state from the Map view
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    width: 200,
+                    borderRight: "1px solid #0f172a",
+                    overflowY: "auto",
+                    padding: "12px 0",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 9,
+                      color: "#475569",
+                      letterSpacing: ".15em",
+                      padding: "0 16px 10px",
+                    }}
+                  >
+                    LOG HISTORY
+                  </div>
+
+                  {snapshots.map((s, i) => (
+                    <button
+                      key={s.id}
+                      className={`sb${timelineIndex === i ? " on" : ""}`}
+                      onClick={() => setTimelineIndex(i)}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: timelineIndex === i ? "#818cf8" : "#64748b",
+                          letterSpacing: ".05em",
+                        }}
+                      >
+                        {fmtDate(s.timestamp)}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: timelineIndex === i ? "#e2e8f0" : "#475569",
+                          marginTop: 2,
+                        }}
+                      >
+                        {fmtTime(s.timestamp)}
+                      </div>
+
+                      <div style={{ fontSize: 10, color: "#334155", marginTop: 3 }}>
+                        {s.markers.length} mark{s.markers.length !== 1 ? "s" : ""}
+                      </div>
+
+                      {s.note && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "#475569",
+                            marginTop: 3,
+                            fontStyle: "italic",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {s.note}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    flex: "0 0 380px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRight: "1px solid #0f172a",
+                    background: "#080c14",
+                    position: "relative",
+                  }}
+                  className="gbg"
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 12,
+                      left: 12,
+                      fontSize: 9,
+                      color: "#1e293b",
+                      letterSpacing: ".12em",
+                    }}
+                  >
+                    {currentSnap
+                      ? `LOG ${fmtDate(currentSnap.timestamp)} ${fmtTime(currentSnap.timestamp)}`
+                      : "--"}
+                  </div>
+
+                  <svg width="380" height="480" viewBox="20 0 360 480">
+                    <defs>
+                      <pattern id="g2" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#0f172a" strokeWidth="0.5" />
+                      </pattern>
+                    </defs>
+                    <rect x="20" width="360" height="480" fill="url(#g2)" />
+                    <BodyOutline />
+                    {currentSnap &&
+                      BODY_ZONES.map((z) => (
+                        <MarkerDot key={z.id} zone={z} markers={currentSnap.markers} />
+                      ))}
+                  </svg>
+                </div>
+
+                <div
+                  style={{
+                    flex: 1,
+                    padding: "24px",
+                    overflowY: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 24,
+                  }}
+                >
+                  {currentSnap && currentSnap.note && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: "#475569",
+                          letterSpacing: ".15em",
+                          marginBottom: 8,
+                        }}
+                      >
+                        NOTE
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#94a3b8",
+                          fontStyle: "italic",
+                          padding: "8px 12px",
+                          background: "#0a0f1a",
+                          border: "1px solid #0f172a",
+                          borderLeft: "2px solid #334155",
+                          borderRadius: 2,
+                        }}
+                      >
+                        {currentSnap.note}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: "#475569",
+                        letterSpacing: ".15em",
+                        marginBottom: 10,
+                      }}
+                    >
+                      MARKERS ({currentSnap ? currentSnap.markers.length : 0})
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {(currentSnap ? currentSnap.markers : []).map((m, i) => {
+                        const t = getType(m.type);
+                        const z = getZone(m.zone);
+                        if (!t || !z) return null;
+
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              padding: "7px 10px",
+                              background: "#0a0f1a",
+                              border: "1px solid #0f172a",
+                              borderLeft: `3px solid ${t.color}`,
+                              borderRadius: 2,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <span style={{ color: t.color, fontFamily: "monospace" }}>{t.glyph}</span>
+                            <span style={{ fontSize: 11, color: "#cbd5e1" }}>{z.label}</span>
+                            <span style={{ fontSize: 10, color: "#475569" }}>
+                              {t.label.toLowerCase()}
+                            </span>
+                            <span style={{ fontSize: 10, color: t.color, marginLeft: "auto" }}>
+                              {m.intensity}/10
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {deltas.length > 0 && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: "#475569",
+                          letterSpacing: ".15em",
+                          marginBottom: 10,
+                        }}
+                      >
+                        DELTA vs PREV LOG
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {deltas.map((d, i) => {
+                          const t = getType(d.type);
+                          const z = getZone(d.zone);
+                          const up = d.delta > 0;
+
+                          return (
+                            <div
+                              key={i}
+                              style={{
+                                padding: "7px 10px",
+                                background: "#0a0f1a",
+                                border: `1px solid ${(up ? "#ef4444" : "#22c55e")}22`,
+                                borderRadius: 2,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  color: up ? "#ef4444" : "#22c55e",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {up ? "^" : "v"}
+                              </span>
+                              <span style={{ fontSize: 11, color: "#cbd5e1" }}>
+                                {z ? z.label : d.zone}
+                              </span>
+                              <span style={{ fontSize: 10, color: "#475569" }}>
+                                {t ? t.label.toLowerCase() : d.type}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: up ? "#ef4444" : "#22c55e",
+                                  marginLeft: "auto",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {up ? "+" : ""}
+                                {d.delta}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {!deltas.length && prevSnap && (
+                    <div style={{ fontSize: 11, color: "#334155", fontStyle: "italic" }}>
+                      no changes from previous log
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {view === "patterns" && (
+          <div style={{ flex: 1, padding: "32px 40px", overflowY: "auto" }}>
+            {snapshots.length < 2 ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60%" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.15 }}>~</div>
+                  <div style={{ fontSize: 12, color: "#475569", letterSpacing: ".1em" }}>
+                    NEED 2+ LOGS FOR PATTERNS
+                  </div>
+                  <div style={{ fontSize: 11, color: "#334155", marginTop: 6 }}>
+                    Build history in Map view
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "#475569",
+                    letterSpacing: ".15em",
+                    marginBottom: 24,
+                  }}
+                >
+                  PATTERN ENGINE -- {snapshots.length} LOGS ANALYZED
+                </div>
+
+                <div style={{ marginBottom: 36 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#64748b",
+                      letterSpacing: ".1em",
+                      marginBottom: 16,
+                    }}
+                  >
+                    TOP RECURRING SIGNALS
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {clusters.map((c, i) => {
+                      const t = getType(c.type);
+                      const z = getZone(c.zone);
+                      const pct = (c.count / snapshots.length) * 100;
+                      const col = t ? t.color : "#fff";
+
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            padding: "14px 16px",
+                            background: "#0a0f1a",
+                            border: "1px solid #0f172a",
+                            borderRadius: 2,
+                            position: "relative",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: `${pct}%`,
+                              background: `${col}10`,
+                              transition: "width .5s ease",
+                            }}
+                          />
+
+                          <div
+                            style={{
+                              position: "relative",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 16,
+                                color: "#334155",
+                                fontFamily: "'Syne',sans-serif",
+                                fontWeight: 800,
+                              }}
+                            >
+                              0{i + 1}
+                            </span>
+
+                            <span
+                              style={{
+                                color: col,
+                                fontSize: 13,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              {t ? t.glyph : "?"}
+                            </span>
+
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  color: "#e2e8f0",
+                                  fontFamily: "'Syne',sans-serif",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {z ? z.label : c.zone} {t ? t.label : c.type}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  color: "#475569",
+                                  marginTop: 2,
+                                  letterSpacing: ".08em",
+                                }}
+                              >
+                                {c.count} of {snapshots.length} logs -- {Math.round(pct)}% occurrence
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                marginLeft: "auto",
+                                fontSize: 20,
+                                color: col,
+                                opacity: 0.6,
+                                fontFamily: "'Syne',sans-serif",
+                                fontWeight: 800,
+                              }}
+                            >
+                              {c.count}x
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#64748b",
+                      letterSpacing: ".1em",
+                      marginBottom: 16,
+                    }}
+                  >
+                    SIGNAL DISTRIBUTION
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {MARKER_TYPES.map((t) => {
+                      const entries = snapshots.reduce(
+                        (acc, s) => acc + s.markers.filter((m) => m.type === t.id).length,
+                        0
+                      );
+
+                      const avg =
+                        entries === 0
+                          ? 0
+                          : snapshots.reduce(
+                              (acc, s) =>
+                                acc +
+                                s.markers
+                                  .filter((m) => m.type === t.id)
+                                  .reduce((a, m) => a + m.intensity, 0),
+                              0
+                            ) / entries;
+
+                      return (
+                        <div
+                          key={t.id}
+                          style={{
+                            padding: "14px 18px",
+                            background: "#0a0f1a",
+                            border: `1px solid ${t.color}22`,
+                            borderTop: `2px solid ${t.color}`,
+                            borderRadius: 2,
+                            minWidth: 120,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              marginBottom: 8,
+                            }}
+                          >
+                            <span style={{ color: t.color, fontFamily: "monospace" }}>{t.glyph}</span>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                color: "#64748b",
+                                letterSpacing: ".1em",
+                              }}
+                            >
+                              {t.label.toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: 22,
+                              fontFamily: "'Syne',sans-serif",
+                              fontWeight: 800,
+                              color: entries > 0 ? t.color : "#1e293b",
+                            }}
+                          >
+                            {entries}
+                          </div>
+
+                          <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
+                            entries
+                          </div>
+
+                          {entries > 0 && (
+                            <div style={{ fontSize: 10, color: "#475569", marginTop: 6 }}>
+                              avg intensity: <span style={{ color: t.color }}>{avg.toFixed(1)}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </main>
+
+      <footer
+        style={{
+          padding: "6px 24px",
+          borderTop: "1px solid #0a0f1a",
+          display: "flex",
+          gap: 24,
+          alignItems: "center",
+        }}
+      >
+        <span style={{ fontSize: 9, color: "#1e293b", letterSpacing: ".12em" }}>
+          ATLAS-OS -- ETI-v0.2 -- STATE={view.toUpperCase()}
+        </span>
+        <span style={{ fontSize: 9, color: "#1e293b", letterSpacing: ".1em" }}>
+          ZONES={BODY_ZONES.length} -- TYPES={MARKER_TYPES.length} -- LOGS={snapshots.length}
+        </span>
+        <span style={{ marginLeft: "auto", fontSize: 9, color: "#1e293b", letterSpacing: ".1em" }}>
+          {currentMarkers.length > 0
+            ? `${currentMarkers.length} PENDING -- SAVE STATE TO LOG`
+            : "READY"}
+        </span>
+      </footer>
+    </div>
+  );
+}
+
+A few quick notes:
+	•	The original breakages were “ ”, ’, and …-style characters in strings and spreads.
+	•	I also typed the main state enough to make TSX happier.
+	•	Your findClusters, computeDelta, notes, import/export, and radial marker spread are all good calls.
+
+Best next upgrade is adding a front/back toggle and merge-vs-replace import mode.
