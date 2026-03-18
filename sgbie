@@ -1,0 +1,1053 @@
+Here’s the repo-ready spec.
+
+GeoAtlas
+
+Semantic Geospatial Business Intelligence Engine
+Domination through coordination.
+
+⸻
+
+1. Purpose
+
+GeoAtlas is a geospatial reasoning system that helps operators, founders, and investors decide where a business should go and why.
+
+It combines:
+	•	map geometry
+	•	buildings and places
+	•	mobility and accessibility
+	•	neighborhood economics
+	•	competitive landscape
+	•	semantic signals from text
+	•	business outcome prediction
+
+Core output:
+	•	ranked candidate sites
+	•	expected performance band
+	•	risk flags
+	•	analog locations
+	•	human-readable reasoning
+
+⸻
+
+2. Repo structure
+
+geoatlas/
+├─ README.md
+├─ LICENSE
+├─ pyproject.toml
+├─ .env.example
+├─ Makefile
+├─ docker-compose.yml
+├─ .github/
+│  └─ workflows/
+│     ├─ ci.yml
+│     └─ tests.yml
+├─ docs/
+│  ├─ vision.md
+│  ├─ architecture.md
+│  ├─ data-model.md
+│  ├─ scoring.md
+│  ├─ api-spec.md
+│  ├─ threat-model.md
+│  ├─ governance.md
+│  ├─ roadmap.md
+│  └─ verticals/
+│     ├─ coffee.md
+│     ├─ fitness.md
+│     └─ dental.md
+├─ configs/
+│  ├─ settings.base.yaml
+│  ├─ settings.dev.yaml
+│  ├─ settings.prod.yaml
+│  └─ categories/
+│     ├─ coffee.yaml
+│     ├─ fitness.yaml
+│     └─ dental.yaml
+├─ data/
+│  ├─ raw/
+│  ├─ staged/
+│  ├─ curated/
+│  ├─ features/
+│  └─ eval/
+├─ schemas/
+│  ├─ site.schema.json
+│  ├─ place.schema.json
+│  ├─ cell.schema.json
+│  ├─ trade_area.schema.json
+│  ├─ listing.schema.json
+│  ├─ brand.schema.json
+│  ├─ model_output.schema.json
+│  └─ explanation_card.schema.json
+├─ infra/
+│  ├─ db/
+│  │  ├─ init.sql
+│  │  └─ extensions.sql
+│  ├─ docker/
+│  │  ├─ api.Dockerfile
+│  │  ├─ worker.Dockerfile
+│  │  └─ frontend.Dockerfile
+│  └─ terraform/
+│     ├─ main.tf
+│     ├─ storage.tf
+│     ├─ db.tf
+│     └─ secrets.tf
+├─ scripts/
+│  ├─ bootstrap_dev.sh
+│  ├─ seed_demo_data.py
+│  ├─ run_local_ingest.py
+│  ├─ run_local_features.py
+│  └─ run_local_train.py
+├─ geoatlas/
+│  ├─ __init__.py
+│  ├─ settings.py
+│  ├─ logging.py
+│  ├─ types.py
+│  ├─ constants.py
+│  ├─ utils/
+│  │  ├─ dates.py
+│  │  ├─ io.py
+│  │  ├─ text.py
+│  │  ├─ geo.py
+│  │  └─ h3_utils.py
+│  ├─ ingestion/
+│  │  ├─ __init__.py
+│  │  ├─ base.py
+│  │  ├─ overture.py
+│  │  ├─ osm.py
+│  │  ├─ census.py
+│  │  ├─ gtfs.py
+│  │  ├─ listings.py
+│  │  ├─ reviews.py
+│  │  ├─ roads.py
+│  │  └─ permits.py
+│  ├─ entity_resolution/
+│  │  ├─ __init__.py
+│  │  ├─ matcher.py
+│  │  ├─ dedupe.py
+│  │  └─ canonicalizer.py
+│  ├─ storage/
+│  │  ├─ __init__.py
+│  │  ├─ postgres.py
+│  │  ├─ postgis.py
+│  │  ├─ parquet.py
+│  │  └─ vectorstore.py
+│  ├─ world/
+│  │  ├─ __init__.py
+│  │  ├─ cells.py
+│  │  ├─ buildings.py
+│  │  ├─ places.py
+│  │  ├─ neighborhoods.py
+│  │  ├─ trade_areas.py
+│  │  └─ market_graph.py
+│  ├─ features/
+│  │  ├─ __init__.py
+│  │  ├─ geometry.py
+│  │  ├─ access.py
+│  │  ├─ competition.py
+│  │  ├─ economics.py
+│  │  ├─ temporal.py
+│  │  ├─ semantics.py
+│  │  ├─ graph_features.py
+│  │  └─ feature_registry.py
+│  ├─ models/
+│  │  ├─ __init__.py
+│  │  ├─ retrieval.py
+│  │  ├─ ranking.py
+│  │  ├─ revenue_band.py
+│  │  ├─ survival.py
+│  │  ├─ cannibalization.py
+│  │  ├─ calibration.py
+│  │  ├─ uncertainty.py
+│  │  └─ model_registry.py
+│  ├─ scoring/
+│  │  ├─ __init__.py
+│  │  ├─ opportunity.py
+│  │  ├─ confidence.py
+│  │  ├─ operator_fit.py
+│  │  └─ explanation.py
+│  ├─ simulation/
+│  │  ├─ __init__.py
+│  │  ├─ what_if.py
+│  │  ├─ scenario.py
+│  │  ├─ portfolio.py
+│  │  └─ sensitivity.py
+│  ├─ llm/
+│  │  ├─ __init__.py
+│  │  ├─ embeddings.py
+│  │  ├─ extractors.py
+│  │  ├─ prompting.py
+│  │  ├─ tool_router.py
+│  │  └─ explainer.py
+│  ├─ api/
+│  │  ├─ __init__.py
+│  │  ├─ app.py
+│  │  ├─ deps.py
+│  │  ├─ auth.py
+│  │  ├─ routes/
+│  │  │  ├─ health.py
+│  │  │  ├─ sites.py
+│  │  │  ├─ search.py
+│  │  │  ├─ simulate.py
+│  │  │  ├─ analogs.py
+│  │  │  ├─ markets.py
+│  │  │  └─ explain.py
+│  │  └─ schemas/
+│  │     ├─ request.py
+│  │     └─ response.py
+│  ├─ jobs/
+│  │  ├─ __init__.py
+│  │  ├─ ingest_job.py
+│  │  ├─ feature_job.py
+│  │  ├─ train_job.py
+│  │  ├─ infer_job.py
+│  │  └─ eval_job.py
+│  ├─ eval/
+│  │  ├─ __init__.py
+│  │  ├─ ranking_metrics.py
+│  │  ├─ calibration_metrics.py
+│  │  ├─ vertical_eval.py
+│  │  └─ backtests.py
+│  └─ governance/
+│     ├─ __init__.py
+│     ├─ privacy.py
+│     ├─ policy.py
+│     ├─ audit.py
+│     └─ redaction.py
+├─ frontend/
+│  ├─ package.json
+│  ├─ src/
+│  │  ├─ app/
+│  │  ├─ components/
+│  │  ├─ pages/
+│  │  │  ├─ Explorer.tsx
+│  │  │  ├─ Simulator.tsx
+│  │  │  ├─ Analogs.tsx
+│  │  │  └─ SiteDetail.tsx
+│  │  ├─ hooks/
+│  │  ├─ lib/
+│  │  └─ types/
+└─ tests/
+   ├─ unit/
+   ├─ integration/
+   ├─ regression/
+   └─ fixtures/
+
+
+⸻
+
+3. Core services
+
+A. Ingestion service
+
+Pulls and normalizes raw world data.
+
+Responsibilities:
+	•	fetch raw datasets
+	•	validate schemas
+	•	standardize geometry
+	•	assign IDs
+	•	write staged data
+
+Inputs:
+	•	places
+	•	buildings
+	•	road networks
+	•	transit
+	•	demographics
+	•	listings
+	•	reviews
+	•	permits
+
+Outputs:
+	•	normalized parquet
+	•	PostGIS tables
+	•	lineage metadata
+
+⸻
+
+B. Entity resolution service
+
+Turns messy sources into canonical objects.
+
+Responsibilities:
+	•	dedupe duplicate places
+	•	merge address variants
+	•	map source records to one place_id or site_id
+	•	score confidence of merges
+
+Key problem:
+This becomes one of the real moats.
+
+⸻
+
+C. World model service
+
+Builds the city as a queryable graph.
+
+Responsibilities:
+	•	H3 tiling
+	•	building/place joins
+	•	neighborhood aggregation
+	•	trade area generation
+	•	graph edge construction
+
+Objects:
+	•	Cell
+	•	Place
+	•	Site
+	•	TradeArea
+	•	MarketGraph
+
+⸻
+
+D. Feature service
+
+Builds model features by site and by cell.
+
+Feature families:
+	•	geometry
+	•	access
+	•	competition
+	•	economics
+	•	temporal
+	•	semantics
+	•	graph spillovers
+
+Outputs:
+	•	feature tables
+	•	feature snapshots by date
+	•	model-ready matrices
+
+⸻
+
+E. Model service
+
+Trains and serves predictive models.
+
+Models:
+	•	site retrieval / analog matching
+	•	opportunity ranking
+	•	revenue band prediction
+	•	survival probability
+	•	cannibalization risk
+	•	uncertainty / calibration
+
+Outputs:
+	•	scored sites
+	•	prediction intervals
+	•	feature attributions
+
+⸻
+
+F. Simulation service
+
+Runs what-if scenarios.
+
+Examples:
+	•	“What if rent is 15% higher?”
+	•	“What if a competitor opens within 500m?”
+	•	“What if transit access improves?”
+	•	“What if we add two more sites?”
+
+⸻
+
+G. LLM explainer service
+
+Converts structured model outputs into usable language.
+
+Rules:
+	•	it never invents the underlying score
+	•	it only explains what the structured layer produced
+	•	it cites top features and analogs
+	•	it flags uncertainty clearly
+
+⸻
+
+H. API service
+
+Exposes the product.
+
+Endpoints:
+	•	search candidate markets
+	•	score a site
+	•	simulate a location
+	•	find analog neighborhoods
+	•	explain a ranking
+	•	upload operator portfolio
+
+⸻
+
+4. Canonical objects
+
+Site
+
+A candidate commercial location.
+
+{
+  "site_id": "site_123",
+  "address": "123 Main St",
+  "lat": 36.8508,
+  "lon": -76.2859,
+  "h3_r8": "882a...",
+  "h3_r10": "8a2a...",
+  "building_id": "bldg_987",
+  "sqft": 2200,
+  "frontage_ft": 42,
+  "parking_estimate": 12,
+  "zoning_code": "C2",
+  "listing_status": "active"
+}
+
+Place
+
+An existing business or landmark.
+
+{
+  "place_id": "place_456",
+  "name": "Harbor Coffee",
+  "category": "coffee_shop",
+  "brand_id": "brand_22",
+  "address": "98 Atlantic Ave",
+  "lat": 36.84,
+  "lon": -76.29,
+  "review_count": 241,
+  "rating": 4.5
+}
+
+Cell
+
+A spatial aggregation unit.
+
+{
+  "cell_id": "8a2a...",
+  "resolution": 10,
+  "population": 5400,
+  "daytime_population": 7200,
+  "median_income": 74000,
+  "poi_density": 112,
+  "coffee_competitor_count": 7,
+  "fitness_complement_count": 5
+}
+
+TradeArea
+
+Catchment region around a site.
+
+{
+  "trade_area_id": "trade_321",
+  "site_id": "site_123",
+  "walk_10min_pop": 3800,
+  "drive_10min_pop": 19400,
+  "transit_15min_pop": 12100
+}
+
+ModelOutput
+
+Structured prediction bundle.
+
+{
+  "site_id": "site_123",
+  "vertical": "coffee",
+  "opportunity_score": 82.7,
+  "confidence_score": 71.4,
+  "revenue_band": {
+    "low": 780000,
+    "mid": 960000,
+    "high": 1130000
+  },
+  "survival_probability_24m": 0.74,
+  "top_positive_factors": [
+    "high morning commuter flow",
+    "strong complementary fitness cluster",
+    "limited premium coffee competition"
+  ],
+  "top_risks": [
+    "rent pressure",
+    "difficult left-turn ingress"
+  ]
+}
+
+
+⸻
+
+5. Data flow
+
+Step 1: Ingest
+
+Raw sources land in data/raw/
+
+Step 2: Stage
+
+Normalize formats, geometry, timestamps, IDs
+
+Step 3: Resolve
+
+Merge duplicates, canonize entities
+
+Step 4: Tile
+
+Assign H3 cells and trade areas
+
+Step 5: Feature build
+
+Create model features by site/cell/date
+
+Step 6: Train
+
+Fit ranking and prediction models
+
+Step 7: Infer
+
+Score candidate sites
+
+Step 8: Explain
+
+Generate structured and narrative output
+
+Step 9: Serve
+
+API + frontend
+
+⸻
+
+6. Feature registry
+
+Every feature should have:
+	•	name
+	•	description
+	•	source
+	•	owner
+	•	type
+	•	null policy
+	•	leakage risk
+	•	refresh cadence
+
+Example:
+
+FeatureSpec(
+    name="walk_10min_population",
+    family="access",
+    dtype="float",
+    source="trade_area_builder",
+    description="Population reachable within 10-minute walk isochrone",
+    refresh="monthly",
+    null_policy="impute_zero",
+    leakage_risk="low"
+)
+
+Feature families:
+
+Geometry
+	•	lot size
+	•	building sqft
+	•	frontage
+	•	corner flag
+	•	visibility proxy
+	•	parking estimate
+
+Access
+	•	walk population
+	•	drive catchment
+	•	transit reach
+	•	arterial proximity
+	•	ingress/egress friction
+	•	sidewalk score
+
+Competition
+	•	same-category count
+	•	same-price-tier count
+	•	complement density
+	•	anchor proximity
+	•	chain saturation
+
+Economics
+	•	rent proxy
+	•	income
+	•	spend proxy
+	•	employment density
+	•	housing growth
+	•	vacancy rate
+
+Temporal
+	•	openings/closures delta
+	•	permit velocity
+	•	traffic trend
+	•	neighborhood change score
+
+Semantic
+	•	review embedding centroid
+	•	neighborhood vibe embedding
+	•	brand-language fit
+	•	complaint topic ratios
+	•	convenience vs ambiance score
+
+Graph
+	•	centrality
+	•	bridge score
+	•	cluster coefficient
+	•	spillover potential
+
+⸻
+
+7. Model stack
+
+Retrieval model
+
+Goal:
+Find analog locations and analog businesses.
+
+Methods:
+	•	embedding similarity
+	•	nearest neighbors on feature vectors
+	•	hybrid retrieval: semantic + tabular
+
+Output:
+“show me places like our best store”
+
+⸻
+
+Ranking model
+
+Goal:
+Produce site ordering.
+
+Inputs:
+all engineered features
+
+Outputs:
+	•	opportunity score
+	•	ranked candidates
+
+Good starter:
+	•	LightGBM / XGBoost ranker
+
+⸻
+
+Revenue band model
+
+Goal:
+Predict likely gross revenue band.
+
+Outputs:
+	•	low
+	•	mid
+	•	high
+
+Use:
+	•	quantile regression or separate quantile models
+
+⸻
+
+Survival model
+
+Goal:
+Probability a location survives X months.
+
+Use:
+	•	12-month
+	•	24-month
+	•	36-month survival
+
+⸻
+
+Cannibalization model
+
+Goal:
+Estimate how much a new site steals from existing same-brand sites.
+
+Needed for:
+	•	chains
+	•	portfolio expansion
+
+⸻
+
+Uncertainty model
+
+Goal:
+Tell user how much to trust a score.
+
+Drivers:
+	•	sparse data
+	•	low analog quality
+	•	unstable neighborhood
+	•	model disagreement
+
+⸻
+
+8. Scoring design
+
+Opportunity score
+
+Composite but transparent.
+
+Opportunity =
+  DemandFit
++ AccessFit
++ Complementarity
++ GrowthMomentum
+- CompetitionPressure
+- OccupancyCostPressure
+- OperationalFriction
+
+Each component normalized to 0–100.
+
+Confidence score
+
+Confidence =
+  DataCoverage
++ AnalogQuality
++ SignalAgreement
+- Volatility
+- Missingness
+
+Never hide uncertainty.
+
+⸻
+
+9. API spec
+
+POST /v1/sites/score
+
+Scores a candidate site.
+
+Request:
+
+{
+  "vertical": "coffee",
+  "site": {
+    "address": "123 Main St, Norfolk, VA",
+    "sqft": 2200,
+    "frontage_ft": 42,
+    "parking_estimate": 12
+  }
+}
+
+Response:
+
+{
+  "site_id": "site_123",
+  "opportunity_score": 82.7,
+  "confidence_score": 71.4,
+  "revenue_band": { "low": 780000, "mid": 960000, "high": 1130000 },
+  "top_positive_factors": ["morning commuter flow", "gym adjacency"],
+  "top_risks": ["rent pressure", "ingress friction"]
+}
+
+POST /v1/markets/search
+
+Searches a metro for best candidate cells/sites.
+
+POST /v1/simulate
+
+Runs scenario analysis.
+
+POST /v1/analogs
+
+Finds similar sites, neighborhoods, or store archetypes.
+
+POST /v1/explain
+
+Returns explanation card for a score.
+
+POST /v1/operator/upload
+
+Uploads existing locations and performance history.
+
+⸻
+
+10. Frontend surfaces
+
+Explorer
+
+Map-first.
+
+User sees:
+	•	scored sites
+	•	colored cells
+	•	filters by rent, sqft, category, score
+
+Simulator
+
+Panel-first.
+
+User inputs:
+	•	vertical
+	•	economics assumptions
+	•	operator profile
+
+User gets:
+	•	performance scenarios
+	•	sensitivity analysis
+	•	key risk factors
+
+Analogs
+
+Similarity-first.
+
+User asks:
+	•	“show me places like our best store”
+	•	“find cheaper versions of this neighborhood”
+	•	“show me under-served trade areas”
+
+Site Detail
+
+A single-site intelligence card.
+
+Includes:
+	•	score stack
+	•	analogs
+	•	trade area
+	•	nearby anchors
+	•	predicted band
+	•	explanation
+	•	failure modes
+
+⸻
+
+11. MVP milestone plan
+
+Phase 0 — Skeleton
+
+Goal:
+Repo boots locally.
+
+Deliver:
+	•	Postgres/PostGIS
+	•	FastAPI
+	•	frontend shell
+	•	one demo city config
+	•	sample schemas
+	•	seeded demo data
+
+Phase 1 — One metro, one vertical
+
+Goal:
+Rank coffee shop sites in one metro.
+
+Deliver:
+	•	place/building ingestion
+	•	cell and trade area builder
+	•	first feature set
+	•	rule-based baseline scorer
+	•	map explorer
+
+Success:
+User can search metro and get top 50 candidate zones.
+
+Phase 2 — Predictive baseline
+
+Goal:
+Train first ranking + revenue band model.
+
+Deliver:
+	•	labeled comp dataset
+	•	model training pipeline
+	•	calibration reports
+	•	site detail page
+	•	analog retrieval
+
+Success:
+Model beats naive baselines on held-out ranking.
+
+Phase 3 — Semantic layer
+
+Goal:
+Add reviews and neighborhood language.
+
+Deliver:
+	•	embedding pipeline
+	•	semantic features
+	•	analog search by vibe
+	•	LLM explanations grounded in feature store
+
+Success:
+Users can search by qualitative intent.
+
+Phase 4 — Operator upload
+
+Goal:
+Make it useful for real customers.
+
+Deliver:
+	•	portfolio upload
+	•	fit-to-operator model
+	•	cannibalization estimation
+	•	exportable reports
+
+Success:
+User can upload existing stores and get tailored recommendations.
+
+Phase 5 — Portfolio and simulation
+
+Goal:
+Turn from site picker into network planner.
+
+Deliver:
+	•	multiple site optimization
+	•	scenario engine
+	•	portfolio balancing
+	•	white-space maps
+
+⸻
+
+12. Developer milestones
+
+Week 1
+	•	bootstrap repo
+	•	define schemas
+	•	stand up db
+	•	seed demo data
+	•	build health endpoint
+
+Week 2
+	•	ingest places/buildings
+	•	H3 tiling
+	•	basic map explorer
+	•	candidate-site table
+
+Week 3
+	•	trade areas
+	•	access features
+	•	competition features
+	•	first baseline score
+
+Week 4
+	•	ranking model
+	•	site detail API
+	•	explanation cards
+	•	first eval harness
+
+Week 5+
+	•	semantic pipeline
+	•	analog matcher
+	•	simulations
+	•	operator personalization
+
+⸻
+
+13. Evaluation
+
+You need three kinds of eval.
+
+A. Ranking eval
+
+Does it put good sites above bad ones?
+
+Metrics:
+	•	NDCG
+	•	MAP
+	•	top-k hit rate
+
+B. Calibration eval
+
+Are score and confidence honest?
+
+Metrics:
+	•	calibration error
+	•	prediction interval coverage
+
+C. Business eval
+
+Would following the model have improved outcomes?
+
+Metrics:
+	•	backtested uplift
+	•	avoided bad-site rate
+	•	white-space discovery rate
+
+⸻
+
+14. Threat model / failure controls
+
+Risks
+	•	stale data
+	•	leakage from future info
+	•	overconfidence from weak comps
+	•	semantic hallucination
+	•	misuse for discriminatory site selection
+
+Controls
+	•	versioned feature snapshots
+	•	strict as-of dating
+	•	uncertainty floor
+	•	source lineage
+	•	model cards
+	•	policy filters on sensitive use
+
+Important distinction:
+This tool should optimize place performance, not proxy personal protected attributes.
+
+⸻
+
+15. README opening draft
+
+# GeoAtlas
+
+GeoAtlas is a semantic geospatial intelligence engine for business location strategy.
+
+It helps answer questions like:
+
+- Where should I open my next location?
+- Which sites are strong but underpriced?
+- Which neighborhoods resemble my best store?
+- What risks make a “good-looking” site actually bad?
+
+GeoAtlas combines map geometry, business context, trade areas, competitive structure, and semantic neighborhood signals into a decision-support system for operators and investors.
+
+## Core principles
+
+- Structured models are the source of truth
+- LLMs explain, but do not invent, scores
+- Uncertainty is surfaced, not hidden
+- Analog search is as important as prediction
+- Coordination beats brute competition
+
+## Quickstart
+
+```bash
+make bootstrap
+make dev
+make seed-demo
+
+---
+
+# 16. Pantheon-native compression
+
+In your language:
+
+- **world layer** = terrain
+- **graph layer** = relations
+- **feature layer** = signals
+- **model layer** = prediction
+- **simulation layer** = war game without war
+- **LLM layer** = translator
+- **operator layer** = sovereignty
+
+So the whole repo is basically:
+
+> **a field-reading engine for coordinated placement**
+
+Not “fight harder.”
+
+**Place better.  
+Time better.  
+Connect better.**
+
+That’s domination through coordination.
+
+---
+
+# 17. Best next move
+
+Build the smallest real wedge:
+
+**Norfolk/Virginia Beach metro + coffee shops + top-site ranking**
+
+Why that’s the right wedge:
+- manageable geography
+- visible traffic and mixed-use variation
+- lots of coffee/food analog behavior
+- easy for humans to sanity-check
+
+I can turn this next into one of two things:
+**actual starter code files** or a **1-page product spec / investor memo**.
