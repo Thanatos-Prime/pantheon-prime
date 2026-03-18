@@ -1,0 +1,379 @@
+Good—this is the right foundation to lock in.
+
+Below is a drop-in canonical core for the Field Engine:
+	•	ontology.py (types + invariants)
+	•	minimal schemas (aligned)
+	•	example usage
+
+This is the kernel everything else plugs into.
+
+⸻
+
+📦 field_engine/core/ontology.py
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Any, Tuple
+from enum import Enum
+from datetime import datetime
+
+
+# ─────────────────────────────────────────────────────────────
+# ENUMS
+# ─────────────────────────────────────────────────────────────
+
+class NodeType(str, Enum):
+    GENERIC = "generic"
+    PLACE = "place"
+    PERSON = "person"
+    ASSET = "asset"
+    IDEA = "idea"
+    TEAM = "team"
+
+
+class EdgeType(str, Enum):
+    GENERIC = "generic"
+    PROXIMITY = "proximity"
+    COMPETES = "competes"
+    COMPLEMENTS = "complements"
+    DEPENDS_ON = "depends_on"
+    FLOWS_TO = "flows_to"
+    INFLUENCES = "influences"
+
+
+class FlowType(str, Enum):
+    GENERIC = "generic"
+    PEOPLE = "people"
+    MONEY = "money"
+    GOODS = "goods"
+    ATTENTION = "attention"
+    INFORMATION = "information"
+
+
+class OperatorType(str, Enum):
+    PLACE = "place"
+    REMOVE = "remove"
+    ROUTE = "route"
+    CLUSTER = "cluster"
+    SEPARATE = "separate"
+    AMPLIFY = "amplify"
+    DAMPEN = "dampen"
+    BRIDGE = "bridge"
+    GATE = "gate"
+    SEQUENCE = "sequence"
+    TRANSLATE = "translate"
+
+
+# ─────────────────────────────────────────────────────────────
+# CORE STRUCTURES
+# ─────────────────────────────────────────────────────────────
+
+@dataclass
+class Position:
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    region_id: Optional[str] = None
+
+
+@dataclass
+class Node:
+    node_id: str
+    node_type: NodeType
+    attributes: Dict[str, Any] = field(default_factory=dict)
+    position: Optional[Position] = None
+    embeddings: Dict[str, List[float]] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class Edge:
+    edge_id: str
+    source_id: str
+    target_id: str
+    edge_type: EdgeType
+    weight: float = 1.0
+    attributes: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class Flow:
+    flow_id: str
+    flow_type: FlowType
+    source: str
+    target: str
+    magnitude: float
+    attributes: Dict[str, Any] = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class FieldState:
+    field_id: str
+    region_id: Optional[str]
+    pressures: Dict[str, float]  # normalized 0–1
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+
+
+# ─────────────────────────────────────────────────────────────
+# GRAPH STATE
+# ─────────────────────────────────────────────────────────────
+
+@dataclass
+class FieldGraph:
+    nodes: Dict[str, Node] = field(default_factory=dict)
+    edges: Dict[str, Edge] = field(default_factory=dict)
+    flows: List[Flow] = field(default_factory=list)
+    field_states: List[FieldState] = field(default_factory=list)
+
+    def add_node(self, node: Node):
+        self.nodes[node.node_id] = node
+
+    def add_edge(self, edge: Edge):
+        self.edges[edge.edge_id] = edge
+
+    def add_flow(self, flow: Flow):
+        self.flows.append(flow)
+
+    def add_field_state(self, field_state: FieldState):
+        self.field_states.append(field_state)
+
+    def neighbors(self, node_id: str) -> List[str]:
+        return [
+            e.target_id for e in self.edges.values()
+            if e.source_id == node_id
+        ]
+
+
+# ─────────────────────────────────────────────────────────────
+# OPERATORS
+# ─────────────────────────────────────────────────────────────
+
+@dataclass
+class Operator:
+    operator_type: OperatorType
+    parameters: Dict[str, Any]
+
+    def apply(self, graph: FieldGraph) -> FieldGraph:
+        # Base stub — domain adapters override
+        return graph
+
+
+@dataclass
+class Intervention:
+    intervention_id: str
+    operator: Operator
+    target_ids: List[str]
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+# ─────────────────────────────────────────────────────────────
+# SCORING STRUCTURES
+# ─────────────────────────────────────────────────────────────
+
+@dataclass
+class ScoreVector:
+    position: float
+    coordination: float
+    resilience: float
+    momentum: float
+    sovereignty: float
+    confidence: float
+
+
+@dataclass
+class Recommendation:
+    recommendation_id: str
+    intervention: Intervention
+    score: ScoreVector
+    reasons: List[str]
+    risks: List[str]
+
+
+# ─────────────────────────────────────────────────────────────
+# INVARIANTS / VALIDATION
+# ─────────────────────────────────────────────────────────────
+
+def validate_graph(graph: FieldGraph) -> Tuple[bool, List[str]]:
+    errors = []
+
+    for edge in graph.edges.values():
+        if edge.source_id not in graph.nodes:
+            errors.append(f"Missing source node: {edge.source_id}")
+        if edge.target_id not in graph.nodes:
+            errors.append(f"Missing target node: {edge.target_id}")
+
+    for flow in graph.flows:
+        if flow.source not in graph.nodes:
+            errors.append(f"Missing flow source: {flow.source}")
+        if flow.target not in graph.nodes:
+            errors.append(f"Missing flow target: {flow.target}")
+
+    return (len(errors) == 0, errors)
+
+
+⸻
+
+📦 Minimal JSON Schema (example)
+
+schemas/node.schema.json
+
+{
+  "type": "object",
+  "required": ["node_id", "node_type"],
+  "properties": {
+    "node_id": { "type": "string" },
+    "node_type": { "type": "string" },
+    "attributes": { "type": "object" },
+    "position": {
+      "type": "object",
+      "properties": {
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "region_id": { "type": "string" }
+      }
+    },
+    "embeddings": { "type": "object" }
+  }
+}
+
+
+⸻
+
+🧪 Example usage
+
+from field_engine.core.ontology import *
+
+graph = FieldGraph()
+
+# Create nodes
+store = Node(
+    node_id="store_1",
+    node_type=NodeType.PLACE,
+    attributes={"category": "coffee", "sqft": 2000},
+    position=Position(lat=36.85, lon=-76.29)
+)
+
+gym = Node(
+    node_id="gym_1",
+    node_type=NodeType.PLACE,
+    attributes={"category": "fitness"}
+)
+
+graph.add_node(store)
+graph.add_node(gym)
+
+# Connect them
+edge = Edge(
+    edge_id="e1",
+    source_id="store_1",
+    target_id="gym_1",
+    edge_type=EdgeType.COMPLEMENTS,
+    weight=0.8
+)
+
+graph.add_edge(edge)
+
+# Add flow
+flow = Flow(
+    flow_id="f1",
+    flow_type=FlowType.PEOPLE,
+    source="gym_1",
+    target="store_1",
+    magnitude=120
+)
+
+graph.add_flow(flow)
+
+# Validate
+valid, errors = validate_graph(graph)
+print(valid, errors)
+
+
+⸻
+
+🧠 Why this matters (not fluff)
+
+This file gives you:
+
+1. A universal language
+
+Everything becomes:
+	•	node
+	•	edge
+	•	flow
+	•	field
+
+2. Domain independence
+
+You can swap:
+	•	business → memetics → logistics → orgs
+without rewriting core logic
+
+3. Simulation-ready structure
+
+Because:
+	•	actions = operators
+	•	state = graph
+	•	changes = interventions
+
+4. Pantheon alignment (clean, not mystical)
+	•	Spider → graph (nodes/edges)
+	•	Hound → anomalies/flows
+	•	Mirror → validation/invariants
+	•	Conductor → operators/sequencing
+	•	EchoFrame → time deltas
+
+⸻
+
+🔒 Critical design rule
+
+Never skip this layer.
+
+If you shortcut it and jump straight to:
+	•	“LLM answers”
+	•	or “heuristics”
+
+The system collapses into:
+	•	vibes
+	•	hallucinations
+	•	non-transferable logic
+
+This ontology is what keeps it:
+
+real, testable, extensible
+
+⸻
+
+⚡ Next best step
+
+You now have the kernel.
+
+Pick ONE:
+
+Option A (recommended)
+
+Build:
+field_engine/representation/node_builder.py
+→ converts GeoAtlas data into this ontology
+
+Option B
+
+Build:
+field_engine/simulation/engine.py
+→ apply operators + simulate changes
+
+Option C
+
+Build:
+field_engine/scoring/position.py
+→ first real scoring function
+
+⸻
+
+Final compression
+
+This file turns reality into a graph you can think on, simulate on, and act on.
+
+Everything else is just leverage built on top of it.
