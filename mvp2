@@ -1,0 +1,520 @@
+Yep — here’s the image intake + structured image summarizer layer, wired for the current Responses API shape where image inputs can be passed as input_image using either a file_id or a base64 data URL in image_url.  ￼
+
+Add these files
+
+lib/imagePrompt.ts
+
+export function buildImageSummaryPrompt() {
+  return `
+You are analyzing inspiration images for a goal-planning app.
+
+Your job:
+- Describe each image in practical, concrete terms.
+- Focus on signals relevant to planning:
+  - lifestyle
+  - housing / environment
+  - physique / fitness
+  - work style
+  - travel / freedom
+  - status / luxury cues
+  - business / career implications
+
+Rules:
+- Be concise.
+- Do not guess identity.
+- Do not over-interpret.
+- Prefer useful planning language over aesthetic fluff.
+
+Return ONLY valid JSON in this exact shape:
+{
+  "summaries": [
+    "..."
+  ]
+}
+`;
+}
+
+
+⸻
+
+app/api/analyze-images/route.ts
+
+import { NextRequest, NextResponse } from "next/server";
+import { openai } from "@/lib/openai";
+import { buildImageSummaryPrompt } from "@/lib/imagePrompt";
+
+interface AnalyzeImagesBody {
+  images: string[]; // data URLs
+}
+
+interface AnalyzeImagesOutput {
+  summaries: string[];
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = (await req.json()) as AnalyzeImagesBody;
+
+    if (!body.images || !Array.isArray(body.images) || body.images.length === 0) {
+      return NextResponse.json(
+        { error: "images array is required" },
+        { status: 400 }
+      );
+    }
+
+    if (body.images.length > 5) {
+      return NextResponse.json(
+        { error: "Maximum 5 images per request" },
+        { status: 400 }
+      );
+    }
+
+    const input = [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: buildImageSummaryPrompt(),
+          },
+          ...body.images.map((image) => ({
+            type: "input_image" as const,
+            image_url: image,
+            detail: "high" as const,
+          })),
+        ],
+      },
+    ];
+
+    const response = await openai.responses.create({
+      model: "gpt-5",
+      input,
+    });
+
+    const text = response.output_text?.trim();
+
+    if (!text) {
+      return NextResponse.json(
+        { error: "Model returned empty output" },
+        { status: 500 }
+      );
+    }
+
+    let parsed: AnalyzeImagesOutput;
+    try {
+      parsed = JSON.parse(text) as AnalyzeImagesOutput;
+    } catch {
+      return NextResponse.json(
+        { error: "Model returned invalid JSON", raw: text },
+        { status: 500 }
+      );
+    }
+
+    if (!Array.isArray(parsed.summaries)) {
+      return NextResponse.json(
+        { error: "Invalid summaries payload", raw: parsed },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(parsed);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Failed to analyze images" },
+      { status: 500 }
+    );
+  }
+}
+
+
+⸻
+
+components/UploadVision.tsx
+
+"use client";
+
+import { useRef, useState } from "react";
+
+interface UploadVisionProps {
+  imageSummaries: string[];
+  onSummariesChange: (summaries: string[]) => void;
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export default function UploadVision({
+  imageSummaries,
+  onSummariesChange,
+}: UploadVisionProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const selected = Array.from(files).slice(0, 5);
+
+      const invalid = selected.find(
+        (file) => !["image/png", "image/jpeg", "image/webp"].includes(file.type)
+      );
+
+      if (invalid) {
+        throw new Error("Only PNG, JPEG, and WEBP images are supported.");
+      }
+
+      const dataUrls = await Promise.all(selected.map(fileToDataUrl));
+      setPreviewUrls(dataUrls);
+
+      const res = await fetch("/api/analyze-images", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ images: dataUrls }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to analyze images");
+      }
+
+      onSummariesChange(data.summaries);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown upload error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="space-y-4 rounded-2xl border p-4">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold">Vision Images</h2>
+        <p className="text-sm text-neutral-400">
+          Upload up to 5 inspiration images. The app will turn them into planning signals.
+        </p>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        multiple
+        className="block w-full rounded-xl border p-3"
+        onChange={(e) => handleFiles(e.target.files)}
+      />
+
+      {loading && (
+        <p className="text-sm text-neutral-400">Analyzing images...</p>
+      )}
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {previewUrls.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {previewUrls.map((url, idx) => (
+            <img
+              key={idx}
+              src={url}
+              alt={`Vision preview ${idx + 1}`}
+              className="h-32 w-full rounded-xl object-cover border"
+            />
+          ))}
+        </div>
+      )}
+
+      {imageSummaries.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="font-medium">Extracted signals</h3>
+          <ul className="list-disc pl-5 text-sm text-neutral-300">
+            {imageSummaries.map((summary, idx) => (
+              <li key={idx}>{summary}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+⸻
+
+Update your main page
+
+app/page.tsx
+
+Replace your file with this version:
+
+"use client";
+
+import { useState } from "react";
+import UploadVision from "@/components/UploadVision";
+import { UserInput, PlanOutput } from "@/lib/types";
+
+const initialInput: UserInput = {
+  visionText: "",
+  currentIncomeMonthly: 0,
+  savings: 0,
+  hoursPerWeek: 10,
+  skillLevel: "beginner",
+  deadlineMonths: 12,
+  imageSummaries: [],
+};
+
+export default function HomePage() {
+  const [input, setInput] = useState<UserInput>(initialInput);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<PlanOutput | null>(null);
+  const [error, setError] = useState("");
+
+  async function handleSubmit() {
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/generate-plan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Request failed");
+      }
+
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-4xl p-6 space-y-6">
+      <h1 className="text-3xl font-bold">Vision → Reality</h1>
+      <p className="text-sm text-neutral-400">
+        Upload your goal. Get a realistic path.
+      </p>
+
+      <UploadVision
+        imageSummaries={input.imageSummaries || []}
+        onSummariesChange={(summaries) =>
+          setInput((prev) => ({ ...prev, imageSummaries: summaries }))
+        }
+      />
+
+      <section className="space-y-4 rounded-2xl border p-4">
+        <textarea
+          className="w-full min-h-40 rounded-xl border p-3 bg-transparent"
+          placeholder="Describe your ideal life, goal, business, physique, home, freedom, etc."
+          value={input.visionText}
+          onChange={(e) =>
+            setInput((prev) => ({ ...prev, visionText: e.target.value }))
+          }
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input
+            className="rounded-xl border p-3 bg-transparent"
+            type="number"
+            placeholder="Current monthly income"
+            value={input.currentIncomeMonthly}
+            onChange={(e) =>
+              setInput((prev) => ({
+                ...prev,
+                currentIncomeMonthly: Number(e.target.value),
+              }))
+            }
+          />
+          <input
+            className="rounded-xl border p-3 bg-transparent"
+            type="number"
+            placeholder="Savings"
+            value={input.savings}
+            onChange={(e) =>
+              setInput((prev) => ({
+                ...prev,
+                savings: Number(e.target.value),
+              }))
+            }
+          />
+          <input
+            className="rounded-xl border p-3 bg-transparent"
+            type="number"
+            placeholder="Hours per week available"
+            value={input.hoursPerWeek}
+            onChange={(e) =>
+              setInput((prev) => ({
+                ...prev,
+                hoursPerWeek: Number(e.target.value),
+              }))
+            }
+          />
+          <input
+            className="rounded-xl border p-3 bg-transparent"
+            type="number"
+            placeholder="Deadline in months"
+            value={input.deadlineMonths ?? ""}
+            onChange={(e) =>
+              setInput((prev) => ({
+                ...prev,
+                deadlineMonths: Number(e.target.value),
+              }))
+            }
+          />
+        </div>
+
+        <select
+          className="rounded-xl border p-3 bg-transparent"
+          value={input.skillLevel}
+          onChange={(e) =>
+            setInput((prev) => ({
+              ...prev,
+              skillLevel: e.target.value as UserInput["skillLevel"],
+            }))
+          }
+        >
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="rounded-xl border px-4 py-3 font-medium"
+        >
+          {loading ? "Generating..." : "Generate Path"}
+        </button>
+
+        {error && <p className="text-red-400">{error}</p>}
+      </section>
+
+      {result && (
+        <section className="space-y-6 rounded-2xl border p-4">
+          <div>
+            <h2 className="text-xl font-semibold">Reality Translation</h2>
+            <p>
+              Lifestyle cost: ${result.lifestyleCostMonthly.toLocaleString()}/month
+            </p>
+            <p>
+              Required income: ${result.requiredIncomeAnnual.toLocaleString()}/year
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-semibold">Gap Analysis</h3>
+            <ul className="list-disc pl-5">
+              {result.gapAnalysis.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold">Bottlenecks</h3>
+            <ul className="list-disc pl-5">
+              {result.bottlenecks.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold">Paths</h3>
+            <div className="space-y-4">
+              {result.paths.map((path, i) => (
+                <div key={i} className="rounded-xl border p-4">
+                  <p className="font-semibold">{path.name}</p>
+                  <p>Risk: {path.risk}</p>
+                  <p>Speed: {path.speed}</p>
+                  <p className="mt-2">{path.strategy}</p>
+                  <p className="mt-2 text-sm text-neutral-400">{path.whyItFits}</p>
+                  <ul className="list-disc pl-5 mt-2">
+                    {path.milestones.map((m, j) => (
+                      <li key={j}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold">Next 7 Days</h3>
+            <ul className="list-disc pl-5">
+              {result.next7Days.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold">Next 30 Days</h3>
+            <ul className="list-disc pl-5">
+              {result.next30Days.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold">Warnings</h3>
+            <ul className="list-disc pl-5">
+              {result.warnings.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}
+
+
+⸻
+
+Optional: tighten your planner prompt
+
+Since you now have image summaries, add this line to lib/prompt.ts under the rules:
+
+- Use image summaries as additional evidence, but treat them as signals rather than facts.
+
+
+⸻
+
+Why this version is the right MVP
+
+This keeps image handling simple by sending data URLs directly as input_image, which the current API docs support, instead of making you build a file-upload pipeline first. The docs also show detail levels like low, high, auto, and original for image inputs.  ￼
+
+Next best upgrade
+
+After this, the strongest next move is letting the user edit the extracted signals before planning. That gives you:
+	•	AI magic on first pass
+	•	human correction before plan generation
+	•	better output without extra model calls
+
+I can write that editable signal layer next.
