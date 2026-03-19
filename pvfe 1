@@ -1,0 +1,387 @@
+Let’s turn the gym sketch into a real MVP spec you can drop into a repo.
+
+Pantheon Voxel Field Engine — MVP
+
+What it does
+
+Takes a set of locations, scores them as voxels, and ranks where an idea is most likely to work.
+
+For V1, each voxel is just a neighborhood cell with:
+	•	traffic
+	•	competition
+	•	price
+	•	rating
+	•	narrative tag
+	•	your skill modifier
+
+Then it outputs:
+	•	raw score
+	•	adjusted score
+	•	rank
+	•	simple recommendation
+
+⸻
+
+Repo shape
+
+pvfe/
+├── README.md
+├── data/
+│   └── voxels.csv
+├── src/
+│   ├── main.py
+│   ├── scoring.py
+│   ├── models.py
+│   └── narrative.py
+└── output/
+    └── ranked_voxels.csv
+
+
+⸻
+
+Data format
+
+data/voxels.csv
+
+voxel_id,name,traffic,competition,price,rating,skill_modifier,narrative
+A1,North Hills,8,7,6,8,1.1,growing
+A2,Downtown South,7,5,4,7,1.2,trendy
+A3,Warehouse Edge,5,3,3,6,1.3,up-and-coming
+A4,Old Strip,6,8,5,5,0.9,declining
+A5,Campus East,9,6,4,8,1.0,stable
+A6,Suburban Center,7,4,5,7,1.1,stable
+A7,Luxury Row,6,7,9,9,0.8,elite
+A8,Industrial Fringe,4,2,2,5,1.2,underground
+A9,Arts Block,8,5,5,9,1.3,trendy
+A10,Family Plaza,7,3,4,8,1.0,growing
+
+
+⸻
+
+Scoring logic
+
+Base equation:
+
+score = (traffic * rating) / (competition * price)
+
+Adjusted for your edge:
+
+true_score = score * skill_modifier
+
+Narrative multiplier:
+	•	growing = 1.10
+	•	trendy = 1.08
+	•	up-and-coming = 1.15
+	•	stable = 1.00
+	•	declining = 0.85
+	•	elite = 0.95
+	•	underground = 1.05
+
+Final:
+
+final_score = true_score * narrative_multiplier
+
+
+⸻
+
+Code
+
+src/models.py
+
+from dataclasses import dataclass
+
+@dataclass
+class Voxel:
+    voxel_id: str
+    name: str
+    traffic: float
+    competition: float
+    price: float
+    rating: float
+    skill_modifier: float
+    narrative: str
+
+src/narrative.py
+
+NARRATIVE_MULTIPLIERS = {
+    "growing": 1.10,
+    "trendy": 1.08,
+    "up-and-coming": 1.15,
+    "stable": 1.00,
+    "declining": 0.85,
+    "elite": 0.95,
+    "underground": 1.05,
+}
+
+def get_narrative_multiplier(tag: str) -> float:
+    return NARRATIVE_MULTIPLIERS.get(tag.strip().lower(), 1.00)
+
+src/scoring.py
+
+from narrative import get_narrative_multiplier
+from models import Voxel
+
+def safe_div(numerator: float, denominator: float) -> float:
+    if denominator == 0:
+        return 0.0
+    return numerator / denominator
+
+def base_score(voxel: Voxel) -> float:
+    return safe_div(voxel.traffic * voxel.rating, voxel.competition * voxel.price)
+
+def adjusted_score(voxel: Voxel) -> float:
+    return base_score(voxel) * voxel.skill_modifier
+
+def final_score(voxel: Voxel) -> float:
+    return adjusted_score(voxel) * get_narrative_multiplier(voxel.narrative)
+
+def recommendation(score: float) -> str:
+    if score >= 2.0:
+        return "strong candidate"
+    if score >= 1.3:
+        return "worth testing"
+    if score >= 0.9:
+        return "situational"
+    return "avoid for now"
+
+src/main.py
+
+import csv
+import os
+from models import Voxel
+from scoring import base_score, adjusted_score, final_score, recommendation
+
+DATA_PATH = os.path.join("data", "voxels.csv")
+OUTPUT_PATH = os.path.join("output", "ranked_voxels.csv")
+
+def load_voxels(path: str) -> list[Voxel]:
+    voxels = []
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            voxels.append(
+                Voxel(
+                    voxel_id=row["voxel_id"],
+                    name=row["name"],
+                    traffic=float(row["traffic"]),
+                    competition=float(row["competition"]),
+                    price=float(row["price"]),
+                    rating=float(row["rating"]),
+                    skill_modifier=float(row["skill_modifier"]),
+                    narrative=row["narrative"],
+                )
+            )
+    return voxels
+
+def rank_voxels(voxels: list[Voxel]) -> list[dict]:
+    ranked = []
+    for voxel in voxels:
+        b = base_score(voxel)
+        a = adjusted_score(voxel)
+        f = final_score(voxel)
+        ranked.append({
+            "voxel_id": voxel.voxel_id,
+            "name": voxel.name,
+            "base_score": round(b, 3),
+            "adjusted_score": round(a, 3),
+            "final_score": round(f, 3),
+            "recommendation": recommendation(f),
+            "narrative": voxel.narrative,
+        })
+    ranked.sort(key=lambda x: x["final_score"], reverse=True)
+    return ranked
+
+def save_ranked(path: str, rows: list[dict]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "voxel_id",
+                "name",
+                "base_score",
+                "adjusted_score",
+                "final_score",
+                "recommendation",
+                "narrative",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+def main() -> None:
+    voxels = load_voxels(DATA_PATH)
+    ranked = rank_voxels(voxels)
+    save_ranked(OUTPUT_PATH, ranked)
+
+    print("\nTop opportunities:\n")
+    for i, row in enumerate(ranked[:5], start=1):
+        print(
+            f"{i}. {row['name']} "
+            f"(final_score={row['final_score']}, "
+            f"{row['recommendation']}, narrative={row['narrative']})"
+        )
+
+if __name__ == "__main__":
+    main()
+
+
+⸻
+
+What this gives you
+
+This already lets you test questions like:
+	•	Where should I open a coffee shop?
+	•	Which neighborhood best fits my strengths?
+	•	Which area looks crowded but still undervalued?
+	•	Which places have momentum before everyone else notices?
+
+⸻
+
+Next upgrade: add time
+
+Now the field starts breathing.
+
+Add columns:
+
+trend,momentum,volatility
+
+Then update score:
+
+time_factor = (1 + momentum) * trend / max(volatility, 0.5)
+final_score = adjusted_score * narrative_multiplier * time_factor
+
+Interpretation:
+	•	momentum = is it accelerating?
+	•	trend = is it moving generally upward?
+	•	volatility = is it unstable or noisy?
+
+That turns static ranking into trajectory ranking.
+
+⸻
+
+Next upgrade: add matchmaking
+
+This is where your earlier game insight comes in.
+
+Instead of “best location overall,” calculate:
+
+fit_score = environment_score * operator_fit
+
+Where operator fit can include:
+	•	branding skill
+	•	price sensitivity
+	•	tolerance for competition
+	•	ability to attract niche audiences
+	•	speed of execution
+
+So a hard market may be bad for most people but good for you.
+
+That is the real edge:
+not best in general,
+best for this operator.
+
+⸻
+
+Next upgrade: spatial neighbors
+
+A voxel should not be isolated.
+
+Each cell should be influenced by adjacent cells:
+	•	spillover traffic
+	•	nearby prestige
+	•	nearby decay
+	•	competition overflow
+
+Simple form:
+
+blended_score = 0.7 * own_score + 0.3 * average(neighbor_scores)
+
+Now you’re modeling fields, not just boxes.
+
+⸻
+
+Full conceptual stack
+
+Layer 1 — Physical
+
+Traffic, rent, price, density, businesses
+
+Layer 2 — Social
+
+Reviews, sentiment, attention, repeat visits
+
+Layer 3 — Narrative
+
+Trendy, declining, family-oriented, luxury, underground
+
+Layer 4 — Operator fit
+
+Your edge, brand, speed, taste, tolerance
+
+Layer 5 — Temporal
+
+Momentum, stability, seasonal shifts, timing
+
+That stack is enough to become:
+	•	business location engine
+	•	investment territory engine
+	•	matchmaking system for ideas and places
+	•	expansion planner
+	•	even creative scene prediction
+
+⸻
+
+The simplest real use case
+
+Start with this exact question:
+
+“Where in Raleigh would a new concept have the best chance if the operator is strong at branding and wants medium competition with rising attention?”
+
+Then build the csv by hand with 10–20 rows.
+
+You do not need APIs yet.
+Manual data is enough to prove the concept.
+
+⸻
+
+Clean operator protocol
+	1.	Pick one business type.
+	2.	Choose 10–20 locations.
+	3.	Score them manually.
+	4.	Run ranking.
+	5.	Check if the output feels true.
+	6.	Adjust weights.
+	7.	Repeat.
+
+That loop is the product before the product.
+
+⸻
+
+The deeper pattern
+
+Project Silica stores information by changing structure in volume.
+
+This engine does the same idea symbolically:
+	•	each neighborhood is a voxel
+	•	each voxel stores multi-dimensional state
+	•	reading the city becomes reading a volume of encoded probability
+
+So yes, this is basically:
+Silica logic applied to markets and meaning.
+
+⸻
+
+Strong next move
+
+Copy the code into a repo and make your first dataset for one category:
+	•	coffee
+	•	gym
+	•	barbershop
+	•	tattoo
+	•	car wash
+	•	daycare
+	•	smoke shop
+	•	whatever has enough local variation
+
+Pick one and I’ll turn this into the exact weighted version for that business.
