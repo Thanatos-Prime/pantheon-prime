@@ -1,0 +1,526 @@
+Here’s v2 — the memory-learning layer that makes Adaptive Depth actually learn from outcomes.
+
+⸻
+
+Pantheon Adaptive Depth System v2.0
+
+Depth Learning Layer
+
+What this adds
+
+The system now remembers:
+	•	what kind of problem it saw
+	•	what depth it chose
+	•	how many passes it used
+	•	whether the result was grounded
+	•	whether the external check passed
+	•	whether the artifact was useful
+	•	what the real-world outcome was
+
+Then it uses that history to bias future depth decisions.
+
+So it moves from:
+
+rule-based adaptive depth
+
+to:
+
+experience-shaped adaptive depth
+
+⸻
+
+New files
+	•	/core/depth_memory.py
+	•	/core/depth_learner.py
+	•	/core/adaptive_depth_v2.py
+
+⸻
+
+1) depth_memory.py
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+
+@dataclass
+class DepthRecord:
+    problem_signature: str
+    uncertainty: float
+    impact: float
+    conflict: float
+    evidence_quality: float
+    novelty: float
+
+    recommended_depth: int
+    chosen_depth: int
+    passes_used: int
+
+    grounding_required: bool
+    external_check_required: bool
+
+    final_confidence: float
+    converged: bool
+
+    artifact_quality: float        # 0.0 - 1.0
+    external_result_score: float   # 0.0 - 1.0
+    overall_outcome_score: float   # 0.0 - 1.0
+
+    notes: Optional[str] = None
+
+
+class DepthMemory:
+    """
+    Persistent storage for depth decision history.
+    """
+
+    def __init__(self, memory_path: str = "depth_memory.jsonl"):
+        self.memory_path = Path(memory_path)
+        self.memory_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def append(self, record: DepthRecord) -> None:
+        with self.memory_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(asdict(record), ensure_ascii=False) + "\n")
+
+    def load_all(self) -> List[DepthRecord]:
+        if not self.memory_path.exists():
+            return []
+
+        records: List[DepthRecord] = []
+        with self.memory_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+                records.append(DepthRecord(**data))
+        return records
+
+    def query_by_signature(self, problem_signature: str) -> List[DepthRecord]:
+        return [
+            r for r in self.load_all()
+            if r.problem_signature == problem_signature
+        ]
+
+
+⸻
+
+2) depth_learner.py
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
+
+from depth_memory import DepthMemory, DepthRecord
+
+
+@dataclass
+class DepthLearningRecommendation:
+    adjusted_depth: int
+    confidence: float
+    reason: str
+    supporting_examples: int
+
+
+class DepthLearner:
+    """
+    Learns which depth tends to work best for similar problems.
+
+    Current strategy:
+    - Use a simple problem signature
+    - Compare historical average outcome by chosen depth
+    - Bias future depth toward the best-performing bucket
+    """
+
+    def __init__(self, memory: DepthMemory):
+        self.memory = memory
+
+    def recommend_depth(
+        self,
+        problem_signature: str,
+        baseline_depth: int
+    ) -> DepthLearningRecommendation:
+        records = self.memory.query_by_signature(problem_signature)
+
+        if len(records) < 3:
+            return DepthLearningRecommendation(
+                adjusted_depth=baseline_depth,
+                confidence=0.20,
+                reason="Insufficient history; using baseline depth",
+                supporting_examples=len(records)
+            )
+
+        grouped: Dict[int, List[float]] = {}
+        for r in records:
+            grouped.setdefault(r.chosen_depth, []).append(r.overall_outcome_score)
+
+        scored_depths: List[Tuple[int, float, int]] = []
+        for depth, scores in grouped.items():
+            avg = sum(scores) / len(scores)
+            scored_depths.append((depth, avg, len(scores)))
+
+        scored_depths.sort(key=lambda x: (x[1], x[2]), reverse=True)
+        best_depth, best_score, count = scored_depths[0]
+
+        # Keep adjustments bounded so the system does not swing wildly.
+        if best_depth > baseline_depth + 1:
+            adjusted = baseline_depth + 1
+        elif best_depth < baseline_depth - 1:
+            adjusted = baseline_depth - 1
+        else:
+            adjusted = best_depth
+
+        confidence = min(0.95, 0.30 + (0.08 * count))
+
+        return DepthLearningRecommendation(
+            adjusted_depth=max(1, min(5, adjusted)),
+            confidence=confidence,
+            reason=(
+                f"Historical outcomes for signature '{problem_signature}' "
+                f"favor depth {best_depth} with avg score {best_score:.2f}"
+            ),
+            supporting_examples=count
+        )
+
+    def record_outcome(self, record: DepthRecord) -> None:
+        self.memory.append(record)
+
+
+⸻
+
+3) adaptive_depth_v2.py
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Callable, Dict
+
+from uncertainty_estimator import UncertaintyEstimator
+from depth_controller import DepthController
+from recursive_reasoner import RecursiveReasoner, RecursiveResult
+from termination_gate import TerminationGate
+
+from depth_memory import DepthMemory, DepthRecord
+from depth_learner import DepthLearner, DepthLearningRecommendation
+
+
+@dataclass
+class AdaptiveDepthV2Output:
+    profile: Dict[str, Any]
+    baseline_policy: Dict[str, Any]
+    learned_policy: Dict[str, Any]
+    result: Dict[str, Any]
+    artifact: Dict[str, Any]
+
+
+class AdaptiveDepthSystemV2:
+    """
+    Adaptive Depth System v2:
+    - baseline depth from uncertainty/impact/conflict/evidence/novelty
+    - learned depth adjustment from historical outcomes
+    - persistent memory of outcomes
+    """
+
+    def __init__(self, memory_path: str = "depth_memory.jsonl"):
+        self.estimator = UncertaintyEstimator()
+        self.controller = DepthController()
+        self.reasoner = RecursiveReasoner()
+        self.termination_gate = TerminationGate()
+
+        self.memory = DepthMemory(memory_path=memory_path)
+        self.learner = DepthLearner(memory=self.memory)
+
+    def run(
+        self,
+        problem: str,
+        context: Dict[str, Any],
+        processor: Callable[[str], Dict[str, Any]]
+    ) -> AdaptiveDepthV2Output:
+        profile = self.estimator.estimate(context)
+        baseline_policy = self.controller.decide(profile)
+
+        problem_signature = self._make_problem_signature(context)
+        learned = self.learner.recommend_depth(
+            problem_signature=problem_signature,
+            baseline_depth=baseline_policy.depth
+        )
+
+        final_depth = learned.adjusted_depth
+
+        recursive_result: RecursiveResult = self.reasoner.run(
+            problem=problem,
+            processor=processor,
+            max_depth=final_depth
+        )
+
+        stop = self.termination_gate.evaluate(recursive_result.passes)
+
+        artifact = self._build_artifact(
+            problem=problem,
+            profile=profile,
+            baseline_policy=baseline_policy,
+            learned=learned,
+            recursive_result=recursive_result,
+            stop_reason=stop.reason,
+            problem_signature=problem_signature,
+        )
+
+        return AdaptiveDepthV2Output(
+            profile={
+                "uncertainty": profile.uncertainty,
+                "impact": profile.impact,
+                "conflict": profile.conflict,
+                "evidence_quality": profile.evidence_quality,
+                "novelty": profile.novelty,
+                "recommended_depth": profile.recommended_depth,
+                "reasons": profile.reasons,
+                "problem_signature": problem_signature,
+            },
+            baseline_policy={
+                "depth": baseline_policy.depth,
+                "require_grounding": baseline_policy.require_grounding,
+                "require_external_check": baseline_policy.require_external_check,
+                "require_artifact": baseline_policy.require_artifact,
+                "notes": baseline_policy.notes,
+            },
+            learned_policy={
+                "adjusted_depth": learned.adjusted_depth,
+                "confidence": learned.confidence,
+                "reason": learned.reason,
+                "supporting_examples": learned.supporting_examples,
+            },
+            result={
+                "final_output": recursive_result.final_output,
+                "final_confidence": recursive_result.final_confidence,
+                "converged": recursive_result.converged,
+                "num_passes": len(recursive_result.passes),
+                "stop_reason": stop.reason,
+            },
+            artifact=artifact,
+        )
+
+    def record_feedback(
+        self,
+        output: AdaptiveDepthV2Output,
+        artifact_quality: float,
+        external_result_score: float,
+        notes: str = ""
+    ) -> None:
+        """
+        Call this after real-world evaluation.
+        """
+
+        profile = output.profile
+        baseline_policy = output.baseline_policy
+        learned_policy = output.learned_policy
+        result = output.result
+
+        overall_outcome_score = self._combine_scores(
+            artifact_quality=artifact_quality,
+            external_result_score=external_result_score,
+            final_confidence=float(result["final_confidence"]),
+        )
+
+        record = DepthRecord(
+            problem_signature=profile["problem_signature"],
+            uncertainty=float(profile["uncertainty"]),
+            impact=float(profile["impact"]),
+            conflict=float(profile["conflict"]),
+            evidence_quality=float(profile["evidence_quality"]),
+            novelty=float(profile["novelty"]),
+
+            recommended_depth=int(profile["recommended_depth"]),
+            chosen_depth=int(learned_policy["adjusted_depth"]),
+            passes_used=int(result["num_passes"]),
+
+            grounding_required=bool(baseline_policy["require_grounding"]),
+            external_check_required=bool(baseline_policy["require_external_check"]),
+
+            final_confidence=float(result["final_confidence"]),
+            converged=bool(result["converged"]),
+
+            artifact_quality=self._clamp(artifact_quality),
+            external_result_score=self._clamp(external_result_score),
+            overall_outcome_score=overall_outcome_score,
+
+            notes=notes or None,
+        )
+
+        self.learner.record_outcome(record)
+
+    @staticmethod
+    def _make_problem_signature(context: Dict[str, Any]) -> str:
+        """
+        Coarse problem signature based on rounded profile values.
+        This can be replaced later with something more sophisticated.
+        """
+        u = round(float(context.get("uncertainty", 0.5)) * 2) / 2
+        i = round(float(context.get("impact", 0.5)) * 2) / 2
+        c = round(float(context.get("conflict", 0.0)) * 2) / 2
+        e = round(float(context.get("evidence_quality", 0.5)) * 2) / 2
+        n = round(float(context.get("novelty", 0.5)) * 2) / 2
+        return f"U{u}_I{i}_C{c}_E{e}_N{n}"
+
+    def _build_artifact(
+        self,
+        problem: str,
+        profile: Any,
+        baseline_policy: Any,
+        learned: DepthLearningRecommendation,
+        recursive_result: RecursiveResult,
+        stop_reason: str,
+        problem_signature: str,
+    ) -> Dict[str, Any]:
+        return {
+            "problem": problem,
+            "problem_signature": problem_signature,
+            "summary": recursive_result.final_output,
+            "passes_used": len(recursive_result.passes),
+            "baseline_depth": baseline_policy.depth,
+            "learned_depth": learned.adjusted_depth,
+            "learning_reason": learned.reason,
+            "grounding_required": baseline_policy.require_grounding,
+            "external_check_required": baseline_policy.require_external_check,
+            "stop_reason": stop_reason,
+            "invariant": (
+                "Depth should be shaped by both current uncertainty and remembered outcome quality"
+            ),
+        }
+
+    @staticmethod
+    def _combine_scores(
+        artifact_quality: float,
+        external_result_score: float,
+        final_confidence: float
+    ) -> float:
+        """
+        Outcome score rewards useful artifacts and real-world success more than confidence.
+        """
+        artifact_quality = max(0.0, min(1.0, artifact_quality))
+        external_result_score = max(0.0, min(1.0, external_result_score))
+        final_confidence = max(0.0, min(1.0, final_confidence))
+
+        score = (
+            0.40 * artifact_quality +
+            0.45 * external_result_score +
+            0.15 * final_confidence
+        )
+        return round(score, 4)
+
+    @staticmethod
+    def _clamp(x: float) -> float:
+        return max(0.0, min(1.0, float(x)))
+
+
+⸻
+
+Example usage
+
+from adaptive_depth_v2 import AdaptiveDepthSystemV2
+
+def simple_processor(text: str) -> dict:
+    trimmed = " ".join(text.split())
+    output = (
+        "Refined analysis: "
+        + trimmed[:400]
+        + " | Focus on contradictions, grounded claims, next action, and failure modes."
+    )
+    confidence = 0.68 if len(trimmed) < 500 else 0.75
+    return {
+        "output": output,
+        "confidence": confidence
+    }
+
+system = AdaptiveDepthSystemV2(memory_path="data/depth_memory.jsonl")
+
+problem = (
+    "We need to decide whether to prototype a new Pantheon module now, delay it, "
+    "or kill it, based on uncertainty, leverage, and real-world usefulness."
+)
+
+context = {
+    "uncertainty": 0.76,
+    "impact": 0.84,
+    "conflict": 0.32,
+    "evidence_quality": 0.41,
+    "novelty": 0.73
+}
+
+output = system.run(problem, context, simple_processor)
+
+print("PROFILE:", output.profile)
+print("BASELINE POLICY:", output.baseline_policy)
+print("LEARNED POLICY:", output.learned_policy)
+print("RESULT:", output.result)
+print("ARTIFACT:", output.artifact)
+
+# Later, after reality gives feedback:
+system.record_feedback(
+    output=output,
+    artifact_quality=0.82,
+    external_result_score=0.74,
+    notes="Prototype was useful, but depth 5 would have been overkill."
+)
+
+
+⸻
+
+What changed structurally
+
+v1
+	•	chooses depth from current conditions
+
+v2
+	•	chooses depth from current conditions
+	•	then nudges depth using historical outcomes
+	•	stores results for future learning
+
+So now the system can start discovering things like:
+	•	“High novelty + weak evidence usually needs depth 4”
+	•	“Moderate uncertainty but strong evidence only needs depth 2”
+	•	“Depth 5 produces worse outcomes for this class of problem”
+
+⸻
+
+Pantheon mapping
+	•	Hound: scores uncertainty, impact, conflict, evidence quality
+	•	Conductor: picks baseline depth
+	•	EchoFrame: stores depth decisions and outcomes
+	•	Mirror: checks whether recursion improved or degraded the result
+	•	Adaptive Depth Learner: remembers which depths actually paid off
+	•	Hephaestus: forces artifact output
+	•	Mother Duck: persistent ledger of reasoning-depth performance
+
+⸻
+
+Canonical doctrine addition
+
+Use this in the repo:
+
+Adaptive Depth Learning Invariant:
+Reasoning depth should not only respond to present uncertainty, but also to remembered performance.
+The system must learn which depths produce the highest real-world value for each class of problem.
+Confidence alone does not justify depth.
+Outcomes, grounded artifacts, and external feedback are the final judges.
+
+
+⸻
+
+Best next upgrade
+
+The strongest v3 move is to add problem-type clustering instead of the simple signature buckets.
+
+That means:
+	•	not just U0.5_I1.0_C0.0...
+	•	but actual learned families like:
+	•	strategy problems
+	•	writing problems
+	•	architecture problems
+	•	truth-checking problems
+	•	monetization decisions
+
+That would make the depth learning meaningfully smarter.
