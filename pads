@@ -1,0 +1,513 @@
+Let’s build it as a real module with safe, grounded meaning:
+
+Adaptive Depth System = dynamically increase or decrease reasoning depth based on uncertainty, stakes, conflict, and evidence quality
+
+Not “think harder all the time.”
+Think deeper only when the problem earns it.
+
+⸻
+
+Pantheon Adaptive Depth System v1.0
+
+What it does
+
+It decides:
+	•	when a problem deserves a quick pass
+	•	when it needs recursive passes
+	•	when to stop recursing
+	•	when to force reality checks
+	•	when to downgrade confidence
+
+So the system avoids both:
+	•	shallow snap judgments
+	•	infinite self-referential overthinking
+
+⸻
+
+Design goals
+	1.	Depth is earned, not assumed
+	2.	More recursion requires more grounding
+	3.	High confidence without evidence gets penalized
+	4.	Stop when returns diminish
+	5.	Artifact output is mandatory
+
+⸻
+
+Module layout
+	•	/core/adaptive_depth.py
+	•	/core/uncertainty_estimator.py
+	•	/core/depth_controller.py
+	•	/core/recursive_reasoner.py
+	•	/core/termination_gate.py
+
+⸻
+
+1) uncertainty_estimator.py
+
+from dataclasses import dataclass
+from typing import Dict, Any, List
+
+
+@dataclass
+class UncertaintyProfile:
+    uncertainty: float          # 0.0 - 1.0
+    impact: float               # 0.0 - 1.0
+    conflict: float             # 0.0 - 1.0
+    evidence_quality: float     # 0.0 - 1.0
+    novelty: float              # 0.0 - 1.0
+    recommended_depth: int
+    reasons: List[str]
+
+
+class UncertaintyEstimator:
+    """
+    Estimates how much reasoning depth a task deserves.
+    """
+
+    def estimate(self, context: Dict[str, Any]) -> UncertaintyProfile:
+        uncertainty = self._clamp(context.get("uncertainty", 0.5))
+        impact = self._clamp(context.get("impact", 0.5))
+        conflict = self._clamp(context.get("conflict", 0.0))
+        evidence_quality = self._clamp(context.get("evidence_quality", 0.5))
+        novelty = self._clamp(context.get("novelty", 0.5))
+
+        reasons = []
+
+        if uncertainty > 0.7:
+            reasons.append("High uncertainty detected")
+        if impact > 0.7:
+            reasons.append("High-impact decision")
+        if conflict > 0.5:
+            reasons.append("Internal or external conflict in inputs")
+        if evidence_quality < 0.4:
+            reasons.append("Weak evidence quality")
+        if novelty > 0.7:
+            reasons.append("Novel problem structure")
+
+        # Depth goes up with uncertainty, impact, conflict, novelty.
+        # Depth goes down with strong evidence quality.
+        raw_depth_score = (
+            (0.30 * uncertainty) +
+            (0.25 * impact) +
+            (0.20 * conflict) +
+            (0.15 * novelty) +
+            (0.10 * (1.0 - evidence_quality))
+        )
+
+        if raw_depth_score < 0.30:
+            recommended_depth = 1
+        elif raw_depth_score < 0.50:
+            recommended_depth = 2
+        elif raw_depth_score < 0.70:
+            recommended_depth = 3
+        elif raw_depth_score < 0.85:
+            recommended_depth = 4
+        else:
+            recommended_depth = 5
+
+        return UncertaintyProfile(
+            uncertainty=uncertainty,
+            impact=impact,
+            conflict=conflict,
+            evidence_quality=evidence_quality,
+            novelty=novelty,
+            recommended_depth=recommended_depth,
+            reasons=reasons
+        )
+
+    @staticmethod
+    def _clamp(value: float) -> float:
+        return max(0.0, min(1.0, float(value)))
+
+
+⸻
+
+2) depth_controller.py
+
+from dataclasses import dataclass
+from typing import List
+from uncertainty_estimator import UncertaintyProfile
+
+
+@dataclass
+class DepthDecision:
+    depth: int
+    require_grounding: bool
+    require_external_check: bool
+    require_artifact: bool
+    notes: List[str]
+
+
+class DepthController:
+    """
+    Converts an uncertainty profile into operational depth policy.
+    """
+
+    def decide(self, profile: UncertaintyProfile) -> DepthDecision:
+        notes = []
+
+        depth = profile.recommended_depth
+        require_grounding = depth >= 2
+        require_external_check = (
+            profile.impact > 0.7 or
+            profile.evidence_quality < 0.4 or
+            profile.conflict > 0.6
+        )
+        require_artifact = True
+
+        if depth >= 4:
+            notes.append("Deep reasoning authorized")
+        if require_grounding:
+            notes.append("Grounding required before final output")
+        if require_external_check:
+            notes.append("External validation or reality-check required")
+
+        return DepthDecision(
+            depth=depth,
+            require_grounding=require_grounding,
+            require_external_check=require_external_check,
+            require_artifact=require_artifact,
+            notes=notes
+        )
+
+
+⸻
+
+3) recursive_reasoner.py
+
+from dataclasses import dataclass
+from typing import Callable, Dict, Any, List
+
+
+@dataclass
+class ReasoningPass:
+    step: int
+    input_state: str
+    output_state: str
+    confidence: float
+    delta_score: float
+
+
+@dataclass
+class RecursiveResult:
+    final_output: str
+    passes: List[ReasoningPass]
+    final_confidence: float
+    converged: bool
+
+
+class RecursiveReasoner:
+    """
+    Repeatedly refines a problem representation.
+    processor: a function that accepts a string and returns a dict:
+      {
+        "output": str,
+        "confidence": float
+      }
+    """
+
+    def run(
+        self,
+        problem: str,
+        processor: Callable[[str], Dict[str, Any]],
+        max_depth: int
+    ) -> RecursiveResult:
+        current_state = problem
+        passes: List[ReasoningPass] = []
+        previous_output = ""
+        converged = False
+
+        for step in range(1, max_depth + 1):
+            result = processor(current_state)
+            output = str(result.get("output", "")).strip()
+            confidence = float(result.get("confidence", 0.5))
+
+            delta_score = self._compute_delta(previous_output, output)
+            passes.append(
+                ReasoningPass(
+                    step=step,
+                    input_state=current_state,
+                    output_state=output,
+                    confidence=confidence,
+                    delta_score=delta_score
+                )
+            )
+
+            if step > 1 and delta_score < 0.08:
+                converged = True
+                break
+
+            previous_output = output
+            current_state = self._refine(problem, output, step)
+
+        final = passes[-1]
+        return RecursiveResult(
+            final_output=final.output_state,
+            passes=passes,
+            final_confidence=final.confidence,
+            converged=converged
+        )
+
+    @staticmethod
+    def _refine(original: str, output: str, step: int) -> str:
+        return (
+            f"Original problem:\n{original}\n\n"
+            f"Pass {step} output:\n{output}\n\n"
+            "Refine this further. Reduce contradictions, increase clarity, "
+            "preserve grounded claims, and produce the next improved pass."
+        )
+
+    @staticmethod
+    def _compute_delta(previous: str, current: str) -> float:
+        if not previous:
+            return 1.0
+        prev_tokens = set(previous.lower().split())
+        curr_tokens = set(current.lower().split())
+        if not curr_tokens:
+            return 0.0
+        overlap = len(prev_tokens.intersection(curr_tokens))
+        union = len(prev_tokens.union(curr_tokens))
+        similarity = overlap / union if union else 1.0
+        return 1.0 - similarity
+
+
+⸻
+
+4) termination_gate.py
+
+from dataclasses import dataclass
+from typing import List
+from recursive_reasoner import ReasoningPass
+
+
+@dataclass
+class TerminationDecision:
+    should_stop: bool
+    reason: str
+
+
+class TerminationGate:
+    """
+    Prevents wasted recursion and recursive delusion.
+    """
+
+    def evaluate(self, passes: List[ReasoningPass]) -> TerminationDecision:
+        if not passes:
+            return TerminationDecision(True, "No passes available")
+
+        latest = passes[-1]
+
+        if latest.confidence > 0.9 and latest.delta_score > 0.4:
+            return TerminationDecision(
+                True,
+                "Confidence spike too high relative to instability; possible overreach"
+            )
+
+        if len(passes) >= 2:
+            prev = passes[-2]
+            if latest.delta_score < 0.08:
+                return TerminationDecision(
+                    True,
+                    "Convergence reached; further recursion unlikely to help"
+                )
+            if latest.confidence < prev.confidence and latest.delta_score < 0.12:
+                return TerminationDecision(
+                    True,
+                    "Reasoning quality appears to be degrading"
+                )
+
+        return TerminationDecision(False, "Continue")
+
+
+⸻
+
+5) adaptive_depth.py
+
+from dataclasses import dataclass
+from typing import Dict, Any, Callable
+
+from uncertainty_estimator import UncertaintyEstimator
+from depth_controller import DepthController
+from recursive_reasoner import RecursiveReasoner, RecursiveResult
+from termination_gate import TerminationGate
+
+
+@dataclass
+class AdaptiveDepthOutput:
+    profile: Dict[str, Any]
+    policy: Dict[str, Any]
+    result: Dict[str, Any]
+    artifact: Dict[str, Any]
+
+
+class AdaptiveDepthSystem:
+    """
+    Pantheon Adaptive Depth System v1.0
+
+    Flow:
+      estimate uncertainty -> choose depth policy -> recurse to needed depth
+      -> stop on convergence / degradation -> emit artifact
+    """
+
+    def __init__(self):
+        self.estimator = UncertaintyEstimator()
+        self.controller = DepthController()
+        self.reasoner = RecursiveReasoner()
+        self.termination_gate = TerminationGate()
+
+    def run(
+        self,
+        problem: str,
+        context: Dict[str, Any],
+        processor: Callable[[str], Dict[str, Any]]
+    ) -> AdaptiveDepthOutput:
+        profile = self.estimator.estimate(context)
+        policy = self.controller.decide(profile)
+
+        recursive_result: RecursiveResult = self.reasoner.run(
+            problem=problem,
+            processor=processor,
+            max_depth=policy.depth
+        )
+
+        stop = self.termination_gate.evaluate(recursive_result.passes)
+
+        artifact = self._build_artifact(problem, profile, policy, recursive_result, stop)
+
+        return AdaptiveDepthOutput(
+            profile={
+                "uncertainty": profile.uncertainty,
+                "impact": profile.impact,
+                "conflict": profile.conflict,
+                "evidence_quality": profile.evidence_quality,
+                "novelty": profile.novelty,
+                "recommended_depth": profile.recommended_depth,
+                "reasons": profile.reasons,
+            },
+            policy={
+                "depth": policy.depth,
+                "require_grounding": policy.require_grounding,
+                "require_external_check": policy.require_external_check,
+                "require_artifact": policy.require_artifact,
+                "notes": policy.notes,
+            },
+            result={
+                "final_output": recursive_result.final_output,
+                "final_confidence": recursive_result.final_confidence,
+                "converged": recursive_result.converged,
+                "num_passes": len(recursive_result.passes),
+                "stop_reason": stop.reason,
+            },
+            artifact=artifact
+        )
+
+    def _build_artifact(self, problem, profile, policy, recursive_result, stop):
+        return {
+            "problem": problem,
+            "summary": recursive_result.final_output,
+            "actionability": "high" if policy.require_artifact else "low",
+            "grounding_required": policy.require_grounding,
+            "external_check_required": policy.require_external_check,
+            "passes_used": len(recursive_result.passes),
+            "stop_reason": stop.reason,
+            "invariant": "Increase depth only when warranted by uncertainty, stakes, or conflict",
+        }
+
+
+⸻
+
+Example processor
+
+This is just a placeholder processor so the module can run.
+
+def simple_processor(text: str) -> dict:
+    """
+    Replace this with your actual reasoning engine, LLM call,
+    or structured analysis function.
+    """
+    trimmed = " ".join(text.split())
+    output = (
+        "Refined analysis: "
+        + trimmed[:400]
+        + " | Focus on contradictions, grounded claims, next action, and failure modes."
+    )
+    confidence = 0.65 if len(trimmed) < 500 else 0.72
+    return {
+        "output": output,
+        "confidence": confidence
+    }
+
+
+⸻
+
+Example usage
+
+from adaptive_depth import AdaptiveDepthSystem
+
+problem = (
+    "We have a promising idea with many branches. Decide whether to deepen it, "
+    "prototype it, or discard it, while minimizing delusion and maximizing real-world value."
+)
+
+context = {
+    "uncertainty": 0.78,
+    "impact": 0.82,
+    "conflict": 0.44,
+    "evidence_quality": 0.39,
+    "novelty": 0.76
+}
+
+system = AdaptiveDepthSystem()
+result = system.run(problem, context, simple_processor)
+
+print(result.profile)
+print(result.policy)
+print(result.result)
+print(result.artifact)
+
+
+⸻
+
+Pantheon mapping
+
+This fits your system cleanly:
+	•	Spider: gathers problem inputs
+	•	Hound: scores uncertainty/conflict/evidence quality
+	•	Ganglion: compresses each reasoning pass
+	•	Conductor: decides depth policy
+	•	Recursive Layer: duplicates/refines the reasoning path
+	•	Mirror: checks contradiction and overconfidence
+	•	Hephaestus: forces artifact creation
+	•	EchoFrame: stores which depth produced best outcomes
+
+⸻
+
+Canonical operating rule
+
+Add this to doctrine:
+
+Adaptive Depth Invariant:
+Do not spend equal cognition on unequal problems.
+Increase depth when uncertainty, impact, conflict, or novelty justify it.
+Decrease depth when convergence is reached or returns diminish.
+No recursive loop is trusted without grounding, output, and feedback.
+
+
+⸻
+
+Practical upgrade to add next
+
+The strongest next step is Depth Learning:
+
+the system should remember:
+	•	what depth was chosen
+	•	whether it worked
+	•	what the real-world outcome was
+
+Then it can learn:
+
+“Problems like this usually need depth 2, not depth 5.”
+
+That would make it genuinely adaptive over time, not just rule-based.
+
+I can build that v2 as a repo-ready memory-learning layer.
