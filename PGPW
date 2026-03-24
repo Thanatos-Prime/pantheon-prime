@@ -1,0 +1,734 @@
+Absolutely. Here’s a repo-ready design for it.
+
+Presence-Gated Privacy Window
+
+Working name: privacy-window
+Core idea: Sensitive UI is rendered only while the enrolled user’s face is actively present, live, and attending. Unlock is not enough. Visibility is continuously gated.
+
+⸻
+
+1. Product thesis
+
+Traditional mobile auth answers:
+
+“Who unlocked the device?”
+
+This system answers:
+
+“Who is perceiving the content right now?”
+
+That shifts security from a one-time gate to a continuous disclosure control layer.
+
+⸻
+
+2. Primary use case
+
+A phone may already be unlocked, but certain content should still remain hidden unless the owner’s face is actively in frame.
+
+Examples:
+	•	hidden notes
+	•	private albums
+	•	balances / wallet contents
+	•	selected chats
+	•	vault files
+	•	admin settings
+	•	recovery keys
+	•	sensitive autofill data
+	•	“second layer” content inside normal apps
+
+⸻
+
+3. Threat model
+
+Defends against
+	•	casual snooping on an already-unlocked phone
+	•	partner/friend/coworker grabbing the device
+	•	brief handoff situations
+	•	shoulder surfing
+	•	inattentive exposure when owner looks away
+	•	accidental reveals while screen is shared nearby
+
+Partially defends against
+	•	someone holding the phone near your face
+	•	someone reading over your shoulder while your face is present
+	•	replay attempts with photos/videos unless liveness is strong
+
+Does not defend against
+	•	coercion
+	•	system compromise / malware with deep privileges
+	•	external camera filming the screen while content is visible
+	•	screenshots if OS integration is weak
+	•	mirrored display leakage unless blocked at compositor layer
+
+⸻
+
+4. Product modes
+
+Mode A — App Lock+
+
+Certain apps only reveal content when presence verification passes.
+
+Examples:
+	•	vault app
+	•	notes tagged private
+	•	hidden album
+	•	password manager
+
+Mode B — Field-Level Privacy
+
+Normal app opens, but certain fields remain masked unless the face gate is active.
+
+Examples:
+	•	message preview text
+	•	account balances
+	•	contact names
+	•	document sections
+	•	secret tabs
+
+Mode C — Dual Semantic Layer
+
+The app always shows something, but the meaning changes based on viewer presence.
+
+Examples:
+	•	decoy notes vs real notes
+	•	normal photo library vs hidden album
+	•	bland finance dashboard vs detailed holdings
+	•	public thread titles vs actual private messages
+
+Mode D — Panic Fade
+
+When your face disappears or an unknown face appears, the UI immediately:
+	•	blurs
+	•	masks
+	•	swaps to decoy
+	•	jumps to innocuous screen
+	•	locks sensitive pane only
+
+⸻
+
+5. System architecture
+
+Front Camera / Sensor Layer
+        ↓
+Identity & Liveness Engine
+        ↓
+Presence Confidence Engine
+        ↓
+Policy Engine
+        ↓
+Secure Render Controller
+        ↓
+App / Field / Overlay Visibility
+
+
+⸻
+
+6. Core modules
+
+6.1 Sensor layer
+
+Inputs:
+	•	front-facing camera
+	•	depth / IR camera if available
+	•	gaze / attention signals if available
+	•	ambient light
+	•	motion / IMU context
+	•	proximity sensor
+
+Purpose:
+	•	determine whether a face is present
+	•	determine whether that face matches enrolled identity
+	•	determine whether it is live
+	•	determine whether attention is directed toward screen
+
+⸻
+
+6.2 Identity engine
+
+Responsibilities:
+	•	face embedding extraction
+	•	face match against enrolled template
+	•	multi-frame stabilization
+	•	anti-spoof / liveness checks
+	•	confidence scoring
+
+Outputs:
+
+{
+  "face_present": true,
+  "identity_match": 0.94,
+  "liveness_score": 0.91,
+  "attention_score": 0.77,
+  "num_faces": 1,
+  "occlusion_score": 0.12
+}
+
+
+⸻
+
+6.3 Presence confidence engine
+
+Takes noisy frame-by-frame data and turns it into stable control signals.
+
+This is critical. You do not want UI flickering every time the face shifts.
+
+Suggested derived score
+
+presence_confidence =
+  w1 * identity_match +
+  w2 * liveness_score +
+  w3 * attention_score +
+  w4 * continuity_bonus -
+  w5 * occlusion_penalty -
+  w6 * multi_face_penalty
+
+Use:
+	•	exponential moving average
+	•	hysteresis thresholds
+	•	grace timers
+	•	fast hide / slow reveal
+
+Example thresholds
+	•	reveal if confidence > 0.87 for 400 ms
+	•	maintain visible until confidence < 0.68 for 700 ms
+	•	immediate hide if unknown second face detected for 150 ms
+	•	immediate hide if camera feed fails in high-security mode
+
+⸻
+
+6.4 Policy engine
+
+This is the heart of the product.
+
+A policy decides what content needs what level of presence proof.
+
+Example policy object
+
+{
+  "resource_id": "notes/private/*",
+  "mode": "face_required",
+  "min_identity_match": 0.90,
+  "min_liveness": 0.80,
+  "min_attention": 0.60,
+  "hide_delay_ms": 300,
+  "reveal_delay_ms": 450,
+  "multi_face_action": "hide",
+  "failure_action": "blur",
+  "screenshot_block": true,
+  "screen_record_block": true
+}
+
+Policy classes
+	•	public
+	•	masked_until_presence
+	•	presence_required
+	•	presence_and_attention_required
+	•	presence_with_decoy_fallback
+	•	presence_with_panic_lock
+
+⸻
+
+6.5 Secure render controller
+
+Do not just let apps draw the secret content normally and blur it afterward.
+
+That leaks.
+
+Instead use a secure rendering path where:
+	•	protected regions are separate layers
+	•	hidden state means pixels are never composed
+	•	screenshots exclude protected layers
+	•	screen recording excludes protected layers
+	•	app switcher thumbnails redact protected layers
+	•	external display / AirPlay / casting suppresses protected layers
+
+This is one of the most important design choices.
+
+⸻
+
+7. UX behavior
+
+7.1 Normal flow
+	1.	user unlocks phone
+	2.	opens an app
+	3.	app shows safe/default shell
+	4.	presence engine confirms enrolled user is present
+	5.	private content fades in
+	6.	user looks away or leaves frame
+	7.	private content blurs or disappears
+	8.	return to shell state
+
+7.2 Visual states
+
+Each protected component has four states:
+	•	hidden
+	•	arming
+	•	visible
+	•	decoy
+
+Example
+
+A chat thread:
+	•	hidden: “Private conversation”
+	•	arming: spinning privacy glyph
+	•	visible: real thread text
+	•	decoy: generic old messages or empty thread shell
+
+⸻
+
+8. Recommended UX principles
+
+Make hide faster than reveal
+
+Reveal should require confidence.
+Hide should be aggressive.
+
+Never flicker
+
+Use hysteresis and smoothing.
+
+Local-first
+
+Face processing should stay on device.
+
+Give user control
+
+Per-app and per-folder rules.
+
+Always provide a benign fallback
+
+Don’t leave awkward black voids everywhere unless user wants that.
+
+⸻
+
+9. Detection logic
+
+Inputs evaluated continuously
+	•	is an enrolled face present?
+	•	is it live?
+	•	is user oriented toward screen?
+	•	is there more than one face?
+	•	did the face just disappear?
+	•	did an unrecognized face enter?
+	•	is phone being shared / mirrored?
+	•	is screen recording active?
+	•	is app backgrounded?
+
+Event triggers
+
+ON_AUTHORIZED_FACE_STABLE
+ON_AUTHORIZED_FACE_LOST
+ON_UNKNOWN_FACE_DETECTED
+ON_MULTI_FACE_DETECTED
+ON_ATTENTION_LOST
+ON_SCREEN_RECORD_START
+ON_APP_BACKGROUND
+ON_CAMERA_UNAVAILABLE
+
+
+⸻
+
+10. State machine
+
+LOCKED
+  ↓ unlock
+SAFE_VISIBLE
+  ↓ authorized face stable
+PRIVATE_ARMING
+  ↓ confidence sustained
+PRIVATE_VISIBLE
+  ↓ confidence drop
+PRIVATE_HOLD
+  ↓ recovers quickly → PRIVATE_VISIBLE
+  ↓ timeout / intrusion → PRIVATE_HIDDEN
+PRIVATE_HIDDEN
+  ↓ stable reauth → PRIVATE_ARMING
+DECOY_MODE
+  ↓ user reauth → PRIVATE_ARMING
+
+
+⸻
+
+11. Security policies by sensitivity
+
+Tier 0 — Public
+
+No gating.
+
+Tier 1 — Soft private
+
+Requires face presence.
+Failure action: blur.
+
+Tier 2 — Strong private
+
+Requires face + liveness.
+Failure action: remove content.
+
+Tier 3 — Critical
+
+Requires face + liveness + attention.
+Failure action: lock pane, redact app switcher, block screenshots, block screen recording, hide on multi-face.
+
+⸻
+
+12. Attack scenarios and responses
+
+Scenario: phone unlocked, wrong person picks it up
+
+Response:
+	•	protected layers never reveal
+	•	safe shell only
+
+Scenario: owner hands phone to someone to show one photo
+
+Response:
+	•	gallery visible
+	•	hidden album stays absent unless owner’s face present
+
+Scenario: second face appears beside owner
+
+Response options:
+	•	immediately blur
+	•	darken protected pane
+	•	require attention re-check
+	•	swap to public-only mode
+
+Scenario: owner briefly looks away
+
+Response:
+	•	short hold buffer, maybe 300–700 ms
+	•	if attention absent persists, mask content
+
+Scenario: spoof with printed photo
+
+Response:
+	•	liveness gate
+	•	depth / IR / micro-motion checks
+	•	challenge on high-risk access if needed
+
+⸻
+
+13. Privacy posture
+
+This product can become creepy if done wrong.
+
+So the design should explicitly include:
+	•	on-device processing only
+	•	no face video upload
+	•	no identity analytics beyond local match
+	•	no persistent recording
+	•	ephemeral face frames only
+	•	user-visible sensor indicator
+	•	clear explanation of what is and isn’t stored
+
+Suggested invariant
+
+The camera is used to gate visibility, not to surveil behavior.
+
+⸻
+
+14. Developer API concept
+
+Simple API
+
+PrivacyWindow.protect({
+  id: "wallet.balance",
+  policy: "presence_and_attention_required",
+  fallback: "masked",
+  screenshotBlock: true
+})
+
+React-style wrapper
+
+<ProtectedView
+  resourceId="notes/private/journal"
+  policy="presence_required"
+  fallback={<BlurredPlaceholder label="Private Note" />}
+>
+  <JournalEntry />
+</ProtectedView>
+
+Native API concept
+
+ProtectedLayer(
+    resourceId: "photos.hidden",
+    policy: .presenceWithLiveness,
+    fallbackMode: .decoy
+)
+
+
+⸻
+
+15. Internal policy schema
+
+{
+  "policy_id": "presence_attention_strict_v1",
+  "requirements": {
+    "identity_match_min": 0.92,
+    "liveness_min": 0.85,
+    "attention_min": 0.70,
+    "max_faces": 1
+  },
+  "timing": {
+    "reveal_delay_ms": 400,
+    "hide_delay_ms": 250,
+    "hold_buffer_ms": 600
+  },
+  "responses": {
+    "on_fail": "redact",
+    "on_multi_face": "redact",
+    "on_unknown_face": "decoy",
+    "on_screen_record": "redact"
+  },
+  "render": {
+    "secure_layer": true,
+    "exclude_from_snapshots": true,
+    "exclude_from_external_display": true
+  }
+}
+
+
+⸻
+
+16. Minimal MVP
+
+A realistic MVP should not try to be full OS security.
+
+Start here:
+
+MVP scope
+	•	one app
+	•	one protected screen type
+	•	front camera identity check
+	•	simple liveness
+	•	hide/reveal overlay
+	•	local on-device matching
+	•	configurable delay timers
+
+MVP example app
+
+A notes app with:
+	•	normal notes
+	•	private notes
+	•	private notes only reveal while enrolled face is present
+
+MVP behavior
+	•	app opens normally
+	•	protected note title visible
+	•	note body blurred
+	•	enrolled face present for 500 ms → unblur
+	•	face gone for 300 ms → blur again
+
+That is enough to prove value.
+
+⸻
+
+17. V2 upgrades
+	•	field-level masking inside any app
+	•	per-contact privacy in messages
+	•	secure compositor layer
+	•	second-face detection
+	•	gaze requirement
+	•	“panic shell” hot gesture
+	•	decoy mode
+	•	hidden app sections
+	•	secure widgets
+	•	app switcher redaction
+	•	anti-mirroring
+	•	risk-based adaptive thresholds
+
+⸻
+
+18. V3 / advanced direction
+
+This is where it gets interesting.
+
+18.1 Semantic dual rendering
+
+Not just hidden vs visible.
+
+Different users/context produce different semantic layers:
+	•	public summary
+	•	private detail
+	•	critical secret layer
+
+18.2 Context-aware risk scoring
+
+Presence requirement becomes stricter if:
+	•	in public place
+	•	multiple faces nearby
+	•	high ambient movement
+	•	external display attached
+	•	recording active
+	•	late-night high-risk access pattern
+
+18.3 Shared-trust mode
+
+For couples/families/work:
+	•	some content visible to owner only
+	•	some visible to owner + spouse
+	•	some visible to any enrolled family member
+	•	some require co-presence
+
+That becomes identity-conditioned UI, not just privacy gating.
+
+⸻
+
+19. Failure handling
+
+The system must fail closed for protected content.
+
+Failure cases
+	•	camera unavailable
+	•	low light
+	•	no face found
+	•	model uncertain
+	•	app backgrounded
+	•	system overloaded
+	•	external display active
+
+Response
+
+Protected content becomes:
+	•	blurred
+	•	removed
+	•	replaced with safe placeholder
+	•	swapped to decoy
+	•	hard-locked if strict mode
+
+⸻
+
+20. Repo structure suggestion
+
+privacy-window/
+├── README.md
+├── docs/
+│   ├── threat-model.md
+│   ├── architecture.md
+│   ├── state-machine.md
+│   ├── policy-schema.md
+│   ├── ux-flows.md
+│   └── attack-scenarios.md
+├── core/
+│   ├── presence-engine/
+│   │   ├── face_detector.py
+│   │   ├── identity_matcher.py
+│   │   ├── liveness.py
+│   │   ├── attention.py
+│   │   └── confidence_fusion.py
+│   ├── policy-engine/
+│   │   ├── policy_types.py
+│   │   ├── evaluator.py
+│   │   └── events.py
+│   ├── render-controller/
+│   │   ├── protected_layer.py
+│   │   ├── snapshot_guard.py
+│   │   └── external_display_guard.py
+│   └── telemetry/
+│       ├── audit_log.py
+│       └── metrics.py
+├── mobile/
+│   ├── ios/
+│   ├── android/
+│   └── shared/
+├── examples/
+│   ├── protected_notes/
+│   ├── hidden_album/
+│   └── wallet_masking/
+└── schemas/
+    └── privacy_policy.schema.json
+
+
+⸻
+
+21. Canonical invariants
+
+These should be explicit in the repo.
+
+Security invariants
+	•	protected content is never rendered into insecure layers
+	•	hide is faster than reveal
+	•	absence of confidence never reveals content
+	•	system failure never reveals protected content
+	•	screenshots and app previews exclude protected layers where possible
+
+Privacy invariants
+	•	face processing stays local
+	•	no raw video retained unless explicit debug mode
+	•	no covert analytics
+	•	no identity inference beyond gating needs
+
+UX invariants
+	•	minimal flicker
+	•	graceful fallback
+	•	per-resource policy control
+	•	reversible and user-configurable
+
+⸻
+
+22. Pantheon-style compression
+
+If you want the compact doctrine for the repo:
+
+Presence-Gated Disclosure Doctrine
+
+Unlock grants access to the device; presence grants access to meaning.
+
+Or slightly sharper:
+
+Possession is not perception. Authorization should track the viewer, not just the unlock event.
+
+⸻
+
+23. README-ready summary block
+
+You can paste this almost directly:
+
+# Privacy Window
+
+Privacy Window is a continuous identity-gated disclosure system for mobile interfaces.
+
+Traditional device security answers: “Who unlocked the phone?”
+Privacy Window answers: “Who is perceiving this content right now?”
+
+The system uses on-device face presence, liveness, and optional attention signals to determine whether protected UI should be rendered. Sensitive content remains hidden, blurred, or replaced with decoy content unless the enrolled user’s face is actively present.
+
+## Core properties
+- On-device identity gating
+- Continuous presence verification
+- Field-level or app-level protection
+- Fast hide / slow reveal
+- Screenshot and app-switcher redaction support
+- Decoy-mode fallback
+- Fail-closed design
+
+## Example use cases
+- Private notes
+- Hidden photo albums
+- Masked balances and wallet details
+- Sensitive messages
+- Recovery keys and passwords
+
+## Design principle
+Unlock is not enough. Protected meaning should only be visible to the authorized viewer.
+
+
+⸻
+
+24. Best next build step
+
+Build protected notes first.
+
+Not the whole OS.
+Not full system auth.
+Just one elegant proof:
+	•	notes app
+	•	private note body
+	•	body only visible while your face is present
+	•	blur on loss
+	•	decoy optional
+
+That’s enough to make the concept real.
+
+I can turn this next into a full technical spec, state diagram, and initial code scaffold for iPhone/Android/web prototype.
