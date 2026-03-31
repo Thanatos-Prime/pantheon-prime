@@ -1,0 +1,394 @@
+Gate Algebra v1.0
+
+Purpose: choose the next action without waiting and without weights.
+
+Core shift:
+
+Do not rank actions by importance.
+Filter actions by structure until one survives.
+
+⸻
+
+1. Primitive objects
+
+Action
+
+An action is any candidate move available now.
+
+Represent as:
+
+a ∈ A
+
+where A is the current set of candidate actions.
+
+Examples:
+	•	send the message
+	•	open the doc
+	•	do 10 pushups
+	•	apologize
+	•	go for a walk
+	•	keep scrolling
+
+⸻
+
+2. Binary evaluation only
+
+No scores. No weights. No averages.
+
+Each test returns:
+
+1 = pass
+0 = fail
+
+So action selection is not optimization over magnitude.
+It is survival through gates.
+
+⸻
+
+3. Core gates
+
+Define a gate as a function:
+
+G_i(a) → {0,1}
+
+An action survives only if it passes every required gate.
+
+G₁ — Reality Gate
+
+R(a) = 1 iff a responds to an actual present condition
+
+Fails if the action is:
+	•	fantasy maintenance
+	•	avoidance dressed up as planning
+	•	symbolic motion with no contact to reality
+
+Question:
+
+What real condition does this action touch?
+
+⸻
+
+G₂ — Constraint Gate
+
+C(a) = 1 iff a does not violate non-negotiables
+
+Non-negotiables may include:
+	•	ethics
+	•	duties
+	•	promises
+	•	safety
+	•	long-horizon integrity
+
+Question:
+
+Does this action break anything I refuse to break?
+
+⸻
+
+G₃ — Effect Gate
+
+E(a) = 1 iff a changes the world, state, or commitment graph
+
+Fails if it is merely:
+	•	rumination
+	•	image management
+	•	pseudo-preparation
+	•	self-narration without output
+
+Question:
+
+What becomes different if this action is executed?
+
+⸻
+
+4. Survival rule
+
+The feasible set is:
+
+F = { a ∈ A | R(a)=1 ∧ C(a)=1 ∧ E(a)=1 }
+
+Only actions in F are allowed to compete further.
+
+Clean reading:
+
+First eliminate the unreal, the misaligned, and the inert.
+
+⸻
+
+5. Tie-breaking without weights
+
+If more than one action survives, do not assign scores.
+
+Use ordered structural discriminators.
+
+⸻
+
+T₁ — Irreversibility discriminator
+
+Choose the action that commits the trajectory most.
+
+Define:
+
+I(a, b) = a preferred over b iff a creates a more irreversible state transition than b
+
+Examples:
+	•	sending the apology beats drafting it
+	•	starting the job application beats thinking about career strategy
+	•	making the doctor appointment beats researching symptoms for another hour
+
+Reason:
+
+Reversible actions can be done later. Irreversible actions shape the path.
+
+⸻
+
+T₂ — Edge-of-Control discriminator
+
+If still tied, choose the action nearest the boundary of present capability.
+
+Define:
+
+B(a) = 1 iff a lies at the edge of controllable effort
+
+Not trivial.
+Not impossible.
+Just beyond inertia.
+
+Question:
+
+Which action is the smallest real stretch?
+
+⸻
+
+T₃ — Minimum Viable Action discriminator
+
+If still tied, compress to the smallest version that still counts.
+
+Define compression operator:
+
+μ(a) = smallest executable form of a that preserves its identity
+
+Examples:
+	•	“work out” → 10 squats now
+	•	“repair relationship” → send first honest sentence
+	•	“clean room” → clear one surface
+	•	“build project” → create file and write header
+
+Rule:
+
+Prefer the smallest action that still crosses the threshold from idea to reality.
+
+⸻
+
+6. Full selection operator
+
+We can now define the decision pipeline:
+
+Select(A):
+  1. F = {a ∈ A | R(a) ∧ C(a) ∧ E(a)}
+  2. if |F| = 0: return Null / Reframe
+  3. if |F| = 1: return that action
+  4. else apply Irreversibility discriminator
+  5. if tie remains, apply Edge-of-Control discriminator
+  6. if tie remains, apply Minimum Viable Action compression
+  7. return survivor
+
+
+⸻
+
+7. Null state
+
+If no actions survive, do not force motion.
+
+Return:
+
+∅ → Null / Reframe
+
+This means one of three things:
+	•	the candidate set is bad
+	•	the problem is misframed
+	•	you are trying to act before naming the actual condition
+
+Null is not waiting in the passive sense.
+It is an active reset.
+
+Approved Null moves:
+	•	name the real problem
+	•	remove fake options
+	•	gather one missing fact
+	•	reduce the scope
+
+⸻
+
+8. Formal doctrine
+
+Axiom 1 — Importance is not measured; it is revealed by constraint
+
+Without weights, an action matters if it survives structural elimination.
+
+Axiom 2 — Selection beats optimization under pressure
+
+When time, clarity, or cognition are limited, ranking degrades. Gates remain usable.
+
+Axiom 3 — The world respects committed transitions
+
+Irreversible actions bend future option space more than reversible ones.
+
+Axiom 4 — Growth occurs at the controllable edge
+
+The right action is often the one that slightly exceeds comfort while remaining executable.
+
+Axiom 5 — Compression defeats procrastination
+
+A properly compressed action preserves agency while lowering resistance.
+
+⸻
+
+9. Compact notation
+
+You could write the whole thing as:
+
+a* = μ(B(I(F(A))))
+
+Where:
+	•	F = gate filter
+	•	I = irreversibility selection
+	•	B = edge-of-control selection
+	•	μ = minimum viable compression
+
+Readable form:
+
+Filter → Commit → Stretch → Compress
+
+⸻
+
+10. Human-readable checklist
+
+When stuck, run this:
+
+Step 1
+
+What actions are actually available right now?
+
+Step 2
+
+Which of these:
+	•	touches reality
+	•	does not violate my constraints
+	•	changes something real
+
+Delete the rest.
+
+Step 3
+
+Of the survivors, which most commits the path?
+
+Step 4
+
+Of those, which sits at the edge of my control?
+
+Step 5
+
+What is the smallest version I can do immediately?
+
+Then do it.
+
+⸻
+
+11. Example
+
+Candidate set:
+
+A = {
+  scroll social media,
+  think about finances,
+  open bank account page,
+  transfer $50 to savings
+}
+
+Apply gates:
+	•	scroll social media
+	•	Reality: 0
+	•	Constraint: 1
+	•	Effect: 0
+	•	reject
+	•	think about finances
+	•	Reality: 1
+	•	Constraint: 1
+	•	Effect: 0
+	•	reject
+	•	open bank account page
+	•	Reality: 1
+	•	Constraint: 1
+	•	Effect: 1
+	•	survives
+	•	transfer $50 to savings
+	•	Reality: 1
+	•	Constraint: 1
+	•	Effect: 1
+	•	survives
+
+Tie-break:
+	•	transfer is more irreversible than open page
+
+Result:
+
+a* = transfer $50 to savings
+
+If that feels too large, compress:
+
+μ(a*) = log in and move $5
+
+Still counts.
+
+⸻
+
+12. Failure modes
+
+Failure: fake actions in the candidate set
+
+Fix: only include executable moves
+
+Failure: effect gate too loose
+
+Fix: require observable state change
+
+Failure: irreversibility fetish
+
+Fix: irreversible does not override constraint gate
+
+Failure: edge mistaken for panic
+
+Fix: edge-of-control means difficult but stable, not overwhelming
+
+Failure: compression collapses identity
+
+Fix: MVA must still be a true instance of the action
+
+⸻
+
+13. Relation to Pantheon doctrine
+
+This fits cleanly with existing architecture:
+	•	Solomon = constraint gate
+	•	Mirror = reality gate
+	•	Raven = minimum viable compression
+	•	Sisyphus = repeated execution cadence
+	•	13th Coil = stress-test false actions and hidden self-deception
+	•	Zero / Null = active reset when no action survives
+
+So the practical chain becomes:
+
+Mirror → Solomon → Coil → Raven → Sisyphus
+
+⸻
+
+14. Compression statement
+
+Gate Algebra: a non-weighted action-selection system in which candidate actions are passed through binary structural gates, then resolved by irreversibility, edge-of-control, and minimum viable compression until one executable action remains.
+
+Or even shorter:
+
+Do not rank the moves. Remove the false ones.
+
+If you want, I can turn this into a repo-ready spec next, with sections like Definitions, Invariants, Algorithm, Failure Modes, and Example Runs.
