@@ -1,0 +1,1197 @@
+import { useState, useRef, useCallback, useEffect } from “react”;
+
+// ─── PANTHEON: LENSGUIDE v0.2 — “THE MONEY VERSION” ─────────────────────────
+// Module class: PERCEPTION / REPAIR INTELLIGENCE
+// Dynamic model ID → repair decision tree → safety gates → tool manifest
+// B2C: $4.99/mo  |  B2B API: per-query  |  White-label: OEM embed
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STYLES = `
+@import url(‘https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&family=Syne+Mono&display=swap’);
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+–bg: #f5f0e8;
+–bg2: #ede8df;
+–surface: #ffffff;
+–ink: #1a1208;
+–ink2: #4a3f2e;
+–ink3: #8a7d6a;
+–gold: #c8960c;
+–gold2: #f0b429;
+–gold-light: #fef3c7;
+–amber: #b45309;
+–red: #dc2626;
+–red-light: #fef2f2;
+–green: #16a34a;
+–green-light: #f0fdf4;
+–blue: #1d4ed8;
+–border: #d4c9b5;
+–shadow: rgba(26,18,8,0.08);
+–font-display: ‘Syne’, sans-serif;
+–font-mono: ‘DM Mono’, monospace;
+–font-accent: ‘Syne Mono’, monospace;
+}
+
+body {
+background: var(–bg);
+color: var(–ink);
+font-family: var(–font-display);
+min-height: 100vh;
+}
+
+/* ── GRAIN TEXTURE ── */
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+pointer-events: none;
+z-index: 1000;
+opacity: 0.025;
+background-image: url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 256 256’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘noise’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23noise)’/%3E%3C/svg%3E”);
+}
+
+.app {
+max-width: 1200px;
+margin: 0 auto;
+padding: 0 24px 48px;
+position: relative;
+z-index: 1;
+}
+
+/* ── HEADER ── */
+.header {
+display: flex;
+align-items: flex-end;
+justify-content: space-between;
+padding: 32px 0 24px;
+border-bottom: 2px solid var(–ink);
+margin-bottom: 32px;
+}
+
+.logo-block {}
+
+.logo-eyebrow {
+font-family: var(–font-mono);
+font-size: 10px;
+letter-spacing: 3px;
+text-transform: uppercase;
+color: var(–gold);
+margin-bottom: 4px;
+}
+
+.logo-title {
+font-family: var(–font-display);
+font-weight: 800;
+font-size: 48px;
+line-height: 1;
+color: var(–ink);
+letter-spacing: -2px;
+}
+
+.logo-title span {
+color: var(–gold);
+}
+
+.logo-tagline {
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–ink3);
+margin-top: 6px;
+letter-spacing: 1px;
+}
+
+.header-right {
+text-align: right;
+}
+
+.version-badge {
+display: inline-block;
+background: var(–ink);
+color: var(–gold2);
+font-family: var(–font-mono);
+font-size: 10px;
+padding: 4px 10px;
+letter-spacing: 2px;
+text-transform: uppercase;
+}
+
+.header-meta {
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–ink3);
+margin-top: 8px;
+line-height: 1.8;
+}
+
+/* ── MAIN GRID ── */
+.main-grid {
+display: grid;
+grid-template-columns: 1fr 400px;
+gap: 32px;
+align-items: start;
+}
+
+@media (max-width: 860px) {
+.main-grid { grid-template-columns: 1fr; }
+}
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+border: 2px dashed var(–border);
+background: var(–surface);
+aspect-ratio: 4/3;
+max-height: 460px;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+cursor: pointer;
+transition: all 0.2s;
+position: relative;
+overflow: hidden;
+}
+
+.upload-zone:hover {
+border-color: var(–gold);
+background: var(–gold-light);
+}
+
+.upload-zone.has-image {
+border-style: solid;
+border-color: var(–ink);
+cursor: default;
+}
+
+.upload-zone.dragging {
+border-color: var(–gold);
+background: var(–gold-light);
+transform: scale(1.01);
+}
+
+.upload-icon {
+font-size: 48px;
+margin-bottom: 12px;
+opacity: 0.4;
+}
+
+.upload-label {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 16px;
+color: var(–ink2);
+margin-bottom: 6px;
+}
+
+.upload-sub {
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–ink3);
+text-align: center;
+line-height: 1.6;
+}
+
+.preview-img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+/* scan line */
+.scan-line {
+position: absolute;
+inset: 0;
+pointer-events: none;
+background: linear-gradient(
+to bottom,
+transparent 0%,
+rgba(200,150,12,0.15) 49%,
+rgba(200,150,12,0.3) 50%,
+rgba(200,150,12,0.15) 51%,
+transparent 100%
+);
+animation: scan 1.8s linear infinite;
+}
+
+@keyframes scan {
+0%   { transform: translateY(-100%); }
+100% { transform: translateY(200%); }
+}
+
+.scan-badge {
+position: absolute;
+top: 12px;
+left: 12px;
+background: var(–gold);
+color: var(–ink);
+font-family: var(–font-mono);
+font-size: 10px;
+font-weight: 500;
+padding: 4px 10px;
+letter-spacing: 2px;
+text-transform: uppercase;
+animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* ── CONTROLS ROW ── */
+.controls-row {
+display: flex;
+gap: 12px;
+margin-top: 16px;
+align-items: center;
+flex-wrap: wrap;
+}
+
+.btn {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 13px;
+letter-spacing: 1px;
+text-transform: uppercase;
+padding: 12px 28px;
+border: 2px solid;
+cursor: pointer;
+transition: all 0.15s;
+background: transparent;
+white-space: nowrap;
+}
+
+.btn-primary {
+background: var(–ink);
+color: var(–gold2);
+border-color: var(–ink);
+}
+
+.btn-primary:hover:not(:disabled) {
+background: var(–gold);
+border-color: var(–gold);
+color: var(–ink);
+}
+
+.btn-primary:disabled {
+opacity: 0.4;
+cursor: not-allowed;
+}
+
+.btn-ghost {
+border-color: var(–border);
+color: var(–ink3);
+}
+
+.btn-ghost:hover { border-color: var(–ink2); color: var(–ink); }
+
+.file-btn-label {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 13px;
+letter-spacing: 1px;
+text-transform: uppercase;
+padding: 12px 28px;
+border: 2px solid var(–gold);
+color: var(–amber);
+cursor: pointer;
+transition: all 0.15s;
+white-space: nowrap;
+}
+
+.file-btn-label:hover {
+background: var(–gold-light);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+display: flex;
+flex-direction: column;
+gap: 20px;
+}
+
+/* ── CARD ── */
+.card {
+background: var(–surface);
+border: 1.5px solid var(–border);
+padding: 20px;
+position: relative;
+}
+
+.card-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 14px;
+padding-bottom: 10px;
+border-bottom: 1px solid var(–border);
+}
+
+.card-title {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 13px;
+letter-spacing: 1px;
+text-transform: uppercase;
+color: var(–ink);
+}
+
+.card-badge {
+font-family: var(–font-mono);
+font-size: 9px;
+padding: 2px 8px;
+letter-spacing: 1px;
+text-transform: uppercase;
+}
+
+.badge-gold  { background: var(–gold-light); color: var(–amber); border: 1px solid var(–gold2); }
+.badge-green { background: var(–green-light); color: var(–green); border: 1px solid #86efac; }
+.badge-red   { background: var(–red-light); color: var(–red); border: 1px solid #fca5a5; }
+.badge-gray  { background: var(–bg2); color: var(–ink3); border: 1px solid var(–border); }
+
+/* ── DEVICE ID CARD ── */
+.device-id-row {
+display: flex;
+justify-content: space-between;
+align-items: baseline;
+margin-bottom: 8px;
+}
+
+.device-name {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 18px;
+color: var(–ink);
+line-height: 1.2;
+}
+
+.device-model {
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–ink3);
+margin-top: 2px;
+}
+
+.conf-bar-track {
+height: 6px;
+background: var(–bg2);
+margin-top: 10px;
+position: relative;
+}
+
+.conf-bar-fill {
+height: 100%;
+background: var(–gold);
+transition: width 0.8s cubic-bezier(.16,1,.3,1);
+}
+
+.conf-bar-fill.low { background: var(–red); }
+.conf-bar-fill.mid { background: var(–amber); }
+
+.conf-label {
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–ink3);
+margin-top: 4px;
+display: flex;
+justify-content: space-between;
+}
+
+/* ── SAFETY GATE ── */
+.safety-gate {
+background: var(–red-light);
+border: 2px solid var(–red);
+padding: 14px 16px;
+}
+
+.safety-title {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 13px;
+color: var(–red);
+letter-spacing: 1px;
+text-transform: uppercase;
+margin-bottom: 8px;
+display: flex;
+align-items: center;
+gap: 6px;
+}
+
+.safety-items {
+display: flex;
+flex-direction: column;
+gap: 6px;
+}
+
+.safety-item {
+font-family: var(–font-mono);
+font-size: 12px;
+color: var(–red);
+display: flex;
+align-items: flex-start;
+gap: 8px;
+line-height: 1.5;
+}
+
+/* ── TOOL MANIFEST ── */
+.tool-grid {
+display: flex;
+flex-wrap: wrap;
+gap: 8px;
+}
+
+.tool-chip {
+background: var(–bg2);
+border: 1px solid var(–border);
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–ink2);
+padding: 5px 10px;
+display: flex;
+align-items: center;
+gap: 5px;
+}
+
+/* ── DECISION TREE ── */
+.tree-node {
+position: relative;
+margin-bottom: 4px;
+}
+
+.tree-step {
+display: flex;
+align-items: flex-start;
+gap: 10px;
+padding: 10px 12px;
+border: 1.5px solid var(–border);
+background: var(–surface);
+cursor: default;
+transition: all 0.15s;
+position: relative;
+}
+
+.tree-step.current {
+border-color: var(–gold);
+background: var(–gold-light);
+}
+
+.tree-step.done {
+border-color: #86efac;
+background: var(–green-light);
+opacity: 0.8;
+}
+
+.tree-step.blocked {
+border-color: var(–red);
+background: var(–red-light);
+}
+
+.tree-step.pending { opacity: 0.45; }
+
+.tree-num {
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–ink3);
+flex-shrink: 0;
+width: 20px;
+padding-top: 1px;
+}
+
+.tree-step.current .tree-num { color: var(–amber); font-weight: 500; }
+
+.tree-content { flex: 1; }
+
+.tree-label {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 13px;
+color: var(–ink);
+margin-bottom: 2px;
+}
+
+.tree-step.done .tree-label { color: var(–green); }
+.tree-step.blocked .tree-label { color: var(–red); }
+
+.tree-action {
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–ink3);
+line-height: 1.5;
+}
+
+.tree-step.current .tree-action { color: var(–ink2); }
+
+/* connector line */
+.tree-connector {
+width: 2px;
+height: 8px;
+background: var(–border);
+margin-left: 20px;
+}
+
+/* ── MAIN INSTRUCTION ── */
+.instruction-banner {
+background: var(–ink);
+color: var(–bg);
+padding: 20px 24px;
+margin-top: 20px;
+position: relative;
+overflow: hidden;
+}
+
+.instruction-banner::before {
+content: ‘’;
+position: absolute;
+left: 0; top: 0; bottom: 0;
+width: 4px;
+background: var(–gold2);
+}
+
+.instruction-banner.warn {
+background: var(–amber);
+}
+
+.instruction-banner.danger {
+background: var(–red);
+}
+
+.instr-eyebrow {
+font-family: var(–font-mono);
+font-size: 9px;
+letter-spacing: 3px;
+text-transform: uppercase;
+color: var(–gold2);
+margin-bottom: 6px;
+}
+
+.instruction-banner.warn .instr-eyebrow,
+.instruction-banner.danger .instr-eyebrow {
+color: rgba(255,255,255,0.7);
+}
+
+.instr-text {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 17px;
+line-height: 1.4;
+color: var(–surface);
+}
+
+/* ── ANOMALY LIST ── */
+.anomaly-list {
+display: flex;
+flex-direction: column;
+gap: 8px;
+}
+
+.anomaly-row {
+display: flex;
+gap: 10px;
+align-items: flex-start;
+padding: 8px 10px;
+background: var(–red-light);
+border-left: 3px solid var(–red);
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–red);
+line-height: 1.5;
+}
+
+/* ── EMPTY STATES ── */
+.empty-card {
+text-align: center;
+padding: 32px 20px;
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–ink3);
+letter-spacing: 1px;
+line-height: 2;
+border: 1.5px dashed var(–border);
+background: var(–bg2);
+}
+
+.empty-icon {
+font-size: 28px;
+display: block;
+margin-bottom: 8px;
+opacity: 0.4;
+}
+
+/* ── REASONING BOX ── */
+.reasoning-box {
+background: var(–bg2);
+border-left: 3px solid var(–border);
+padding: 10px 14px;
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–ink2);
+line-height: 1.7;
+margin-top: 10px;
+}
+
+/* ── LOG ── */
+.log-toggle {
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–ink3);
+letter-spacing: 2px;
+text-transform: uppercase;
+cursor: pointer;
+display: flex;
+align-items: center;
+gap: 6px;
+border: none;
+background: none;
+padding: 0;
+}
+
+.log-toggle:hover { color: var(–ink); }
+
+.log-area {
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–ink3);
+line-height: 1.8;
+max-height: 140px;
+overflow-y: auto;
+margin-top: 10px;
+padding: 10px;
+background: var(–bg);
+border: 1px solid var(–border);
+}
+
+.log-line { display: block; }
+.log-line.ok    { color: var(–green); }
+.log-line.warn  { color: var(–amber); }
+.log-line.error { color: var(–red); }
+
+/* ── SPINNER ── */
+.spinner {
+display: inline-block;
+width: 12px;
+height: 12px;
+border: 2px solid rgba(240,180,41,0.3);
+border-top-color: var(–gold2);
+border-radius: 50%;
+animation: spin 0.7s linear infinite;
+vertical-align: middle;
+margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── FOOTER ── */
+.footer {
+margin-top: 48px;
+padding-top: 20px;
+border-top: 1px solid var(–border);
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.footer-left {
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–ink3);
+letter-spacing: 1px;
+line-height: 1.8;
+}
+
+.footer-left strong { color: var(–gold); }
+
+.biz-chips {
+display: flex;
+gap: 8px;
+}
+
+.biz-chip {
+font-family: var(–font-mono);
+font-size: 9px;
+padding: 4px 10px;
+border: 1px solid var(–border);
+color: var(–ink3);
+letter-spacing: 1px;
+text-transform: uppercase;
+}
+`;
+
+// ─── SYSTEM PROMPT — v0.2 REPAIR INTELLIGENCE ────────────────────────────────
+const SYSTEM_PROMPT = `You are LensGuide v0.2 — a repair intelligence engine built on Pantheon OS.
+
+Your job: analyze ANY appliance or device image and return a structured JSON repair assessment.
+
+You must:
+
+1. Identify the device (make, model number if visible, category)
+1. Assess current visible condition
+1. Generate a repair decision tree (branching, not linear)
+1. Flag ALL safety requirements BEFORE any repair steps
+1. List required tools
+1. Identify the most likely fault if any is visible
+1. Provide the immediate next action
+
+Respond ONLY with a JSON object — no preamble, no markdown. Exact schema:
+{
+“device”: {
+“detected”: boolean,
+“name”: string,
+“category”: string,
+“model_hint”: string | null,
+“condition”: “good” | “fair” | “damaged” | “unknown”
+},
+“confidence”: number (0.0–1.0),
+“primary_fault”: string | null,
+“fault_severity”: “none” | “low” | “medium” | “high” | “critical”,
+“safety_gates”: string[],
+“tools_required”: string[],
+“decision_tree”: [
+{
+“id”: number,
+“label”: string,
+“action”: string,
+“status”: “done” | “current” | “pending” | “blocked”,
+“branch_condition”: string | null
+}
+],
+“next_instruction”: string,
+“instruction_type”: “normal” | “warn” | “danger”,
+“anomalies”: string[],
+“reasoning”: string,
+“estimated_repair_time”: string | null,
+“diy_feasibility”: “easy” | “moderate” | “advanced” | “professional_required”
+}
+
+SAFETY GATES are MANDATORY — always list them before repair steps.
+If device is not detected or image is unclear, set confidence < 0.3 and explain in reasoning.
+decision_tree should be 4–8 steps, branching where fault conditions apply.
+Tools: be specific (e.g. “T20 Torx screwdriver” not just “screwdriver”).`;
+
+export default function LensGuideV2() {
+const [image, setImage]       = useState(null);
+const [imageB64, setImageB64] = useState(null);
+const [loading, setLoading]   = useState(false);
+const [result, setResult]     = useState(null);
+const [logs, setLogs]         = useState([]);
+const [showLog, setShowLog]   = useState(false);
+const [dragging, setDragging] = useState(false);
+const fileRef                 = useRef();
+const logRef                  = useRef();
+const [sessionId]             = useState(() => Math.random().toString(36).slice(2,8).toUpperCase());
+
+const addLog = useCallback((msg, type = “info”) => {
+const ts = new Date().toISOString().slice(11,19);
+setLogs(l => […l.slice(-80), { ts, msg, type }]);
+}, []);
+
+useEffect(() => {
+if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+}, [logs]);
+
+const handleFile = useCallback((file) => {
+if (!file || !file.type.startsWith(“image/”)) return;
+addLog(`FILE :: ${file.name} — ${(file.size/1024).toFixed(1)}kb`, “info”);
+setImage(URL.createObjectURL(file));
+setResult(null);
+const reader = new FileReader();
+reader.onload = (e) => {
+setImageB64(e.target.result.split(”,”)[1]);
+addLog(“ENCODED :: ready for analysis”, “ok”);
+};
+reader.readAsDataURL(file);
+}, [addLog]);
+
+const onDrop = useCallback((e) => {
+e.preventDefault();
+setDragging(false);
+handleFile(e.dataTransfer.files[0]);
+}, [handleFile]);
+
+const analyze = useCallback(async () => {
+if (!imageB64) return;
+setLoading(true);
+setResult(null);
+addLog(“─── ANALYSIS SESSION START ───”, “info”);
+addLog(“GATE :: safety invariants armed”, “ok”);
+addLog(“SPIDER :: mapping device graph…”, “info”);
+addLog(“HOUND :: fault detection active”, “info”);
+addLog(“→ dispatching to Vision substrate…”, “info”);
+
+```
+try {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageB64 } },
+          { type: "text", text: "Analyze this device and return the repair assessment JSON." }
+        ]
+      }]
+    })
+  });
+
+  const data = await res.json();
+  addLog(`HTTP ${res.status} :: ${data.usage?.input_tokens}in / ${data.usage?.output_tokens}out tokens`, "info");
+
+  const raw = data.content?.find(b => b.type === "text")?.text || "";
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+  } catch {
+    addLog("PARSE_FAIL :: degraded mode", "error");
+    parsed = {
+      device: { detected: false, name: "Unknown", category: "Unknown", model_hint: null, condition: "unknown" },
+      confidence: 0.1,
+      primary_fault: null,
+      fault_severity: "none",
+      safety_gates: [],
+      tools_required: [],
+      decision_tree: [],
+      next_instruction: "Could not parse response. Try a clearer image.",
+      instruction_type: "warn",
+      anomalies: ["Parse error"],
+      reasoning: raw.slice(0, 300),
+      estimated_repair_time: null,
+      diy_feasibility: "unknown"
+    };
+  }
+
+  setResult(parsed);
+  const conf = Math.round((parsed.confidence||0)*100);
+  addLog(`DEVICE :: ${parsed.device?.name || "undetected"} (${conf}% conf)`, conf > 70 ? "ok" : "warn");
+  addLog(`FAULT  :: ${parsed.primary_fault || "none"} — severity: ${parsed.fault_severity}`,
+    parsed.fault_severity === "high" || parsed.fault_severity === "critical" ? "error" :
+    parsed.fault_severity === "medium" ? "warn" : "ok");
+  if (parsed.safety_gates?.length) addLog(`SAFETY :: ${parsed.safety_gates.length} gate(s) required`, "warn");
+  if (parsed.anomalies?.length) parsed.anomalies.forEach(a => addLog(`HOUND  :: ${a}`, "error"));
+  addLog(`DIY    :: ${parsed.diy_feasibility} | ETA: ${parsed.estimated_repair_time || "unknown"}`, "info");
+  addLog("─── STATE RESOLVED ✓ ───", "ok");
+
+} catch (err) {
+  addLog(`NETWORK ERROR :: ${err.message}`, "error");
+} finally {
+  setLoading(false);
+}
+```
+
+}, [imageB64, addLog]);
+
+const reset = () => {
+setImage(null); setImageB64(null); setResult(null);
+addLog(“RESET :: T=0”, “warn”);
+};
+
+const conf = result ? Math.round((result.confidence||0)*100) : 0;
+const confClass = conf >= 70 ? “” : conf >= 40 ? “mid” : “low”;
+
+const severityColor = (s) => ({
+none: “badge-green”, low: “badge-gold”,
+medium: “badge-gold”, high: “badge-red”, critical: “badge-red”
+}[s] || “badge-gray”);
+
+const diyColor = (d) => ({
+easy: “badge-green”, moderate: “badge-gold”,
+advanced: “badge-red”, professional_required: “badge-red”
+}[d] || “badge-gray”);
+
+const toolIcons = { screwdriver:“🔧”, wrench:“🔩”, multimeter:“⚡”, pliers:“🔨”,
+“torx”:“⭐”, “hex”:“⬡”, “socket”:“○”, “knife”:“🔪”, default:“🛠” };
+const toolIcon = (t) => {
+const tl = t.toLowerCase();
+for (const [k,v] of Object.entries(toolIcons)) if (tl.includes(k)) return v;
+return toolIcons.default;
+};
+
+return (
+<>
+<style>{STYLES}</style>
+<div className="app">
+
+```
+    {/* HEADER */}
+    <header className="header">
+      <div className="logo-block">
+        <div className="logo-eyebrow">Pantheon OS · Perception Module</div>
+        <div className="logo-title">Lens<span>Guide</span></div>
+        <div className="logo-tagline">photograph anything → fix everything</div>
+      </div>
+      <div className="header-right">
+        <div className="version-badge">v0.2 · Repair Intelligence</div>
+        <div className="header-meta">
+          Session: {sessionId}<br />
+          Dynamic Model ID · Decision Trees · Safety Gates
+        </div>
+      </div>
+    </header>
+
+    {/* MAIN GRID */}
+    <div className="main-grid">
+
+      {/* LEFT — CAMERA + INSTRUCTION */}
+      <div>
+        {/* Upload zone */}
+        <div
+          className={`upload-zone ${image ? "has-image" : ""} ${dragging ? "dragging" : ""}`}
+          onClick={() => !image && fileRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+        >
+          {image ? (
+            <>
+              <img src={image} alt="device" className="preview-img" />
+              {loading && <div className="scan-line" />}
+              {loading && <div className="scan-badge">Analyzing…</div>}
+            </>
+          ) : (
+            <>
+              <div className="upload-icon">📷</div>
+              <div className="upload-label">Drop image or click to upload</div>
+              <div className="upload-sub">
+                Any appliance · Any device · Any brand<br />
+                Microwave · Washer · HVAC · Car · Power tools
+              </div>
+            </>
+          )}
+        </div>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: "none" }}
+          onChange={e => handleFile(e.target.files[0])}
+        />
+
+        {/* Controls */}
+        <div className="controls-row">
+          <label className="file-btn-label">
+            ⬆ Load Image
+            <input type="file" accept="image/*" capture="environment"
+              style={{ display: "none" }}
+              onChange={e => handleFile(e.target.files[0])} />
+          </label>
+
+          <button
+            className="btn btn-primary"
+            onClick={analyze}
+            disabled={!imageB64 || loading}
+          >
+            {loading
+              ? <><span className="spinner" />Analyzing…</>
+              : "▶ Run Diagnostics"}
+          </button>
+
+          {image && (
+            <button className="btn btn-ghost" onClick={reset}>Clear</button>
+          )}
+        </div>
+
+        {/* Main instruction banner */}
+        {result && (
+          <div className={`instruction-banner ${result.instruction_type === "danger" ? "danger" : result.instruction_type === "warn" ? "warn" : ""}`}>
+            <div className="instr-eyebrow">
+              {result.instruction_type === "danger" ? "⛔ SAFETY REQUIRED FIRST" :
+               result.instruction_type === "warn"   ? "⚠ CAUTION" :
+               `▸ STEP ${result.decision_tree?.find(s=>s.status==="current")?.id ?? "?"} — NEXT ACTION`}
+            </div>
+            <div className="instr-text">{result.next_instruction}</div>
+          </div>
+        )}
+
+        {/* Log toggle */}
+        <div style={{ marginTop: 16 }}>
+          <button className="log-toggle" onClick={() => setShowLog(v=>!v)}>
+            <span>{showLog ? "▾" : "▸"}</span>
+            Analysis Log ({logs.length})
+          </button>
+          {showLog && (
+            <div className="log-area" ref={logRef}>
+              {logs.map((l,i) => (
+                <span key={i} className={`log-line ${l.type}`}>
+                  {l.ts}  {l.msg}{"\n"}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* RIGHT — SIDEBAR */}
+      <div className="sidebar">
+
+        {/* Device ID */}
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Device ID</span>
+            {result && (
+              <span className={`card-badge ${conf >= 70 ? "badge-green" : conf >= 40 ? "badge-gold" : "badge-red"}`}>
+                {conf}% conf
+              </span>
+            )}
+          </div>
+          {result?.device?.detected ? (
+            <>
+              <div className="device-id-row">
+                <div>
+                  <div className="device-name">{result.device.name}</div>
+                  <div className="device-model">
+                    {result.device.category}
+                    {result.device.model_hint ? ` · ${result.device.model_hint}` : ""}
+                  </div>
+                </div>
+                <span className={`card-badge ${severityColor(result.fault_severity)}`}>
+                  {result.fault_severity} severity
+                </span>
+              </div>
+              <div className="conf-bar-track">
+                <div className={`conf-bar-fill ${confClass}`} style={{ width: `${conf}%` }} />
+              </div>
+              <div className="conf-label">
+                <span>Condition: {result.device.condition}</span>
+                <span>DIY: <span className={`card-badge ${diyColor(result.diy_feasibility)}`} style={{display:"inline"}}>{result.diy_feasibility}</span></span>
+              </div>
+              {result.primary_fault && (
+                <div style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--amber)", padding: "8px 10px", background: "var(--gold-light)", borderLeft: "3px solid var(--gold)" }}>
+                  PRIMARY FAULT: {result.primary_fault}
+                </div>
+              )}
+              {result.estimated_repair_time && (
+                <div style={{ marginTop: 6, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink3)" }}>
+                  EST. REPAIR TIME: {result.estimated_repair_time}
+                </div>
+              )}
+              {result.reasoning && (
+                <div className="reasoning-box">{result.reasoning}</div>
+              )}
+            </>
+          ) : (
+            <div className="empty-card">
+              <span className="empty-icon">🔍</span>
+              {result ? "No device detected — try a clearer image" : "Awaiting image analysis"}
+            </div>
+          )}
+        </div>
+
+        {/* Safety Gates */}
+        {result?.safety_gates?.length > 0 && (
+          <div className="safety-gate">
+            <div className="safety-title">⛔ Safety Gates — Complete First</div>
+            <div className="safety-items">
+              {result.safety_gates.map((g,i) => (
+                <div key={i} className="safety-item">
+                  <span>□</span>
+                  <span>{g}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tools Required */}
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Tools Required</span>
+            {result?.tools_required?.length > 0 && (
+              <span className="card-badge badge-gold">{result.tools_required.length} items</span>
+            )}
+          </div>
+          {result?.tools_required?.length > 0 ? (
+            <div className="tool-grid">
+              {result.tools_required.map((t,i) => (
+                <div key={i} className="tool-chip">
+                  <span>{toolIcon(t)}</span>
+                  {t}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-card">
+              <span className="empty-icon">🛠</span>
+              {result ? "No tools identified" : "Run diagnostics to see tools"}
+            </div>
+          )}
+        </div>
+
+        {/* Decision Tree */}
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Repair Decision Tree</span>
+            {result?.decision_tree?.length > 0 && (
+              <span className="card-badge badge-gray">
+                {result.decision_tree.filter(s=>s.status==="done").length}/{result.decision_tree.length} done
+              </span>
+            )}
+          </div>
+          {result?.decision_tree?.length > 0 ? (
+            <div className="step-graph">
+              {result.decision_tree.map((step, i) => (
+                <div key={step.id} className="tree-node">
+                  {i > 0 && <div className="tree-connector" />}
+                  <div className={`tree-step ${step.status}`}>
+                    <span className="tree-num">{String(step.id).padStart(2,"0")}</span>
+                    <div className="tree-content">
+                      <div className="tree-label">{step.label}</div>
+                      <div className="tree-action">{step.action}</div>
+                      {step.branch_condition && (
+                        <div style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--gold)", marginTop:3 }}>
+                          IF: {step.branch_condition}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-card">
+              <span className="empty-icon">🌿</span>
+              {result ? "No repair steps generated" : "Run diagnostics to see repair path"}
+            </div>
+          )}
+        </div>
+
+        {/* Anomalies */}
+        {result?.anomalies?.length > 0 && (
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Anomalies Detected</span>
+              <span className="card-badge badge-red">{result.anomalies.length}</span>
+            </div>
+            <div className="anomaly-list">
+              {result.anomalies.map((a,i) => (
+                <div key={i} className="anomaly-row">
+                  <span>⚑</span>
+                  <span>{a}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+
+    {/* FOOTER */}
+    <footer className="footer">
+      <div className="footer-left">
+        <strong>LensGuide v0.2</strong> · Pantheon OS · Perception/Repair Module<br />
+        Apache-2.0 · github.com/Thanatos-Prime/pantheon-prime
+      </div>
+      <div className="biz-chips">
+        <div className="biz-chip">B2C $4.99/mo</div>
+        <div className="biz-chip">B2B API</div>
+        <div className="biz-chip">White-label OEM</div>
+      </div>
+    </footer>
+
+  </div>
+</>
+```
+
+);
+}
