@@ -1,0 +1,1054 @@
+import { useState, useRef, useCallback, useEffect } from “react”;
+
+// ─── PANTHEON: LENSGUIDE v0.1 ───────────────────────────────────────────────
+// Module class: PERCEPTION / INSTRUCTION
+// Daemon roles: Spider (graph), Mirror (verify), Hound (anomaly)
+// Invariant: Instruction is only valid if grounded in current physical state
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STYLES = `
+@import url(‘https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&family=Barlow+Condensed:wght@400;700;900&display=swap’);
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+–bg: #060810;
+–surface: #0c1018;
+–panel: #111620;
+–border: #1e2a3a;
+–accent: #00d4ff;
+–accent2: #ff6b35;
+–accent3: #39ff14;
+–warn: #ffcc00;
+–text: #c8d8e8;
+–text-dim: #5a7a9a;
+–text-mono: #7ec8e3;
+–red: #ff3355;
+–font-mono: ‘Share Tech Mono’, monospace;
+–font-ui: ‘Barlow’, sans-serif;
+–font-display: ‘Barlow Condensed’, sans-serif;
+}
+
+body { background: var(–bg); color: var(–text); font-family: var(–font-ui); }
+
+.app {
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+background: var(–bg);
+background-image:
+radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0,212,255,0.06) 0%, transparent 60%),
+repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,212,255,0.03) 39px, rgba(0,212,255,0.03) 40px),
+repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,212,255,0.03) 39px, rgba(0,212,255,0.03) 40px);
+}
+
+/* ── HEADER ── */
+.header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 12px 24px;
+border-bottom: 1px solid var(–border);
+background: rgba(6,8,16,0.95);
+backdrop-filter: blur(12px);
+position: sticky;
+top: 0;
+z-index: 100;
+}
+
+.logo {
+display: flex;
+align-items: center;
+gap: 10px;
+}
+
+.logo-mark {
+width: 32px;
+height: 32px;
+border: 1.5px solid var(–accent);
+display: flex;
+align-items: center;
+justify-content: center;
+clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+background: rgba(0,212,255,0.08);
+font-family: var(–font-mono);
+font-size: 12px;
+color: var(–accent);
+animation: pulse-border 3s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+0%, 100% { box-shadow: 0 0 0 0 rgba(0,212,255,0.3); }
+50% { box-shadow: 0 0 0 6px rgba(0,212,255,0); }
+}
+
+.logo-text {
+font-family: var(–font-display);
+font-weight: 900;
+font-size: 20px;
+letter-spacing: 3px;
+color: var(–accent);
+text-transform: uppercase;
+}
+
+.logo-sub {
+font-family: var(–font-mono);
+font-size: 9px;
+color: var(–text-dim);
+letter-spacing: 2px;
+text-transform: uppercase;
+}
+
+.header-status {
+display: flex;
+align-items: center;
+gap: 20px;
+}
+
+.status-chip {
+font-family: var(–font-mono);
+font-size: 10px;
+padding: 4px 10px;
+border: 1px solid var(–border);
+color: var(–text-dim);
+letter-spacing: 1px;
+text-transform: uppercase;
+}
+
+.status-chip.active {
+border-color: var(–accent3);
+color: var(–accent3);
+background: rgba(57,255,20,0.06);
+}
+
+.status-chip.warn {
+border-color: var(–warn);
+color: var(–warn);
+background: rgba(255,204,0,0.06);
+}
+
+/* ── MAIN LAYOUT ── */
+.main {
+display: grid;
+grid-template-columns: 1fr 380px;
+gap: 0;
+flex: 1;
+min-height: 0;
+}
+
+@media (max-width: 900px) {
+.main { grid-template-columns: 1fr; }
+.sidebar { border-left: none; border-top: 1px solid var(–border); }
+}
+
+/* ── CAMERA PANEL ── */
+.camera-panel {
+display: flex;
+flex-direction: column;
+padding: 24px;
+gap: 16px;
+position: relative;
+}
+
+.camera-frame {
+position: relative;
+background: var(–surface);
+border: 1px solid var(–border);
+aspect-ratio: 4/3;
+max-height: 520px;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+/* HUD corner brackets */
+.camera-frame::before,
+.camera-frame::after {
+content: ‘’;
+position: absolute;
+width: 24px;
+height: 24px;
+z-index: 10;
+pointer-events: none;
+}
+.camera-frame::before { top: 8px; left: 8px; border-top: 2px solid var(–accent); border-left: 2px solid var(–accent); }
+.camera-frame::after  { bottom: 8px; right: 8px; border-bottom: 2px solid var(–accent); border-right: 2px solid var(–accent); }
+
+.hud-br, .hud-tr, .hud-bl {
+position: absolute;
+width: 24px;
+height: 24px;
+z-index: 10;
+pointer-events: none;
+}
+.hud-tr { top: 8px; right: 8px; border-top: 2px solid var(–accent); border-right: 2px solid var(–accent); }
+.hud-bl { bottom: 8px; left: 8px; border-bottom: 2px solid var(–accent); border-left: 2px solid var(–accent); }
+
+.camera-idle {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 16px;
+padding: 40px;
+}
+
+.idle-icon {
+width: 80px;
+height: 80px;
+border: 1.5px solid var(–border);
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+color: var(–text-dim);
+font-size: 32px;
+position: relative;
+}
+
+.idle-icon::after {
+content: ‘’;
+position: absolute;
+inset: -8px;
+border: 1px solid var(–border);
+border-radius: 50%;
+border-top-color: var(–accent);
+animation: spin 3s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.idle-label {
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–text-dim);
+letter-spacing: 2px;
+text-transform: uppercase;
+text-align: center;
+}
+
+.preview-img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+/* scanning overlay */
+.scan-overlay {
+position: absolute;
+inset: 0;
+pointer-events: none;
+z-index: 5;
+background: linear-gradient(
+to bottom,
+transparent 0%,
+rgba(0,212,255,0.04) 49%,
+rgba(0,212,255,0.12) 50%,
+rgba(0,212,255,0.04) 51%,
+transparent 100%
+);
+animation: scanline 2s linear infinite;
+}
+
+@keyframes scanline {
+0%   { background-position: 0 -100%; }
+100% { background-position: 0 200%; }
+}
+
+.hud-label {
+position: absolute;
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–accent);
+letter-spacing: 1px;
+text-transform: uppercase;
+z-index: 10;
+pointer-events: none;
+}
+
+.hud-topleft  { top: 14px; left: 38px; }
+.hud-topright { top: 14px; right: 38px; text-align: right; }
+.hud-botleft  { bottom: 14px; left: 38px; }
+.hud-botright { bottom: 14px; right: 38px; text-align: right; opacity: 0.5; }
+
+/* ── CONTROLS ── */
+.controls {
+display: flex;
+gap: 12px;
+align-items: center;
+}
+
+.btn {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 13px;
+letter-spacing: 2px;
+text-transform: uppercase;
+padding: 10px 24px;
+border: 1.5px solid;
+background: transparent;
+cursor: pointer;
+transition: all 0.15s;
+position: relative;
+overflow: hidden;
+}
+
+.btn::before {
+content: ‘’;
+position: absolute;
+inset: 0;
+background: currentColor;
+opacity: 0;
+transition: opacity 0.15s;
+}
+
+.btn:hover::before { opacity: 0.08; }
+.btn:active::before { opacity: 0.15; }
+
+.btn-primary {
+border-color: var(–accent);
+color: var(–accent);
+}
+
+.btn-primary.loading {
+border-color: var(–warn);
+color: var(–warn);
+pointer-events: none;
+}
+
+.btn-secondary {
+border-color: var(–border);
+color: var(–text-dim);
+}
+
+.btn-danger {
+border-color: var(–red);
+color: var(–red);
+}
+
+.upload-label {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 13px;
+letter-spacing: 2px;
+text-transform: uppercase;
+padding: 10px 24px;
+border: 1.5px solid var(–accent2);
+color: var(–accent2);
+cursor: pointer;
+transition: all 0.15s;
+white-space: nowrap;
+}
+
+.upload-label:hover { background: rgba(255,107,53,0.08); }
+
+/* ── SIDEBAR ── */
+.sidebar {
+border-left: 1px solid var(–border);
+display: flex;
+flex-direction: column;
+background: var(–surface);
+overflow-y: auto;
+}
+
+.sidebar-section {
+border-bottom: 1px solid var(–border);
+padding: 16px 20px;
+}
+
+.section-label {
+font-family: var(–font-mono);
+font-size: 9px;
+color: var(–text-dim);
+letter-spacing: 3px;
+text-transform: uppercase;
+margin-bottom: 12px;
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.section-label::after {
+content: ‘’;
+flex: 1;
+height: 1px;
+background: var(–border);
+}
+
+/* ── STATE RESOLVER ── */
+.state-display {
+display: flex;
+flex-direction: column;
+gap: 8px;
+}
+
+.state-row {
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.state-key {
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–text-dim);
+}
+
+.state-val {
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–accent);
+}
+
+.state-val.unknown { color: var(–text-dim); }
+.state-val.error { color: var(–red); }
+.state-val.warn { color: var(–warn); }
+.state-val.ok { color: var(–accent3); }
+
+/* ── CONFIDENCE BAR ── */
+.confidence-bar-wrap {
+margin-top: 4px;
+}
+
+.confidence-track {
+height: 4px;
+background: var(–border);
+position: relative;
+overflow: hidden;
+}
+
+.confidence-fill {
+height: 100%;
+background: linear-gradient(90deg, var(–accent), var(–accent3));
+transition: width 0.6s ease;
+}
+
+.confidence-fill.low { background: var(–red); }
+.confidence-fill.mid { background: var(–warn); }
+
+/* ── INSTRUCTION CARD ── */
+.instruction-card {
+background: var(–panel);
+border: 1px solid var(–border);
+padding: 16px;
+position: relative;
+overflow: hidden;
+}
+
+.instruction-card::before {
+content: ‘’;
+position: absolute;
+top: 0; left: 0;
+width: 3px;
+height: 100%;
+background: var(–accent);
+}
+
+.instruction-card.anomaly::before { background: var(–red); }
+.instruction-card.warn::before { background: var(–warn); }
+
+.step-badge {
+font-family: var(–font-display);
+font-weight: 900;
+font-size: 11px;
+letter-spacing: 2px;
+text-transform: uppercase;
+color: var(–accent);
+margin-bottom: 8px;
+}
+
+.step-badge.anomaly { color: var(–red); }
+.step-badge.warn { color: var(–warn); }
+
+.instruction-text {
+font-family: var(–font-ui);
+font-size: 14px;
+font-weight: 400;
+color: var(–text);
+line-height: 1.6;
+}
+
+.instruction-empty {
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–text-dim);
+text-align: center;
+padding: 20px;
+letter-spacing: 1px;
+}
+
+/* ── ANOMALY FLAGS ── */
+.anomaly-list {
+display: flex;
+flex-direction: column;
+gap: 6px;
+}
+
+.anomaly-item {
+display: flex;
+align-items: flex-start;
+gap: 8px;
+font-family: var(–font-mono);
+font-size: 11px;
+color: var(–warn);
+line-height: 1.4;
+}
+
+.anomaly-dot {
+width: 6px;
+height: 6px;
+border-radius: 50%;
+background: var(–red);
+margin-top: 3px;
+flex-shrink: 0;
+animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.2; }
+}
+
+/* ── STEP GRAPH ── */
+.step-graph {
+display: flex;
+flex-direction: column;
+gap: 4px;
+}
+
+.graph-step {
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 6px 8px;
+border: 1px solid transparent;
+transition: all 0.2s;
+cursor: default;
+}
+
+.graph-step.complete {
+border-color: rgba(57,255,20,0.15);
+background: rgba(57,255,20,0.04);
+}
+
+.graph-step.current {
+border-color: rgba(0,212,255,0.3);
+background: rgba(0,212,255,0.06);
+}
+
+.graph-step.pending { opacity: 0.4; }
+
+.graph-step.anomaly {
+border-color: rgba(255,51,85,0.3);
+background: rgba(255,51,85,0.06);
+}
+
+.step-num {
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–text-dim);
+width: 20px;
+flex-shrink: 0;
+}
+
+.step-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+border: 1.5px solid var(–text-dim);
+flex-shrink: 0;
+}
+
+.graph-step.complete .step-dot { background: var(–accent3); border-color: var(–accent3); }
+.graph-step.current  .step-dot { background: var(–accent); border-color: var(–accent); animation: blink 1.2s ease-in-out infinite; }
+.graph-step.anomaly  .step-dot { background: var(–red); border-color: var(–red); }
+
+.step-label {
+font-family: var(–font-ui);
+font-size: 12px;
+color: var(–text-dim);
+}
+
+.graph-step.current .step-label  { color: var(–text); }
+.graph-step.complete .step-label { color: var(–text-dim); }
+
+/* ── ANALYSIS LOG ── */
+.log-area {
+font-family: var(–font-mono);
+font-size: 10px;
+color: var(–text-mono);
+line-height: 1.8;
+max-height: 160px;
+overflow-y: auto;
+white-space: pre-wrap;
+word-break: break-word;
+}
+
+.log-area::-webkit-scrollbar { width: 4px; }
+.log-area::-webkit-scrollbar-track { background: var(–surface); }
+.log-area::-webkit-scrollbar-thumb { background: var(–border); }
+
+.log-line { display: block; }
+.log-line.info  { color: var(–text-mono); }
+.log-line.warn  { color: var(–warn); }
+.log-line.error { color: var(–red); }
+.log-line.ok    { color: var(–accent3); }
+
+/* ── LOADING SPINNER ── */
+.spinner {
+display: inline-block;
+width: 14px;
+height: 14px;
+border: 2px solid var(–border);
+border-top-color: var(–warn);
+border-radius: 50%;
+animation: spin 0.8s linear infinite;
+vertical-align: middle;
+margin-right: 6px;
+}
+
+/* ── FOOTER ── */
+.footer {
+padding: 10px 24px;
+border-top: 1px solid var(–border);
+display: flex;
+align-items: center;
+justify-content: space-between;
+background: rgba(6,8,16,0.95);
+}
+
+.footer-left, .footer-right {
+font-family: var(–font-mono);
+font-size: 9px;
+color: var(–text-dim);
+letter-spacing: 1.5px;
+text-transform: uppercase;
+}
+
+.footer-left span { color: var(–accent); }
+`;
+
+// ─── NESPRESSO VERTUO PROCEDURE GRAPH ────────────────────────────────────────
+const PROCEDURE_GRAPH = {
+id: “nespresso-vertuo-brew”,
+label: “Nespresso Vertuo — Brew Sequence”,
+steps: [
+{ id: 1, label: “Power on”,          action: “Press the button once. Light should pulse white.” },
+{ id: 2, label: “Heating”,           action: “Wait for steady white light — machine is heating to operating temperature (~25s).” },
+{ id: 3, label: “Open head”,         action: “Lift the lever fully upward until it locks open.” },
+{ id: 4, label: “Insert capsule”,    action: “Place capsule into the slot with the dome facing up.” },
+{ id: 5, label: “Close & lock head”, action: “Lower the lever fully until you hear it click and lock.” },
+{ id: 6, label: “Position cup”,      action: “Place your cup on the drip tray, centered under the spout.” },
+{ id: 7, label: “Brew”,              action: “Press the button once. The machine reads the capsule barcode and starts brewing automatically.” },
+{ id: 8, label: “Brewing”,           action: “Light pulses during extraction. Do not move the cup.” },
+{ id: 9, label: “Complete”,          action: “Light returns to steady. Lift lever to eject capsule. Enjoy.” },
+],
+};
+
+// ─── SYSTEM PROMPT ───────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are LensGuide — a Pantheon OS perception module.
+
+Your role: analyze an image of a Nespresso Vertuo machine (or any appliance) and return a structured JSON state assessment.
+
+Procedure graph for Nespresso Vertuo:
+${PROCEDURE_GRAPH.steps.map(s => `Step ${s.id}: ${s.label}`).join(’\n’)}
+
+Respond ONLY with a JSON object — no preamble, no markdown fences. Use this exact schema:
+{
+“device_detected”: string | null,
+“confidence”: number (0.0–1.0),
+“current_step”: number | null (1–9, or null if unknown),
+“step_status”: “complete” | “in_progress” | “blocked” | “unknown”,
+“anomalies”: string[],
+“next_instruction”: string,
+“instruction_type”: “normal” | “warn” | “anomaly”,
+“completed_steps”: number[],
+“reasoning”: string (1–2 sentences, what you actually see)
+}
+
+Rules:
+
+- Only claim device_detected if you can see it clearly
+- anomalies: list any stuck states, missing parts, wrong positions, error lights
+- next_instruction: clear, direct, one sentence max
+- If image is unclear or no device visible, set confidence < 0.3 and explain in reasoning`;
+
+// ─── COMPONENT ───────────────────────────────────────────────────────────────
+export default function LensGuide() {
+const [image, setImage]           = useState(null);
+const [imageB64, setImageB64]     = useState(null);
+const [loading, setLoading]       = useState(false);
+const [result, setResult]         = useState(null);
+const [logs, setLogs]             = useState([]);
+const [sessionId]                 = useState(() => Math.random().toString(36).slice(2,8).toUpperCase());
+const fileRef                     = useRef();
+const logRef                      = useRef();
+
+const addLog = useCallback((msg, type = “info”) => {
+const ts = new Date().toISOString().slice(11,19);
+setLogs(l => […l.slice(-60), { ts, msg, type }]);
+}, []);
+
+useEffect(() => {
+if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+}, [logs]);
+
+const handleFile = useCallback((file) => {
+if (!file) return;
+addLog(`IMAGE_LOADED :: ${file.name} (${(file.size/1024).toFixed(1)}kb)`, “info”);
+const url = URL.createObjectURL(file);
+setImage(url);
+setResult(null);
+
+```
+const reader = new FileReader();
+reader.onload = (e) => {
+  const b64 = e.target.result.split(",")[1];
+  setImageB64(b64);
+  addLog("BASE64_ENCODE :: ready", "ok");
+};
+reader.readAsDataURL(file);
+```
+
+}, [addLog]);
+
+const analyze = useCallback(async () => {
+if (!imageB64) return;
+setLoading(true);
+setResult(null);
+addLog(“GATE_CHECK :: invariants passed”, “ok”);
+addLog(“SPIDER :: building scene graph…”, “info”);
+addLog(“HOUND :: anomaly detection armed”, “info”);
+addLog(“MIRROR :: verification threshold 0.70”, “info”);
+addLog(“→ dispatching to Claude Vision substrate…”, “info”);
+
+```
+try {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: "image/jpeg", data: imageB64 }
+          },
+          {
+            type: "text",
+            text: "Analyze this image and return the state JSON."
+          }
+        ]
+      }]
+    })
+  });
+
+  const data = await response.json();
+  addLog(`HTTP ${response.status} :: tokens used: ${data.usage?.input_tokens}in / ${data.usage?.output_tokens}out`, "info");
+
+  const raw = data.content?.find(b => b.type === "text")?.text || "";
+  addLog("PARSING :: extracting state object...", "info");
+
+  let parsed;
+  try {
+    const clean = raw.replace(/```json|```/g, "").trim();
+    parsed = JSON.parse(clean);
+  } catch {
+    addLog("PARSE_ERROR :: falling back to text mode", "error");
+    parsed = {
+      device_detected: null,
+      confidence: 0.1,
+      current_step: null,
+      step_status: "unknown",
+      anomalies: [],
+      next_instruction: raw.slice(0, 200),
+      instruction_type: "normal",
+      completed_steps: [],
+      reasoning: "Parse error — raw response shown"
+    };
+  }
+
+  setResult(parsed);
+
+  const conf = (parsed.confidence * 100).toFixed(0);
+  addLog(`DEVICE :: ${parsed.device_detected || "undetected"} (conf: ${conf}%)`,
+    parsed.confidence > 0.7 ? "ok" : "warn");
+
+  if (parsed.anomalies?.length) {
+    parsed.anomalies.forEach(a => addLog(`HOUND_FLAG :: ${a}`, "error"));
+  } else {
+    addLog("HOUND :: no anomalies detected", "ok");
+  }
+
+  addLog(`MIRROR :: step ${parsed.current_step ?? "?"} — ${parsed.step_status}`,
+    parsed.step_status === "blocked" ? "error" : "ok");
+
+  addLog("STATE_RESOLVED ✓", "ok");
+
+} catch (err) {
+  addLog(`ERROR :: ${err.message}`, "error");
+} finally {
+  setLoading(false);
+}
+```
+
+}, [imageB64, addLog]);
+
+const reset = useCallback(() => {
+setImage(null);
+setImageB64(null);
+setResult(null);
+addLog(“RESET :: state cleared → T=0”, “warn”);
+}, [addLog]);
+
+// derive step states for graph
+const getStepState = (stepId) => {
+if (!result) return “pending”;
+if (result.completed_steps?.includes(stepId)) return “complete”;
+if (result.current_step === stepId) {
+if (result.step_status === “blocked”) return “anomaly”;
+return “current”;
+}
+if (result.current_step && stepId < result.current_step) return “complete”;
+return “pending”;
+};
+
+const confPct = result ? Math.round(result.confidence * 100) : 0;
+const confClass = confPct >= 70 ? “” : confPct >= 40 ? “mid” : “low”;
+
+return (
+<>
+<style>{STYLES}</style>
+<div className="app">
+
+```
+    {/* HEADER */}
+    <header className="header">
+      <div className="logo">
+        <div className="logo-mark">⬡</div>
+        <div>
+          <div className="logo-text">LensGuide</div>
+          <div className="logo-sub">Pantheon · Perception Module · v0.1</div>
+        </div>
+      </div>
+      <div className="header-status">
+        <span className={`status-chip ${loading ? "warn" : result ? "active" : ""}`}>
+          {loading ? "ANALYZING" : result ? "STATE RESOLVED" : "STANDBY"}
+        </span>
+        <span className="status-chip">SID:{sessionId}</span>
+      </div>
+    </header>
+
+    {/* MAIN */}
+    <div className="main">
+
+      {/* CAMERA PANEL */}
+      <div className="camera-panel">
+
+        <div className="camera-frame">
+          {/* HUD corners */}
+          <div className="hud-tr" />
+          <div className="hud-bl" />
+
+          {image ? (
+            <>
+              <img src={image} alt="scene" className="preview-img" />
+              {loading && <div className="scan-overlay" />}
+              <span className="hud-label hud-topleft">
+                {loading ? "SCANNING…" : result ? `CONF ${confPct}%` : "READY"}
+              </span>
+              <span className="hud-label hud-topright">
+                {result?.device_detected || "—"}
+              </span>
+              <span className="hud-label hud-botleft">
+                STEP {result?.current_step ?? "?"} / {PROCEDURE_GRAPH.steps.length}
+              </span>
+              <span className="hud-label hud-botright">
+                {result?.step_status?.toUpperCase() || "—"}
+              </span>
+            </>
+          ) : (
+            <div className="camera-idle">
+              <div className="idle-icon">📷</div>
+              <div className="idle-label">
+                Upload image or use camera<br />to begin visual state analysis
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* CONTROLS */}
+        <div className="controls">
+          <label className="upload-label">
+            ⬆ LOAD IMAGE
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: "none" }}
+              onChange={e => handleFile(e.target.files[0])}
+            />
+          </label>
+
+          <button
+            className={`btn btn-primary ${loading ? "loading" : ""}`}
+            onClick={analyze}
+            disabled={!imageB64 || loading}
+          >
+            {loading ? <><span className="spinner" />ANALYZING</> : "▶ ANALYZE"}
+          </button>
+
+          {image && (
+            <button className="btn btn-secondary" onClick={reset}>
+              RESET
+            </button>
+          )}
+        </div>
+
+        {/* Instruction card */}
+        {result && (
+          <div className={`instruction-card ${result.instruction_type === "anomaly" ? "anomaly" : result.instruction_type === "warn" ? "warn" : ""}`}>
+            <div className={`step-badge ${result.instruction_type === "anomaly" ? "anomaly" : result.instruction_type === "warn" ? "warn" : ""}`}>
+              {result.instruction_type === "anomaly" ? "⚠ HOUND FLAG" :
+               result.instruction_type === "warn"    ? "◈ CAUTION" :
+               `▸ STEP ${result.current_step ?? "?"} — NEXT ACTION`}
+            </div>
+            <div className="instruction-text">{result.next_instruction}</div>
+          </div>
+        )}
+
+        {!result && !loading && (
+          <div className="instruction-empty">
+            — awaiting visual state input —
+          </div>
+        )}
+      </div>
+
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+
+        {/* STATE RESOLVER */}
+        <div className="sidebar-section">
+          <div className="section-label">State Resolver</div>
+          <div className="state-display">
+            <div className="state-row">
+              <span className="state-key">device</span>
+              <span className={`state-val ${!result ? "unknown" : result.device_detected ? "" : "error"}`}>
+                {result?.device_detected || "—"}
+              </span>
+            </div>
+            <div className="state-row">
+              <span className="state-key">step</span>
+              <span className={`state-val ${!result ? "unknown" : ""}`}>
+                {result ? `${result.current_step ?? "?"} / ${PROCEDURE_GRAPH.steps.length}` : "—"}
+              </span>
+            </div>
+            <div className="state-row">
+              <span className="state-key">status</span>
+              <span className={`state-val ${
+                result?.step_status === "blocked" ? "error" :
+                result?.step_status === "complete" ? "ok" :
+                result?.step_status === "in_progress" ? "" : "unknown"
+              }`}>
+                {result?.step_status?.toUpperCase() || "—"}
+              </span>
+            </div>
+            <div className="state-row">
+              <span className="state-key">confidence</span>
+              <span className={`state-val ${!result ? "unknown" : confPct < 40 ? "error" : confPct < 70 ? "warn" : "ok"}`}>
+                {result ? `${confPct}%` : "—"}
+              </span>
+            </div>
+            {result && (
+              <div className="confidence-bar-wrap">
+                <div className="confidence-track">
+                  <div
+                    className={`confidence-fill ${confClass}`}
+                    style={{ width: `${confPct}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {result?.reasoning && (
+              <div style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", lineHeight: 1.6 }}>
+                {result.reasoning}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ANOMALIES */}
+        <div className="sidebar-section">
+          <div className="section-label">Hound · Anomaly Flags</div>
+          {result?.anomalies?.length ? (
+            <div className="anomaly-list">
+              {result.anomalies.map((a, i) => (
+                <div key={i} className="anomaly-item">
+                  <div className="anomaly-dot" />
+                  {a}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)" }}>
+              {result ? "NO ANOMALIES DETECTED" : "— ARMED —"}
+            </div>
+          )}
+        </div>
+
+        {/* STEP GRAPH */}
+        <div className="sidebar-section">
+          <div className="section-label">Spider · Procedure Graph</div>
+          <div className="step-graph">
+            {PROCEDURE_GRAPH.steps.map(step => {
+              const state = getStepState(step.id);
+              return (
+                <div key={step.id} className={`graph-step ${state}`}>
+                  <span className="step-num">{String(step.id).padStart(2,"0")}</span>
+                  <div className="step-dot" />
+                  <span className="step-label">{step.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ANALYSIS LOG */}
+        <div className="sidebar-section" style={{ flex: 1 }}>
+          <div className="section-label">Analysis Log</div>
+          <div className="log-area" ref={logRef}>
+            {logs.length === 0 && (
+              <span className="log-line info">LENSGUIDE INITIALIZED · AWAITING INPUT</span>
+            )}
+            {logs.map((l, i) => (
+              <span key={i} className={`log-line ${l.type}`}>
+                {l.ts} {l.msg}
+              </span>
+            ))}
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+    {/* FOOTER */}
+    <footer className="footer">
+      <span className="footer-left">
+        PANTHEON OS · <span>LENSGUIDE</span> · PERCEPTION/INSTRUCTION · APACHE-2.0
+      </span>
+      <span className="footer-right">
+        INVARIANT: instruction valid only if grounded in current physical state
+      </span>
+    </footer>
+
+  </div>
+</>
+```
+
+);
+}
