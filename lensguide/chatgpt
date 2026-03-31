@@ -1,0 +1,796 @@
+Yep — here’s a repo-ready version you can copy straight in.
+
+File tree
+
+lensguide-prototype/
+├─ index.html
+├─ styles.css
+├─ app.js
+├─ README.md
+└─ demo-nespresso.jpeg
+
+Use your existing image as demo-nespresso.jpeg.
+
+⸻
+
+index.html
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LensGuide Prototype</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>LensGuide Prototype</h1>
+      <p>Reality-aware instruction demo for fixing a Nespresso Vertuo stuck in descaling mode.</p>
+    </div>
+    <div class="header-actions">
+      <label class="upload-btn">
+        Upload your own photo
+        <input id="imageUpload" type="file" accept="image/*" />
+      </label>
+      <button id="resetImageBtn">Use bundled demo</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="viewer-card">
+      <div class="toolbar">
+        <div class="chip-group" id="stepTabs"></div>
+      </div>
+
+      <div class="viewer-wrap">
+        <div id="imageStage" class="image-stage">
+          <img id="mainImage" src="demo-nespresso.jpeg" alt="Nespresso machine" />
+          <svg id="overlaySvg" class="overlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+          <div id="countdownTag" class="countdown-tag hidden">
+            Hold: <span id="countdownValue">7</span>s
+          </div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><i class="dot target"></i> target</span>
+        <span><i class="dot action"></i> action path</span>
+        <span><i class="dot warn"></i> warning</span>
+      </div>
+    </section>
+
+    <aside class="info-card">
+      <div class="status-box">
+        <div class="eyebrow">Detected state</div>
+        <h2 id="stateTitle">Likely stuck in descaling loop</h2>
+        <p id="stateSummary">
+          The machine usually enters this loop because the descale or rinse cycle was interrupted or it never received the exit command.
+        </p>
+      </div>
+
+      <div class="panel">
+        <div class="eyebrow">Light pattern</div>
+        <div class="options" id="lightPatternOptions"></div>
+      </div>
+
+      <div class="panel">
+        <div class="eyebrow">Current step</div>
+        <h3 id="stepTitle"></h3>
+        <p id="stepDescription"></p>
+        <ol id="stepChecklist"></ol>
+      </div>
+
+      <div class="panel">
+        <div class="eyebrow">Decision tree</div>
+        <div id="decisionBox"></div>
+      </div>
+
+      <div class="panel controls">
+        <button id="prevBtn">Back</button>
+        <button id="holdBtn">Simulate 7-second hold</button>
+        <button id="nextBtn" class="primary">Next</button>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <p>
+      This is a front-end prototype, not full computer vision. The structure is ready for a model that maps visual state to a manual graph.
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
+
+⸻
+
+styles.css
+
+:root {
+  --bg: #0f1115;
+  --card: #171b22;
+  --card-2: #1f2530;
+  --text: #e8ecf3;
+  --muted: #aab4c3;
+  --line: #2b3441;
+  --accent: #7cc4ff;
+  --accent-2: #9df5c2;
+  --warn: #ffbf69;
+  --danger: #ff7d7d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #0d1014 0%, #121720 100%);
+  color: var(--text);
+}
+
+header,
+footer {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 24px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+header h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+header p,
+footer p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px 28px;
+  display: grid;
+  grid-template-columns: minmax(420px, 1.3fr) minmax(320px, 0.7fr);
+  gap: 20px;
+}
+
+.viewer-card,
+.info-card {
+  background: rgba(23, 27, 34, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.viewer-card {
+  padding: 16px;
+}
+
+.info-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip,
+.option,
+button,
+.upload-btn {
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.chip.active,
+.option.active,
+button.primary {
+  background: linear-gradient(180deg, #7cc4ff 0%, #54a5f1 100%);
+  color: #081018;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+button:hover,
+.chip:hover,
+.option:hover,
+.upload-btn:hover {
+  transform: translateY(-1px);
+}
+
+.upload-btn input {
+  display: none;
+}
+
+.viewer-wrap {
+  background: #0a0d12;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.image-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+}
+
+.image-stage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #0a0d12;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.countdown-tag {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: rgba(10, 13, 18, 0.85);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.hidden {
+  display: none;
+}
+
+.legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  border-radius: 999px;
+  margin-right: 8px;
+}
+
+.dot.target {
+  background: var(--accent);
+}
+
+.dot.action {
+  background: var(--accent-2);
+}
+
+.dot.warn {
+  background: var(--warn);
+}
+
+.status-box,
+.panel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.73rem;
+  margin-bottom: 6px;
+}
+
+.status-box h2,
+.panel h3 {
+  margin: 0 0 8px;
+}
+
+.status-box p,
+.panel p,
+.panel li,
+.decision-item {
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#stepChecklist {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.controls button {
+  flex: 1;
+}
+
+.decision-item {
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(124, 196, 255, 0.08);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.decision-item.warn {
+  border-left-color: var(--warn);
+  background: rgba(255, 191, 105, 0.08);
+}
+
+svg text {
+  font-family: inherit;
+  font-size: 3.1px;
+  fill: white;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 0.7px;
+}
+
+@media (max-width: 980px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+
+⸻
+
+app.js
+
+const graph = {
+  title: "Nespresso Vertuo descale recovery",
+  states: {
+    orange_blinking: {
+      title: "Likely stuck in descaling loop",
+      summary:
+        "The descale cycle was interrupted, the rinse was incomplete, or the machine never received the exit command.",
+      defaultStep: 0,
+    },
+    green_solid: {
+      title: "Ready",
+      summary: "The machine appears to be out of descaling mode and ready to brew.",
+      defaultStep: 2,
+    },
+    unknown: {
+      title: "Unknown light state",
+      summary:
+        "Use the closest matching light pattern. This prototype then shows the most likely recovery flow.",
+      defaultStep: 0,
+    },
+  },
+  steps: [
+    {
+      id: "exit-command",
+      chip: "Step 1",
+      title: "Send the exit command",
+      description:
+        "Open and close the head, then hold the top button for 7 seconds. On many Vertuo models this exits descaling mode immediately.",
+      checklist: [
+        "Lift the lever to open the head.",
+        "Close the head again.",
+        "Press and hold the top button for 7 seconds.",
+        "Watch for the light to stop blinking and go solid green.",
+      ],
+      overlay: [
+        { type: "target", shape: "circle", x: 60, y: 18, r: 4.2, label: "Hold this button 7s" },
+        { type: "target", shape: "rect", x: 47, y: 3, w: 19, h: 26, label: "Lift / close head" },
+        { type: "arrow", points: [54, 12, 60, 17] },
+        { type: "arrow", points: [48, 29, 51, 19] },
+      ],
+      decision: [
+        { kind: "ok", text: "If the light turns solid green, descaling mode is cleared." },
+        { kind: "warn", text: "If the light keeps blinking orange, move to the rinse completion step." },
+      ],
+    },
+    {
+      id: "rinse-cycle",
+      chip: "Step 2",
+      title: "Complete a full rinse cycle",
+      description:
+        "If the machine did not exit, it often needs a full uninterrupted water cycle before it will clear the descale flag.",
+      checklist: [
+        "Fill the water tank with clean water.",
+        "Place a container under the spout.",
+        "Start the rinse/descale flow and let it finish completely.",
+        "Do not interrupt the machine mid-cycle.",
+      ],
+      overlay: [
+        { type: "target", shape: "rect", x: 25, y: 16, w: 18, h: 43, label: "Fill tank" },
+        { type: "target", shape: "rect", x: 57, y: 57, w: 21, h: 27, label: "Place container here" },
+        { type: "arrow", points: [34, 23, 40, 28, 57, 40] },
+        { type: "arrow", points: [62, 48, 67, 57] },
+      ],
+      decision: [
+        {
+          kind: "ok",
+          text: "A full rinse often clears the machine if the prior descale sequence was interrupted.",
+        },
+        {
+          kind: "warn",
+          text: "If it still will not clear, factory reset or model-specific service steps may be needed.",
+        },
+      ],
+    },
+    {
+      id: "done",
+      chip: "Done",
+      title: "Machine should be back in normal mode",
+      description: "A solid green light usually means the machine is ready to brew again.",
+      checklist: [
+        "Insert a capsule.",
+        "Brew a test cup.",
+        "If the light returns to orange blinking, repeat the full rinse cycle once more.",
+      ],
+      overlay: [
+        { type: "target", shape: "circle", x: 60, y: 18, r: 4.2, label: "Ready light/button" },
+        { type: "target", shape: "rect", x: 60, y: 59, w: 16, h: 18, label: "Cup area" },
+      ],
+      decision: [{ kind: "ok", text: "You are back in brew-ready state." }],
+    },
+  ],
+};
+
+const mainImage = document.getElementById("mainImage");
+const overlaySvg = document.getElementById("overlaySvg");
+const stepTabs = document.getElementById("stepTabs");
+const stepTitle = document.getElementById("stepTitle");
+const stepDescription = document.getElementById("stepDescription");
+const stepChecklist = document.getElementById("stepChecklist");
+const decisionBox = document.getElementById("decisionBox");
+const stateTitle = document.getElementById("stateTitle");
+const stateSummary = document.getElementById("stateSummary");
+const lightPatternOptions = document.getElementById("lightPatternOptions");
+const countdownTag = document.getElementById("countdownTag");
+const countdownValue = document.getElementById("countdownValue");
+
+let currentStep = 0;
+let currentState = "orange_blinking";
+let countdownInterval = null;
+
+function renderStepTabs() {
+  stepTabs.innerHTML = "";
+
+  graph.steps.forEach((step, index) => {
+    const btn = document.createElement("button");
+    btn.className = `chip ${index === currentStep ? "active" : ""}`;
+    btn.textContent = step.chip;
+    btn.onclick = () => {
+      currentStep = index;
+      render();
+    };
+    stepTabs.appendChild(btn);
+  });
+}
+
+function renderLightOptions() {
+  const options = [
+    { value: "orange_blinking", label: "Orange blinking" },
+    { value: "green_solid", label: "Solid green" },
+    { value: "unknown", label: "Not sure" },
+  ];
+
+  lightPatternOptions.innerHTML = "";
+
+  options.forEach((opt) => {
+    const btn = document.createElement("button");
+    btn.className = `option ${opt.value === currentState ? "active" : ""}`;
+    btn.textContent = opt.label;
+    btn.onclick = () => {
+      currentState = opt.value;
+      currentStep = graph.states[currentState].defaultStep;
+      render();
+    };
+    lightPatternOptions.appendChild(btn);
+  });
+}
+
+function clearOverlay() {
+  overlaySvg.innerHTML = "";
+}
+
+function addLabel(x, y, textValue) {
+  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  text.setAttribute("x", x);
+  text.setAttribute("y", y);
+  text.textContent = textValue;
+  overlaySvg.appendChild(text);
+}
+
+function drawOverlay(items) {
+  clearOverlay();
+
+  items.forEach((item) => {
+    if (item.type === "target" && item.shape === "circle") {
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", item.x);
+      circle.setAttribute("cy", item.y);
+      circle.setAttribute("r", item.r);
+      circle.setAttribute("fill", "rgba(124,196,255,0.18)");
+      circle.setAttribute("stroke", "#7cc4ff");
+      circle.setAttribute("stroke-width", "0.7");
+      overlaySvg.appendChild(circle);
+      addLabel(item.x + 1.2, item.y - 5.5, item.label);
+    }
+
+    if (item.type === "target" && item.shape === "rect") {
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", item.x);
+      rect.setAttribute("y", item.y);
+      rect.setAttribute("width", item.w);
+      rect.setAttribute("height", item.h);
+      rect.setAttribute("rx", "1.5");
+      rect.setAttribute("fill", "rgba(124,196,255,0.12)");
+      rect.setAttribute("stroke", "#7cc4ff");
+      rect.setAttribute("stroke-width", "0.7");
+      overlaySvg.appendChild(rect);
+      addLabel(item.x, Math.max(item.y - 1.2, 3), item.label);
+    }
+
+    if (item.type === "arrow") {
+      const [x1, y1, x2, y2, x3, y3] = item.points;
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      let d = `M ${x1} ${y1} L ${x2} ${y2}`;
+      if (typeof x3 === "number") d += ` L ${x3} ${y3}`;
+
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#9df5c2");
+      path.setAttribute("stroke-width", "1");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      overlaySvg.appendChild(path);
+
+      const head = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      const endX = typeof x3 === "number" ? x3 : x2;
+      const endY = typeof y3 === "number" ? y3 : y2;
+      head.setAttribute(
+        "points",
+        `${endX},${endY} ${endX - 1.4},${endY - 0.6} ${endX - 0.4},${endY - 1.6}`
+      );
+      head.setAttribute("fill", "#9df5c2");
+      overlaySvg.appendChild(head);
+    }
+  });
+}
+
+function renderInfo() {
+  const state = graph.states[currentState];
+  const step = graph.steps[currentStep];
+
+  stateTitle.textContent = state.title;
+  stateSummary.textContent = state.summary;
+  stepTitle.textContent = step.title;
+  stepDescription.textContent = step.description;
+
+  stepChecklist.innerHTML = "";
+  step.checklist.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    stepChecklist.appendChild(li);
+  });
+
+  decisionBox.innerHTML = "";
+  step.decision.forEach((item) => {
+    const div = document.createElement("div");
+    div.className = `decision-item ${item.kind === "warn" ? "warn" : ""}`;
+    div.textContent = item.text;
+    decisionBox.appendChild(div);
+  });
+}
+
+function render() {
+  renderStepTabs();
+  renderLightOptions();
+  renderInfo();
+  drawOverlay(graph.steps[currentStep].overlay);
+}
+
+function beginCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
+
+  let remaining = 7;
+  countdownTag.classList.remove("hidden");
+  countdownValue.textContent = remaining;
+
+  countdownInterval = setInterval(() => {
+    remaining -= 1;
+    countdownValue.textContent = Math.max(remaining, 0);
+
+    if (remaining <= 0) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      countdownTag.classList.add("hidden");
+      currentState = "green_solid";
+      currentStep = 2;
+      render();
+    }
+  }, 1000);
+}
+
+document.getElementById("prevBtn").onclick = () => {
+  currentStep = Math.max(currentStep - 1, 0);
+  render();
+};
+
+document.getElementById("nextBtn").onclick = () => {
+  currentStep = Math.min(currentStep + 1, graph.steps.length - 1);
+  render();
+};
+
+document.getElementById("holdBtn").onclick = beginCountdown;
+
+document.getElementById("imageUpload").addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    mainImage.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("resetImageBtn").onclick = () => {
+  mainImage.src = "demo-nespresso.jpeg";
+};
+
+render();
+
+
+⸻
+
+README.md
+
+# LensGuide Prototype
+
+A small front-end prototype for the idea you described: point a camera at a device, align what the model sees with a procedural graph derived from the manual, and return step-by-step visual guidance.
+
+## What this prototype does
+
+- Uses your Nespresso photo as the bundled demo image.
+- Shows a manual graph for one concrete problem: **Vertuo stuck in descaling mode**.
+- Overlays visual callouts directly on the image.
+- Simulates a state machine:
+  - likely stuck in descaling loop
+  - send exit command
+  - complete rinse cycle
+  - return to ready state
+- Lets the user upload their own photo and reuse the same instruction layer.
+
+## What it does not do yet
+
+- No live computer vision.
+- No OCR or automatic light-state detection.
+- No retrieval over a large manual library.
+- No AR anchoring across multiple camera frames.
+
+## Why this is a good MVP
+
+It proves the core interaction loop:
+
+1. **Scene shown**
+2. **Current state selected or inferred**
+3. **Instruction graph chooses next step**
+4. **Visual overlays guide the action**
+5. **State updates**
+
+That is the heart of a reality-aware instruction system.
+
+## File layout
+
+- `index.html` — app shell
+- `styles.css` — layout and overlay styling
+- `app.js` — state machine and SVG overlay renderer
+- `demo-nespresso.jpeg` — bundled example image
+
+## How to run
+
+Open `index.html` in a browser.
+
+If your browser blocks local file access for uploads in a strict mode, run a tiny local server from this folder:
+
+```bash
+python3 -m http.server 8000
+
+Then open http://localhost:8000
+
+Natural next steps
+	1.	Replace manual step selection with a vision model.
+	2.	Add a manual_graph.json schema generated from PDFs/manuals.
+	3.	Detect buttons, levers, displays, and indicator lights automatically.
+	4.	Add confidence scoring and alternate branches.
+	5.	Move from static overlays to live video anchors.
+
+Suggested architecture for the full system
+	•	Manual ingestion: PDF/manual -> normalized steps -> graph with conditions and object anchors
+	•	Perception layer: object detection + pose + state detection
+	•	Resolver: map visual evidence to graph state
+	•	Guide layer: arrows, timers, warnings, confirmation prompts
+	•	Memory layer: persist progress and recover from interruptions
+
+---
+
+## Optional next cleanup
+If you want it a little more repo-worthy, rename it to:
+
+```text
+apps/lensguide/
+
+and later split app.js into:
+
+apps/lensguide/
+├─ index.html
+├─ styles.css
+├─ app.js
+├─ manual-graph.js
+└─ assets/
+   └─ demo-nespresso.jpeg
+
+I can also turn this into a React/Next.js version or a manual-graph JSON schema version next.
