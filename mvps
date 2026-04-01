@@ -1,0 +1,364 @@
+Best next move is to make this buildable in one pass: a tight MVP spec with user flow, core objects, and minimal API.
+
+PantheonOS MVP
+
+Product thesis
+
+PantheonOS should not start as “an operating system.”
+
+It should start as:
+
+a system that converts chat outputs into reusable Entries, lets you inspect them, and rerun them as tools
+
+That is small enough to ship and strong enough to demo.
+
+⸻
+
+1. MVP user flow
+
+Flow A: Capture
+
+User has a useful conversation, note, or prompt result.
+
+They click:
+
+Create Entry
+
+System extracts:
+	•	title
+	•	summary
+	•	type
+	•	invariant
+	•	mechanism
+	•	use cases
+	•	failure modes
+
+User edits and saves.
+
+⸻
+
+Flow B: Inspect
+
+User opens an Entry.
+
+They see:
+	•	what it is
+	•	why it matters
+	•	how it works
+	•	where it fails
+	•	what it connects to
+
+This is the Pokédex page.
+
+⸻
+
+Flow C: Reuse
+
+User clicks:
+
+Run Entry
+
+If it is a method or protocol, the system turns it into a runnable prompt scaffold.
+
+Example:
+	•	Entry = Constraint Stack
+	•	current task = “write product memo”
+	•	system injects scaffold
+	•	model runs with that structure
+
+This is where value becomes obvious.
+
+⸻
+
+Flow D: Evolve
+
+User clicks:
+
+Create Variant
+
+Example:
+	•	Constraint Stack
+	•	Sniper Loop
+	•	Commander’s Intent
+	•	Reality Tether
+
+Now the system compounds instead of repeating itself.
+
+⸻
+
+2. Core object model
+
+You only need 4 objects at first.
+
+Entry
+
+The core knowledge object.
+
+{
+  "id": "entry_001",
+  "title": "Constraint Stack",
+  "type": "method",
+  "summary": "A layered prompting method that improves output quality by narrowing the probability space.",
+  "invariant": "Better outputs emerge when objectives, constraints, and evaluation criteria are explicit.",
+  "mechanism": [
+    "Define the task",
+    "Assign a role",
+    "Add constraints",
+    "Define success criteria",
+    "Name failure modes",
+    "Specify output format"
+  ],
+  "use_cases": [
+    "writing",
+    "product strategy",
+    "analysis"
+  ],
+  "failure_modes": [
+    "too many constraints can flatten creativity",
+    "bad criteria produce polished nonsense"
+  ],
+  "status": "active",
+  "confidence": 0.84
+}
+
+Relation
+
+How Entries connect.
+
+{
+  "id": "rel_001",
+  "source_id": "entry_constraint_stack",
+  "target_id": "entry_sniper_loop",
+  "relation_type": "variant_of"
+}
+
+Run
+
+A concrete execution of an Entry against a task.
+
+{
+  "id": "run_001",
+  "entry_id": "entry_constraint_stack",
+  "input_task": "Write a positioning statement for PantheonOS",
+  "output": "PantheonOS is a coordination layer...",
+  "score": 0.78,
+  "created_at": "2026-04-01T18:00:00Z"
+}
+
+Source
+
+Where the Entry came from.
+
+{
+  "id": "src_001",
+  "entry_id": "entry_constraint_stack",
+  "source_type": "chat",
+  "source_ref": "conversation_abc_turn_12"
+}
+
+That is enough to start.
+
+⸻
+
+3. Entry types
+
+Do not allow infinite categories at first.
+
+Use just these:
+	•	concept — an idea or framing
+	•	method — a repeatable procedure
+	•	protocol — a stricter multi-step operating pattern
+	•	artifact — a concrete output/template/spec
+	•	agent — a role or subsystem
+
+That keeps the taxonomy tight.
+
+⸻
+
+4. Minimum screens
+
+You only need 3 real screens.
+
+A. Library
+
+A searchable list of Entries.
+
+Each row shows:
+	•	title
+	•	type
+	•	status
+	•	confidence
+	•	updated date
+
+B. Entry page
+
+Single Entry detail view.
+
+Sections:
+	•	Summary
+	•	Invariant
+	•	Mechanism
+	•	Use cases
+	•	Failure modes
+	•	Related Entries
+	•	Run history
+
+C. Run panel
+
+A task box plus results.
+
+Fields:
+	•	chosen Entry
+	•	current task
+	•	optional constraints
+	•	generate button
+	•	output
+	•	save as new variant
+
+That’s the MVP.
+
+⸻
+
+5. Minimal API
+
+If you were building this fast, I’d start here:
+
+Entries
+	•	POST /entries
+	•	GET /entries
+	•	GET /entries/:id
+	•	PATCH /entries/:id
+
+Relations
+	•	POST /relations
+	•	GET /entries/:id/relations
+
+Runs
+	•	POST /runs
+	•	GET /entries/:id/runs
+
+Ingestion
+	•	POST /extract-entry
+	•	input: raw conversation text
+	•	output: drafted Entry fields
+
+That last endpoint is the magic trick.
+
+⸻
+
+6. The most important prompt in the whole system
+
+This is the internal extraction prompt that turns raw chat into an Entry.
+
+Extract a reusable Pantheon Entry from the text below.
+
+Return:
+- title
+- type (concept, method, protocol, artifact, agent)
+- one-sentence summary
+- invariant
+- mechanism (ordered steps if applicable)
+- use cases
+- constraints
+- failure modes
+- confidence (0-1)
+
+Rules:
+- be concrete
+- do not preserve fluff
+- keep the strongest idea
+- separate what is structural from what is stylistic
+- if the text is not reusable, say so clearly
+
+This one prompt gives you the seed crystal for the whole system.
+
+⸻
+
+7. MVP success metric
+
+Do not measure “engagement.”
+
+Measure:
+
+reuse rate
+
+Specifically:
+	•	how many Entries get reopened
+	•	how many Entries get run again
+	•	how many new outputs come from old Entries
+	•	how many Entries spawn variants
+
+If reuse is low, you are building a graveyard.
+If reuse is high, you are building a real system.
+
+⸻
+
+8. The sharpest product line right now
+
+Here’s the strongest grounded positioning I’d use at this stage:
+
+PantheonOS turns useful AI conversations into reusable methods, protocols, and artifacts you can inspect, rerun, and improve.
+
+That is clear, real, and demoable.
+
+⸻
+
+9. What not to build yet
+
+Do not start with:
+	•	full multi-agent orchestration
+	•	giant ontology graphs
+	•	autonomous daemons everywhere
+	•	complicated permissions systems
+	•	heavy visual myth layers
+
+Those can come later.
+
+First prove:
+	1.	extraction works
+	2.	entries are useful
+	3.	reruns are better than starting from scratch
+
+⸻
+
+10. Build order
+
+Week 1:
+	•	Entry schema
+	•	Entry list page
+	•	Entry detail page
+
+Week 2:
+	•	extraction prompt + extraction endpoint
+	•	save from raw text/chat
+
+Week 3:
+	•	run panel
+	•	rerun using Entry as scaffold
+
+Week 4:
+	•	relations and variants
+	•	basic scoring / confidence refinement
+
+That is enough for a serious prototype.
+
+⸻
+
+Final recommendation
+
+If I were steering this, I would define the MVP as:
+
+PantheonOS = Entry Engine v1
+
+Not the whole empire. Just the core primitive.
+
+Because once “Entry” works, almost everything else can stack on top of it:
+	•	governance
+	•	agents
+	•	memory
+	•	translation
+	•	execution
+
+That is the foundation stone.
+
+Next, I’d write the actual Entry schema in TypeScript and the exact extraction prompt + response format so you can hand it straight to a builder.
