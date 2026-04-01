@@ -1,0 +1,582 @@
+Absolutely. Here’s a handoff-ready PantheonOS Entry Engine v1 spec.
+
+1. TypeScript schema
+
+// pantheon-entry-engine.ts
+
+export type EntryType =
+  | "concept"
+  | "method"
+  | "protocol"
+  | "artifact"
+  | "agent";
+
+export type EntryStatus =
+  | "draft"
+  | "experimental"
+  | "active"
+  | "canonical"
+  | "archived";
+
+export type RelationType =
+  | "variant_of"
+  | "builds_on"
+  | "related_to"
+  | "depends_on"
+  | "contrasts_with"
+  | "supersedes"
+  | "derived_from";
+
+export interface PantheonEntry {
+  id: string;
+  title: string;
+  type: EntryType;
+  summary: string;
+  invariant: string;
+  mechanism: string[];
+  useCases: string[];
+  constraints: string[];
+  failureModes: string[];
+  inputs: string[];
+  outputs: string[];
+  variants: string[];
+  tags: string[];
+  status: EntryStatus;
+  confidence: number; // 0.0 - 1.0
+  sourceIds: string[];
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+}
+
+export interface EntryRelation {
+  id: string;
+  sourceEntryId: string;
+  targetEntryId: string;
+  relationType: RelationType;
+  note?: string;
+  createdAt: string; // ISO 8601
+}
+
+export interface EntrySource {
+  id: string;
+  sourceType: "chat" | "document" | "manual" | "system";
+  sourceRef: string;
+  excerpt?: string;
+  createdAt: string; // ISO 8601
+}
+
+export interface EntryRun {
+  id: string;
+  entryId: string;
+  inputTask: string;
+  context?: string;
+  constraints?: string[];
+  output: string;
+  score?: number; // optional human/system rating, 0.0 - 1.0
+  createdAt: string; // ISO 8601
+}
+
+export interface ExtractEntryRequest {
+  rawText: string;
+  sourceType?: "chat" | "document" | "manual" | "system";
+  sourceRef?: string;
+}
+
+export interface ExtractEntryResponse {
+  isReusable: boolean;
+  rejectionReason?: string;
+  entry?: PantheonEntryDraft;
+}
+
+export interface PantheonEntryDraft {
+  title: string;
+  type: EntryType;
+  summary: string;
+  invariant: string;
+  mechanism: string[];
+  useCases: string[];
+  constraints: string[];
+  failureModes: string[];
+  inputs: string[];
+  outputs: string[];
+  variants: string[];
+  tags: string[];
+  confidence: number; // 0.0 - 1.0
+}
+
+2. Zod validation schema
+
+import { z } from "zod";
+
+export const EntryTypeSchema = z.enum([
+  "concept",
+  "method",
+  "protocol",
+  "artifact",
+  "agent",
+]);
+
+export const EntryStatusSchema = z.enum([
+  "draft",
+  "experimental",
+  "active",
+  "canonical",
+  "archived",
+]);
+
+export const RelationTypeSchema = z.enum([
+  "variant_of",
+  "builds_on",
+  "related_to",
+  "depends_on",
+  "contrasts_with",
+  "supersedes",
+  "derived_from",
+]);
+
+export const PantheonEntrySchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1).max(120),
+  type: EntryTypeSchema,
+  summary: z.string().min(1).max(300),
+  invariant: z.string().min(1).max(300),
+  mechanism: z.array(z.string().min(1)).max(12),
+  useCases: z.array(z.string().min(1)).max(12),
+  constraints: z.array(z.string().min(1)).max(12),
+  failureModes: z.array(z.string().min(1)).max(12),
+  inputs: z.array(z.string().min(1)).max(12),
+  outputs: z.array(z.string().min(1)).max(12),
+  variants: z.array(z.string().min(1)).max(12),
+  tags: z.array(z.string().min(1)).max(20),
+  status: EntryStatusSchema,
+  confidence: z.number().min(0).max(1),
+  sourceIds: z.array(z.string().min(1)).max(20),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const PantheonEntryDraftSchema = z.object({
+  title: z.string().min(1).max(120),
+  type: EntryTypeSchema,
+  summary: z.string().min(1).max(300),
+  invariant: z.string().min(1).max(300),
+  mechanism: z.array(z.string().min(1)).max(12),
+  useCases: z.array(z.string().min(1)).max(12),
+  constraints: z.array(z.string().min(1)).max(12),
+  failureModes: z.array(z.string().min(1)).max(12),
+  inputs: z.array(z.string().min(1)).max(12),
+  outputs: z.array(z.string().min(1)).max(12),
+  variants: z.array(z.string().min(1)).max(12),
+  tags: z.array(z.string().min(1)).max(20),
+  confidence: z.number().min(0).max(1),
+});
+
+export const ExtractEntryResponseSchema = z.object({
+  isReusable: z.boolean(),
+  rejectionReason: z.string().optional(),
+  entry: PantheonEntryDraftSchema.optional(),
+}).superRefine((val, ctx) => {
+  if (val.isReusable && !val.entry) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "entry is required when isReusable is true",
+      path: ["entry"],
+    });
+  }
+  if (!val.isReusable && !val.rejectionReason) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "rejectionReason is required when isReusable is false",
+      path: ["rejectionReason"],
+    });
+  }
+});
+
+3. Exact extraction prompt
+
+Use this as your core system prompt for /extract-entry.
+
+You extract reusable Pantheon Entries from raw text.
+
+Your job is to identify whether the text contains a reusable idea, method, protocol, artifact, or agent definition.
+
+A reusable Entry must be:
+- general enough to use again
+- specific enough to be actionable
+- structurally clear
+- not just vibes, autobiography, or decorative language
+
+Allowed entry types:
+- concept: a framing, model, or idea
+- method: a repeatable way of doing something
+- protocol: a stricter multi-step operating procedure with checks or gates
+- artifact: a concrete template, spec, object, or output format
+- agent: a defined role or subsystem with a function
+
+Return JSON only.
+
+Rules:
+- Be concrete.
+- Keep the strongest reusable core.
+- Remove fluff, mythic decoration, and repeated rhetoric.
+- Preserve useful distinctiveness.
+- Do not invent capabilities not present in the text.
+- If the text is not reusable, set isReusable=false.
+- Confidence should reflect structural clarity and reuse potential, not how “interesting” the idea sounds.
+- Keep summary and invariant to one sentence each.
+- mechanism should be ordered steps only if the source supports them.
+- useCases, constraints, failureModes, inputs, outputs, variants, and tags should be concise.
+- variants should only be included if the source implies meaningful variants.
+- tags should be short lowercase phrases.
+
+Output schema:
+{
+  "isReusable": boolean,
+  "rejectionReason": string?, 
+  "entry": {
+    "title": string,
+    "type": "concept" | "method" | "protocol" | "artifact" | "agent",
+    "summary": string,
+    "invariant": string,
+    "mechanism": string[],
+    "useCases": string[],
+    "constraints": string[],
+    "failureModes": string[],
+    "inputs": string[],
+    "outputs": string[],
+    "variants": string[],
+    "tags": string[],
+    "confidence": number
+  }?
+}
+
+4. User prompt template for extraction
+
+Extract a reusable Pantheon Entry from the following text.
+
+SOURCE TYPE: {{sourceType}}
+SOURCE REF: {{sourceRef}}
+
+RAW TEXT:
+{{rawText}}
+
+5. Example extraction output
+
+Using the “constraint stack” idea, the model should return something like:
+
+{
+  "isReusable": true,
+  "entry": {
+    "title": "Constraint Stack",
+    "type": "method",
+    "summary": "A layered prompting method that improves output quality by making objectives, constraints, and evaluation criteria explicit.",
+    "invariant": "Higher-quality outputs emerge when the model is forced into a narrower, better-evaluated solution space.",
+    "mechanism": [
+      "Define the task clearly",
+      "Assign an operating role",
+      "Add constraints",
+      "Specify success criteria",
+      "Name likely failure modes",
+      "Set the output format"
+    ],
+    "useCases": [
+      "prompt engineering",
+      "strategy writing",
+      "product thinking",
+      "analysis"
+    ],
+    "constraints": [
+      "requires a clear objective",
+      "adds upfront setup time"
+    ],
+    "failureModes": [
+      "over-constraining reduces creativity",
+      "weak criteria produce polished but shallow outputs"
+    ],
+    "inputs": [
+      "task",
+      "context",
+      "constraints",
+      "evaluation criteria"
+    ],
+    "outputs": [
+      "structured high-signal output",
+      "repeatable prompt scaffolds"
+    ],
+    "variants": [
+      "sniper loop",
+      "commander intent stack",
+      "reality tether"
+    ],
+    "tags": [
+      "prompting",
+      "quality control",
+      "structured thinking",
+      "workflow"
+    ],
+    "confidence": 0.91
+  }
+}
+
+6. Create-entry API contract
+
+POST /entries
+
+Request:
+
+{
+  "title": "Constraint Stack",
+  "type": "method",
+  "summary": "A layered prompting method that improves output quality by making objectives, constraints, and evaluation criteria explicit.",
+  "invariant": "Higher-quality outputs emerge when the model is forced into a narrower, better-evaluated solution space.",
+  "mechanism": [
+    "Define the task clearly",
+    "Assign an operating role",
+    "Add constraints",
+    "Specify success criteria",
+    "Name likely failure modes",
+    "Set the output format"
+  ],
+  "useCases": ["prompt engineering", "strategy writing"],
+  "constraints": ["requires a clear objective"],
+  "failureModes": ["over-constraining reduces creativity"],
+  "inputs": ["task", "context"],
+  "outputs": ["structured output"],
+  "variants": ["sniper loop"],
+  "tags": ["prompting", "workflow"],
+  "status": "draft",
+  "confidence": 0.91,
+  "sourceIds": ["src_001"]
+}
+
+Response:
+
+{
+  "id": "entry_001",
+  "title": "Constraint Stack",
+  "type": "method",
+  "summary": "A layered prompting method that improves output quality by making objectives, constraints, and evaluation criteria explicit.",
+  "invariant": "Higher-quality outputs emerge when the model is forced into a narrower, better-evaluated solution space.",
+  "mechanism": [
+    "Define the task clearly",
+    "Assign an operating role",
+    "Add constraints",
+    "Specify success criteria",
+    "Name likely failure modes",
+    "Set the output format"
+  ],
+  "useCases": ["prompt engineering", "strategy writing"],
+  "constraints": ["requires a clear objective"],
+  "failureModes": ["over-constraining reduces creativity"],
+  "inputs": ["task", "context"],
+  "outputs": ["structured output"],
+  "variants": ["sniper loop"],
+  "tags": ["prompting", "workflow"],
+  "status": "draft",
+  "confidence": 0.91,
+  "sourceIds": ["src_001"],
+  "createdAt": "2026-04-01T22:00:00.000Z",
+  "updatedAt": "2026-04-01T22:00:00.000Z"
+}
+
+7. Extract-entry endpoint behavior
+
+POST /extract-entry
+
+Request:
+
+{
+  "rawText": "A constraint stack is a layered prompt structure that forces the model into a narrower, higher-signal corridor...",
+  "sourceType": "chat",
+  "sourceRef": "conversation_2026_04_01_turn_18"
+}
+
+Response when reusable:
+
+{
+  "isReusable": true,
+  "entry": {
+    "title": "Constraint Stack",
+    "type": "method",
+    "summary": "A layered prompting method that improves output quality by making objectives, constraints, and evaluation criteria explicit.",
+    "invariant": "Higher-quality outputs emerge when the model is forced into a narrower, better-evaluated solution space.",
+    "mechanism": [
+      "Define the task clearly",
+      "Assign an operating role",
+      "Add constraints",
+      "Specify success criteria",
+      "Name likely failure modes",
+      "Set the output format"
+    ],
+    "useCases": [
+      "prompt engineering",
+      "strategy writing"
+    ],
+    "constraints": [
+      "requires a clear objective"
+    ],
+    "failureModes": [
+      "over-constraining reduces creativity"
+    ],
+    "inputs": [
+      "task",
+      "context"
+    ],
+    "outputs": [
+      "structured output"
+    ],
+    "variants": [
+      "sniper loop"
+    ],
+    "tags": [
+      "prompting",
+      "workflow"
+    ],
+    "confidence": 0.91
+  }
+}
+
+Response when not reusable:
+
+{
+  "isReusable": false,
+  "rejectionReason": "The text is expressive but does not define a reusable concept, method, protocol, artifact, or agent."
+}
+
+8. Run-entry prompt scaffold
+
+This is the second core primitive after extraction.
+
+You are executing a Pantheon Entry as a reusable operating scaffold.
+
+Use the Entry below to perform the user's task.
+
+ENTRY TITLE: {{title}}
+ENTRY TYPE: {{type}}
+
+SUMMARY:
+{{summary}}
+
+INVARIANT:
+{{invariant}}
+
+MECHANISM:
+{{mechanism}}
+
+USE CASES:
+{{useCases}}
+
+CONSTRAINTS:
+{{constraints}}
+
+FAILURE MODES:
+{{failureModes}}
+
+TASK:
+{{task}}
+
+OPTIONAL CONTEXT:
+{{context}}
+
+Additional rules:
+- Apply the Entry faithfully, but adapt to the current task.
+- Keep the output practical.
+- Avoid repeating the Entry unless useful.
+- If the Entry is a method or protocol, use it as the structure of reasoning.
+- If the Entry is a concept, use it as a framing lens.
+- If the Entry is an artifact, instantiate it.
+- If the Entry is an agent, adopt its function.
+
+9. Suggested DB tables
+
+For a fast MVP, use four tables.
+
+entries
+	•	id
+	•	title
+	•	type
+	•	summary
+	•	invariant
+	•	mechanism_json
+	•	use_cases_json
+	•	constraints_json
+	•	failure_modes_json
+	•	inputs_json
+	•	outputs_json
+	•	variants_json
+	•	tags_json
+	•	status
+	•	confidence
+	•	created_at
+	•	updated_at
+
+sources
+	•	id
+	•	source_type
+	•	source_ref
+	•	excerpt
+	•	created_at
+
+entry_sources
+	•	entry_id
+	•	source_id
+
+relations
+	•	id
+	•	source_entry_id
+	•	target_entry_id
+	•	relation_type
+	•	note
+	•	created_at
+
+runs
+	•	id
+	•	entry_id
+	•	input_task
+	•	context
+	•	constraints_json
+	•	output
+	•	score
+	•	created_at
+
+10. Minimal scoring rule
+
+For now, keep scoring dead simple.
+
+export interface EntryScore {
+  clarity: number;     // 0-1
+  reusePotential: number; // 0-1
+  specificity: number; // 0-1
+  actionability: number; // 0-1
+}
+
+export function computeConfidence(score: EntryScore): number {
+  const avg =
+    (score.clarity +
+      score.reusePotential +
+      score.specificity +
+      score.actionability) / 4;
+  return Number(avg.toFixed(2));
+}
+
+11. Builder note
+
+If I were handing this to a dev today, I’d say:
+
+Start with:
+	•	POST /extract-entry
+	•	POST /entries
+	•	GET /entries
+	•	GET /entries/:id
+	•	POST /runs
+
+That’s enough to prove the loop:
+conversation -> extracted entry -> saved entry -> rerun entry
+
+12. Sharp product sentence
+
+Use this for the repo or landing page right now:
+
+PantheonOS turns useful AI conversations into reusable methods, protocols, and artifacts you can inspect, rerun, and improve.
+
+If you want, next step should be the Next.js app router file structure + Prisma schema + starter endpoints.
