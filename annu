@@ -1,0 +1,121 @@
+I get what you’re hinting at—but I’m not going to help design or disguise tools for breaking into systems.
+
+What I can do is keep this powerful pattern pointed where it actually has leverage (and stays legit): defense, testing, and hardening.
+
+⸻
+
+Reframe the “ambush” as a guardrail (Anubis in practice)
+
+Anubis = orthogonal validation at transitions.
+Use it to catch drift before it becomes impact, not to create it.
+
+What this looks like in real systems
+
+1) Auth / session flows
+Transitions to guard:
+	•	login → token issuance
+	•	token → session
+	•	refresh → extended session
+	•	session → privileged action
+
+Anubis checks (examples):
+	•	Context continuity: same device posture, geo, time window?
+	•	Proportionality: does a refresh suddenly grant more scope?
+	•	Sequence: was MFA skipped or out-of-order?
+	•	Reversibility: can we revoke/kill instantly?
+
+Controls:
+	•	short-lived tokens + rotation
+	•	step-up auth on sensitive transitions
+	•	device binding / risk scoring
+	•	instant revocation hooks
+
+⸻
+
+2) Key management / signing
+Transitions to guard:
+	•	generate → store (HSM/secure enclave)
+	•	store → use (signing)
+	•	use → delegate (API/service)
+	•	rotate → revoke/recover
+
+Anubis checks:
+	•	Mechanism vs narrative: “routine rotation” actually matches rotation mechanics?
+	•	Authority jump: small request → high-impact signature?
+	•	Timing: unusual signing bursts?
+
+Controls:
+	•	HSM-backed keys (no raw key exposure)
+	•	threshold/multi-party approvals for high-impact signs
+	•	strict audit + anomaly alerts at “sign” boundary
+	•	just-in-time credentials (no long-lived power)
+
+⸻
+
+3) Data pipelines (ingest → transform → act)
+Transitions to guard:
+	•	ingest → parse
+	•	parse → transform
+	•	transform → model/decision
+	•	decision → action
+
+Anubis checks:
+	•	Meaning preservation: did schema/semantics drift?
+	•	Coherence: does output match statistical/logic expectations?
+	•	Reversibility: can we roll back bad outputs?
+
+Controls:
+	•	schema validation + contracts
+	•	data lineage + checksums
+	•	canary/holdout validation before action
+	•	circuit breakers on anomalous outputs
+
+⸻
+
+The “L-ambush” as a defensive pattern
+
+Don’t challenge along the main axis (“is it valid?”).
+Add a side-angle check:
+	•	Why now? (timing)
+	•	Why this actor/device? (context)
+	•	Why this jump in power? (proportionality)
+	•	Does the story match the mechanics? (narrative vs reality)
+
+If two of those disagree → pause, step-up verify, or isolate.
+
+⸻
+
+Minimal repo-ready spec
+
+class TransitionEvent:
+    def __init__(self, prior, actor, context, claim, mechanism, result):
+        self.prior = prior
+        self.actor = actor
+        self.context = context
+        self.claim = claim          # "what it says it's doing"
+        self.mechanism = mechanism  # "what actually happened"
+        self.result = result
+
+class Anubis:
+    def score(self, e):
+        checks = {
+            "continuity": self.context_ok(e),
+            "coherence": self.coherence_ok(e),
+            "proportionality": self.proportional(e),
+            "mechanism_vs_claim": self.matches(e),
+            "reversible": self.reversible(e),
+        }
+        failures = [k for k,v in checks.items() if not v]
+        if len(failures) >= 2:
+            return {"action": "step_up_or_block", "failures": failures}
+        return {"action": "allow_with_trace", "failures": failures}
+
+
+⸻
+
+Clean doctrine (keep this)
+
+Guard not just validity—guard the transition.
+And verify it from a side angle before trust is transferred.
+
+Use this to find and fix weak points, build better products, and run stronger audits. That’s where this pattern actually pays off.
