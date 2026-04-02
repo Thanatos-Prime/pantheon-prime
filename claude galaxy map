@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PANTHEON · GALAXY MAP</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap');
+
+:root {
+–void: #02020a;
+–deep: #060614;
+–nebula-1: #0d0a2e;
+–nebula-2: #0a1a2e;
+–pulse: #4af0ff;
+–gold: #f0c040;
+–warm: #ff7040;
+–cool: #7060ff;
+–green: #40ffa0;
+–danger: #ff4060;
+–text: #c8d8f0;
+–dim: #4a5a7a;
+–font-display: ‘Syne’, sans-serif;
+–font-mono: ‘Space Mono’, monospace;
+}
+
+- { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+background: var(–void);
+color: var(–text);
+font-family: var(–font-mono);
+overflow: hidden;
+height: 100vh;
+width: 100vw;
+cursor: crosshair;
+user-select: none;
+}
+
+#canvas {
+position: absolute;
+top: 0; left: 0;
+width: 100%; height: 100%;
+}
+
+/* HUD */
+#hud {
+position: absolute;
+top: 0; left: 0;
+width: 100%; height: 100%;
+pointer-events: none;
+z-index: 10;
+}
+
+#title-block {
+position: absolute;
+top: 24px; left: 28px;
+pointer-events: none;
+}
+
+#title-block h1 {
+font-family: var(–font-display);
+font-weight: 800;
+font-size: 11px;
+letter-spacing: 0.35em;
+color: var(–pulse);
+opacity: 0.9;
+text-transform: uppercase;
+}
+
+#title-block .sub {
+font-size: 9px;
+letter-spacing: 0.2em;
+color: var(–dim);
+margin-top: 3px;
+}
+
+#panel-right {
+position: absolute;
+top: 20px; right: 20px;
+width: 220px;
+pointer-events: all;
+}
+
+.panel {
+background: rgba(6, 6, 20, 0.85);
+border: 1px solid rgba(74, 240, 255, 0.12);
+border-radius: 4px;
+padding: 14px;
+margin-bottom: 10px;
+backdrop-filter: blur(8px);
+}
+
+.panel-label {
+font-size: 8px;
+letter-spacing: 0.3em;
+color: var(–pulse);
+text-transform: uppercase;
+margin-bottom: 10px;
+opacity: 0.7;
+}
+
+#selected-info h2 {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 16px;
+color: #fff;
+margin-bottom: 4px;
+}
+
+#selected-info .role {
+font-size: 9px;
+letter-spacing: 0.2em;
+color: var(–dim);
+margin-bottom: 12px;
+}
+
+.stat-row {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 7px;
+}
+
+.stat-label {
+font-size: 8px;
+color: var(–dim);
+letter-spacing: 0.15em;
+}
+
+.stat-bar {
+width: 80px;
+height: 3px;
+background: rgba(255,255,255,0.07);
+border-radius: 2px;
+overflow: hidden;
+}
+
+.stat-fill {
+height: 100%;
+border-radius: 2px;
+transition: width 0.4s ease;
+}
+
+.stat-val {
+font-size: 9px;
+color: var(–text);
+min-width: 28px;
+text-align: right;
+}
+
+#relation-list {
+font-size: 9px;
+color: var(–dim);
+line-height: 1.8;
+}
+
+#relation-list span {
+color: var(–text);
+}
+
+#controls-panel {
+position: absolute;
+bottom: 20px; left: 28px;
+pointer-events: all;
+}
+
+.ctrl-row {
+display: flex;
+gap: 8px;
+margin-bottom: 8px;
+}
+
+.ctrl-btn {
+background: rgba(6, 6, 20, 0.85);
+border: 1px solid rgba(74, 240, 255, 0.15);
+color: var(–text);
+font-family: var(–font-mono);
+font-size: 8px;
+letter-spacing: 0.2em;
+padding: 7px 12px;
+cursor: pointer;
+border-radius: 3px;
+text-transform: uppercase;
+transition: all 0.2s;
+backdrop-filter: blur(6px);
+pointer-events: all;
+}
+
+.ctrl-btn:hover {
+border-color: var(–pulse);
+color: var(–pulse);
+background: rgba(74, 240, 255, 0.06);
+}
+
+.ctrl-btn.active {
+border-color: var(–pulse);
+color: var(–pulse);
+background: rgba(74, 240, 255, 0.1);
+}
+
+#legend {
+position: absolute;
+bottom: 20px; right: 20px;
+pointer-events: none;
+}
+
+.legend-item {
+display: flex;
+align-items: center;
+gap: 8px;
+margin-bottom: 6px;
+font-size: 8px;
+color: var(–dim);
+letter-spacing: 0.15em;
+}
+
+.legend-dot {
+width: 8px; height: 8px;
+border-radius: 50%;
+flex-shrink: 0;
+}
+
+#ticker {
+position: absolute;
+bottom: 0; left: 0; right: 0;
+height: 28px;
+background: rgba(6, 6, 20, 0.9);
+border-top: 1px solid rgba(74, 240, 255, 0.08);
+display: flex;
+align-items: center;
+overflow: hidden;
+pointer-events: none;
+}
+
+#ticker-label {
+font-size: 8px;
+letter-spacing: 0.3em;
+color: var(–pulse);
+padding: 0 16px;
+white-space: nowrap;
+opacity: 0.6;
+flex-shrink: 0;
+}
+
+#ticker-content {
+font-size: 8px;
+color: var(–dim);
+white-space: nowrap;
+animation: ticker-scroll 40s linear infinite;
+letter-spacing: 0.1em;
+}
+
+@keyframes ticker-scroll {
+from { transform: translateX(0); }
+to { transform: translateX(-50%); }
+}
+
+#tooltip {
+position: absolute;
+pointer-events: none;
+background: rgba(6, 6, 20, 0.95);
+border: 1px solid rgba(74, 240, 255, 0.2);
+border-radius: 4px;
+padding: 8px 12px;
+font-size: 9px;
+letter-spacing: 0.1em;
+color: var(–text);
+z-index: 100;
+display: none;
+backdrop-filter: blur(10px);
+min-width: 140px;
+}
+
+#tooltip .tt-name {
+font-family: var(–font-display);
+font-weight: 700;
+font-size: 13px;
+color: #fff;
+margin-bottom: 4px;
+}
+
+#tooltip .tt-stat {
+color: var(–dim);
+margin-top: 2px;
+}
+
+#tooltip .tt-stat span {
+color: var(–pulse);
+}
+
+#add-btn {
+pointer-events: all;
+}
+
+.scan-line {
+position: absolute;
+left: 0; right: 0;
+height: 1px;
+background: linear-gradient(90deg, transparent, rgba(74,240,255,0.04), transparent);
+animation: scan 8s linear infinite;
+pointer-events: none;
+}
+
+@keyframes scan {
+from { top: 0; }
+to { top: 100%; }
+}
+</style>
+
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  <div class="scan-line"></div>
+
+  <div id="title-block">
+    <h1>Pantheon · Galaxy Map</h1>
+    <div class="sub">Digital Twin Orbital System · v0.1</div>
+  </div>
+
+  <div id="panel-right">
+    <div class="panel" id="selected-info">
+      <div class="panel-label">Selected Node</div>
+      <h2 id="sel-name">—</h2>
+      <div class="role" id="sel-role">Click a node to inspect</div>
+      <div class="stat-row">
+        <span class="stat-label">MASS</span>
+        <div class="stat-bar"><div class="stat-fill" id="bar-mass" style="width:0%;background:var(--gold)"></div></div>
+        <span class="stat-val" id="val-mass">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">VELOCITY</span>
+        <div class="stat-bar"><div class="stat-fill" id="bar-vel" style="width:0%;background:var(--pulse)"></div></div>
+        <span class="stat-val" id="val-vel">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">ALIGNMENT</span>
+        <div class="stat-bar"><div class="stat-fill" id="bar-align" style="width:0%;background:var(--green)"></div></div>
+        <span class="stat-val" id="val-align">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">ECCENTRICITY</span>
+        <div class="stat-bar"><div class="stat-fill" id="bar-ecc" style="width:0%;background:var(--warm)"></div></div>
+        <span class="stat-val" id="val-ecc">—</span>
+      </div>
+    </div>
+
+```
+<div class="panel" id="relation-panel">
+  <div class="panel-label">Orbital Relations</div>
+  <div id="relation-list">Select a node to view<br>gravitational relationships.</div>
+</div>
+```
+
+  </div>
+
+  <div id="controls-panel">
+    <div class="ctrl-row">
+      <button class="ctrl-btn active" id="btn-orbits" onclick="toggleOrbits()">Orbits</button>
+      <button class="ctrl-btn active" id="btn-links" onclick="toggleLinks()">Links</button>
+      <button class="ctrl-btn active" id="btn-trails" onclick="toggleTrails()">Trails</button>
+    </div>
+    <div class="ctrl-row">
+      <button class="ctrl-btn" id="add-btn" onclick="addNode()">+ Add Twin</button>
+      <button class="ctrl-btn" onclick="resetView()">Reset</button>
+      <button class="ctrl-btn" onclick="togglePause()">⏸ Pause</button>
+    </div>
+  </div>
+
+  <div id="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#f0c040"></div>STRATEGIST</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#4af0ff"></div>CRITIC</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7060ff"></div>EXPLORER</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff7040"></div>PROVOCATEUR</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#40ffa0"></div>OBSERVER</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff4060"></div>ADVERSARY</div>
+  </div>
+
+  <div id="ticker">
+    <div id="ticker-label">LIVE FEED ·</div>
+    <div id="ticker-content"></div>
+  </div>
+</div>
+
+<div id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-stat">ROLE: <span id="tt-role"></span></div>
+  <div class="tt-stat">MASS: <span id="tt-mass"></span></div>
+  <div class="tt-stat">ORBIT PERIOD: <span id="tt-period"></span>s</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy;
+let paused = false;
+let showOrbits = true;
+let showLinks = true;
+let showTrails = true;
+let selectedNode = null;
+let hoveredNode = null;
+let viewOffset = { x: 0, y: 0 };
+let isDragging = false;
+let dragStart = { x: 0, y: 0 };
+let viewOffsetStart = { x: 0, y: 0 };
+let zoom = 1;
+let time = 0;
+let nodeCounter = 0;
+
+const ROLES = ['STRATEGIST','CRITIC','EXPLORER','PROVOCATEUR','OBSERVER','ADVERSARY'];
+const ROLE_COLORS = {
+  STRATEGIST: '#f0c040',
+  CRITIC: '#4af0ff',
+  EXPLORER: '#7060ff',
+  PROVOCATEUR: '#ff7040',
+  OBSERVER: '#40ffa0',
+  ADVERSARY: '#ff4060'
+};
+
+const NAMES = [
+  'Athena','Hermes','Ares','Apollo','Artemis','Hephaestus',
+  'Dionysus','Demeter','Poseidon','Hades','Persephone','Iris',
+  'Eos','Helios','Selene','Nike','Tyche','Nemesis',
+  'Morpheus','Hypnos','Eros','Psyche','Aether','Chaos'
+];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+
+// ─── Node class ───────────────────────────────────────────────
+class Node {
+  constructor(orbitRadius, orbitSpeed, mass, phase, role, name) {
+    this.id = nodeCounter++;
+    this.orbitRadius = orbitRadius;
+    this.orbitSpeed = orbitSpeed;
+    this.baseSpeed = orbitSpeed;
+    this.mass = mass;
+    this.phase = phase;
+    this.role = role;
+    this.name = name;
+    this.color = ROLE_COLORS[role];
+    this.radius = 4 + mass * 8;
+    this.alignment = 0.4 + Math.random() * 0.6;
+    this.eccentricity = Math.random() * 0.6;
+    this.trail = [];
+    this.maxTrail = 80;
+    this.angle = phase;
+    this.x = 0;
+    this.y = 0;
+    this.pulsePhase = Math.random() * Math.PI * 2;
+    this.links = [];
+    this.perturbation = { x: 0, y: 0 };
+    this.perturbDecay = 0.97;
+    this.glowIntensity = 0;
+    this.selected = false;
+  }
+
+  update(dt, anchor) {
+    this.angle += this.orbitSpeed * dt;
+    const ecc = this.eccentricity;
+    const rx = this.orbitRadius * (1 + ecc);
+    const ry = this.orbitRadius * (1 - ecc * 0.5);
+
+    this.x = anchor.x + rx * Math.cos(this.angle) + this.perturbation.x;
+    this.y = anchor.y + ry * Math.sin(this.angle) + this.perturbation.y;
+
+    this.perturbation.x *= this.perturbDecay;
+    this.perturbation.y *= this.perturbDecay;
+
+    if (showTrails) {
+      this.trail.push({ x: this.x, y: this.y, t: time });
+      if (this.trail.length > this.maxTrail) this.trail.shift();
+    }
+
+    this.pulsePhase += dt * 2;
+    if (this.selected || this.id === (selectedNode?.id)) {
+      this.glowIntensity = Math.min(1, this.glowIntensity + dt * 3);
+    } else {
+      this.glowIntensity = Math.max(0, this.glowIntensity - dt * 2);
+    }
+  }
+
+  perturb(force) {
+    this.perturbation.x += (Math.random() - 0.5) * force;
+    this.perturbation.y += (Math.random() - 0.5) * force;
+  }
+
+  draw() {
+    const pulse = 0.85 + 0.15 * Math.sin(this.pulsePhase);
+    const r = this.radius * pulse;
+    const col = this.color;
+
+    // Trail
+    if (showTrails && this.trail.length > 2) {
+      ctx.beginPath();
+      for (let i = 0; i < this.trail.length; i++) {
+        const p = this.trail[i];
+        const alpha = (i / this.trail.length) * 0.35;
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = col + '55';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Glow
+    if (this.glowIntensity > 0) {
+      const grd = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r * 5);
+      grd.addColorStop(0, col + Math.floor(this.glowIntensity * 80).toString(16).padStart(2,'0'));
+      grd.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r * 5, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+    }
+
+    // Core outer glow
+    const grd2 = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r * 2.5);
+    grd2.addColorStop(0, col + 'aa');
+    grd2.addColorStop(0.5, col + '33');
+    grd2.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = grd2;
+    ctx.fill();
+
+    // Core
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+
+    // Inner bright spot
+    ctx.beginPath();
+    ctx.arc(this.x - r*0.2, this.y - r*0.2, r * 0.35, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fill();
+
+    // Name label
+    if (zoom > 0.5) {
+      ctx.font = `${Math.max(7, 8 * zoom)}px 'Space Mono'`;
+      ctx.fillStyle = col + 'cc';
+      ctx.fillText(this.name, this.x + r + 4, this.y - 3);
+    }
+  }
+}
+
+// ─── Sun (central body) ───────────────────────────────────────
+class Sun {
+  constructor(x, y, name, mass) {
+    this.x = x;
+    this.y = y;
+    this.name = name;
+    this.mass = mass;
+    this.radius = 14 + mass * 10;
+    this.color = '#fff8e0';
+    this.pulsePhase = 0;
+    this.nodes = [];
+    this.id = nodeCounter++;
+    this.role = 'ANCHOR';
+    this.alignment = 1.0;
+    this.eccentricity = 0;
+  }
+
+  update(dt) {
+    this.pulsePhase += dt;
+    this.nodes.forEach(n => n.update(dt, this));
+  }
+
+  draw() {
+    const pulse = 0.95 + 0.05 * Math.sin(this.pulsePhase);
+    const r = this.radius * pulse;
+
+    // Corona layers
+    [4, 3, 2, 1.5].forEach((mult, i) => {
+      const alpha = [0.03, 0.05, 0.08, 0.15][i];
+      const grd = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r * mult);
+      grd.addColorStop(0, `rgba(255,200,80,${alpha})`);
+      grd.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r * mult, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+    });
+
+    // Surface
+    const grd = ctx.createRadialGradient(this.x - r*0.2, this.y - r*0.2, 0, this.x, this.y, r);
+    grd.addColorStop(0, '#fffde8');
+    grd.addColorStop(0.5, '#ffd060');
+    grd.addColorStop(1, '#ff9020');
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    // Label
+    ctx.font = `bold ${10 * zoom}px 'Syne'`;
+    ctx.fillStyle = 'rgba(255,240,200,0.8)';
+    ctx.fillText(this.name, this.x - ctx.measureText(this.name).width/2, this.y + r + 16);
+
+    // Draw orbit rings
+    if (showOrbits) {
+      this.nodes.forEach(n => {
+        const rx = n.orbitRadius * (1 + n.eccentricity);
+        const ry = n.orbitRadius * (1 - n.eccentricity * 0.5);
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, rx, ry, 0, 0, Math.PI * 2);
+        const isSelected = selectedNode && selectedNode.id === n.id;
+        ctx.strokeStyle = isSelected ? n.color + '60' : 'rgba(74,90,122,0.15)';
+        ctx.lineWidth = isSelected ? 1 : 0.5;
+        ctx.setLineDash(isSelected ? [] : [4, 8]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+    }
+
+    // Draw nodes
+    this.nodes.forEach(n => n.draw());
+  }
+}
+
+// ─── Link drawing ─────────────────────────────────────────────
+function drawLinks(suns) {
+  if (!showLinks) return;
+  const allNodes = getAllNodes(suns);
+
+  allNodes.forEach(a => {
+    a.links.forEach(bid => {
+      const b = allNodes.find(n => n.id === bid);
+      if (!b) return;
+
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const maxDist = 320;
+      if (dist > maxDist) return;
+
+      const alpha = (1 - dist / maxDist) * 0.25;
+      const isHighlighted = selectedNode &&
+        (selectedNode.id === a.id || selectedNode.id === b.id);
+
+      const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      grad.addColorStop(0, a.color + (isHighlighted ? 'cc' : '44'));
+      grad.addColorStop(1, b.color + (isHighlighted ? 'cc' : '44'));
+
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+
+      // Curved link
+      const mx = (a.x + b.x) / 2 + (b.y - a.y) * 0.15;
+      const my = (a.y + b.y) / 2 - (b.x - a.x) * 0.15;
+      ctx.quadraticCurveTo(mx, my, b.x, b.y);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = isHighlighted ? 1.5 : 0.6;
+      ctx.stroke();
+
+      // Traveling dot along link
+      if (isHighlighted) {
+        const t2 = (Math.sin(time * 2) + 1) / 2;
+        const px = a.x + (b.x - a.x) * t2;
+        const py = a.y + (b.y - a.y) * t2;
+        ctx.beginPath();
+        ctx.arc(px, py, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
+    });
+  });
+}
+
+// ─── Background ───────────────────────────────────────────────
+let stars = [];
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 400; i++) {
+    stars.push({
+      x: Math.random() * 3000 - 1500,
+      y: Math.random() * 3000 - 1500,
+      r: Math.random() * 1.2,
+      alpha: 0.1 + Math.random() * 0.6,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.7
+    });
+  }
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#02020a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Nebula blobs
+  const nebulas = [
+    { x: cx + viewOffset.x * 0.05, y: cy + viewOffset.y * 0.05, r: 500, c: '13,10,46' },
+    { x: cx - 300 + viewOffset.x * 0.03, y: cy + 200 + viewOffset.y * 0.03, r: 380, c: '10,26,46' },
+    { x: cx + 400 + viewOffset.x * 0.04, y: cy - 150 + viewOffset.y * 0.04, r: 300, c: '30,10,46' },
+  ];
+  nebulas.forEach(n => {
+    const grd = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+    grd.addColorStop(0, `rgba(${n.c},0.18)`);
+    grd.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+  });
+
+  // Stars
+  ctx.save();
+  ctx.translate(cx + viewOffset.x * 0.1, cy + viewOffset.y * 0.1);
+  stars.forEach(s => {
+    const tw = Math.sin(time * s.speed + s.twinkle);
+    const alpha = s.alpha * (0.7 + 0.3 * tw);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200,220,255,${alpha})`;
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+// ─── Data ─────────────────────────────────────────────────────
+let suns = [];
+function initData() {
+  nodeCounter = 0;
+  suns = [];
+
+  const s1 = new Sun(0, 0, 'ORIGIN', 1.5);
+  s1.nodes = [
+    new Node(90, 0.45, 0.8, 0, 'STRATEGIST', 'Athena'),
+    new Node(130, 0.32, 0.6, 1.2, 'CRITIC', 'Hermes'),
+    new Node(170, 0.22, 1.0, 2.5, 'EXPLORER', 'Apollo'),
+    new Node(210, 0.17, 0.5, 0.8, 'OBSERVER', 'Iris'),
+    new Node(250, 0.12, 0.7, 3.8, 'PROVOCATEUR', 'Ares'),
+  ];
+
+  const s2 = new Sun(-420, -200, 'NEXUS', 0.9);
+  s2.nodes = [
+    new Node(70, 0.55, 0.5, 1.5, 'EXPLORER', 'Artemis'),
+    new Node(110, 0.38, 0.8, 0.4, 'CRITIC', 'Hephaestus'),
+    new Node(155, 0.25, 0.6, 2.1, 'ADVERSARY', 'Ares'),
+    new Node(195, 0.18, 0.4, 4.2, 'OBSERVER', 'Demeter'),
+  ];
+
+  const s3 = new Sun(380, -250, 'FORGE', 0.7);
+  s3.nodes = [
+    new Node(65, 0.6, 0.7, 0.9, 'STRATEGIST', 'Tyche'),
+    new Node(105, 0.4, 0.5, 2.8, 'PROVOCATEUR', 'Nemesis'),
+    new Node(145, 0.28, 0.9, 1.1, 'EXPLORER', 'Psyche'),
+  ];
+
+  const s4 = new Sun(100, 360, 'ECHO', 0.6);
+  s4.nodes = [
+    new Node(60, 0.7, 0.4, 3.0, 'CRITIC', 'Morpheus'),
+    new Node(95, 0.5, 0.6, 0.5, 'OBSERVER', 'Hypnos'),
+    new Node(135, 0.33, 0.8, 1.8, 'ADVERSARY', 'Chaos'),
+  ];
+
+  suns.push(s1, s2, s3, s4);
+
+  // Create inter-system links
+  function linkNodes(a, b) {
+    if (!a.links.includes(b.id)) a.links.push(b.id);
+    if (!b.links.includes(a.id)) b.links.push(a.id);
+  }
+
+  const all = getAllNodes(suns);
+  // Build some interesting cross links
+  const pairs = [
+    [0,5],[1,6],[2,7],[3,9],[4,10],[5,11],
+    [0,8],[6,12],[3,13],[7,14],[1,11],[2,13]
+  ];
+  pairs.forEach(([i,j]) => {
+    if (all[i] && all[j]) linkNodes(all[i], all[j]);
+  });
+}
+
+function getAllNodes(sunArr) {
+  return sunArr.flatMap(s => s.nodes);
+}
+
+// ─── Interaction ──────────────────────────────────────────────
+function getNodeAt(wx, wy) {
+  const all = getAllNodes(suns);
+  for (let n of all) {
+    if (Math.hypot(n.x - wx, n.y - wy) < n.radius + 8) return n;
+  }
+  for (let s of suns) {
+    if (Math.hypot(s.x - wx, s.y - wy) < s.radius + 8) return s;
+  }
+  return null;
+}
+
+function worldToScreen(wx, wy) {
+  return {
+    x: (wx + viewOffset.x) * zoom + W/2,
+    y: (wy + viewOffset.y) * zoom + H/2
+  };
+}
+
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx - W/2) / zoom - viewOffset.x,
+    y: (sy - H/2) / zoom - viewOffset.y
+  };
+}
+
+function selectNode(node) {
+  selectedNode = node;
+  if (!node) {
+    document.getElementById('sel-name').textContent = '—';
+    document.getElementById('sel-role').textContent = 'Click a node to inspect';
+    ['mass','vel','align','ecc'].forEach(k => {
+      document.getElementById('bar-'+k).style.width = '0%';
+      document.getElementById('val-'+k).textContent = '—';
+    });
+    document.getElementById('relation-list').innerHTML = 'Select a node<br>to view relations.';
+    return;
+  }
+
+  document.getElementById('sel-name').textContent = node.name;
+  document.getElementById('sel-role').textContent = node.role;
+
+  const mass = node.mass || 0.5;
+  const vel = node.orbitSpeed ? (node.orbitSpeed / 0.8) : 0.5;
+  const align = node.alignment || 0.5;
+  const ecc = node.eccentricity || 0;
+
+  document.getElementById('bar-mass').style.width = (mass * 100) + '%';
+  document.getElementById('val-mass').textContent = mass.toFixed(2);
+  document.getElementById('bar-vel').style.width = (vel * 100) + '%';
+  document.getElementById('val-vel').textContent = (node.orbitSpeed||0).toFixed(3);
+  document.getElementById('bar-align').style.width = (align * 100) + '%';
+  document.getElementById('val-align').textContent = align.toFixed(2);
+  document.getElementById('bar-ecc').style.width = (ecc * 100) + '%';
+  document.getElementById('val-ecc').textContent = ecc.toFixed(2);
+
+  const all = getAllNodes(suns);
+  const linked = (node.links||[]).map(id => all.find(n => n.id === id)).filter(Boolean);
+  if (linked.length === 0) {
+    document.getElementById('relation-list').innerHTML = '<span style="color:var(--dim)">No orbital links detected.</span>';
+  } else {
+    document.getElementById('relation-list').innerHTML = linked.map(n =>
+      `<div>⬡ <span style="color:${n.color}">${n.name}</span> <span style="color:var(--dim)">${n.role}</span></div>`
+    ).join('');
+  }
+}
+
+function toggleOrbits() {
+  showOrbits = !showOrbits;
+  document.getElementById('btn-orbits').classList.toggle('active', showOrbits);
+}
+function toggleLinks() {
+  showLinks = !showLinks;
+  document.getElementById('btn-links').classList.toggle('active', showLinks);
+}
+function toggleTrails() {
+  showTrails = !showTrails;
+  document.getElementById('btn-trails').classList.toggle('active', showTrails);
+  if (!showTrails) getAllNodes(suns).forEach(n => n.trail = []);
+}
+function togglePause() {
+  paused = !paused;
+  document.querySelector('[onclick="togglePause()"]').textContent = paused ? '▶ Play' : '⏸ Pause';
+}
+function resetView() {
+  viewOffset = { x: 0, y: 0 };
+  zoom = 1;
+  selectedNode = null;
+  selectNode(null);
+}
+
+function addNode() {
+  const target = suns[Math.floor(Math.random() * suns.length)];
+  const maxR = target.nodes.reduce((m, n) => Math.max(m, n.orbitRadius), 60);
+  const name = NAMES[Math.floor(Math.random() * NAMES.length)];
+  const role = ROLES[Math.floor(Math.random() * ROLES.length)];
+  const newNode = new Node(
+    maxR + 40 + Math.random() * 30,
+    0.08 + Math.random() * 0.3,
+    0.3 + Math.random() * 0.8,
+    Math.random() * Math.PI * 2,
+    role, name
+  );
+  target.nodes.push(newNode);
+
+  // Link to random existing node
+  const all = getAllNodes(suns);
+  if (all.length > 1) {
+    const partner = all[Math.floor(Math.random() * (all.length - 1))];
+    newNode.links.push(partner.id);
+    partner.links.push(newNode.id);
+  }
+
+  addTicker(`NEW TWIN SPAWNED · ${name} (${role}) → ${target.name}`);
+}
+
+// ─── Ticker ───────────────────────────────────────────────────
+const tickerEvents = [];
+function addTicker(msg) {
+  tickerEvents.push(msg);
+  buildTicker();
+}
+function buildTicker() {
+  const base = tickerEvents.slice(-12).join('   ·   ');
+  const full = base + '   ·   ' + base;
+  document.getElementById('ticker-content').textContent = full;
+}
+
+const initialEvents = [
+  'ORBITAL RESONANCE DETECTED · Athena ↔ Hermes',
+  'GRAVITY WELL EXPANDING · ORIGIN CLUSTER',
+  'TRAJECTORY SHIFT · Chaos entering elliptic phase',
+  'INVARIANT GATE PASSED · Psyche [0.82]',
+  'THOUGHT-OBJECT EXCHANGE · Iris → Morpheus',
+  'LAGRANGE POINT STABILIZED · NEXUS field',
+  'ECCENTRICITY SPIKE · Ares [0.71] — monitoring',
+  'LEDGER APPEND · ThoughtObject #2847 committed',
+  'PERTURBATION ABSORBED · Demeter recovery nominal',
+  'ALIGNMENT CONVERGENCE · Apollo + Tyche [0.88]',
+];
+initialEvents.forEach(e => tickerEvents.push(e));
+buildTicker();
+
+// ─── Mouse events ─────────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  const w = screenToWorld(e.clientX, e.clientY);
+  const hit = getNodeAt(w.x, w.y);
+  if (hit) {
+    selectNode(hit);
+    hit.perturb?.(15);
+    addTicker(`NODE SELECTED · ${hit.name} [${hit.role}]`);
+  } else {
+    isDragging = true;
+    dragStart = { x: e.clientX, y: e.clientY };
+    viewOffsetStart = { ...viewOffset };
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (isDragging) {
+    viewOffset.x = viewOffsetStart.x + (e.clientX - dragStart.x) / zoom;
+    viewOffset.y = viewOffsetStart.y + (e.clientY - dragStart.y) / zoom;
+    return;
+  }
+
+  const w = screenToWorld(e.clientX, e.clientY);
+  const hit = getNodeAt(w.x, w.y);
+  const tt = document.getElementById('tooltip');
+
+  if (hit && hit.role !== 'ANCHOR') {
+    hoveredNode = hit;
+    tt.style.display = 'block';
+    tt.style.left = (e.clientX + 14) + 'px';
+    tt.style.top = (e.clientY - 20) + 'px';
+    document.getElementById('tt-name').textContent = hit.name;
+    document.getElementById('tt-role').textContent = hit.role;
+    document.getElementById('tt-mass').textContent = hit.mass.toFixed(2);
+    document.getElementById('tt-period').textContent = hit.orbitSpeed ? (2*Math.PI/hit.orbitSpeed).toFixed(1) : '∞';
+  } else {
+    hoveredNode = null;
+    tt.style.display = 'none';
+  }
+});
+
+canvas.addEventListener('mouseup', () => { isDragging = false; });
+canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  zoom = Math.max(0.3, Math.min(3, zoom * factor));
+}, { passive: false });
+
+// ─── Main loop ────────────────────────────────────────────────
+let last = null;
+function loop(ts) {
+  if (!last) last = ts;
+  const dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+
+  if (!paused) {
+    time += dt;
+    suns.forEach(s => s.update(dt));
+
+    // Random perturbation events
+    if (Math.random() < 0.003) {
+      const all = getAllNodes(suns);
+      if (all.length) {
+        const target = all[Math.floor(Math.random() * all.length)];
+        target.perturb(12);
+        addTicker(`PERTURBATION EVENT · ${target.name} [Δv=${(8+Math.random()*10).toFixed(1)}]`);
+      }
+    }
+  }
+
+  // Draw
+  ctx.save();
+  drawBackground();
+
+  ctx.translate(W/2, H/2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(viewOffset.x, viewOffset.y);
+
+  drawLinks(suns);
+  suns.forEach(s => s.draw());
+
+  ctx.restore();
+
+  requestAnimationFrame(loop);
+}
+
+// ─── Init ─────────────────────────────────────────────────────
+window.addEventListener('resize', resize);
+resize();
+initStars();
+initData();
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
