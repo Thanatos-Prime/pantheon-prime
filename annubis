@@ -1,0 +1,312 @@
+I can help design that as a defensive interception layer at the transition surface.
+
+Not an ambush for breaking in, but an ambush for hostile drift: a protocol that waits at the boundary where state changes happen and catches anomalies before they become outcomes.
+
+Entity: Gatejackal
+
+Role: Transition-point sentinel and flanking interceptor
+Function: Sits off-axis from the main flow and watches the translation boundary rather than the payload alone. Its job is to detect when meaning, authority, or state mutates during handoff.
+
+Core idea
+
+Most systems defend the object:
+	•	the key
+	•	the message
+	•	the signature
+	•	the credential
+
+Gatejackal defends the moment of becoming:
+	•	when plaintext becomes ciphertext
+	•	when a request becomes an authorization
+	•	when a token becomes a session
+	•	when a signed intent becomes execution
+
+That is the flank.
+
+⸻
+
+Why “flank” is the right metaphor
+
+Head-on defenses look at whether the object is valid.
+
+Flanking defenses look at:
+	•	what changed right before validity
+	•	what adjacent conditions made the transition possible
+	•	whether the surrounding pattern matches the expected field
+
+So Gatejackal does not ask only:
+
+“Is this valid?”
+
+It asks:
+
+“Is this valid in the way it became valid?”
+
+That is the ambush point.
+
+⸻
+
+Protocol: NL-Ambush
+
+Here “NL” can be read as Narrative-Layer or Normalization-Layer.
+
+Its job is to catch hostile or unsafe transitions by comparing:
+	1.	Declared meaning
+	2.	Observed transformation
+	3.	Resulting authority
+
+If those three do not line up, the protocol springs.
+
+⸻
+
+NL-Ambush doctrine
+
+1. Shadow the transition
+
+Every sensitive state change gets a shadow record:
+	•	prior state
+	•	triggering event
+	•	actor/context
+	•	expected invariant
+	•	resulting state
+
+Not just “what happened,” but what it claims to mean.
+
+2. Build the side-angle model
+
+Instead of trusting the direct path, Gatejackal computes an off-axis interpretation:
+	•	What else could this transition mean?
+	•	What would this look like if spoofed?
+	•	What is the nearest hostile equivalent?
+	•	What is the least-trust explanation?
+
+This is the flank model.
+
+3. Compare narrative to mechanics
+
+If a system says:
+	•	“routine re-auth”
+	•	“harmless rewrap”
+	•	“normal key rotation”
+	•	“standard session renewal”
+
+Gatejackal checks whether the mechanics match the story.
+
+If narrative and mechanics diverge, it triggers scrutiny.
+
+4. Spring only at the hinge
+
+It does not constantly block. It waits for hinge moments:
+	•	issuance
+	•	delegation
+	•	unwrap/decrypt
+	•	sign/execute
+	•	rotate/recover
+	•	privilege escalation
+	•	cross-domain translation
+
+This keeps it quiet and high-signal.
+
+⸻
+
+Pantheon entity spec
+
+Name: Gatejackal
+Class: Hound-adjacent transition predator
+Pairing: Hound + Mirror + Spider
+Axis: Boundary integrity
+Temperament: Patient, lateral, suspicious of smooth handoffs
+
+Responsibilities
+	•	Watch transformation boundaries
+	•	Detect semantic drift during state changes
+	•	Challenge “valid but wrong-context” transitions
+	•	Force re-verification at authority hinges
+	•	Emit audit artifacts for Spider to weave
+
+Non-negotiable invariant
+
+A transition is not trusted because it completed.
+It is trusted only if its context, mechanism, and resulting authority remain aligned.
+
+⸻
+
+What it watches
+
+Data transitions
+	•	encrypt
+	•	decrypt
+	•	encode/decode
+	•	serialize/deserialize
+	•	transmit/receive
+	•	ingest/render
+
+Identity transitions
+	•	authenticate
+	•	issue token
+	•	refresh token
+	•	federation handoff
+	•	recovery/reset
+	•	role change
+
+Key/control transitions
+	•	generate
+	•	wrap/unwrap
+	•	load into memory
+	•	use for signing
+	•	rotate
+	•	revoke
+	•	recover
+
+Semantic transitions
+	•	draft → approved
+	•	request → command
+	•	intent → execution
+	•	observation → belief
+	•	recommendation → policy
+
+This last category is where Pantheon gets interesting.
+
+⸻
+
+Detection logic
+
+Gatejackal scores transitions across five checks:
+
+1. Context Continuity
+
+Does this transition happen in the expected environment, sequence, and timing?
+
+2. Meaning Preservation
+
+Did the semantic content remain stable across the handoff?
+
+3. Authority Legitimacy
+
+Did the resulting power granted match what was justified?
+
+4. Mechanism-Narrative Agreement
+
+Does the explanation match what technically happened?
+
+5. Reversibility
+
+Can this transition be safely rolled back if challenged?
+
+If any two fail, Gatejackal isolates the transition.
+
+⸻
+
+Ambush patterns
+
+Pattern A: Silent Flank
+
+No immediate block. Mark the transition, increase scrutiny on downstream steps, and wait to catch compounding drift.
+
+Use when:
+	•	confidence is moderate
+	•	false positives are costly
+	•	observing the chain yields better evidence
+
+Pattern B: Hinge Snap
+
+Pause the transition exactly at the authority handoff and require secondary proof.
+
+Use when:
+	•	privilege increases
+	•	irreversible action follows
+	•	recovery would be costly
+
+Pattern C: Mirror Corridor
+
+Replay the transition through an alternate interpretation engine and compare outputs.
+
+Use when:
+	•	data is syntactically valid
+	•	semantics may be corrupted
+	•	the system is vulnerable to “looks right” failures
+
+Pattern D: Canary Transition
+
+Inject a harmless, traceable variant into a low-risk branch to see whether the downstream system preserves invariants.
+
+Use when:
+	•	you suspect hidden transformation drift
+	•	you need mapping without disrupting production
+
+⸻
+
+OrbitOS mapping
+
+In OrbitOS terms, Gatejackal sits at a state vector hinge and watches for unauthorized force injection.
+
+A transition becomes:
+
+S(t) --operator/context--> S(t+1)
+
+Gatejackal computes:
+	•	expected operator
+	•	expected delta
+	•	expected conservation rules
+
+If the observed delta is too large, too clean, mistimed, or grants disproportionate leverage, it flags it as likely off-manifold.
+
+That is the NL ambush in dynamical language:
+catch the state jump that does not fit the field.
+
+⸻
+
+Minimal repo-ready object
+
+class TransitionEvent:
+    def __init__(self, prior_state, trigger, actor, context, expected_invariants, resulting_state):
+        self.prior_state = prior_state
+        self.trigger = trigger
+        self.actor = actor
+        self.context = context
+        self.expected_invariants = expected_invariants
+        self.resulting_state = resulting_state
+
+class Gatejackal:
+    def evaluate(self, event):
+        scores = {
+            "context_continuity": self.check_context(event),
+            "meaning_preservation": self.check_meaning(event),
+            "authority_legitimacy": self.check_authority(event),
+            "mechanism_narrative_agreement": self.check_mechanism(event),
+            "reversibility": self.check_reversibility(event),
+        }
+
+        failures = [k for k, v in scores.items() if not v]
+
+        if len(failures) >= 2:
+            return {
+                "action": "isolate_transition",
+                "failures": failures,
+                "mode": self.choose_mode(event, failures)
+            }
+
+        return {
+            "action": "allow_with_trace",
+            "failures": failures,
+            "mode": "silent_flank"
+        }
+
+
+⸻
+
+Best phrasing for the doctrine
+
+Call it:
+
+Gatejackal / NL-Ambush Protocol
+A defensive flanking protocol that intercepts hostile drift at transformation boundaries by comparing context, mechanism, meaning, and authority before trust is transferred.
+
+That gives you the “ambush” energy without making it an offensive intrusion tool.
+
+Short seal
+
+Do not guard only the thing.
+Guard the moment it becomes something else.
+
+If you want, I can turn this into a full Pantheon canon entry with doctrine, daemon relationships, failure modes, and operator commands.
