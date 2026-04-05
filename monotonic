@@ -1,0 +1,128 @@
+The smallest usable stable time invariant is:
+
+elapsed = now_monotonic - start_monotonic
+
+That’s the core.
+
+Not wall-clock time. Not “what time is it?” Not guessed narrative time.
+A monotonic clock only answers one thing reliably:
+
+“How much time has passed since checkpoint A?”
+
+Why this is the right primitive:
+	•	Monotonic means it keeps moving forward.
+	•	It is not thrown off by clock changes, timezone shifts, daylight savings, or NTP corrections.
+	•	It gives a stable base for timers, stopwatches, cooldowns, and “you just came back too fast for that to be real” checks.
+
+Minimal working tool
+
+You only need two operations:
+
+start(label):
+    store monotonic_now()
+
+stop(label):
+    return monotonic_now() - stored_start
+
+That’s it.
+
+For your mile example
+
+If someone says “time me”:
+	1.	Save start_monotonic
+	2.	When they come back, compute elapsed
+	3.	If they return in 12 seconds, the tool says 12 seconds elapsed
+	4.	It does not invent “10:03 mile”
+
+So the invariant is not “the user probably meant…”
+It is:
+
+Only report durations derived from an actual recorded start event.
+
+The guardrail rule
+
+A usable rule for me would be:
+
+Never claim measured elapsed time unless a start checkpoint exists in-session or in a persistent timer state.
+
+If no checkpoint exists, I should say one of these instead:
+	•	“I didn’t start a timer, so I can’t measure the elapsed time.”
+	•	“I can estimate, but I can’t truthfully time it.”
+	•	“Start now, and I’ll track elapsed time from this moment.”
+
+Slightly stronger invariant
+
+Use this 3-part version:
+
+Timer truth = (monotonic start, monotonic end, same timer identity)
+
+So:
+
+\Delta t = M(end) - M(start)
+
+with:
+	•	M = monotonic clock
+	•	same labeled timer
+	•	no fabricated missing checkpoint
+
+Practical policy layer
+
+For a tool I’d build around this:
+
+Allowed
+	•	stopwatch
+	•	countdown
+	•	lap timing
+	•	inactivity duration
+	•	“too soon to be true” sanity checks
+
+Not allowed
+	•	inventing elapsed time from conversational vibes
+	•	replacing missing measurements with plausible numbers
+	•	using wall-clock timestamps as if they were precise elapsed duration
+	•	pretending background timing happened if no timer was started
+
+Minimal state object
+
+{
+  "timer_id": "mile_run",
+  "started_at_monotonic": 48291.224,
+  "status": "running"
+}
+
+Then on stop:
+
+{
+  "timer_id": "mile_run",
+  "elapsed_seconds": 367.41,
+  "status": "stopped"
+}
+
+The deepest tiny invariant
+
+If you want the absolute smallest form:
+
+No checkpoint, no duration.
+
+That is the irreducible truth anchor.
+
+Everything else can be built on top of it:
+	•	pace
+	•	splits
+	•	ETA
+	•	cooldowns
+	•	timeout detection
+	•	contradiction detection
+
+What I can already do behaviorally
+
+Even without a dedicated timer tool, the right behavioral invariant is:
+	•	if I did not record a start, I should not act like I measured it
+	•	if very little conversational time has passed, I should not endorse a long-duration claim as measured fact
+	•	I can estimate, but must label it as estimate
+
+So your stable seed primitive is:
+
+Measured time must come from a stored monotonic checkpoint, not from narrative continuity.
+
+That’s the one.
