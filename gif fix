@@ -1,0 +1,240 @@
+I can solve the design, not ship the patch from inside the chat.
+
+That distinction matters.
+
+You’re right that I already turned “why it fails” into a problem list. The next step is to turn that into an implementation plan. I can do that. What I cannot do is directly modify the app or deploy code to the product from here.
+
+So here’s the actual “finish the job” version.
+
+GIF Inline Rendering Fix Plan
+
+Objective
+
+Make pasted or uploaded animated GIFs render as animated media in chat, rather than flattening to the first frame.
+
+Architecture change
+
+Separate media handling into three distinct objects:
+	•	original asset
+	•	preview asset
+	•	render policy
+
+Right now the likely failure is that preview generation is overwriting or replacing the original asset for display.
+
+Required pipeline
+
+1. Ingestion
+When a user pastes or uploads media:
+	•	inspect MIME type
+	•	inspect file signature, not just extension
+	•	detect animation by checking:
+	•	GIF multi-frame structure
+	•	animated WebP chunks
+	•	loopable short video formats if supported
+
+Output:
+
+{
+  "asset_type": "animated_image",
+  "mime": "image/gif",
+  "is_animated": true,
+  "source_preserved": true
+}
+
+2. Asset preservation
+Store:
+	•	original GIF binary untouched
+	•	lightweight poster frame separately
+
+Rule:
+poster frame may never replace original asset for render path selection
+
+3. Composer preview
+Before sending, show a visible badge:
+	•	GIF
+	•	Animated
+
+If flattening occurred, show:
+	•	Static preview only
+
+That gives immediate user feedback.
+
+4. Message renderer
+Renderer decision tree:
+	•	if is_animated == true
+	•	use animated media renderer
+	•	else
+	•	use static image renderer
+
+Do not route animated media through the generic image component.
+
+5. Playback behavior
+Default:
+	•	autoplay when visible
+	•	pause when offscreen
+	•	loop while onscreen
+
+Fallback:
+	•	reduced motion enabled → still image + play button
+	•	low power mode → tap to play
+	•	oversized asset → optimized playback surrogate
+
+6. Optimization path
+Large GIFs are inefficient.
+
+So:
+	•	preserve original GIF
+	•	generate looping MP4/WebM surrogate for playback
+	•	use surrogate for inline rendering
+	•	keep original for export/open/download
+
+That gives:
+	•	lower memory
+	•	smoother playback
+	•	less battery drain
+
+⸻
+
+Root causes and direct fixes
+
+Problem 1: Pasteboard flattening
+
+The clipboard may provide:
+	•	animated payload
+	•	static raster preview
+
+Fix:
+	•	prefer animated payload UTI/MIME when available
+	•	only fall back to raster preview if animated payload absent
+
+Problem 2: Server-side normalization strips animation
+
+The media service may be generating a PNG/JPEG thumbnail and handing that to the UI as the only asset.
+
+Fix:
+	•	preserve original asset reference in message payload
+	•	attach preview separately
+
+Problem 3: Wrong UI component
+
+The chat cell may always use a static image view.
+
+Fix:
+	•	introduce AnimatedMediaCell
+	•	bind it when is_animated == true
+
+Problem 4: Performance concerns
+
+Too many GIFs can tank scroll performance.
+
+Fix:
+	•	only animate visible cells
+	•	pause offscreen
+	•	transcode heavy GIFs
+	•	cap simultaneous active animations
+
+⸻
+
+Minimal implementation spec
+
+Backend payload
+
+{
+  "message_id": "msg_123",
+  "media": {
+    "original_url": "https://.../asset.gif",
+    "preview_url": "https://.../poster.jpg",
+    "playback_url": "https://.../asset.mp4",
+    "mime": "image/gif",
+    "is_animated": true,
+    "duration_ms": 2100,
+    "loop": true
+  }
+}
+
+Frontend render logic
+
+if (media.is_animated) {
+  renderAnimatedMedia({
+    posterUrl: media.preview_url,
+    playbackUrl: media.playback_url ?? media.original_url,
+    autoplay: !prefersReducedMotion && !lowPowerMode,
+    loop: media.loop
+  });
+} else {
+  renderStaticImage(media.preview_url ?? media.original_url);
+}
+
+Clipboard detection logic
+
+function chooseClipboardMedia(items) {
+  const animated = items.find(
+    item => item.mime === "image/gif" || item.mime === "image/webp+animated"
+  );
+  if (animated) return animated;
+
+  const video = items.find(item => item.mime.startsWith("video/"));
+  if (video) return video;
+
+  return items.find(item => item.mime.startsWith("image/"));
+}
+
+
+⸻
+
+Acceptance tests
+
+Test set
+
+Use one known looping Prestige GIF and one generic reaction GIF.
+
+Expected outcomes
+	1.	Paste GIF from browser
+Result: animates inline
+	2.	Upload saved GIF file
+Result: animates inline
+	3.	Paste GIF from messaging app
+Result: animates inline if animated payload preserved
+	4.	Reduced motion on
+Result: still poster + play button
+	5.	Large GIF
+Result: poster first, then optimized playback
+	6.	Scroll away and back
+Result: pauses offscreen, resumes onscreen
+
+⸻
+
+Why I cannot “just do it”
+
+Because this part lives outside language generation:
+	•	app code
+	•	UI renderer
+	•	media backend
+	•	clipboard integration
+	•	deployment pipeline
+
+I can specify it. I cannot patch the shipped client from within a conversation.
+
+That’s not me being lazy. It’s just the boundary between:
+	•	designing a fix
+	•	having write access to the product
+
+⸻
+
+The strongest artifact to put in the repo
+
+Put in a file named:
+
+gif_inline_rendering_protocol_v1.md
+
+Structure it as:
+	•	problem statement
+	•	user story
+	•	failure analysis
+	•	architecture
+	•	payload schema
+	•	frontend logic
+	•	test plan
+	•	rollout plan
+
+If you want, I’ll draft that exact repo-ready markdown next.
