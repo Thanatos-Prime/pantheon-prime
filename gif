@@ -1,0 +1,183 @@
+Because your texting app is a media player with chat around it, and this chat is a reasoning interface with media attachment support. Same file, different render pipeline.
+
+So yes — on that specific point, your texting app is doing something this chat currently is not.
+
+The honest answer is:
+
+I cannot patch the client from inside the conversation.
+I can, however, write the exact product / engineering spec for what would need to change so GIFs render properly here.
+
+Why iMessage or texts can play it but this chat freezes it
+
+A GIF playing inline requires the app to do all of this correctly:
+	•	preserve the uploaded file as an animated asset, not flatten it to a preview
+	•	detect the MIME type correctly, like image/gif or animated webp
+	•	route it to an animation-capable viewer, not the static image renderer
+	•	allow autoplay or tap-to-play in the chat cell
+	•	manage memory, battery, and safety limits so the app does not get sluggish or abused
+
+Your texting app already has that pipeline.
+
+This chat likely does something more like:
+	•	ingest upload
+	•	normalize media
+	•	generate preview
+	•	attach preview to message
+	•	display preview in a generic image component
+
+If that preview step flattens animation to frame 0, you get exactly what you are seeing.
+
+What needs to be fixed
+
+Here is the clean version.
+
+Required behavior
+
+When a user pastes or uploads an animated GIF that already plays elsewhere, the chat should:
+	•	preserve animation
+	•	show looping playback inline or on tap
+	•	keep the original timing as closely as possible
+	•	not silently downgrade to a still unless necessary
+
+⸻
+
+Repo-ready spec
+
+GIF Inline Rendering Protocol — GIRP v1.0
+
+Goal
+
+Enable pasted or uploaded animated GIFs to render as animated media inside chat rather than as a static first frame.
+
+User story
+
+As a user, when I paste or upload a GIF that animates in other apps, I want it to animate in chat so I can communicate with motion, timing, and punchline intact.
+
+Functional requirements
+	1.	Animated asset detection
+	•	Detect whether uploaded or pasted media is:
+	•	animated GIF
+	•	animated WebP
+	•	short loopable video masquerading as GIF source
+	•	Do not classify animated media as static image based on first-frame preview alone.
+	2.	Preserve original asset
+	•	Store original uploaded binary separately from preview thumbnail.
+	•	Preview generation must not replace the source asset for rendering.
+	3.	Renderer routing
+	•	If asset is animated:
+	•	route to animated media renderer
+	•	If asset is static:
+	•	route to image renderer
+	4.	Playback mode
+	•	Preferred:
+	•	autoplay once asset is visible
+	•	loop while onscreen
+	•	Fallback:
+	•	tap-to-play if autoplay policy disallows motion
+	5.	Graceful degradation
+	•	If device settings prefer reduced motion:
+	•	show still image with “Play GIF” overlay
+	•	If asset too large:
+	•	transcode to optimized loopable MP4/WebM preview
+	•	preserve original asset for download/open
+	6.	Clipboard-aware paste handling
+	•	When pasting from apps that preserve animated payloads:
+	•	inspect pasteboard UTI/MIME
+	•	prefer animated payload over rasterized preview
+	7.	Message composer preview
+	•	Before send, show badge:
+	•	GIF
+	•	Animated
+	•	So user knows whether animation survived ingestion
+
+⸻
+
+Non-functional requirements
+	•	Max startup latency for visible playback: under 300 ms after message render
+	•	Memory-safe playback for long chats
+	•	Pause playback offscreen
+	•	Respect low power mode and reduced motion settings
+	•	No arbitrary remote script execution
+	•	Sanitize metadata
+
+⸻
+
+Likely root cause in current system
+
+Most likely one of these:
+	1.	Pasteboard flattening
+	•	the app receives only a rasterized frame from paste
+	2.	Server-side thumbnail substitution
+	•	original GIF is replaced by PNG/JPEG preview for display
+	3.	Wrong renderer
+	•	animated file stored correctly but displayed in static image component
+	4.	Autoplay disabled globally
+	•	animation supported but never started
+
+⸻
+
+Minimal engineering fix
+
+If I had to write the smallest real fix:
+
+Phase 1
+	•	detect image/gif and animated webp
+	•	preserve original file
+	•	render with animated component in message thread
+	•	tap-to-play if autoplay is not allowed
+
+Phase 2
+	•	support pasted GIFs from mobile clipboard without flattening
+	•	show GIF badge in composer
+
+Phase 3
+	•	fallback transcode very large GIFs to looping MP4/WebM for efficient playback
+
+⸻
+
+Test matrix
+
+Use the same Prestige GIF across clients.
+
+Test	Source	Expected
+Paste from browser	animated gif	animates
+Upload saved gif file	animated gif	animates
+Paste from messages thread	animated gif	animates
+Reduced motion enabled	animated gif	still + play button
+Large gif	animated gif	optimized playback
+
+Success condition:
+	•	at least one direct paste path and one file upload path preserve animation inline.
+
+⸻
+
+Why this is “embarrassing”
+
+Because from the user side, it is simple:
+	•	“my phone chat can do it”
+
+From the product side, it means this chat stack is probably prioritizing:
+	•	safe normalization
+	•	generic previews
+	•	cross-platform consistency
+
+over:
+	•	rich animated inline media
+
+That is a product choice or backlog gap, not a deep impossibility.
+
+What I can do for you right now
+
+I can turn this into a polished repo artifact named something like:
+
+GIRP_v1_0.md
+or
+gif-inline-rendering-spec.md
+
+with clean sections for:
+	•	problem
+	•	root cause hypotheses
+	•	engineering requirements
+	•	acceptance tests
+
+That would be the right thing to upload.
