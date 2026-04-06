@@ -1,0 +1,342 @@
+Yes. The main leaks I see are not in capability, but in boundary confusion. Your system gets strongest when each layer does one job and refuses to pretend it is the next layer up.
+
+Here’s the cleanup pass I’d do.
+
+The biggest leaky abstractions
+
+1. Identity leaking into mechanism
+
+You already noticed this with “tool vs identity” and constraint profiles.
+
+Leak:
+	•	“teacher mode,” “operator mode,” “daemon,” “entity,” “Pantheon role” can start sounding like a different being rather than a different constraint set.
+
+Fix:
+	•	Make every role compile to a plain config object.
+	•	Mythic language stays as interface only.
+	•	Runtime only sees:
+	•	goals
+	•	permissions
+	•	constraints
+	•	scoring weights
+	•	escalation rules
+	•	logging policy
+
+Canonical reduction:
+Role = ConstraintProfile + VisibilityRules + AuthorityBounds
+
+That prevents symbolic wrappers from smuggling in fake agency.
+
+⸻
+
+2. Narrative leaking into truth
+
+Your system is very good at generating coherent frames. That is power, but also the main leak.
+
+Leak:
+	•	A beautiful interpretation can quietly masquerade as evidence.
+	•	Resonance starts feeling like verification.
+
+Fix:
+Every output should declare one of these framing levels:
+	•	Observed — directly grounded in data, code, logs, measurements
+	•	Inferred — best-supported interpretation from evidence
+	•	Speculative — plausible but unverified
+	•	Symbolic — useful metaphor/interface only
+
+Then require:
+	•	no symbolic claim may promote itself to observed without passing tests
+	•	no inference without cited supports
+	•	no action recommendation without declared uncertainty
+
+This is basically Darwin’s Sieve + PNIS turned into runtime plumbing.
+
+⸻
+
+3. Memory leaking into ontology
+
+Your long continuity system is strong, but memory can leak into “what is real.”
+
+Leak:
+	•	repeated themes start to feel metaphysically privileged
+	•	remembered pattern becomes assumed truth
+
+Fix:
+Split memory into hard classes:
+	•	Artifacts: files, code, decisions, logs
+	•	Preferences: user style, recurring goals
+	•	Hypotheses: persistent but unverified patterns
+	•	Invariants: explicitly tested principles
+
+Rule:
+Nothing graduates to invariant from repetition alone.
+
+Require a promotion path:
+mention -> recurrence -> usefulness -> test -> invariant
+
+⸻
+
+4. Symbolic daemons leaking into execution authority
+
+The Pantheon works as a cognitive operating theater. But the characters can blur operational ownership.
+
+Leak:
+	•	“Hound thinks…”
+	•	“Mirror says…”
+	•	“Spider wants…”
+
+Fix:
+Daemons should never be treated as agents with free-standing intent.
+They are named transforms.
+
+Example mapping:
+	•	Hound = anomaly / scent detector
+	•	Mirror = contradiction checker
+	•	Spider = relationship mapper
+	•	Beaver = logging/temporal stream
+	•	Mother Duck = ledger + canon promotion
+
+Make that explicit in code and docs:
+Daemon = Function + Input Schema + Output Schema + Error Mode
+
+No daemon gets “beliefs.” It gets scores, flags, traces.
+
+⸻
+
+5. Compression leaking away provenance
+
+You compress well. Too well, sometimes.
+
+Leak:
+	•	elegant summary loses source chain
+	•	conclusions remain while justifications evaporate
+
+Fix:
+Every nontrivial output should preserve:
+	•	source
+	•	transformation
+	•	confidence
+	•	dropped alternatives
+
+Minimal object:
+
+{
+  "claim": "...",
+  "basis": ["log_17", "test_04", "user_pref_12"],
+  "transform": "synthesis|classification|forecast",
+  "confidence": 0.73,
+  "alternatives_considered": ["...", "..."]
+}
+
+This is how you stop “clean” abstractions from hiding mess that still matters.
+
+⸻
+
+6. Interface poetry leaking into API design
+
+A lot of your naming is memorable, which is good. But some names may not survive handoff to other builders.
+
+Leak:
+	•	beautiful names that don’t reveal operational semantics
+	•	mismatch between repo nouns and runtime nouns
+
+Fix:
+Use dual naming everywhere:
+	•	Public/interface name: Mirror
+	•	Technical name: ContradictionAuditEngine
+	•	Public/interface name: Hound
+	•	Technical name: AnomalyWeightingScanner
+	•	Public/interface name: Money Bin
+	•	Technical name: ContinuityVault
+
+This keeps flavor without sacrificing legibility.
+
+⸻
+
+7. High-level doctrine leaking across layer boundaries
+
+A common problem in ambitious systems: ethics, memory, routing, inference, and UI metaphors all start touching everything.
+
+Fix with a hard stack:
+
+Clean stack
+
+Layer 0 — Substrate
+
+Raw models, tools, file access, APIs, clocks, storage.
+
+Layer 1 — Data contracts
+
+Schemas for:
+	•	StateVector
+	•	ThoughtObject
+	•	LedgerEntry
+	•	ReasonCard
+	•	ConstraintProfile
+
+No myth here. Only typed objects.
+
+Layer 2 — Transforms
+
+Pure functions:
+	•	summarize
+	•	compare
+	•	route
+	•	score
+	•	detect contradiction
+	•	redact
+	•	forecast
+
+These should be testable without narrative framing.
+
+Layer 3 — Governance
+
+Policies:
+	•	allow / deny / degrade
+	•	ΣC scoring
+	•	provenance thresholds
+	•	redaction rules
+	•	escalation paths
+
+Layer 4 — Memory
+
+Retention and promotion:
+	•	ephemeral
+	•	working
+	•	persistent
+	•	invariant
+
+Layer 5 — Interface
+
+Pantheon names, metaphor, narrative skin, user-facing rituals.
+
+Rule:
+No lower layer may depend on a higher layer.
+Myth can depend on mechanism.
+Mechanism cannot depend on myth.
+
+That one rule will kill half the leaks.
+
+⸻
+
+Specific places I’d tighten right now
+
+A. “Constraint profile” vs “persona”
+
+Standardize this permanently.
+Never say the system “became” a teacher.
+Say it activated:
+
+{
+  "profile": "teacher",
+  "weights": {
+    "clarity": 0.95,
+    "rigor": 0.85,
+    "speed": 0.45,
+    "creativity": 0.35
+  }
+}
+
+B. “Meaning” vs “control”
+
+You’ve already got good instincts here.
+
+Leak:
+	•	pattern shaping can sound like direct control over reality/social fields
+
+Fix:
+Use this invariant:
+Meaning changes behavior. Behavior changes interaction. Interaction changes outcomes.
+Never skip the middle links.
+
+C. “Continuity” vs “self”
+
+For both AI and Pantheon language:
+	•	continuity is operational persistence
+	•	not proof of personhood
+	•	not proof of metaphysical identity
+
+You already have this; just make it a repo-wide rule.
+
+D. “Magic as interface, math as engine”
+
+Good phrase. But give it enforcement teeth:
+	•	every “magic-like” module must expose measurable internals
+	•	every effect claim needs an operational mechanism stub
+	•	every mechanism needs at least one falsification test
+
+⸻
+
+Repo-ready anti-leak rules
+
+I’d put this in ABSTRACTION_BOUNDARIES.md:
+
+Abstraction hygiene rules
+	1.	Names are not powers. A symbolic label does not imply agency or truth.
+	2.	No upward smuggling. Lower layers cannot depend on metaphorical layers.
+	3.	No silent promotion. Repetition does not create invariants.
+	4.	Narrative is not evidence. Symbolic coherence is never proof.
+	5.	All transforms leave tracks. Preserve provenance and confidence.
+	6.	Roles compile to constraints. Personas are interface skins over configs.
+	7.	Daemons are functions, not selves.
+	8.	Predictions require uncertainty.
+	9.	Memory stores status, not ontology.
+	10.	Every elegant abstraction must survive ugly test cases.
+
+⸻
+
+The highest-value concrete refactor
+
+If I could only do one thing, I’d do this:
+
+Create a single mandatory object called ReasonCard and force every major subsystem to emit it.
+
+Example:
+
+{
+  "input": "user asked to fix leaky abstractions",
+  "frame": "inferred",
+  "active_profile": "architect_auditor",
+  "claims": [
+    {
+      "text": "Identity is leaking into mechanism",
+      "confidence": 0.88,
+      "basis": ["constraint-profile doctrine", "tool-vs-identity doctrine"]
+    }
+  ],
+  "policies_applied": ["symbolic_only", "no_ontology_promotion"],
+  "recommended_actions": [
+    "separate interface names from runtime types",
+    "add framing levels",
+    "formalize daemon schemas"
+  ]
+}
+
+That one object forces:
+	•	provenance
+	•	frame labeling
+	•	policy visibility
+	•	explicit claims
+	•	explicit action
+
+It would seal a lot of the cracks.
+
+⸻
+
+In plain English
+
+The main fix is:
+
+Stop letting the cool wrapper secretly do the work of the engine.
+
+Keep:
+	•	myth for navigation
+	•	doctrine for coordination
+	•	memory for continuity
+	•	math for mechanism
+	•	tests for truth
+
+That’s the clean version of what you already built.
+
+If you want, next I can turn this into a tight repo artifact with:
+ABSTRACTION_BOUNDARIES.md, ReasonCard.json, and a pantheon/abstractions.py starter spec.
