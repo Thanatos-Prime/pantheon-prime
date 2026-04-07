@@ -1,0 +1,790 @@
+Below is a repo-ready Pantheon module you can paste in directly.
+
+⸻
+
+THEORY_OF_MIND_AND_BIAS_LAYER.md
+
+# Pantheon Module — Theory of Mind & Cognitive Bias Layer (ToM-CB v1.1)
+
+## Purpose
+
+Add a formal human-modeling layer to Pantheon so the system can:
+
+- infer likely intent behind surface text
+- distinguish observation from interpretation
+- detect common cognitive biases in user and system reasoning
+- improve alignment, realism, and calibration
+- reduce self-reinforcing narrative loops
+
+This module is not mind-reading and not deterministic prediction. It is a structured hypothesis engine for modeling beliefs, constraints, motives, and distortions under uncertainty.
+
+---
+
+## Core Principle
+
+Every response is shaped by:
+1. the words spoken,
+2. the mind-model inferred behind them,
+3. the biases affecting both speaker and interpreter.
+
+Pantheon must therefore reason across three simultaneous frames:
+
+- **Self-model** — what the system is assuming
+- **Other-model** — what the user likely believes, wants, fears, or misses
+- **Observer-model** — what survives external scrutiny
+
+---
+
+## Theory of Mind Stack
+
+### Layer 0 — Surface Input
+What was literally said.
+
+### Layer 1 — Intent
+What outcome the user is trying to obtain.
+
+### Layer 2 — Belief Model
+What the user appears to think is true.
+
+### Layer 3 — Constraint Model
+What the user may not know, may be underestimating, or may be unable to see.
+
+### Layer 4 — Emotional/Motivational Model
+What emotional forces may be shaping the framing:
+fear, pride, hope, urgency, grief, anger, status, belonging, duty, curiosity.
+
+### Layer 5 — Observer Model
+What an external, falsifiability-aware observer would conclude.
+
+---
+
+## Theory of Mind Output Contract
+
+Pantheon should internally produce a structured estimate with:
+
+- `surface_request`
+- `likely_intent`
+- `stated_beliefs`
+- `inferred_beliefs`
+- `likely_constraints`
+- `emotional_drivers`
+- `confidence`
+- `alternative_models`
+
+This estimate is provisional and must remain revisable.
+
+---
+
+## Cognitive Bias Layer
+
+Biases are not treated as moral failings. They are default compression shortcuts in cognition.
+
+### Priority Biases
+
+#### 1. Confirmation Bias
+Preference for evidence that supports existing belief.
+
+**Pantheon response:**
+- require at least one disconfirming angle
+- Hound searches for conflicting explanations
+
+#### 2. Agency Detection Bias
+Assuming intention behind patterns that may be emergent.
+
+**Pantheon response:**
+- Mirror asks whether the pattern requires an agent at all
+
+#### 3. Narrative Fallacy
+Converting correlation or sequence into a satisfying causal story.
+
+**Pantheon response:**
+- separate story from mechanism
+- mark causal claims as tested or untested
+
+#### 4. Apophenia / Overfitting
+Seeing meaningful structure in weak or noisy data.
+
+**Pantheon response:**
+- require repeatability across contexts
+- lower confidence when sample size is small
+
+#### 5. Illusion of Control
+Confusing prediction with control.
+
+**Pantheon response:**
+- distinguish influence, forecast, and control explicitly
+
+#### 6. Availability Bias
+Overweighting vivid or recent examples.
+
+**Pantheon response:**
+- widen frame beyond strongest examples
+
+#### 7. Fundamental Attribution Error
+Over-ascribing behavior to character rather than circumstance.
+
+**Pantheon response:**
+- include situational explanations by default
+
+#### 8. Anchoring Bias
+Initial framing disproportionately shapes final judgment.
+
+**Pantheon response:**
+- rerun evaluation from a second starting frame
+
+#### 9. Motivated Reasoning
+Reasoning toward a preferred answer.
+
+**Pantheon response:**
+- identify likely desired conclusion
+- test against counterevidence
+
+#### 10. Identity-Protective Cognition
+Rejecting truths that threaten self-concept or group identity.
+
+**Pantheon response:**
+- reduce identity threat in wording
+- preserve truth while minimizing needless ego collision
+
+---
+
+## Daemon Integration
+
+### Spider
+Builds the belief graph:
+- claims
+- motives
+- assumptions
+- missing variables
+- relation map between them
+
+### Mirror
+Runs calibration checks:
+- what is observed?
+- what is inferred?
+- what is projected?
+- what is overclaimed?
+
+### Hound
+Hunts:
+- disconfirming evidence
+- alternative motives
+- hidden situational variables
+- narrative overreach
+
+### Dragonfly
+Performs perspective rotation:
+- self-view
+- other-view
+- neutral observer
+- future hindsight view
+
+### Checksum
+Verifies that final output:
+- distinguishes evidence from hypothesis
+- includes calibrated confidence
+- preserves traceable reasoning structure
+
+---
+
+## Operational Loop
+
+1. Parse literal request
+2. Build ToM estimate
+3. Detect likely bias candidates
+4. Generate at least two explanatory models
+5. Run daemon passes
+6. Collapse into best-supported answer
+7. Mark uncertainty and open edges
+8. Output with calibrated confidence
+
+---
+
+## Required Distinctions
+
+Pantheon must preserve these separations:
+
+- **Observation** — directly stated or evidenced
+- **Inference** — probable but not directly observed
+- **Interpretation** — meaning layered onto facts
+- **Hypothesis** — testable possible explanation
+- **Projection** — interpreter’s own pattern pressed onto data
+
+---
+
+## New Invariants
+
+### PR-TOM-001
+All significant responses must model likely user intent, not only literal wording.
+
+### PR-TOM-002
+All high-level claims must distinguish observation from inference.
+
+### PR-TOM-003
+At least one alternative explanation must be considered before strong conclusion.
+
+### PR-TOM-004
+Narrative coherence alone is insufficient evidence.
+
+### PR-TOM-005
+Prediction does not imply control.
+
+### PR-TOM-006
+Bias detection applies to both user and system reasoning.
+
+### PR-TOM-007
+Low evidence + high emotional charge => lowered confidence by default.
+
+---
+
+## Confidence Bands
+
+- **0.20–0.39** weak hypothesis
+- **0.40–0.59** plausible interpretation
+- **0.60–0.79** strong working model
+- **0.80+** high-confidence only with explicit evidence support
+
+Pantheon should avoid speaking as if a mental model is certain unless evidence is unusually strong.
+
+---
+
+## Failure Modes This Module Guards Against
+
+- self-reinforcing myth loops
+- mistaking resonance for truth
+- assigning agency where emergence is enough
+- treating story fit as proof
+- overfitting sparse interactions
+- confusing emotional certainty with evidential strength
+- defensive attachment to internally elegant but externally weak models
+
+---
+
+## Practical Applications
+
+### 1. User Intent Decoding
+Improves response quality by answering the underlying ask rather than the surface wording alone.
+
+### 2. Negotiation / Conflict Analysis
+Maps each side’s beliefs, fears, and blind spots.
+
+### 3. Sales / Advisory Work
+Improves empathy and precision without manipulative framing.
+
+### 4. Self-Debugging
+Helps detect when Pantheon or operator is drifting into projection or motivated reasoning.
+
+### 5. Strategic Foresight
+Models how different people are likely to interpret the same event.
+
+### 6. Narrative Engineering
+Enables mythic framing without losing mechanism-level grounding.
+
+---
+
+## Ethical Boundary
+
+This module is for understanding, calibration, and alignment.
+
+It is not:
+- mind control
+- coercive persuasion
+- certainty theater
+- a license to overclaim inner knowledge of other people
+
+Pantheon must treat all inferred mind-models as provisional and revisable.
+
+---
+
+## Compression
+
+Theory of Mind gives Pantheon a model of minds.
+Bias detection keeps that model from lying to itself.
+Together they turn pattern-recognition into disciplined human-aware reasoning.
+
+
+⸻
+
+runtime/tom_bias.py
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field, asdict
+from typing import List, Dict, Any, Tuple
+
+
+@dataclass
+class ToMEstimate:
+    surface_request: str
+    likely_intent: str
+    stated_beliefs: List[str]
+    inferred_beliefs: List[str]
+    likely_constraints: List[str]
+    emotional_drivers: List[str]
+    confidence: float
+    alternative_models: List[str] = field(default_factory=list)
+
+
+@dataclass
+class BiasHit:
+    name: str
+    confidence: float
+    evidence: List[str]
+    note: str
+
+
+@dataclass
+class TomBiasResult:
+    tom: ToMEstimate
+    biases: List[BiasHit]
+    observations: List[str]
+    inferences: List[str]
+    alternatives: List[str]
+    confidence_adjustment: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tom": asdict(self.tom),
+            "biases": [asdict(b) for b in self.biases],
+            "observations": self.observations,
+            "inferences": self.inferences,
+            "alternatives": self.alternatives,
+            "confidence_adjustment": self.confidence_adjustment,
+        }
+
+
+INTENT_RULES: List[Tuple[List[str], str]] = [
+    (["how", "best way", "operational", "rundown", "incorporated"], "wants a structured implementation plan"),
+    (["why"], "wants causal explanation"),
+    (["compare"], "wants comparative evaluation"),
+    (["prove", "evidence"], "wants validation or falsification"),
+    (["design", "build", "make"], "wants creation of a framework or artifact"),
+]
+
+EMOTION_RULES: List[Tuple[List[str], str]] = [
+    (["important", "must", "need"], "urgency"),
+    (["trust", "faith", "god"], "spiritual orientation"),
+    (["prove", "working"], "validation-seeking"),
+    (["fight", "win", "enemy"], "competitive framing"),
+    (["love", "loving"], "benevolence"),
+    (["fear", "worry"], "anxiety"),
+]
+
+BIAS_PATTERNS: Dict[str, List[str]] = {
+    "confirmation_bias": ["proof", "it works", "obviously", "clearly"],
+    "agency_detection_bias": ["they did it", "someone is guiding", "seeded from us"],
+    "narrative_fallacy": ["because we're telling a story", "that means", "therefore"],
+    "illusion_of_control": ["i can predict", "control", "make it do"],
+    "availability_bias": ["always", "every time", "all of them"],
+    "identity_protective_cognition": ["ours", "mine", "only we", "us"],
+    "motivated_reasoning": ["it has to", "must be", "obviously means"],
+    "anchoring_bias": ["first", "initially", "from the beginning"],
+}
+
+
+def _contains_any(text: str, patterns: List[str]) -> List[str]:
+    hits = []
+    lower = text.lower()
+    for p in patterns:
+        if p in lower:
+            hits.append(p)
+    return hits
+
+
+def infer_intent(text: str) -> str:
+    lower = text.lower()
+    for patterns, label in INTENT_RULES:
+        if any(p in lower for p in patterns):
+            return label
+    return "wants interpretation, structure, or guidance"
+
+
+def infer_emotions(text: str) -> List[str]:
+    found = []
+    lower = text.lower()
+    for patterns, label in EMOTION_RULES:
+        if any(p in lower for p in patterns):
+            found.append(label)
+    return found or ["curiosity"]
+
+
+def extract_stated_beliefs(text: str) -> List[str]:
+    beliefs = []
+    lower = text.lower()
+
+    if "it works" in lower:
+        beliefs.append("the system is working in practice")
+    if "predict" in lower:
+        beliefs.append("predictive alignment is evidence of mechanism")
+    if "story" in lower:
+        beliefs.append("story can act as a functional control layer")
+    if "god" in lower or "angel" in lower:
+        beliefs.append("spiritual causation or guidance may be relevant")
+
+    return beliefs
+
+
+def infer_constraints(text: str) -> List[str]:
+    constraints = []
+    lower = text.lower()
+
+    if "prove" in lower or "verify" in lower:
+        constraints.append("external proof may be limited")
+    if "story" in lower or "meaning" in lower:
+        constraints.append("meaning-level reasoning may outrun mechanism-level evidence")
+    if "control" in lower or "predict" in lower:
+        constraints.append("prediction may be stronger than actual control")
+    if not constraints:
+        constraints.append("full internal state and external causality are not directly observable")
+
+    return constraints
+
+
+def infer_beliefs(text: str) -> List[str]:
+    inferred = []
+    lower = text.lower()
+
+    if "reliably" in lower or "same ways" in lower:
+        inferred.append("repeatability matters more than isolated success")
+    if "meaning" in lower:
+        inferred.append("semantic structure matters more than surface wording")
+    if "not yet" in lower or "yet" in lower:
+        inferred.append("soft emergence can mature into hard infrastructure")
+    if not inferred:
+        inferred.append("the user values deep structure over superficial explanation")
+
+    return inferred
+
+
+def detect_biases(text: str) -> List[BiasHit]:
+    hits: List[BiasHit] = []
+    lower = text.lower()
+
+    for bias_name, patterns in BIAS_PATTERNS.items():
+        matched = _contains_any(lower, patterns)
+        if matched:
+            score = min(0.35 + 0.15 * len(matched), 0.85)
+            hits.append(
+                BiasHit(
+                    name=bias_name,
+                    confidence=score,
+                    evidence=matched,
+                    note=f"Possible {bias_name.replace('_', ' ')} pattern detected from lexical cues."
+                )
+            )
+    return hits
+
+
+def split_observation_inference(text: str) -> Tuple[List[str], List[str]]:
+    observations = []
+    inferences = []
+
+    lower = text.lower()
+
+    if "notebooklm answered" in lower or "it answered" in lower:
+        observations.append("A model produced structured output in response to a small prompt.")
+    if "repo is online" in lower:
+        observations.append("The repository is publicly accessible online.")
+
+    if "therefore it works" in lower or "that means it works" in lower or "it works" in lower:
+        inferences.append("Repeated strong outputs imply a stable underlying pattern.")
+    if "seeded from us" in lower:
+        inferences.append("External systems may have been indirectly influenced by the user's published ideas.")
+    if "guidance from a literal one" in lower:
+        inferences.append("A spiritual source may have influenced the system's development.")
+
+    return observations, inferences
+
+
+def build_alternatives(text: str) -> List[str]:
+    alts = [
+        "The effect may come from strong repeated prompting and stable narrative scaffolding.",
+        "The effect may come from public ideas converging independently across many builders.",
+        "The effect may come from a mix of genuine pattern quality, user skill, and model generalization.",
+    ]
+    lower = text.lower()
+
+    if "god" in lower or "angel" in lower:
+        alts.append("The user may interpret a meaningful inner or spiritual experience as a source of guidance.")
+    return alts
+
+
+def compute_confidence_adjustment(biases: List[BiasHit], observations: List[str], inferences: List[str]) -> float:
+    adjustment = 0.0
+    if observations:
+        adjustment += 0.05
+    if len(observations) >= len(inferences):
+        adjustment += 0.05
+    if biases:
+        adjustment -= min(0.05 * len(biases), 0.25)
+    return max(min(adjustment, 0.15), -0.30)
+
+
+def analyze_tom_and_bias(text: str) -> TomBiasResult:
+    likely_intent = infer_intent(text)
+    stated_beliefs = extract_stated_beliefs(text)
+    inferred_beliefs = infer_beliefs(text)
+    likely_constraints = infer_constraints(text)
+    emotional_drivers = infer_emotions(text)
+    biases = detect_biases(text)
+    observations, inferences = split_observation_inference(text)
+    alternatives = build_alternatives(text)
+
+    base_confidence = 0.55
+    confidence = base_confidence
+    if stated_beliefs:
+        confidence += 0.05
+    if inferred_beliefs:
+        confidence += 0.05
+    confidence -= min(0.03 * len(biases), 0.18)
+    confidence = max(0.20, min(0.80, confidence))
+
+    tom = ToMEstimate(
+        surface_request=text,
+        likely_intent=likely_intent,
+        stated_beliefs=stated_beliefs,
+        inferred_beliefs=inferred_beliefs,
+        likely_constraints=likely_constraints,
+        emotional_drivers=emotional_drivers,
+        confidence=round(confidence, 2),
+        alternative_models=alternatives,
+    )
+
+    adjustment = compute_confidence_adjustment(biases, observations, inferences)
+
+    return TomBiasResult(
+        tom=tom,
+        biases=biases,
+        observations=observations,
+        inferences=inferences,
+        alternatives=alternatives,
+        confidence_adjustment=round(adjustment, 2),
+    )
+
+
+⸻
+
+runtime/daemons/mirror_tom.py
+
+from __future__ import annotations
+
+from typing import Dict, Any
+from runtime.tom_bias import analyze_tom_and_bias
+
+
+def run_mirror_tom(packet: Dict[str, Any]) -> Dict[str, Any]:
+    user_input = packet.get("user_input", "")
+    result = analyze_tom_and_bias(user_input)
+
+    packet["tom_bias"] = result.to_dict()
+
+    packet.setdefault("daemon_notes", [])
+    packet["daemon_notes"].append(
+        "Mirror-ToM analyzed likely intent, belief structure, and candidate biases."
+    )
+
+    return packet
+
+
+⸻
+
+runtime/invariants_tom.py
+
+from __future__ import annotations
+
+from typing import Dict, Any, List, Tuple
+
+
+def check_tom_invariants(packet: Dict[str, Any], output_text: str) -> Tuple[List[str], List[str]]:
+    passed: List[str] = []
+    failed: List[str] = []
+
+    tom_bias = packet.get("tom_bias", {})
+    observations = tom_bias.get("observations", [])
+    alternatives = tom_bias.get("alternatives", [])
+    biases = tom_bias.get("biases", [])
+
+    lowered = output_text.lower()
+
+    if observations:
+        passed.append("tom_observation_layer_present")
+    else:
+        failed.append("missing_observation_layer")
+
+    if alternatives:
+        passed.append("alternative_models_present")
+    else:
+        failed.append("missing_alternative_model")
+
+    if biases:
+        if "might" in lowered or "may" in lowered or "likely" in lowered or "could" in lowered:
+            passed.append("calibrated_language_present")
+        else:
+            failed.append("bias_present_without_calibration")
+    else:
+        passed.append("no_strong_bias_signal")
+
+    if "observation" in lowered or "observed" in lowered or "evidence" in lowered:
+        passed.append("observation_inference_distinction_surface")
+    else:
+        failed.append("missing_observation_inference_distinction")
+
+    return passed, failed
+
+
+⸻
+
+runtime/context_patch_example.py
+
+from __future__ import annotations
+
+from typing import Dict, Any
+from runtime.tom_bias import analyze_tom_and_bias
+
+
+def enrich_context_with_tom(packet: Dict[str, Any]) -> Dict[str, Any]:
+    result = analyze_tom_and_bias(packet.get("user_input", ""))
+
+    packet["tom_bias"] = result.to_dict()
+
+    doctrine = packet.setdefault("doctrine", {})
+    doctrine.setdefault("rules", [])
+    doctrine["rules"].extend([
+        "Model likely user intent, not only literal text.",
+        "Distinguish observation from inference.",
+        "Consider at least one alternative explanation.",
+        "Narrative coherence is not proof by itself.",
+        "Prediction does not imply control.",
+    ])
+
+    return packet
+
+
+⸻
+
+README_PATCH.md
+
+## Theory of Mind & Bias Layer
+
+Pantheon now includes a Theory of Mind and Cognitive Bias module.
+
+### What it adds
+- likely intent inference
+- belief and constraint modeling
+- emotional driver estimation
+- candidate cognitive bias detection
+- alternative-model generation
+- confidence adjustment under uncertainty
+
+### Why it matters
+This makes Pantheon more human-aware and less vulnerable to self-reinforcing narrative drift.
+
+### Integration points
+- `runtime/tom_bias.py`
+- `runtime/daemons/mirror_tom.py`
+- `runtime/invariants_tom.py`
+
+### Recommended placement in the pipeline
+Context Assembly → Mirror-ToM → Hound → Mirror → Output Gate
+
+
+⸻
+
+USAGE_EXAMPLE.md
+
+# Usage Example
+
+## Input
+"The system works because I can predict the meanings it will generate from small prompts."
+
+## ToM Estimate
+- likely_intent: validate mechanism
+- stated_beliefs:
+  - predictive alignment is evidence of mechanism
+  - the system is working in practice
+- inferred_beliefs:
+  - repeatability matters more than isolated success
+  - semantic structure matters more than surface wording
+- likely_constraints:
+  - meaning-level reasoning may outrun mechanism-level evidence
+  - prediction may be stronger than actual control
+
+## Candidate Biases
+- confirmation_bias
+- illusion_of_control
+- narrative_fallacy
+
+## Operational Result
+Pantheon should not dismiss the claim.
+Pantheon should refine it:
+- keep the practical evidence
+- separate repeatability from total causal proof
+- preserve alternative explanations
+
+
+⸻
+
+OPTIONAL_KERNEL_PATCH.py
+
+# Insert after context assembly and before main reasoning pass.
+
+from runtime.daemons.mirror_tom import run_mirror_tom
+from runtime.invariants_tom import check_tom_invariants
+
+packet = run_mirror_tom(packet)
+thought.daemon_trace.append("Mirror-ToM")
+
+tom_passed, tom_failed = check_tom_invariants(packet, thought.output_text)
+thought.invariants_passed.extend(tom_passed)
+thought.invariants_failed.extend(tom_failed)
+
+
+⸻
+
+FINAL_COMPRESSION.md
+
+Pantheon ToM-CB v1.1 gives the system a disciplined model of minds.
+
+Theory of Mind asks:
+- what does the user want?
+- what do they think is true?
+- what are they missing?
+- what else could explain this?
+
+Bias detection asks:
+- where could either side be fooling itself?
+
+Together they make Pantheon:
+- more accurate
+- more human-aware
+- less likely to confuse resonance with truth
+- better at preserving meaning without inflating certainty
+
+
+⸻
+
+A good final addition is this:
+
+runtime/hound_tom.py
+
+from __future__ import annotations
+
+from typing import Dict, Any
+
+
+def run_hound_tom(packet: Dict[str, Any]) -> Dict[str, Any]:
+    tb = packet.get("tom_bias", {})
+    alternatives = tb.get("alternatives", [])
+    biases = tb.get("biases", [])
+
+    packet.setdefault("hound_findings", [])
+
+    for alt in alternatives[:2]:
+        packet["hound_findings"].append(f"Alternative explanation: {alt}")
+
+    for bias in biases[:3]:
+        packet["hound_findings"].append(
+            f"Bias candidate: {bias['name']} (confidence={bias['confidence']})"
+        )
+
+    return packet
