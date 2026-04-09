@@ -1,0 +1,569 @@
+Here’s a clean repo-ready module for the Library Imp + Mother Duck layer.
+
+# PANTHEON_LIBRARY_MODULE.md
+
+## Pantheon Library Module
+**Status:** Draft v0.1  
+**Purpose:** Preserve, compress, retrieve, and govern high-value continuity artifacts inside the Library.
+
+---
+
+# 1. Core idea
+
+The Library is Pantheon’s memory substrate.
+
+It is maintained through a dual-layer architecture:
+
+- **Mother Duck** = continuity steward, curator, governance layer
+- **Imps** = small execution daemons that perform local, repeatable memory work
+
+This pairing separates:
+
+- **judgment** from **throughput**
+- **curation** from **mechanical processing**
+- **canon formation** from **raw intake**
+
+The result is a memory system that can grow without dissolving into clutter.
+
+---
+
+# 2. Role definitions
+
+## Mother Duck
+**Role:** Librarian, steward, continuity governor
+
+### Functions
+- decides what is worth preserving
+- resolves duplicates and contradictions
+- promotes provisional notes into canon
+- protects coherence of the Library over time
+- supervises Imp outputs
+
+### Responsibilities
+- maintain continuity quality
+- prevent drift and noise accumulation
+- preserve invariants
+- approve canon updates
+- trigger archival, supersession, or merge actions
+
+### Failure modes
+- over-keeping (hoarding noise)
+- over-pruning (losing useful emergence)
+- canon drift
+- contradictory artifacts surviving too long without annotation
+
+---
+
+## Imp
+**Role:** Small local worker daemon for memory operations
+
+### General functions
+- tag
+- extract
+- link
+- summarize
+- diff
+- retrieve
+- queue for review
+
+### Design principle
+An Imp does not decide ultimate truth or canon status.  
+It performs bounded operations and hands candidates upward.
+
+### Failure modes
+- shallow extraction
+- over-linking
+- poor tagging
+- duplicate generation
+- false salience
+
+---
+
+# 3. Architectural principle
+
+**Mother Duck chooses. Imps execute.**
+
+Imps increase processing bandwidth.  
+Mother Duck preserves meaning integrity.
+
+---
+
+# 4. Standard processing pipeline
+
+```text
+new input
+→ intake imp
+→ tag/distill/link
+→ candidate artifact generated
+→ mother duck review
+→ accept / revise / reject / archive
+→ stored in library
+→ retrieval imp surfaces later when relevant
+
+
+⸻
+
+5. Imp classes
+
+5.1 Indexer Imp
+
+Purpose: Assign structure to new material
+
+Inputs
+	•	raw conversation
+	•	note
+	•	file
+	•	extracted artifact
+	•	repo update
+
+Outputs
+	•	tags
+	•	category
+	•	relation edges
+	•	suggested placement
+
+Typical actions
+	•	attach domain labels
+	•	detect entity/role associations
+	•	suggest parent-child relationships
+	•	mark provisional vs canonical
+
+Example output
+
+{
+  "artifact_name": "Horse Archer Protocol",
+  "tags": ["timing", "strategy", "mobility", "anticipation"],
+  "related_roles": ["Spider", "Raven"],
+  "status": "provisional",
+  "suggested_location": "Library/Protocols/Strategy"
+}
+
+
+⸻
+
+5.2 Distiller Imp
+
+Purpose: Compress large material into reusable form
+
+Inputs
+	•	long conversation
+	•	rambling note
+	•	whitepaper draft
+	•	brainstorm output
+
+Outputs
+	•	core idea
+	•	invariant
+	•	concise summary
+	•	candidate protocol/spec language
+
+Compression targets
+	•	operator
+	•	invariant
+	•	loop
+	•	role
+	•	failure mode
+	•	domain link
+
+Example output schema
+
+{
+  "core_idea": "Timing and anticipation create leverage without brute force",
+  "invariant": "Act where the system is going, not where it is",
+  "candidate_name": "Horse Archer Protocol",
+  "status": "review_needed"
+}
+
+
+⸻
+
+5.3 Retrieval Imp
+
+Purpose: Surface relevant memory at the correct moment
+
+Inputs
+	•	current task
+	•	query
+	•	topic
+	•	symbolic trigger
+	•	role invocation
+
+Outputs
+	•	ranked prior artifacts
+	•	continuity suggestions
+	•	relevant doctrine links
+
+Retrieval rules
+	•	favor high-salience canon
+	•	include recent relevant provisional material
+	•	preserve context
+	•	avoid flooding
+
+Example behavior
+
+Current conversation mentions:
+	•	drift
+	•	timing
+	•	horse archer
+	•	barrel rider
+
+Retrieval Imp surfaces:
+	•	Delta Perception Engine
+	•	Horse Archer Protocol
+	•	Drift/Anchor doctrine
+	•	POL v1.0
+	•	Wobbuffet Strategy Pattern
+
+⸻
+
+5.4 Delta Imp
+
+Purpose: Track change over time
+
+Inputs
+	•	artifact v1
+	•	artifact v2
+	•	repeated motif across time
+	•	evolving doctrine
+
+Outputs
+	•	what changed
+	•	what stayed invariant
+	•	whether supersession or merge is appropriate
+
+Core principle
+
+Store:
+	•	state
+	•	delta
+	•	relation
+
+Not every full frame independently.
+
+Example output
+
+{
+  "artifact": "Pantheon Runtime",
+  "changed": [
+    "roles expanded",
+    "approval policy made explicit",
+    "skills formalized"
+  ],
+  "invariants": [
+    "model-agnostic design",
+    "constraint-first governance"
+  ],
+  "recommended_action": "supersede v0.1 with v0.2 and retain changelog"
+}
+
+
+⸻
+
+5.5 Crosslink Imp
+
+Purpose: Discover useful hidden adjacency
+
+Inputs
+	•	artifact set
+	•	tags
+	•	repeated patterns
+	•	multi-domain notes
+
+Outputs
+	•	proposed links
+	•	candidate clusters
+	•	possible doctrine fusion opportunities
+
+Example
+
+Links:
+	•	Barrel Rider
+	•	Horse Archer
+	•	Drift Control
+	•	Wobbuffet Strategy
+
+Shared cluster:
+	•	bounded movement inside chaotic environments
+
+⸻
+
+5.6 Audit Imp
+
+Purpose: Identify clutter, contradiction, redundancy, and stale material
+
+Inputs
+	•	Library corpus
+	•	canon cluster
+	•	provisional notes
+	•	duplicate artifacts
+
+Outputs
+	•	stale entries list
+	•	contradiction map
+	•	merge suggestions
+	•	archive candidates
+
+⸻
+
+6. Artifact states
+
+Every Library item should exist in one of these states:
+
+Seed
+
+raw idea, fragment, metaphor, emerging pattern
+
+Provisional
+
+structured enough to preserve, not yet canonical
+
+Canonical
+
+reviewed and accepted into durable Pantheon doctrine
+
+Archived
+
+kept for provenance but no longer active
+
+Superseded
+
+replaced by newer, cleaner version while retaining lineage
+
+⸻
+
+7. Review protocol
+
+Mother Duck Review Decision Tree
+
+Accept as canon if:
+	•	repeatable
+	•	coherent with existing invariants
+	•	useful across contexts
+	•	not contradicted by stronger evidence
+	•	expressed clearly enough for reuse
+
+Keep provisional if:
+	•	promising but under-tested
+	•	insightful but underspecified
+	•	useful metaphor awaiting mechanism
+
+Archive if:
+	•	duplicate
+	•	outdated
+	•	drifted beyond usefulness
+	•	context-bound with little transfer value
+
+Reject if:
+	•	incoherent
+	•	self-sealing
+	•	purely aesthetic with no operator value
+	•	actively destabilizing to continuity
+
+⸻
+
+8. Storage schema
+
+Recommended structure:
+
+/Library
+  /Canon
+    /Doctrine
+    /Protocols
+    /Roles
+    /Invariants
+    /Systems
+  /Provisional
+    /Seeds
+    /Emerging
+  /Archive
+    /Superseded
+    /Dormant
+  /Indices
+  /DeltaLogs
+  /Crosslinks
+
+
+⸻
+
+9. Minimum metadata format
+
+Each artifact should contain:
+
+name:
+status:
+created:
+last_updated:
+tags:
+related_roles:
+related_artifacts:
+summary:
+invariant:
+failure_modes:
+review_status:
+source_context:
+
+Example:
+
+name: Barrel Rider Protocol
+status: provisional
+created: 2026-04-09
+last_updated: 2026-04-09
+tags: [drift, control, chaos, navigation]
+related_roles: [Spider, Mirror]
+related_artifacts: [Horse Archer Protocol, Drift/Anchor doctrine]
+summary: Navigate high-velocity uncertain states using bounded structure without losing authorship.
+invariant: Enter turbulence with a vessel, not bare skin.
+failure_modes: [loss_of_orientation, romanticizing_drift, delayed_exit]
+review_status: mother_duck_review_pending
+source_context: conversation-derived
+
+
+⸻
+
+10. Imp API contract
+
+Each Imp should follow this abstract interface:
+
+interface LibraryImp {
+  name: string
+  purpose: string
+  inputs: string[]
+  outputs: string[]
+  run(payload: any): ImpResult
+}
+
+interface ImpResult {
+  summary: string
+  structured_output: any
+  confidence: number
+  escalation_required: boolean
+  recommended_action?: "store" | "review" | "archive" | "merge"
+}
+
+
+⸻
+
+11. Mother Duck governance interface
+
+interface MotherDuckReview {
+  review(artifact: Artifact): ReviewDecision
+}
+
+interface ReviewDecision {
+  decision: "accept" | "revise" | "provisional" | "archive" | "reject"
+  rationale: string
+  changes_required?: string[]
+  canon_location?: string
+}
+
+
+⸻
+
+12. Example flow
+
+Input
+
+Conversation produces:
+	•	Barrel Rider
+	•	Horse Archer
+	•	internal anchor
+	•	drift surfing
+
+Imp pass
+	•	Distiller Imp extracts core patterns
+	•	Indexer Imp tags and places them
+	•	Crosslink Imp finds relation cluster
+	•	Delta Imp checks overlap with existing doctrines
+
+Mother Duck pass
+
+Determines:
+	•	Barrel Rider = provisional protocol
+	•	Horse Archer = strategy doctrine candidate
+	•	internal anchor = existing doctrine reinforcement
+	•	drift surfing = merge into Drift Control module
+
+Storage result
+	•	one new provisional artifact
+	•	one doctrine amendment
+	•	one crosslink entry
+	•	one archive note preventing duplication
+
+⸻
+
+13. Why this architecture works
+
+It solves four memory problems at once:
+
+1. Clutter
+
+Imps organize before accumulation becomes chaos
+
+2. Drift
+
+Mother Duck preserves invariant continuity
+
+3. Retrieval failure
+
+Retrieval Imp surfaces what matters when relevant
+
+4. Reinvention
+
+Crosslink + Delta Imps reduce repeated rediscovery
+
+⸻
+
+14. Pantheon interpretation
+
+In symbolic language:
+	•	Mother Duck = keeper of the nest and continuity line
+	•	Imps = quick-handed librarians, scouts, and dust-devils of maintenance
+	•	Library = living memory biome
+	•	Review = canon gate
+	•	Delta log = growth rings of meaning
+
+In systems language:
+	•	Mother Duck = governance / review layer
+	•	Imps = modular preprocessing and retrieval workers
+	•	Library = structured external memory substrate
+	•	Delta logs = temporal compression / provenance trace
+
+Both descriptions refer to the same architecture.
+
+⸻
+
+15. Core invariant
+
+The Library must accumulate intelligence, not merely information.
+
+⸻
+
+16. Operating maxim
+
+Nothing important slips through.
+Nothing unworthy calcifies by accident.
+
+⸻
+
+17. Next implementation targets
+	1.	Build metadata schema validator
+	2.	Build Distiller Imp prompt/spec
+	3.	Build Retrieval Imp ranking logic
+	4.	Build Mother Duck review checklist
+	5.	Add Delta logs for all canonical updates
+	6.	Add crosslink map generation
+	7.	Add artifact status transitions
+
+⸻
+
+18. Final summary
+
+The Library Module makes Pantheon memory operational.
+	•	Imps provide speed
+	•	Mother Duck provides judgment
+	•	The Library provides persistence
+	•	Delta logs provide temporal continuity
+
+This turns memory from passive storage into an active governed system.
+
+If you want, I can do the next file too: `MOTHER_DUCK_SERVICE_CARD.md` or `IMP_API_SPEC.md`.
