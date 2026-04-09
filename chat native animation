@@ -1,0 +1,463 @@
+# Chat-Native Animation Interface Spec
+
+## Name
+Pantheon Motion Window (PMW) v0.1
+
+## Purpose
+A chat-native animation system that lets a user interact with motion-capable visual entities through a normal conversational interface, while keeping the heavy visual projection separate from the compact internal representation.
+
+This is **not** an internal modification to the assistant model. It is an external orchestration layer that:
+1. stores compact scene state,
+2. stores rendering logic separately,
+3. generates still frames or short motion clips on demand,
+4. returns them into the chat as images/GIFs/video snippets,
+5. preserves continuity of characters, expressions, and scene state across turns.
+
+---
+
+## Core principle
+**Store heart, not exhaust.**
+
+Do not store every frame as the canonical memory object.
+Store instead:
+- source visual references,
+- entity state,
+- motion grammar,
+- render recipe,
+- scene deltas.
+
+Then re-render projection as needed.
+
+Compact representation:
+
+```text
+State = Base Assets + Identity Anchors + Scene Graph + Motion Program + Delta History
+```
+
+Rendered output is a projection of that state, not the memory itself.
+
+---
+
+## Product behavior
+The user can type messages like:
+- "Make her do a slow shocked double-take"
+- "Replay that with a smug pause before the reveal"
+- "Keep the pose but change the emotion from surprise to contempt"
+- "Turn this still into a 2-second GIF with a breath, blink, and micro-smirk"
+- "Use the same character continuity as the last turn"
+
+The system responds in-chat with:
+- a generated GIF,
+- a short clip,
+- or a preview frame set,
+- while preserving continuity.
+
+---
+
+## Functional goals
+
+### 1. Chat-native control
+The user never has to leave the chat to operate the motion system.
+All control comes through natural language plus optional parameter panels.
+
+### 2. Compact persistence
+Persistent memory should store a compact scene package, not raw frame dumps.
+
+### 3. Re-renderability
+Every output should be reproducible from saved state.
+
+### 4. Continuity
+Characters, style, costume, camera angle, and emotional identity should persist unless explicitly changed.
+
+### 5. Multi-resolution output
+The same stored animation logic should support:
+- thumbnail preview,
+- GIF,
+- HD clip,
+- frame sheet,
+- restyled rerender.
+
+---
+
+## Architecture overview
+
+```text
+User Chat
+  -> Intent Parser
+  -> Scene/Emotion/Motion Planner
+  -> Continuity Ledger
+  -> Animation Program Builder
+  -> Render Orchestrator
+      -> Frame Source Backend
+      -> Interpolator / Motion Synthesizer
+      -> Exporter (GIF / MP4 / spritesheet)
+  -> Chat Response
+```
+
+### Main modules
+
+#### 1. Intent Parser
+Converts free text into structured animation instructions.
+
+Outputs:
+- subject(s)
+- emotion(s)
+- motion verbs
+- timing cues
+- camera cues
+- continuity references
+- output format
+
+Example:
+
+```json
+{
+  "subjects": ["woman_01"],
+  "emotion": "shocked_amusement",
+  "motion": ["double_take", "hand_raise", "mouth_open"],
+  "timing": {"duration_sec": 2.2, "tempo": "snappy"},
+  "continuity_ref": "scene_prev",
+  "output": "gif"
+}
+```
+
+#### 2. Continuity Ledger
+Stores compact persistent state for reusable visual entities and scenes.
+
+Tracks:
+- identity anchors
+- wardrobe anchors
+- face/hair anchors
+- style anchors
+- pose priors
+- emotion priors
+- camera priors
+- asset references
+- last known scene graph
+
+#### 3. Animation Program Builder
+Converts parsed intent into a compact motion program.
+
+This is the key abstraction.
+It does not store raw frames. It stores an animation recipe.
+
+Example:
+
+```json
+{
+  "program_id": "prog_1042",
+  "beats": [
+    {"t": 0.0, "pose": "neutral", "face": "alert"},
+    {"t": 0.4, "pose": "head_snap_left", "face": "shock"},
+    {"t": 1.1, "pose": "hold", "face": "mouth_open_laugh"},
+    {"t": 1.8, "pose": "recover", "face": "smirk"}
+  ],
+  "micro_motion": ["blink", "breath", "shoulder_settle"],
+  "loop": true,
+  "camera": "medium_close"
+}
+```
+
+#### 4. Frame Source Backend
+Responsible for producing keyframes.
+Can be implemented with:
+- uploaded images,
+- template rigs,
+- diffusion/image model backend,
+- pose-to-image backend,
+- video model backend,
+- hand-authored art.
+
+The spec deliberately separates this from the animation program so the backend can change later.
+
+#### 5. Interpolator / Motion Synthesizer
+Builds in-between motion using one or more methods:
+- frame interpolation,
+- pose interpolation,
+- optical flow,
+- latent interpolation,
+- skeletal animation,
+- layered 2.5D transforms.
+
+#### 6. Exporter
+Outputs:
+- GIF
+- MP4
+- WebP animation
+- sprite sheet
+- contact sheet
+
+---
+
+## Canonical data model
+
+### EntityAnchor
+```json
+{
+  "entity_id": "char_goku_like_01",
+  "visual_refs": ["img_ref_1", "img_ref_2"],
+  "identity_traits": {
+    "hair": "spiky_black",
+    "silhouette": "athletic",
+    "outfit": "orange_gi"
+  },
+  "style_profile": "anime_clean",
+  "continuity_strength": 0.93
+}
+```
+
+### SceneGraph
+```json
+{
+  "scene_id": "scene_2026_04_09_a",
+  "entities": ["char_goku_like_01", "char_vegeta_like_01"],
+  "background": "void_white",
+  "camera": {"shot": "rear_medium", "angle": "level"},
+  "lighting": "soft_even"
+}
+```
+
+### MotionProgram
+```json
+{
+  "program_id": "fist_bump_turn_hold",
+  "beats": [
+    {"t": 0.0, "left_arm": "raise", "right_arm": "raise"},
+    {"t": 0.7, "contact": "fist_bump"},
+    {"t": 1.2, "hold": true},
+    {"t": 1.8, "settle": true}
+  ],
+  "micro": ["breath", "cloth_sway"],
+  "duration_sec": 2.0,
+  "loop": true
+}
+```
+
+### RenderRecipe
+```json
+{
+  "recipe_id": "rr_77",
+  "resolution": "1024x1024",
+  "fps": 12,
+  "format": "gif",
+  "palette_mode": "adaptive",
+  "quality": "preview",
+  "backend": "upload_plus_interpolator_v1"
+}
+```
+
+---
+
+## Compression strategy
+
+### What to store
+Store only the minimum needed to reconstruct the animation:
+1. Reference stills
+2. Entity anchors
+3. Scene graph
+4. Motion program
+5. Render recipe
+6. Delta history
+
+### What not to store as canonical state
+Avoid treating these as primary memory unless explicitly requested:
+- every output frame
+- redundant intermediate stills
+- large raw videos for every variation
+
+### Compression formula
+
+```text
+Canonical Package = (Reference Assets) + (Structured State) + (Motion Logic) + (Renderer Settings)
+```
+
+This lets the system stay small while preserving re-projection in higher definition later.
+
+---
+
+## Continuity model
+Continuity is what makes this feel alive across turns.
+
+### Continuity layers
+1. **Identity continuity** — same character remains recognizably the same
+2. **Stylistic continuity** — same art style and visual language
+3. **Emotional continuity** — new motion should start from prior emotional state unless overridden
+4. **Scene continuity** — camera/background/position persist when appropriate
+5. **Narrative continuity** — current shot inherits prior turn context
+
+### Continuity controls
+- `preserve_identity=true`
+- `preserve_scene=true`
+- `preserve_style=true`
+- `emotion_override="smug"`
+- `camera_reset=false`
+
+---
+
+## Emotion-to-motion grammar
+A major improvement over ordinary GIF assembly is mapping emotions to motion signatures.
+
+### Example table
+
+| Emotion | Motion cues |
+|---|---|
+| surprise | head snap, widened eyes, quick recoil |
+| smugness | delayed blink, slight chin raise, asymmetric smile |
+| contempt | lip curl, side-eye, micro turn-away |
+| joy | chest lift, eyebrow rise, mouth expansion |
+| dread | freeze, narrowed shoulders, slower breath |
+| relief | exhale, shoulder drop, softened gaze |
+
+This layer is what gives the output more meaning than a static image.
+
+---
+
+## Chat API sketch
+
+### Request
+```json
+{
+  "message": "Turn this still into a 2 second GIF with a blink, breath, and smug pause.",
+  "attachments": ["img_ref_44"],
+  "continuity_ref": "scene_prev",
+  "output": "gif"
+}
+```
+
+### Parsed command
+```json
+{
+  "intent": "animate_still",
+  "duration_sec": 2.0,
+  "micro_motion": ["blink", "breath"],
+  "expression_arc": ["neutral", "smug_pause"],
+  "format": "gif"
+}
+```
+
+### Response
+```json
+{
+  "status": "ok",
+  "preview_url": "...",
+  "artifact_type": "gif",
+  "scene_id": "scene_2026_04_09_a",
+  "program_id": "prog_1042"
+}
+```
+
+---
+
+## Suggested repo structure
+
+```text
+pantheon-motion-window/
+  README.md
+  docs/
+    architecture.md
+    continuity_model.md
+    motion_grammar.md
+    api.md
+  src/
+    app/
+      chat_controller.py
+      intent_parser.py
+      continuity_ledger.py
+      animation_program_builder.py
+      render_orchestrator.py
+    backends/
+      upload_backend.py
+      diffusion_backend.py
+      video_backend.py
+    motion/
+      interpolator.py
+      emotion_grammar.py
+      beat_timeline.py
+    models/
+      entity_anchor.py
+      scene_graph.py
+      motion_program.py
+      render_recipe.py
+    exporters/
+      gif_exporter.py
+      mp4_exporter.py
+      sheet_exporter.py
+  examples/
+    sample_requests.json
+    sample_assets/
+```
+
+---
+
+## MVP implementation path
+
+### Phase 1 — Working MVP
+- upload stills
+- define simple motion programs
+- crossfade / slight pan / blink / breath presets
+- export GIF
+- save continuity JSON
+
+### Phase 2 — Character continuity
+- anchor identities across turns
+- pose persistence
+- style lock
+- emotion transitions
+
+### Phase 3 — Backend abstraction
+- allow swappable frame-generation backends
+- add image model / video model connectors
+- support reference-conditioned keyframe generation
+
+### Phase 4 — Chat-native intelligence
+- natural language control
+- continuity-aware auto-completion
+- emotional timing presets
+- reusable character libraries
+
+---
+
+## Implementation notes
+
+### Good practical first stack
+- Python
+- FastAPI or Flask
+- Pillow / imageio / OpenCV
+- ffmpeg
+- simple SQLite or JSON ledger for continuity
+- optional frontend: lightweight React or plain HTML
+
+### Why this stack
+It gets you to working output fast without forcing a complex ML backend on day one.
+
+---
+
+## Safety / grounding note
+This should be built as an external system that interfaces with chat, not as a claim about direct internal modification of the assistant. The assistant can help plan, describe, and control the system through language, but the rendering and persistence layer live in user-controlled software.
+
+That separation is good engineering:
+- clearer boundaries,
+- easier debugging,
+- better portability,
+- less magic,
+- more actual control.
+
+---
+
+## Design summary
+This system works by preserving a compact internal representation of:
+- who is in the scene,
+- what they look like,
+- how they move,
+- what emotional beat they are expressing,
+- and how to render it,
+
+while letting the final visible projection be regenerated at whatever fidelity is needed later.
+
+In compressed form:
+
+```text
+Photo + Motion Logic + Continuity State -> Reprojectable Animated Meaning
+```
+
+That is the practical path to a chat-native GIF/motion interface without storing giant raw outputs as the core memory object.
