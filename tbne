@@ -1,0 +1,274 @@
+Good—let’s make this real and runnable, not just conceptual.
+
+⸻
+
+TBNE MVP (Minimal Viable Product) — v0.1
+
+Goal
+
+Ship something in 1–3 days that proves:
+
+Same facts → different transparent frames → visible differences
+
+⸻
+
+1. MVP Scope (keep it tight)
+
+Pick ONE domain:
+	•	Finance (easiest, structured)
+	•	OR politics (messier but more impactful)
+
+👉 Recommendation:
+
+Start with finance (Fed decision, earnings, inflation report)
+
+⸻
+
+2. MVP Input
+
+Manually select:
+	•	5–8 articles about the SAME event
+
+Sources should vary:
+	•	mainstream
+	•	international
+	•	opinion vs reporting
+
+⸻
+
+3. MVP Pipeline (simple version)
+
+Step 1 — Paste Sources
+
+No scraping yet.
+
+Just:
+
+sources = [
+  {"title": "...", "text": "...", "url": "..."},
+  {"title": "...", "text": "...", "url": "..."}
+]
+
+
+⸻
+
+Step 2 — Extract Facts (LLM call)
+
+Prompt:
+
+Extract only verifiable factual claims. No opinions.
+
+Output:
+
+[
+  {"fact": "Fed raised rates by 0.25%", "confidence": 0.95},
+  {"fact": "Vote was 7-2", "confidence": 0.9}
+]
+
+
+⸻
+
+Step 3 — Merge Facts
+
+Deduplicate manually or via similarity:
+
+unique_facts = list(set(facts))
+
+
+⸻
+
+Step 4 — Define 3 Bias Profiles
+
+Hardcode them:
+
+profiles = [
+  {"name": "neutral"},
+  {"name": "economic"},
+  {"name": "human_impact"}
+]
+
+
+⸻
+
+Step 5 — Generate 3 Summaries
+
+Prompt:
+
+Using ONLY these facts, generate a summary from the perspective of [PROFILE]. Do not invent facts.
+
+⸻
+
+Step 6 — Show Differences
+
+Display:
+
+FACTS:
+- Fed raised rates 0.25%
+- Vote was 7-2
+
+---
+
+ECONOMIC VIEW:
+Focus on inflation, markets, growth...
+
+---
+
+HUMAN IMPACT VIEW:
+Focus on borrowing costs, households...
+
+---
+
+NEUTRAL:
+Minimal interpretation...
+
+
+⸻
+
+4. MVP Output (UI or CLI)
+
+Option A — CLI (fastest)
+
+python run_mvp.py
+
+Outputs:
+
+=== EVENT SUMMARY ===
+
+FACTS:
+- ...
+- ...
+
+=== ECONOMIC ===
+...
+
+=== HUMAN IMPACT ===
+...
+
+=== NEUTRAL ===
+...
+
+
+⸻
+
+Option B — Simple Web UI (better demo)
+
+Use:
+	•	FastAPI
+	•	basic HTML
+
+Page shows:
+	•	facts at top
+	•	3 columns of summaries
+
+⸻
+
+5. Minimal Code Structure
+
+tbne_mvp/
+  main.py
+  extract.py
+  summarize.py
+  profiles.py
+  display.py
+
+
+⸻
+
+6. Example Core Script
+
+from extract import extract_facts
+from summarize import generate_summary
+from profiles import profiles
+
+sources = load_sources()
+
+facts = extract_facts(sources)
+
+print("\nFACTS:")
+for f in facts:
+    print("-", f)
+
+for profile in profiles:
+    print(f"\n=== {profile['name'].upper()} ===")
+    summary = generate_summary(facts, profile)
+    print(summary)
+
+
+⸻
+
+7. What “success” looks like
+
+If your MVP works, you’ll see:
+	•	Same facts reused across all outputs
+	•	Different emphasis per profile
+	•	No hallucinated info
+	•	Clear differences in interpretation
+
+⸻
+
+8. Immediate Upgrade Path (after MVP)
+
+Once this works, next steps:
+
+1. Add source linking
+
+Facts → clickable source
+
+2. Add contradiction detection
+
+Flag disagreements
+
+3. Add weighting sliders
+
+User controls bias
+
+4. Add comparison diff
+
+Highlight differences automatically
+
+⸻
+
+9. MVP Constraints (DO NOT BREAK THESE)
+	•	❌ No hidden facts
+	•	❌ No invented claims
+	•	❌ No single “correct” summary
+	•	✅ Everything traceable
+	•	✅ Bias explicit
+
+⸻
+
+10. The Real MVP Insight
+
+You are NOT building:
+
+“an unbiased news app”
+
+You ARE building:
+
+a system that separates fact from interpretation and makes interpretation adjustable
+
+⸻
+
+11. One-Line MVP Pitch
+
+“Same news, multiple lenses, zero hidden bias.”
+
+⸻
+
+12. If you only do ONE thing
+
+Do this:
+
+Take 1 event → extract 5 facts → write 3 summaries manually using different lenses
+
+If that works:
+
+You already proved the concept.
+
+⸻
+
+If you want next:
+	•	I can generate the actual extract.py + summarize.py
+	•	or give you a plug-and-play version you can run immediately
+
+This one is very buildable—no fluff.
