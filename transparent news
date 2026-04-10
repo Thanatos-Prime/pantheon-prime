@@ -1,0 +1,651 @@
+Transparent Bias News Engine (TBNE) v0.1
+
+PantheonOS / Money Bin / Truth Infrastructure
+
+Purpose
+
+Build a news system that does not pretend to be bias-free.
+Instead, it makes bias:
+	•	explicit
+	•	adjustable
+	•	inspectable
+	•	testable against evidence
+
+The goal is not to produce one final “correct” narrative. The goal is to separate:
+	•	what is known
+	•	what is inferred
+	•	what is weighted
+	•	what is uncertain
+
+Then let users compare frames without hiding the machinery.
+
+⸻
+
+1. Core Thesis
+
+Bias cannot be eliminated, but it can be declared, parameterized, and audited.
+
+Traditional news hides weighting inside:
+	•	editorial choices
+	•	headline wording
+	•	omission
+	•	framing
+	•	order of presentation
+
+TBNE moves those hidden choices into visible system components.
+
+⸻
+
+2. System Goals
+
+Functional goals
+	•	Aggregate news from diverse sources
+	•	Extract claims, facts, quotes, and uncertainties
+	•	Distinguish source evidence from interpretation
+	•	Generate multiple summaries from the same fact base
+	•	Show how different weighting profiles change narrative output
+	•	Expose contradictions, missing data, and confidence levels
+
+Normative goals
+	•	Increase epistemic transparency
+	•	Reduce hidden persuasion
+	•	Improve user agency
+	•	Make disagreement legible
+	•	Align interpretation closer to evidence
+
+Non-goals
+	•	Perfect objectivity
+	•	Replacing all journalism
+	•	Telling users what to believe
+	•	Enforcing one ideology
+	•	Collapsing uncertainty into false certainty
+
+⸻
+
+3. Core Principles
+
+3.1 Facts first
+
+Narratives are downstream of evidence.
+
+3.2 Weightings must be visible
+
+Every summary should be reproducible from declared settings.
+
+3.3 Uncertainty is first-class
+
+Unknowns and disputes must be shown, not smoothed over.
+
+3.4 Source provenance is mandatory
+
+Every major claim must trace back to a source.
+
+3.5 Compare frames, do not hide them
+
+Differences between interpretations are part of the product.
+
+3.6 Bias is safer when declared
+
+Hidden bias is more dangerous than visible bias.
+
+⸻
+
+4. Pantheon Mapping
+
+Spider
+
+Ingestion, source graphing, provenance tracking.
+
+Mirror
+
+Cross-checking, fact validation, invariant checks.
+
+Hypatia
+
+Reasoning integrity, inference separation, contradiction handling.
+
+Dragonfly
+
+Multi-frame summary generation and comparative rendering.
+
+Hound
+
+Propaganda detection, framing anomalies, missing-context alerts.
+
+Conductor
+
+Bias-profile orchestration and mode routing.
+
+Mother Duck / Ledger
+
+Audit trail, source retention, revision history.
+
+⸻
+
+5. System Architecture
+
+Layer 1: Source Intake
+
+Collect data from:
+	•	major news outlets
+	•	international outlets
+	•	official statements
+	•	court filings
+	•	press releases
+	•	transcripts
+	•	public datasets
+	•	direct video/audio where possible
+
+Output
+
+Raw source objects with metadata.
+
+Example:
+
+{
+  "source_id": "src_001",
+  "title": "Central Bank Raises Rates",
+  "publisher": "Example News",
+  "published_at": "2026-04-10T12:00:00Z",
+  "url": "https://example.com/article",
+  "source_type": "news_article",
+  "raw_text": "...",
+  "author": "Jane Doe"
+}
+
+
+⸻
+
+Layer 2: Claim Extraction
+
+Extract:
+	•	factual claims
+	•	numerical claims
+	•	quoted statements
+	•	causal claims
+	•	predictions
+	•	uncertainty markers
+
+Output
+
+Claim objects linked to evidence spans.
+
+Example:
+
+{
+  "claim_id": "clm_014",
+  "text": "The central bank raised its benchmark rate by 0.25 percentage points.",
+  "claim_type": "factual",
+  "source_id": "src_001",
+  "evidence_span": "paragraph_3",
+  "entities": ["central bank", "benchmark rate"],
+  "time_reference": "2026-04-10",
+  "confidence": 0.93
+}
+
+
+⸻
+
+Layer 3: Fact Graph Construction
+
+Merge compatible claims into canonical event graph nodes.
+
+Purposes
+	•	deduplicate repeated facts
+	•	cluster contradictions
+	•	preserve source diversity
+	•	build event timeline
+
+Output
+
+Event graph with:
+	•	confirmed facts
+	•	contested claims
+	•	missing data
+	•	temporal sequence
+
+⸻
+
+Layer 4: Bias Profiles
+
+Bias is represented as an explicit weighting object.
+
+A bias profile does not invent facts. It changes:
+	•	salience
+	•	ordering
+	•	emphasis
+	•	preferred metrics
+	•	cost functions
+
+Example profiles:
+	•	Neutral baseline
+	•	Economic-heavy
+	•	Human-impact-heavy
+	•	Institutional-trust-heavy
+	•	Civil-liberties-heavy
+	•	National-security-heavy
+	•	User-custom
+
+Example:
+
+{
+  "profile_id": "economic_heavy_v1",
+  "name": "Economic Heavy",
+  "weights": {
+    "economic_impact": 0.40,
+    "human_impact": 0.15,
+    "institutional_stability": 0.20,
+    "civil_liberties": 0.10,
+    "geopolitical_risk": 0.10,
+    "novelty_penalty": 0.05
+  },
+  "language_rules": {
+    "emotional_language_penalty": 0.8,
+    "speculation_penalty": 0.7,
+    "headline_sensationalism_penalty": 0.9
+  }
+}
+
+
+⸻
+
+Layer 5: Narrative Generation
+
+Generate summaries from the same fact graph under different bias profiles.
+
+Required output sections
+	•	Confirmed facts
+	•	Most relevant uncertainties
+	•	Key interpretations under current weighting
+	•	What this frame prioritizes
+	•	What this frame may underweight
+
+Example summary structure:
+
+{
+  "summary_id": "sum_100",
+  "event_id": "evt_22",
+  "profile_id": "human_impact_v1",
+  "confirmed_facts": [
+    "Rates were raised by 0.25 percentage points."
+  ],
+  "uncertainties": [
+    "Long-term inflation effects remain disputed."
+  ],
+  "narrative_summary": "This decision may increase household borrowing costs...",
+  "weighting_explanation": "This frame prioritizes household impact over market interpretation."
+}
+
+
+⸻
+
+Layer 6: Comparative View
+
+This is one of the most important features.
+
+For any event, show:
+	•	shared facts across all frames
+	•	claims with disagreement
+	•	emphasis differences
+	•	omitted consequences by frame
+	•	confidence deltas
+
+Example user view
+
+Event: Central bank rate hike
+
+Shared facts
+	•	Rate increased by 0.25
+	•	Vote passed 7-2
+	•	Effective date is next week
+
+Economic-heavy frame
+	•	Focuses on inflation and markets
+
+Human-impact frame
+	•	Focuses on debt burden and household cost
+
+Civil-liberties frame
+	•	Minimal relevance, low weighting
+
+⸻
+
+6. Data Model
+
+Source
+
+Stores raw source material and provenance.
+
+Claim
+
+Atomic extracted assertion with evidence pointer.
+
+Event
+
+Cluster of related claims across sources.
+
+Evidence Link
+
+Maps claim to source span or media timestamp.
+
+Bias Profile
+
+Visible weighting and narrative preference settings.
+
+Summary
+
+Generated interpretation under one profile.
+
+Audit Record
+
+Stores generation parameters, model version, and decision trace.
+
+⸻
+
+7. Trust and Safety Design
+
+7.1 Evidence-first rendering
+
+No summary without source linkage.
+
+7.2 Inference labeling
+
+Mark statements as:
+	•	Confirmed
+	•	Probable
+	•	Contested
+	•	Speculative
+
+7.3 Propaganda detection
+
+Hound layer flags:
+	•	excessive emotional loading
+	•	unsupported causal jumps
+	•	omission patterns
+	•	quote laundering
+	•	source monoculture
+	•	bot-like repetition
+
+7.4 Adversarial cross-pass
+
+Each event should be run through:
+	•	one extraction pass
+	•	one verification pass
+	•	one adversarial pass
+
+7.5 No hidden profile defaults
+
+Every default profile must be visible to the user.
+
+⸻
+
+8. User Experience Requirements
+
+Event page should include
+	•	headline
+	•	canonical fact table
+	•	source list
+	•	uncertainty list
+	•	frame comparison
+	•	raw-source expansion option
+
+User should be able to
+	•	choose a profile
+	•	compare profiles side by side
+	•	create a custom profile
+	•	inspect source provenance
+	•	see confidence and contradiction markers
+
+User should never be forced into
+	•	one hidden narrative
+	•	one default ideology disguised as neutrality
+
+⸻
+
+9. Recommended MVP
+
+Start small.
+
+MVP scope
+
+Choose one domain:
+	•	finance
+	•	geopolitics
+	•	public policy
+	•	science news
+
+MVP pipeline
+	1.	Pull 5 to 10 sources on one event
+	2.	Extract claims
+	3.	Merge into fact graph
+	4.	Define 3 bias profiles
+	5.	Generate 3 summaries
+	6.	Render comparison table
+
+MVP success criteria
+	•	Same facts, different explicit frames
+	•	User can see why summaries differ
+	•	Contradictions are visible
+	•	Source links are intact
+
+⸻
+
+10. Example Profiles
+
+Neutral Baseline
+
+Prioritizes:
+	•	source agreement
+	•	low speculation
+	•	high factual density
+
+Human Impact
+
+Prioritizes:
+	•	effect on households
+	•	health
+	•	safety
+	•	labor
+	•	lived outcomes
+
+Economic Impact
+
+Prioritizes:
+	•	inflation
+	•	employment
+	•	markets
+	•	industry
+	•	fiscal consequence
+
+Institutional Stability
+
+Prioritizes:
+	•	governance continuity
+	•	legal process
+	•	procedural integrity
+	•	long-term system trust
+
+National Security
+
+Prioritizes:
+	•	strategic risk
+	•	external threats
+	•	infrastructure vulnerability
+	•	operational continuity
+
+⸻
+
+11. Key Algorithms
+
+Claim clustering
+
+Group semantically equivalent claims.
+
+Contradiction detection
+
+Find claims that cannot all be true at once.
+
+Source diversity scoring
+
+Penalize monoculture.
+
+Evidence density scoring
+
+Reward claims backed by multiple independent sources.
+
+Frame weighting engine
+
+Re-rank salience without changing underlying evidence.
+
+Narrative delta engine
+
+Measure how outputs differ across profiles.
+
+⸻
+
+12. Auditing and Reproducibility
+
+Every summary must log:
+	•	source set
+	•	extraction model version
+	•	verification model version
+	•	bias profile used
+	•	timestamp
+	•	contradictions present
+	•	confidence distribution
+
+Example:
+
+{
+  "audit_id": "aud_881",
+  "summary_id": "sum_100",
+  "source_ids": ["src_001", "src_002", "src_009"],
+  "extractor_version": "claims_v0.3",
+  "verifier_version": "mirror_v0.2",
+  "profile_id": "economic_heavy_v1",
+  "generated_at": "2026-04-10T15:00:00Z"
+}
+
+
+⸻
+
+13. Failure Modes
+
+False neutrality
+
+Pretending the baseline has no weighting.
+
+Source laundering
+
+Repeated citation chains that appear diverse but are not.
+
+Overcompression
+
+Summaries that erase uncertainty.
+
+Hidden ideology
+
+Bias hiding inside extraction rules instead of visible profiles.
+
+Engagement corruption
+
+Optimizing for clicks instead of truth legibility.
+
+Speculation bleed
+
+Predictions presented as facts.
+
+⸻
+
+14. Pantheon Doctrine Fit
+
+This system reinforces several Pantheon invariants:
+	•	Hidden bias is more dangerous than declared bias
+	•	Signal must be separated from capacity
+	•	Meaning should survive comparison, not just assertion
+	•	Truth is what remains visible across multiple honest frames
+	•	Offer lenses, preserve agency
+
+⸻
+
+15. Build Stack Suggestion
+
+Backend
+	•	Python
+	•	FastAPI
+	•	Postgres
+	•	pgvector or equivalent
+	•	task queue for ingestion
+
+Pipeline
+	•	source fetcher
+	•	parser
+	•	claim extractor
+	•	verifier
+	•	fact graph builder
+	•	summary generator
+	•	comparison renderer
+
+Frontend
+	•	event page
+	•	profile selector
+	•	diff view
+	•	source inspector
+
+⸻
+
+16. Open Research Questions
+	•	How should “neutral baseline” be defined?
+	•	How should source independence be measured?
+	•	How should user-custom profiles be constrained?
+	•	How can narrative generation avoid subtle emotional drift?
+	•	How should direct audiovisual evidence be weighted against reporting?
+
+⸻
+
+17. Repo File Layout
+
+tbne/
+  README.md
+  docs/
+    doctrine.md
+    architecture.md
+    bias_profiles.md
+    trust_safety.md
+  schemas/
+    source.schema.json
+    claim.schema.json
+    event.schema.json
+    profile.schema.json
+    summary.schema.json
+    audit.schema.json
+  app/
+    ingestion/
+    extraction/
+    verification/
+    graph/
+    generation/
+    api/
+  tests/
+    test_claim_extraction.py
+    test_contradictions.py
+    test_profile_weighting.py
+    test_summary_audit.py
+
+
+⸻
+
+18. README Compression
+
+Transparent Bias News Engine
+
+A news system that treats bias as a visible parameter instead of a hidden editorial artifact.
+Facts are extracted first, interpretations are generated second, and narrative differences are exposed instead of concealed.
+
+⸻
+
+19. One-Line Doctrine
+
+Do not hide the lens. Show the lens, show the evidence, and let truth emerge from visible comparison.
+
+If you want, I can turn this into a README.md plus doctrine.md pair in repo-ready markdown.
