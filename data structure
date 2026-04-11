@@ -1,0 +1,915 @@
+Good. Let’s forge the actual data structures like this is going into a repo.
+
+I’ll give you:
+	•	core entities
+	•	relationships
+	•	suggested fields
+	•	event model
+	•	a clean build order
+
+I’m going to bias this toward something that could become:
+	•	Postgres tables
+	•	TypeScript interfaces
+	•	API objects
+	•	analytics/event streams
+
+⸻
+
+Data Exchange / Invariant Credit
+
+Data Structures v1.0
+
+⸻
+
+1. Core design principle
+
+There are really only five layers:
+	1.	Identity
+	2.	Raw signal
+	3.	Processed signal
+	4.	Contribution / credit
+	5.	Market / payout
+
+Everything should map cleanly into one of those.
+
+⸻
+
+2. Top-level object graph
+
+User
+ ├── DataSource
+ ├── ConsentProfile
+ ├── DataStream
+ ├── SignalUnit
+ ├── PortfolioAllocation
+ ├── ContributionRecord
+ ├── InvariantCredit
+ ├── PayoutAccount
+ └── ComparisonEvent / PreferenceSignal (optional bridge to Choice Engine)
+
+Fund
+ ├── FundPolicy
+ ├── FundDemandProfile
+ ├── FundPosition
+ ├── FundUsageEvent
+ ├── FundRevenueEvent
+ └── YieldDistribution
+
+Company
+ ├── CompanyProfile
+ ├── DataDemandSpec
+ ├── UsageLicense
+ └── BillingAccount
+
+
+⸻
+
+3. Identity layer
+
+User
+
+This is the sovereign root object.
+
+type UserID = string;
+
+interface User {
+  id: UserID;
+  createdAt: string;
+  updatedAt: string;
+
+  handle?: string;
+  region?: string;
+  riskProfile: "stable" | "balanced" | "growth" | "speculative";
+  privacyProfile: "strict" | "balanced" | "open";
+  intentProfile: Array<"profit" | "research" | "impact" | "personalization">;
+
+  trustScore: number;           // anti-fraud / authenticity
+  signalReputation: number;     // quality-weighted history
+  status: "active" | "paused" | "suspended" | "deleted";
+}
+
+
+⸻
+
+DataSource
+
+Where data comes from.
+
+interface DataSource {
+  id: string;
+  userId: UserID;
+
+  sourceType:
+    | "apple_health"
+    | "google_fit"
+    | "banking"
+    | "shopping"
+    | "browser"
+    | "location"
+    | "manual_entry"
+    | "wearable"
+    | "survey"
+    | "app_sdk"
+    | "ehr";
+
+  providerName: string;
+  externalAccountRef?: string;
+
+  verificationLevel: "unverified" | "linked" | "verified" | "attested";
+  status: "connected" | "revoked" | "errored";
+
+  connectedAt: string;
+  lastSyncedAt?: string;
+}
+
+
+⸻
+
+ConsentProfile
+
+This is important.
+Do not bury consent in random tables.
+
+interface ConsentProfile {
+  id: string;
+  userId: UserID;
+
+  allowTraining: boolean;
+  allowAnalytics: boolean;
+  allowAds: boolean;
+  allowThirdPartyTransfer: boolean;
+  allowAggregation: boolean;
+  allowAnonymizedResale: boolean;
+
+  revocable: boolean;
+  exclusivityAllowed: boolean;
+
+  sensitiveDataPolicy: "deny" | "allow_selected" | "allow_all";
+  expirationAt?: string;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+⸻
+
+4. Raw data / stream layer
+
+DataStream
+
+A stream is a category pipe, not an individual event.
+
+interface DataStream {
+  id: string;
+  userId: UserID;
+  sourceId: string;
+
+  streamType:
+    | "sleep"
+    | "heart_rate"
+    | "steps"
+    | "purchase"
+    | "search"
+    | "location_trace"
+    | "nutrition"
+    | "workout"
+    | "media_preference"
+    | "survey_response"
+    | "clinical_outcome";
+
+  unit?: string; // bpm, count, usd, hours, etc.
+  frequency: "realtime" | "hourly" | "daily" | "weekly" | "event_based";
+  sensitivity: "low" | "medium" | "high" | "regulated";
+
+  qualityScore: number;
+  freshnessScore: number;
+  rarityScore: number;
+
+  status: "active" | "paused" | "archived";
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+⸻
+
+RawDataEvent
+
+This is the immutable ledger of incoming signal.
+
+interface RawDataEvent {
+  id: string;
+  streamId: string;
+  userId: UserID;
+  sourceId: string;
+
+  observedAt: string;
+  ingestedAt: string;
+
+  payloadRef: string; // pointer to encrypted blob/object storage
+  checksum: string;
+
+  schemaVersion: string;
+  verificationLevel: "raw" | "validated" | "cross_checked";
+
+  privacyClass: "standard" | "sensitive" | "restricted";
+}
+
+Use payloadRef instead of stuffing giant JSON blobs in your main table.
+
+⸻
+
+5. Processed signal layer
+
+SignalUnit
+
+This is the first major primitive.
+
+A SignalUnit is a normalized, permissioned, quality-scored atom of usable signal.
+
+interface SignalUnit {
+  id: string;
+  userId: UserID;
+  streamId: string;
+  rawEventId?: string;
+
+  signalType:
+    | "health_activity"
+    | "recovery"
+    | "purchase_intent"
+    | "brand_affinity"
+    | "location_pattern"
+    | "sleep_regularity"
+    | "expert_label"
+    | "outcome_signal"
+    | "preference_signal";
+
+  valueType: "numeric" | "categorical" | "vector" | "boolean" | "embedding";
+  valueRef: string; // encrypted or structured pointer
+
+  normalizedScore?: number;
+  qualityScore: number;
+  rarityScore: number;
+  freshnessScore: number;
+  trustScore: number;
+
+  consentProfileId: string;
+  transformTraceId: string;
+
+  validFrom: string;
+  validTo?: string;
+  createdAt: string;
+}
+
+
+⸻
+
+TransformTrace
+
+This is how you preserve provenance.
+
+interface TransformTrace {
+  id: string;
+
+  inputType: "raw_event" | "signal_unit" | "aggregate";
+  inputRefs: string[];
+
+  transformKind:
+    | "normalize"
+    | "aggregate"
+    | "anonymize"
+    | "feature_extract"
+    | "quality_score"
+    | "rarity_score"
+    | "embedding"
+    | "cross_domain_map";
+
+  algorithmVersion: string;
+  executedAt: string;
+
+  outputRefs: string[];
+  checksum: string;
+}
+
+This links directly to your provenance / Merkle style doctrine.
+
+⸻
+
+6. Market layer
+
+Fund
+
+This is the core allocation target.
+
+interface Fund {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+
+  category: "health" | "retail" | "ai" | "mobility" | "research" | "public_good";
+  riskLevel: "stable" | "balanced" | "growth" | "speculative";
+  privacyLevel: "strict" | "moderate" | "broad";
+
+  status: "draft" | "active" | "paused" | "closed";
+
+  targetSignalTypes: string[];
+  minVerificationLevel: "unverified" | "linked" | "verified" | "attested";
+
+  expectedYieldBand?: {
+    low: number;
+    high: number;
+  };
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+⸻
+
+FundPolicy
+
+Separate policy from fund metadata.
+
+interface FundPolicy {
+  id: string;
+  fundId: string;
+
+  allowedUses: Array<"training" | "analytics" | "benchmarking" | "research" | "personalization">;
+  prohibitedUses: Array<"ads" | "resale" | "individual_targeting" | "insurance_underwriting">;
+
+  exclusivityPremiumEnabled: boolean;
+  revocationHandling: "hard_stop" | "future_only" | "grace_period";
+
+  minQualityScore: number;
+  minTrustScore: number;
+
+  payoutSchedule: "daily" | "weekly" | "monthly";
+  feeRateBps: number; // basis points
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+⸻
+
+PortfolioAllocation
+
+How a user allocates into funds.
+
+interface PortfolioAllocation {
+  id: string;
+  userId: UserID;
+  fundId: string;
+
+  allocationPercent: number; // 0-100
+  allocationMode: "manual" | "auto" | "recommended";
+
+  signalFilters?: {
+    streamTypes?: string[];
+    excludeSensitive?: boolean;
+    minQualityScore?: number;
+  };
+
+  exclusivityEnabled: boolean;
+  status: "active" | "paused" | "revoked";
+
+  startedAt: string;
+  endedAt?: string;
+}
+
+
+⸻
+
+FundPosition
+
+Snapshot of a user’s effective position in a fund.
+
+interface FundPosition {
+  id: string;
+  userId: UserID;
+  fundId: string;
+  allocationId: string;
+
+  activeSignalUnits: number;
+  weightedContributionScore: number;
+  estimatedYieldRate: number;
+
+  lastComputedAt: string;
+}
+
+
+⸻
+
+7. Company / buyer layer
+
+Company
+
+interface Company {
+  id: string;
+  legalName: string;
+  displayName: string;
+
+  industry:
+    | "healthcare"
+    | "insurance"
+    | "retail"
+    | "ai"
+    | "research"
+    | "finance"
+    | "mobility";
+
+  trustScore: number;
+  complianceTier: "basic" | "verified" | "regulated" | "enterprise";
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+⸻
+
+DataDemandSpec
+
+What a company wants.
+
+interface DataDemandSpec {
+  id: string;
+  companyId: string;
+  fundId?: string;
+
+  title: string;
+  description: string;
+
+  requestedSignalTypes: string[];
+  requestedVolume?: number;
+
+  minQualityScore: number;
+  minVerificationLevel: "unverified" | "linked" | "verified" | "attested";
+
+  allowedRegions?: string[];
+  excludedRegions?: string[];
+
+  intendedUse: "training" | "analytics" | "research" | "benchmarking" | "personalization";
+  exclusivityRequested: boolean;
+
+  maxBudget?: number;
+  bidType: "fixed" | "auction" | "subscription" | "rev_share";
+
+  status: "open" | "matched" | "expired" | "closed";
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+⸻
+
+UsageLicense
+
+Legal/commercial wrapper around access.
+
+interface UsageLicense {
+  id: string;
+  companyId: string;
+  fundId: string;
+  demandSpecId?: string;
+
+  startAt: string;
+  endAt?: string;
+
+  pricingModel: "subscription" | "per_query" | "per_signal_unit" | "rev_share";
+  priceTermsRef: string;
+
+  usageConstraintsRef: string;
+  auditRequired: boolean;
+
+  status: "draft" | "active" | "expired" | "revoked";
+}
+
+
+⸻
+
+8. Contribution and credit layer
+
+ContributionRecord
+
+This is the bridge between signal and value.
+
+interface ContributionRecord {
+  id: string;
+  userId: UserID;
+  fundId: string;
+  signalUnitId: string;
+
+  usageEventId?: string;
+  revenueEventId?: string;
+
+  contributionType: "included" | "weighted" | "edge_case" | "high_impact" | "outcome_validated";
+  contributionScore: number;
+
+  rarityWeight: number;
+  qualityWeight: number;
+  freshnessWeight: number;
+  impactWeight: number;
+
+  attributionMethod:
+    | "equal_split"
+    | "cohort_weighting"
+    | "ablation"
+    | "outcome_linked"
+    | "rarity_bonus";
+
+  computedAt: string;
+}
+
+
+⸻
+
+InvariantCredit
+
+This is the deeper primitive you were pointing at.
+
+This is portable contribution.
+
+interface InvariantCredit {
+  id: string;
+  userId: UserID;
+
+  sourceContributionRecordIds: string[];
+  sourceSignalUnitIds: string[];
+
+  creditDomain:
+    | "health"
+    | "behavior"
+    | "commerce"
+    | "preference"
+    | "mobility"
+    | "cross_domain";
+
+  creditAmount: number;
+  creditUnit: "IC";
+
+  verificationLevel: "modeled" | "validated" | "audited";
+  portabilityClass: "domain_locked" | "domain_mappable" | "cross_domain";
+
+  semanticTags: string[];
+  consentProfileId: string;
+  provenanceRef: string;
+
+  issuedAt: string;
+  expiresAt?: string;
+  status: "active" | "redeemed" | "expired" | "revoked";
+}
+
+
+⸻
+
+CreditMapping
+
+This lets the same contribution be translated across domains.
+
+interface CreditMapping {
+  id: string;
+  invariantCreditId: string;
+
+  fromDomain: string;
+  toDomain: string;
+
+  mappingMethod: "rule_based" | "model_based" | "audited";
+  mappingScore: number;
+
+  sourceMeaningRef: string;
+  targetMeaningRef: string;
+
+  createdAt: string;
+}
+
+This is your semantic exchange layer in table form.
+
+⸻
+
+9. Revenue and payout layer
+
+FundUsageEvent
+
+Company actually uses fund data.
+
+interface FundUsageEvent {
+  id: string;
+  fundId: string;
+  companyId: string;
+  usageLicenseId: string;
+
+  usageType: "query" | "training_batch" | "analytics_job" | "benchmark_run";
+  signalUnitsConsumed: number;
+
+  occurredAt: string;
+  metadataRef?: string;
+}
+
+
+⸻
+
+RevenueEvent
+
+Money enters the system.
+
+interface RevenueEvent {
+  id: string;
+  fundId: string;
+  companyId: string;
+  usageLicenseId?: string;
+  usageEventId?: string;
+
+  grossAmount: number;
+  currency: string;
+
+  revenueType: "subscription" | "query_fee" | "rev_share" | "one_time_purchase";
+  recognizedAt: string;
+}
+
+
+⸻
+
+YieldDistribution
+
+How revenue gets split.
+
+interface YieldDistribution {
+  id: string;
+  fundId: string;
+  revenueEventId: string;
+
+  grossAmount: number;
+  platformFeeAmount: number;
+  distributableAmount: number;
+
+  method: "pro_rata" | "weighted_contribution" | "hybrid";
+  executedAt: string;
+}
+
+
+⸻
+
+UserPayout
+
+Actual user-facing payout record.
+
+interface UserPayout {
+  id: string;
+  userId: UserID;
+  fundId: string;
+  distributionId: string;
+
+  amount: number;
+  currency: string;
+
+  payoutType: "cash" | "credit" | "discount" | "token" | "platform_balance";
+  status: "pending" | "scheduled" | "paid" | "failed" | "held";
+
+  reasonCodes: string[];
+  createdAt: string;
+  paidAt?: string;
+}
+
+
+⸻
+
+PayoutAccount
+
+interface PayoutAccount {
+  id: string;
+  userId: UserID;
+
+  method: "bank" | "paypal" | "platform_balance" | "gift_card";
+  status: "unverified" | "verified" | "disabled";
+
+  defaultCurrency: string;
+  createdAt: string;
+}
+
+
+⸻
+
+10. Governance / trust / audit layer
+
+AuditLog
+
+interface AuditLog {
+  id: string;
+
+  actorType: "user" | "company" | "system" | "admin";
+  actorId: string;
+
+  action:
+    | "connect_source"
+    | "revoke_consent"
+    | "create_signal_unit"
+    | "issue_credit"
+    | "allocate_fund"
+    | "license_usage"
+    | "distribute_yield"
+    | "flag_anomaly";
+
+  objectType: string;
+  objectId: string;
+
+  timestamp: string;
+  metadataRef?: string;
+  checksum?: string;
+}
+
+
+⸻
+
+AnomalyFlag
+
+Hound table.
+
+interface AnomalyFlag {
+  id: string;
+  userId?: UserID;
+  fundId?: string;
+  companyId?: string;
+
+  targetType: "user" | "signal_unit" | "fund" | "company" | "payout";
+  targetId: string;
+
+  severity: "low" | "medium" | "high" | "critical";
+  reasonCode:
+    | "synthetic_signal"
+    | "duplicate_pattern"
+    | "suspicious_payout"
+    | "consent_conflict"
+    | "quality_drift"
+    | "mapping_failure";
+
+  detectedAt: string;
+  status: "open" | "reviewed" | "resolved" | "suppressed";
+}
+
+
+⸻
+
+11. Optional bridge to Choice Engine
+
+This is where things get juicy later.
+
+PreferenceSignal
+
+interface PreferenceSignal {
+  id: string;
+  userId: UserID;
+
+  sourceType: "comparison_event" | "favorite_selection" | "ranking" | "survey";
+  sourceRef: string;
+
+  subjectType: "brand" | "product" | "media" | "pokemon" | "fund";
+  subjectId: string;
+
+  preferenceStrength: number;
+  confidence: number;
+
+  createdAt: string;
+}
+
+Then PreferenceSignal can be converted into SignalUnit or InvariantCredit in specific contexts.
+
+That links your Choice Engine directly into the data economy stack.
+
+⸻
+
+12. Minimal relational schema
+
+If you want the first-pass database shape, it is basically:
+
+users
+data_sources
+consent_profiles
+data_streams
+raw_data_events
+transform_traces
+signal_units
+
+funds
+fund_policies
+portfolio_allocations
+fund_positions
+
+companies
+data_demand_specs
+usage_licenses
+fund_usage_events
+revenue_events
+
+contribution_records
+invariant_credits
+credit_mappings
+
+yield_distributions
+user_payouts
+payout_accounts
+
+audit_logs
+anomaly_flags
+
+That is enough to build a real MVP architecture.
+
+⸻
+
+13. Build order
+
+Do not build all of this at once.
+
+Phase 1: MVP core
+
+Build only:
+	•	users
+	•	data_sources
+	•	consent_profiles
+	•	data_streams
+	•	signal_units
+	•	funds
+	•	portfolio_allocations
+	•	revenue_events
+	•	yield_distributions
+	•	user_payouts
+
+This gets you:
+connect data → allocate → simulate yield
+
+⸻
+
+Phase 2: attribution
+
+Add:
+	•	raw_data_events
+	•	transform_traces
+	•	contribution_records
+	•	fund_positions
+
+This gets you:
+real contribution scoring
+
+⸻
+
+Phase 3: invariant layer
+
+Add:
+	•	invariant_credits
+	•	credit_mappings
+
+This gets you:
+portable meaning / cross-domain exchange
+
+⸻
+
+Phase 4: trust and scale
+
+Add:
+	•	usage_licenses
+	•	audit_logs
+	•	anomaly_flags
+
+This gets you:
+actual defensibility
+
+⸻
+
+14. Deep invariant
+
+The most important thing structurally is this:
+
+RawDataEvent -> SignalUnit -> ContributionRecord -> InvariantCredit -> UserPayout
+
+That is your canonical chain.
+
+Or in words:
+
+observation becomes signal
+signal becomes contribution
+contribution becomes portable credit
+credit becomes economic reward
+
+That chain is the whole engine.
+
+⸻
+
+15. Best repo note
+
+Put this line at the top:
+
+Core economic primitive: users do not sell raw data; they generate signal units whose validated contribution can be measured, credited, translated across domains, and rewarded.
+
+⸻
+
+Next move should be one of two things:
+
+A) I turn this into actual TypeScript interfaces and Prisma/Postgres models
+
+or
+
+B) I design the API routes and service architecture around these objects.
