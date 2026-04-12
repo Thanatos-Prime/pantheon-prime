@@ -1,0 +1,475 @@
+Good. Here’s the missing layer as a copy-paste repo module.
+
+This gives your refinery a Signal Governance Engine that:
+	•	scores signal sources
+	•	weights events by trust/quality
+	•	combines democratic + merit + stake + expert inputs
+	•	applies invariant penalties
+	•	outputs a final governed score
+
+You can paste this straight into your repo.
+
+Add this file
+
+app/governance.py
+
+:::writing{variant=“standard” id=“28741”}
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Dict, Any, List, Optional
+import math
+
+
+def clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
+    return max(lo, min(hi, value))
+
+
+@dataclass
+class SignalSource:
+    source_id: str
+    source_type: str = "user"
+    predictive_accuracy: float = 0.5
+    consistency: float = 0.5
+    stake: float = 0.0
+    expertise: float = 0.0
+    manipulation_risk: float = 0.0
+    volume: int = 0
+
+    def credibility_score(self) -> float:
+        """
+        Composite source quality score.
+        Higher is better.
+        """
+        score = (
+            0.35 * clamp(self.predictive_accuracy)
+            + 0.25 * clamp(self.consistency)
+            + 0.20 * clamp(self.expertise)
+            + 0.10 * clamp(self.stake)
+            + 0.10 * clamp(math.log1p(self.volume) / 10.0)
+            - 0.30 * clamp(self.manipulation_risk)
+        )
+        return clamp(score)
+
+
+@dataclass
+class InvariantReport:
+    reversibility_ok: bool = True
+    transparency_ok: bool = True
+    anti_gaming_ok: bool = True
+    consent_ok: bool = True
+    coherence_ok: bool = True
+
+    def penalty(self) -> float:
+        """
+        Returns penalty in [0,1], where 0 = no penalty and 1 = total block.
+        """
+        failures = [
+            not self.reversibility_ok,
+            not self.transparency_ok,
+            not self.anti_gaming_ok,
+            not self.consent_ok,
+            not self.coherence_ok,
+        ]
+        penalty = sum(failures) / len(failures)
+        return clamp(penalty)
+
+
+@dataclass
+class GovernanceWeights:
+    democracy_weight: float = 0.25
+    merit_weight: float = 0.30
+    stake_weight: float = 0.15
+    expert_weight: float = 0.20
+    personalization_weight: float = 0.10
+
+    def normalized(self) -> "GovernanceWeights":
+        total = (
+            self.democracy_weight
+            + self.merit_weight
+            + self.stake_weight
+            + self.expert_weight
+            + self.personalization_weight
+        )
+        if total <= 0:
+            return GovernanceWeights()
+        return GovernanceWeights(
+            democracy_weight=self.democracy_weight / total,
+            merit_weight=self.merit_weight / total,
+            stake_weight=self.stake_weight / total,
+            expert_weight=self.expert_weight / total,
+            personalization_weight=self.personalization_weight / total,
+        )
+
+
+@dataclass
+class SignalVote:
+    source_id: str
+    score: float
+    confidence: float = 0.5
+    personalization_alignment: float = 0.5
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class SignalGovernanceEngine:
+    """
+    Hybrid aggregation engine:
+    - Democracy: equal participation
+    - Merit: source credibility
+    - Stake: skin in the game
+    - Expert: declared expertise
+    - Personalization: fit to local/user lens
+    """
+
+    def __init__(
+        self,
+        weights: Optional[GovernanceWeights] = None,
+        source_registry: Optional[Dict[str, SignalSource]] = None,
+    ) -> None:
+        self.weights = (weights or GovernanceWeights()).normalized()
+        self.source_registry: Dict[str, SignalSource] = source_registry or {}
+
+    def register_source(self, source: SignalSource) -> None:
+        self.source_registry[source.source_id] = source
+
+    def get_source(self, source_id: str) -> SignalSource:
+        return self.source_registry.get(source_id, SignalSource(source_id=source_id))
+
+    def democratic_component(self, votes: List[SignalVote]) -> float:
+        if not votes:
+            return 0.0
+        return sum(clamp(v.score) for v in votes) / len(votes)
+
+    def merit_component(self, votes: List[SignalVote]) -> float:
+        if not votes:
+            return 0.0
+
+        numer = 0.0
+        denom = 0.0
+        for vote in votes:
+            source = self.get_source(vote.source_id)
+            w = source.credibility_score() * clamp(vote.confidence)
+            numer += clamp(vote.score) * w
+            denom += w
+
+        return numer / denom if denom > 0 else 0.0
+
+    def stake_component(self, votes: List[SignalVote]) -> float:
+        if not votes:
+            return 0.0
+
+        numer = 0.0
+        denom = 0.0
+        for vote in votes:
+            source = self.get_source(vote.source_id)
+            w = clamp(source.stake)
+            numer += clamp(vote.score) * w
+            denom += w
+
+        return numer / denom if denom > 0 else 0.0
+
+    def expert_component(self, votes: List[SignalVote]) -> float:
+        if not votes:
+            return 0.0
+
+        numer = 0.0
+        denom = 0.0
+        for vote in votes:
+            source = self.get_source(vote.source_id)
+            w = clamp(source.expertise)
+            numer += clamp(vote.score) * w
+            denom += w
+
+        return numer / denom if denom > 0 else 0.0
+
+    def personalization_component(self, votes: List[SignalVote]) -> float:
+        if not votes:
+            return 0.0
+
+        numer = 0.0
+        denom = 0.0
+        for vote in votes:
+            w = clamp(vote.personalization_alignment)
+            numer += clamp(vote.score) * w
+            denom += w
+
+        return numer / denom if denom > 0 else 0.0
+
+    def aggregate(
+        self,
+        votes: List[SignalVote],
+        invariants: Optional[InvariantReport] = None,
+    ) -> Dict[str, Any]:
+        invariants = invariants or InvariantReport()
+
+        democracy = self.democratic_component(votes)
+        merit = self.merit_component(votes)
+        stake = self.stake_component(votes)
+        expert = self.expert_component(votes)
+        personalization = self.personalization_component(votes)
+
+        raw_score = (
+            self.weights.democracy_weight * democracy
+            + self.weights.merit_weight * merit
+            + self.weights.stake_weight * stake
+            + self.weights.expert_weight * expert
+            + self.weights.personalization_weight * personalization
+        )
+
+        penalty = invariants.penalty()
+        final_score = clamp(raw_score * (1.0 - penalty))
+
+        return {
+            "final_score": final_score,
+            "raw_score": raw_score,
+            "penalty": penalty,
+            "components": {
+                "democracy": democracy,
+                "merit": merit,
+                "stake": stake,
+                "expert": expert,
+                "personalization": personalization,
+            },
+            "weights": {
+                "democracy_weight": self.weights.democracy_weight,
+                "merit_weight": self.weights.merit_weight,
+                "stake_weight": self.weights.stake_weight,
+                "expert_weight": self.weights.expert_weight,
+                "personalization_weight": self.weights.personalization_weight,
+            },
+            "votes_count": len(votes),
+        }
+
+:::
+
+Add this test
+
+tests/test_governance.py
+
+:::writing{variant=“standard” id=“28742”}
+
+from app.governance import (
+    SignalGovernanceEngine,
+    GovernanceWeights,
+    SignalSource,
+    SignalVote,
+    InvariantReport,
+)
+
+
+def test_governance_aggregate():
+    engine = SignalGovernanceEngine(
+        weights=GovernanceWeights(
+            democracy_weight=0.2,
+            merit_weight=0.3,
+            stake_weight=0.2,
+            expert_weight=0.2,
+            personalization_weight=0.1,
+        )
+    )
+
+    engine.register_source(
+        SignalSource(
+            source_id="u1",
+            predictive_accuracy=0.8,
+            consistency=0.7,
+            stake=0.4,
+            expertise=0.2,
+            manipulation_risk=0.1,
+            volume=100,
+        )
+    )
+
+    engine.register_source(
+        SignalSource(
+            source_id="expert1",
+            source_type="expert",
+            predictive_accuracy=0.9,
+            consistency=0.9,
+            stake=0.3,
+            expertise=0.95,
+            manipulation_risk=0.05,
+            volume=50,
+        )
+    )
+
+    votes = [
+        SignalVote(source_id="u1", score=0.7, confidence=0.8, personalization_alignment=0.9),
+        SignalVote(source_id="expert1", score=0.9, confidence=0.95, personalization_alignment=0.6),
+    ]
+
+    result = engine.aggregate(votes, invariants=InvariantReport())
+
+    assert 0.0 <= result["final_score"] <= 1.0
+    assert result["votes_count"] == 2
+    assert "components" in result
+
+:::
+
+Optional endpoint
+
+If you want it live in the API immediately, add this to app/schemas.py:
+
+:::writing{variant=“standard” id=“28743”}
+
+class GovernanceSource(BaseModel):
+    source_id: str
+    source_type: str = "user"
+    predictive_accuracy: float = Field(default=0.5, ge=0.0, le=1.0)
+    consistency: float = Field(default=0.5, ge=0.0, le=1.0)
+    stake: float = Field(default=0.0, ge=0.0, le=1.0)
+    expertise: float = Field(default=0.0, ge=0.0, le=1.0)
+    manipulation_risk: float = Field(default=0.0, ge=0.0, le=1.0)
+    volume: int = Field(default=0, ge=0)
+
+
+class GovernanceVote(BaseModel):
+    source_id: str
+    score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    personalization_alignment: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class GovernanceRequest(BaseModel):
+    sources: List[GovernanceSource]
+    votes: List[GovernanceVote]
+    invariants: Dict[str, bool] = Field(default_factory=dict)
+
+:::
+
+Then add these imports to app/main.py:
+
+:::writing{variant=“standard” id=“28744”}
+
+from app.schemas import GovernanceRequest
+from app.governance import (
+    SignalGovernanceEngine,
+    SignalSource,
+    SignalVote,
+    InvariantReport,
+)
+
+:::
+
+And add this endpoint to app/main.py:
+
+:::writing{variant=“standard” id=“28745”}
+
+@app.post("/governance/aggregate")
+def governance_aggregate(request: GovernanceRequest):
+    engine = SignalGovernanceEngine()
+
+    for source in request.sources:
+        engine.register_source(
+            SignalSource(
+                source_id=source.source_id,
+                source_type=source.source_type,
+                predictive_accuracy=source.predictive_accuracy,
+                consistency=source.consistency,
+                stake=source.stake,
+                expertise=source.expertise,
+                manipulation_risk=source.manipulation_risk,
+                volume=source.volume,
+            )
+        )
+
+    votes = [
+        SignalVote(
+            source_id=v.source_id,
+            score=v.score,
+            confidence=v.confidence,
+            personalization_alignment=v.personalization_alignment,
+        )
+        for v in request.votes
+    ]
+
+    invariants = InvariantReport(
+        reversibility_ok=request.invariants.get("reversibility_ok", True),
+        transparency_ok=request.invariants.get("transparency_ok", True),
+        anti_gaming_ok=request.invariants.get("anti_gaming_ok", True),
+        consent_ok=request.invariants.get("consent_ok", True),
+        coherence_ok=request.invariants.get("coherence_ok", True),
+    )
+
+    return engine.aggregate(votes, invariants=invariants)
+
+:::
+
+Example request
+
+:::writing{variant=“standard” id=“28746”}
+
+curl -X POST "http://127.0.0.1:8000/governance/aggregate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sources": [
+      {
+        "source_id": "u1",
+        "source_type": "user",
+        "predictive_accuracy": 0.8,
+        "consistency": 0.7,
+        "stake": 0.4,
+        "expertise": 0.2,
+        "manipulation_risk": 0.1,
+        "volume": 100
+      },
+      {
+        "source_id": "expert1",
+        "source_type": "expert",
+        "predictive_accuracy": 0.9,
+        "consistency": 0.95,
+        "stake": 0.3,
+        "expertise": 0.98,
+        "manipulation_risk": 0.05,
+        "volume": 50
+      }
+    ],
+    "votes": [
+      {
+        "source_id": "u1",
+        "score": 0.7,
+        "confidence": 0.8,
+        "personalization_alignment": 0.9
+      },
+      {
+        "source_id": "expert1",
+        "score": 0.9,
+        "confidence": 0.95,
+        "personalization_alignment": 0.6
+      }
+    ],
+    "invariants": {
+      "reversibility_ok": true,
+      "transparency_ok": true,
+      "anti_gaming_ok": true,
+      "consent_ok": true,
+      "coherence_ok": true
+    }
+  }'
+
+:::
+
+What this adds conceptually
+
+This turns your system from:
+	•	preference learning only
+
+into:
+	•	preference learning + governed aggregation
+
+So now you can answer questions like:
+	•	which users should count more for a given decision
+	•	how expert input should mix with crowd input
+	•	how to penalize outputs that violate system invariants
+	•	how to personalize without losing shared coherence
+
+Clean next move
+
+After this, the strongest upgrade is a reputation ledger:
+	•	source scores update over time
+	•	predictive accuracy gets measured against later outcomes
+	•	manipulation risk increases when behavior looks adversarial
+	•	governance weights can shift by domain
+
+That would make it feel alive.
