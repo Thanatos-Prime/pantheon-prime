@@ -1,0 +1,1107 @@
+import { useState, useRef, useEffect, useCallback } from “react”;
+
+// ─── POKÉMON TCG API ──────────────────────────────────────────────────────────
+// Public API — no key needed for basic use. Open source, free tier ~1000 req/day
+const TCG_API = “https://api.pokemontcg.io/v2”;
+
+async function fetchCardsByPokemon(name, page = 1) {
+const q = encodeURIComponent(`name:"${name}"`);
+const res = await fetch(`${TCG_API}/cards?q=${q}&pageSize=20&page=${page}&orderBy=set.releaseDate`);
+const data = await res.json();
+return data.data || [];
+}
+
+async function searchPokemon(query) {
+// Search by pokemon name prefix — returns unique pokemon names from cards
+const q = encodeURIComponent(`name:"${query}*"`);
+const res = await fetch(`${TCG_API}/cards?q=${q}&pageSize=50&select=name`);
+const data = await res.json();
+const names = […new Set((data.data || []).map(c => {
+// Extract base Pokémon name (strip EX, GX, V, VMAX etc.)
+return c.name.replace(/\s+(EX|GX|V|VMAX|VSTAR|ex|Tag Team|Lv.X|Prime|δ|☆|●|★|◆).*/gi, “”).trim();
+}))].sort();
+return names.slice(0, 12);
+}
+
+async function fetchAllCardsForPokemon(name) {
+// Fetch up to 3 pages (60 cards) for a Pokémon
+const pages = await Promise.all([
+fetchCardsByPokemon(name, 1),
+fetchCardsByPokemon(name, 2),
+]);
+return pages.flat().filter(c => c.images?.large);
+}
+
+// Popular Pokémon for quick-pick
+const POPULAR = [
+{ name: “Charizard”, type: “Fire”, emoji: “🔥” },
+{ name: “Gengar”, type: “Ghost”, emoji: “👻” },
+{ name: “Pikachu”, type: “Electric”, emoji: “⚡” },
+{ name: “Mewtwo”, type: “Psychic”, emoji: “🔮” },
+{ name: “Eevee”, type: “Normal”, emoji: “✨” },
+{ name: “Blastoise”, type: “Water”, emoji: “🌊” },
+{ name: “Lugia”, type: “Psychic”, emoji: “🌙” },
+{ name: “Rayquaza”, type: “Dragon”, emoji: “🐉” },
+{ name: “Umbreon”, type: “Dark”, emoji: “🌑” },
+{ name: “Gardevoir”, type: “Psychic”, emoji: “💜” },
+{ name: “Espeon”, type: “Psychic”, emoji: “☀️” },
+{ name: “Alakazam”, type: “Psychic”, emoji: “🥄” },
+];
+
+// ─── TYPE THEMING ─────────────────────────────────────────────────────────────
+const TYPE_THEME = {
+Colorless: { bg: “#0e0e0e”, accent: “#C8A46E”, glow: “#A08040”, text: “#E8D4B0” },
+Fire:       { bg: “#1a0800”, accent: “#FF6B35”, glow: “#FF4500”, text: “#FFB899” },
+Water:      { bg: “#001a2e”, accent: “#4FC3F7”, glow: “#0288D1”, text: “#B3E5FC” },
+Grass:      { bg: “#001a08”, accent: “#66BB6A”, glow: “#2E7D32”, text: “#C8E6C9” },
+Lightning:  { bg: “#1a1600”, accent: “#FFD700”, glow: “#FFC400”, text: “#FFF0A0” },
+Psychic:    { bg: “#1a0010”, accent: “#FF4D8F”, glow: “#E0006A”, text: “#FFB3D1” },
+Fighting:   { bg: “#1a0800”, accent: “#FF7043”, glow: “#BF360C”, text: “#FFCCBC” },
+Darkness:   { bg: “#0a0010”, accent: “#9575CD”, glow: “#4527A0”, text: “#D1C4E9” },
+Metal:      { bg: “#0e0e12”, accent: “#90A4AE”, glow: “#546E7A”, text: “#CFD8DC” },
+Dragon:     { bg: “#0a0020”, accent: “#7E57C2”, glow: “#4527A0”, text: “#D1C4E9” },
+Fairy:      { bg: “#1a001a”, accent: “#F48FB1”, glow: “#AD1457”, text: “#FCE4EC” },
+Ghost:      { bg: “#1a0a2e”, accent: “#9B6FD4”, glow: “#7B4FC4”, text: “#D4B8F0” },
+};
+
+const getTheme = (card) => {
+const t = card?.types?.[0] || “Colorless”;
+return TYPE_THEME[t] || TYPE_THEME.Colorless;
+};
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function clamp(v, a, b) { return Math.min(Math.max(v, a), b); }
+function shuffle(arr) { return […arr].sort(() => Math.random() - 0.5); }
+
+const ERA = (releaseDate) => {
+if (!releaseDate) return “Unknown”;
+const y = parseInt(releaseDate.slice(0, 4));
+if (y <= 2002) return “Base/Neo Era”;
+if (y <= 2007) return “EX Era”;
+if (y <= 2010) return “DP/HGSS Era”;
+if (y <= 2013) return “BW Era”;
+if (y <= 2019) return “XY/SM Era”;
+if (y <= 2022) return “SwSh Era”;
+return “SV Era”;
+};
+
+// ─── SCANLINES ────────────────────────────────────────────────────────────────
+function Scanlines() {
+return <div style={{ position:“fixed”, inset:0, pointerEvents:“none”, zIndex:9999,
+backgroundImage:“repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.025) 2px,rgba(0,0,0,0.025) 4px)” }} />;
+}
+
+// ─── SWIPE CARD ───────────────────────────────────────────────────────────────
+function SwipeCard({ card, onSwipe, isTop, stackIndex }) {
+const theme = getTheme(card);
+const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
+const [expanded, setExpanded] = useState(false);
+const [exiting, setExiting] = useState(null);
+const startRef = useRef(null);
+
+const rotate = drag.x * 0.07;
+const keepOpacity = clamp(drag.x / 90, 0, 1);
+const passOpacity = clamp(-drag.x / 90, 0, 1);
+
+const onPointerDown = (e) => {
+if (expanded || !isTop) return;
+const x = e.clientX ?? e.touches?.[0]?.clientX;
+const y = e.clientY ?? e.touches?.[0]?.clientY;
+startRef.current = { x, y };
+setDrag(d => ({ …d, active: true }));
+};
+
+const onPointerMove = useCallback((e) => {
+if (!drag.active || !startRef.current) return;
+const x = e.clientX ?? e.touches?.[0]?.clientX;
+const y = e.clientY ?? e.touches?.[0]?.clientY;
+setDrag(d => ({ …d, x: x - startRef.current.x, y: y - startRef.current.y }));
+}, [drag.active]);
+
+const onPointerUp = useCallback(() => {
+if (!drag.active) return;
+if (Math.abs(drag.x) > 90) fire(drag.x > 0 ? “right” : “left”);
+else setDrag({ x: 0, y: 0, active: false });
+startRef.current = null;
+}, [drag]);
+
+const fire = (dir) => {
+setExiting(dir);
+setTimeout(() => onSwipe(dir, card), 380);
+};
+
+useEffect(() => {
+if (!drag.active) return;
+window.addEventListener(“mousemove”, onPointerMove);
+window.addEventListener(“mouseup”, onPointerUp);
+window.addEventListener(“touchmove”, onPointerMove, { passive: true });
+window.addEventListener(“touchend”, onPointerUp);
+return () => {
+window.removeEventListener(“mousemove”, onPointerMove);
+window.removeEventListener(“mouseup”, onPointerUp);
+window.removeEventListener(“touchmove”, onPointerMove);
+window.removeEventListener(“touchend”, onPointerUp);
+};
+}, [drag.active, onPointerMove, onPointerUp]);
+
+const tx = exiting === “right” ? 900 : exiting === “left” ? -900 : drag.x;
+const ty = exiting ? -150 : drag.y * 0.35;
+const rot = exiting === “right” ? 28 : exiting === “left” ? -28 : rotate;
+
+const rarity = card.rarity || “”;
+const rarityColor = rarity.includes(“Illustration”) || rarity.includes(“Special”) ? “#FFD700”
+: rarity.includes(“Hyper”) || rarity.includes(“Rainbow”) ? “#FF8A65”
+: rarity.includes(“Ultra”) || rarity.includes(“Full Art”) ? “#CE93D8”
+: rarity.includes(“Holo”) ? theme.accent
+: rarity.includes(“Rare”) ? “#64B5F6”
+: “#666”;
+
+return (
+<div
+onMouseDown={onPointerDown}
+onTouchStart={onPointerDown}
+onClick={() => { if (!drag.x && isTop) setExpanded(e => !e); }}
+style={{
+position: “absolute”,
+width: “min(360px, 90vw)”,
+cursor: drag.active ? “grabbing” : “grab”,
+userSelect: “none”,
+touchAction: “none”,
+zIndex: isTop ? 10 : 10 - stackIndex,
+transform: `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${isTop ? 1 : 1 - stackIndex * 0.035}) translateY(${stackIndex * 14}px)`,
+transition: drag.active ? “none” : exiting
+? “transform 0.38s cubic-bezier(0.25,0.46,0.45,0.94)”
+: “transform 0.3s cubic-bezier(0.34,1.4,0.64,1)”,
+borderRadius: 22,
+overflow: “hidden”,
+boxShadow: isTop
+? `0 28px 70px rgba(0,0,0,0.7), 0 0 50px ${theme.glow}33`
+: `0 10px 35px rgba(0,0,0,0.5)`,
+filter: isTop ? “none” : `brightness(${1 - stackIndex * 0.12})`,
+}}
+>
+<div style={{
+background: `linear-gradient(165deg, ${theme.bg} 0%, #020008 100%)`,
+border: `1px solid ${theme.accent}28`,
+borderRadius: 22,
+overflow: “hidden”,
+}}>
+
+```
+    {/* ── IMAGE ── */}
+    <div style={{
+      position: "relative",
+      height: expanded ? 180 : 380,
+      transition: "height 0.42s cubic-bezier(0.4,0,0.2,1)",
+      overflow: "hidden",
+      background: `radial-gradient(ellipse at 50% 30%, ${theme.glow}22 0%, transparent 65%)`,
+    }}>
+      <img
+        src={card.images.large}
+        alt={card.name}
+        draggable={false}
+        style={{
+          position: "absolute", inset: 0,
+          width: "100%", height: "100%",
+          objectFit: "cover",
+          objectPosition: "top center",
+          transform: expanded ? "scale(1.08)" : "scale(1)",
+          transition: "transform 0.42s ease",
+        }}
+      />
+
+      {/* HUD top */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0,
+        padding: "10px 12px",
+        background: "linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%)",
+        display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+      }}>
+        <div>
+          <div style={{ fontFamily:"monospace", fontSize:9, color:theme.accent, letterSpacing:"0.25em", opacity:0.85 }}>
+            {card.set?.name?.toUpperCase() || ""}
+          </div>
+          <div style={{ fontFamily:"monospace", fontSize:8, color:"#555", letterSpacing:"0.15em", marginTop:1 }}>
+            {card.number || ""}/{card.set?.printedTotal || "?"}
+          </div>
+        </div>
+        <div style={{
+          fontFamily:"monospace", fontSize:10, color:theme.text,
+          background:"rgba(0,0,0,0.55)", backdropFilter:"blur(8px)",
+          padding:"3px 10px", borderRadius:20,
+          border:`1px solid ${theme.accent}33`,
+        }}>
+          {card.hp ? `HP ${card.hp}` : card.supertype || ""}
+        </div>
+      </div>
+
+      {/* KEEP / PASS stamps */}
+      {[
+        { label:"KEEP", opacity:keepOpacity, color:"#00E676", side:"left", rot:-14 },
+        { label:"PASS", opacity:passOpacity, color:"#FF1744", side:"right", rot:14 },
+      ].map(s => (
+        <div key={s.label} style={{
+          position:"absolute", top:22, [s.side]:14,
+          opacity:s.opacity,
+          transform:`rotate(${s.rot}deg)`,
+          border:`3px solid ${s.color}`,
+          borderRadius:6,
+          padding:"3px 12px",
+          fontFamily:"monospace",
+          fontSize:20, fontWeight:900,
+          color:s.color,
+          textShadow:`0 0 18px ${s.color}`,
+          pointerEvents:"none",
+          letterSpacing:"0.05em",
+        }}>{s.label}</div>
+      ))}
+
+      {/* Expand hint */}
+      {isTop && !drag.active && (
+        <div style={{
+          position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
+          fontFamily:"monospace", fontSize:9, color:theme.accent+"88",
+          letterSpacing:"0.15em", animation:"pulse 2.5s infinite", whiteSpace:"nowrap",
+        }}>
+          {expanded ? "▲ COLLAPSE" : "▼ DEX ENTRY"}
+        </div>
+      )}
+    </div>
+
+    {/* ── NAME STRIP ── */}
+    <div style={{
+      padding:"12px 14px 8px",
+      background:`linear-gradient(180deg, ${theme.bg}dd 0%, ${theme.bg} 100%)`,
+      borderTop:`1px solid ${theme.accent}18`,
+    }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+        <div>
+          <div style={{
+            fontFamily:"monospace", fontSize:22, fontWeight:900,
+            color:"#fff", letterSpacing:"0.03em", lineHeight:1,
+          }}>{card.name}</div>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:theme.accent, marginTop:3, letterSpacing:"0.08em" }}>
+            {ERA(card.set?.releaseDate)} · {card.set?.releaseDate?.slice(0,4) || ""}
+          </div>
+        </div>
+        <div style={{ textAlign:"right" }}>
+          <div style={{ display:"flex", gap:4, justifyContent:"flex-end", flexWrap:"wrap", marginBottom:4 }}>
+            {(card.types || ["Colorless"]).map(t => (
+              <span key={t} style={{
+                fontFamily:"monospace", fontSize:9,
+                color: TYPE_THEME[t]?.accent || "#aaa",
+                background: (TYPE_THEME[t]?.accent || "#aaa") + "22",
+                border:`1px solid ${(TYPE_THEME[t]?.accent || "#aaa")}44`,
+                borderRadius:20, padding:"2px 8px", letterSpacing:"0.08em",
+              }}>{t}</span>
+            ))}
+          </div>
+          <div style={{ fontFamily:"monospace", fontSize:9, color:rarityColor, letterSpacing:"0.08em" }}>
+            {rarity || "Common"}
+          </div>
+        </div>
+      </div>
+      <div style={{ marginTop:5, fontFamily:"monospace", fontSize:9, color:"#444", letterSpacing:"0.1em" }}>
+        Art by {card.artist || "Unknown"}
+      </div>
+    </div>
+
+    {/* ── DEX PANEL ── */}
+    <div style={{
+      maxHeight: expanded ? 500 : 0,
+      overflow:"hidden",
+      transition:"max-height 0.44s cubic-bezier(0.4,0,0.2,1)",
+    }}>
+      <div style={{ padding:"0 14px 18px", background:theme.bg }}>
+
+        <div style={{
+          height:1,
+          background:`linear-gradient(90deg,transparent,${theme.accent}55,transparent)`,
+          margin:"10px 0 12px",
+        }} />
+
+        {/* Stats grid */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:12 }}>
+          {[
+            { l:"WEAKNESS", v: card.weaknesses?.map(w => `${w.type} ${w.value}`).join(", ") || "—" },
+            { l:"RESIST", v: card.resistances?.map(r => `${r.type} ${r.value}`).join(", ") || "—" },
+            { l:"RETREAT", v: card.retreatCost?.length ? "●".repeat(card.retreatCost.length) : "Free" },
+          ].map(s => (
+            <div key={s.l} style={{
+              background:"rgba(255,255,255,0.02)",
+              border:`1px solid ${theme.accent}18`,
+              borderRadius:8, padding:"7px 8px",
+            }}>
+              <div style={{ fontFamily:"monospace", fontSize:7, color:"#444", letterSpacing:"0.15em", marginBottom:3 }}>{s.l}</div>
+              <div style={{ fontFamily:"monospace", fontSize:10, color:theme.text }}>{s.v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Attacks */}
+        {card.attacks?.length > 0 && (
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.2em", marginBottom:7 }}>ATTACKS</div>
+            {card.attacks.map((atk, i) => (
+              <div key={i} style={{
+                marginBottom:6, padding:"7px 10px",
+                background:"rgba(255,255,255,0.02)",
+                border:`1px solid ${theme.accent}15`,
+                borderRadius:8,
+              }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <div>
+                    <span style={{ fontFamily:"monospace", fontSize:8, color:theme.accent,
+                      background:theme.accent+"22", borderRadius:4, padding:"1px 6px", marginRight:6 }}>
+                      {atk.cost?.join("") || "—"}
+                    </span>
+                    <span style={{ fontFamily:"monospace", fontSize:12, color:"#fff", fontWeight:700 }}>
+                      {atk.name}
+                    </span>
+                  </div>
+                  <span style={{ fontFamily:"monospace", fontSize:13, color:theme.accent, fontWeight:900 }}>
+                    {atk.damage || "—"}
+                  </span>
+                </div>
+                {atk.text && (
+                  <div style={{ fontFamily:"monospace", fontSize:9, color:"#555", marginTop:4, lineHeight:1.5 }}>
+                    {atk.text}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Abilities */}
+        {card.abilities?.length > 0 && (
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.2em", marginBottom:7 }}>ABILITIES</div>
+            {card.abilities.map((ab, i) => (
+              <div key={i} style={{
+                padding:"7px 10px", marginBottom:6,
+                background:`${theme.accent}0a`,
+                border:`1px solid ${theme.accent}22`,
+                borderRadius:8,
+              }}>
+                <div style={{ fontFamily:"monospace", fontSize:9, color:theme.accent, marginBottom:3, letterSpacing:"0.08em" }}>
+                  {ab.type?.toUpperCase()}: {ab.name}
+                </div>
+                <div style={{ fontFamily:"monospace", fontSize:9, color:"#666", lineHeight:1.5 }}>{ab.text}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Flavor */}
+        {card.flavorText && (
+          <div style={{
+            fontFamily:"monospace", fontStyle:"italic",
+            fontSize:9, color:"#555", lineHeight:1.7,
+            borderTop:`1px solid ${theme.accent}15`,
+            paddingTop:10, marginBottom:10,
+          }}>"{card.flavorText}"</div>
+        )}
+
+        {/* Rules (EX/V/etc) */}
+        {card.rules?.length > 0 && (
+          <div style={{ marginBottom:10 }}>
+            {card.rules.map((r, i) => (
+              <div key={i} style={{
+                fontFamily:"monospace", fontSize:8, color:theme.accent+"88",
+                background:theme.accent+"0a",
+                borderRadius:6, padding:"5px 8px", marginBottom:4,
+                lineHeight:1.5,
+              }}>{r}</div>
+            ))}
+          </div>
+        )}
+
+        {/* Set info */}
+        <div style={{
+          display:"flex", justifyContent:"space-between", alignItems:"center",
+          borderTop:`1px solid ${theme.accent}10`,
+          paddingTop:10, marginTop:4,
+        }}>
+          <div style={{ fontFamily:"monospace", fontSize:8, color:"#444" }}>
+            {card.set?.name} · {card.set?.releaseDate?.slice(0,7) || ""}
+          </div>
+          <div style={{ fontFamily:"monospace", fontSize:8, color:"#333" }}>
+            {card.legalities?.standard === "Legal" ? "✓ Standard" : ""}
+            {card.legalities?.expanded === "Legal" ? " · Expanded" : ""}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+```
+
+);
+}
+
+// ─── ACTION BAR ──────────────────────────────────────────────────────────────
+function ActionBar({ onPass, onUnsure, onKeep }) {
+return (
+<div style={{ display:“flex”, alignItems:“center”, justifyContent:“center”, gap:18 }}>
+{[
+{ icon:“✕”, color:”#FF1744”, size:62, action:onPass, title:“Pass ←” },
+{ icon:”?”, color:”#888”, size:46, action:onUnsure, title:“Unsure ↓” },
+{ icon:“♥”, color:”#00E676”, size:62, action:onKeep, title:“Keep →” },
+].map(b => (
+<button key={b.icon} onClick={b.action} title={b.title} style={{
+width:b.size, height:b.size, borderRadius:“50%”,
+background:`${b.color}12`,
+border:`2px solid ${b.color}40`,
+cursor:“pointer”, fontSize:b.size === 62 ? 22 : 17,
+display:“flex”, alignItems:“center”, justifyContent:“center”,
+transition:“all 0.18s ease”, color:b.color,
+fontFamily:“monospace”,
+}}
+onMouseEnter={e=>{ e.currentTarget.style.background=`${b.color}28`; e.currentTarget.style.transform=“scale(1.12)”; }}
+onMouseLeave={e=>{ e.currentTarget.style.background=`${b.color}12`; e.currentTarget.style.transform=“scale(1)”; }}
+>{b.icon}</button>
+))}
+</div>
+);
+}
+
+// ─── PROFILE PANEL ───────────────────────────────────────────────────────────
+function ProfilePanel({ profile, onClose }) {
+const { kept=[], passed=[], unsure=[], total=0, era={}, types={}, rarity={}, pokemon={} } = profile;
+const topType = Object.entries(types).sort((a,b)=>b[1]-a[1])[0]?.[0] || “Colorless”;
+const theme = TYPE_THEME[topType] || TYPE_THEME.Colorless;
+
+const TRAITS = [];
+const eraKeys = Object.keys(era);
+if (era[“Base/Neo Era”] >= 1) TRAITS.push(“Vintage Archivist”);
+if (era[“SV Era”] >= 1 || era[“SwSh Era”] >= 1) TRAITS.push(“Modern Collector”);
+if ((rarity[“Special Illustration Rare”]||0) + (rarity[“Illustration Rare”]||0) >= 1) TRAITS.push(“Illustration Purist”);
+if ((rarity[“Hyper Rare”]||0) + (rarity[“Rainbow Rare”]||0) >= 1) TRAITS.push(“Rainbow Hunter”);
+if ((rarity[“Holo Rare”]||0) >= 2) TRAITS.push(“Holo Devotee”);
+if (kept.length > passed.length * 1.5) TRAITS.push(“Permissive Eye”);
+if (passed.length > kept.length * 1.5) TRAITS.push(“Ruthless Curator”);
+if (eraKeys.length >= 3) TRAITS.push(“Era Agnostic”);
+if (eraKeys.length === 1) TRAITS.push(“Era Loyalist”);
+const topPoke = Object.entries(pokemon).sort((a,b)=>b[1]-a[1])[0]?.[0];
+if (topPoke) TRAITS.push(`${topPoke} Fan`);
+
+return (
+<div style={{
+position:“fixed”, inset:0, zIndex:200,
+background:“rgba(0,0,0,0.88)”, backdropFilter:“blur(14px)”,
+display:“flex”, alignItems:“flex-end”, justifyContent:“center”,
+}} onClick={onClose}>
+<div onClick={e=>e.stopPropagation()} style={{
+width:“min(460px,100vw)”, maxHeight:“82vh”, overflowY:“auto”,
+background:”#050010”,
+borderRadius:“22px 22px 0 0”,
+border:`1px solid ${theme.accent}28`,
+borderBottom:“none”,
+padding:“22px 20px 48px”,
+}}>
+<div style={{ width:38, height:4, background:”#222”, borderRadius:2, margin:“0 auto 22px”, cursor:“pointer” }} onClick={onClose} />
+
+```
+    <div style={{ fontFamily:"monospace", fontSize:9, color:theme.accent, letterSpacing:"0.3em", marginBottom:3 }}>
+      ORACLE // COLLECTOR PROFILE
+    </div>
+    <div style={{ fontFamily:"monospace", fontSize:22, fontWeight:900, color:"#fff", marginBottom:20 }}>
+      Taste Vector
+    </div>
+
+    {/* Summary stats */}
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:20 }}>
+      {[
+        { l:"DECISIONS", v:total },
+        { l:"KEPT", v:kept.length },
+        { l:"UNSURE", v:unsure.length },
+      ].map(s=>(
+        <div key={s.l} style={{
+          background:"rgba(255,255,255,0.02)", border:`1px solid ${theme.accent}18`,
+          borderRadius:10, padding:"10px 0", textAlign:"center",
+        }}>
+          <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:900, color:theme.accent }}>{s.v}</div>
+          <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.15em", marginTop:3 }}>{s.l}</div>
+        </div>
+      ))}
+    </div>
+
+    {/* Era signal */}
+    {Object.keys(era).length > 0 && (
+      <div style={{ marginBottom:18 }}>
+        <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.2em", marginBottom:8 }}>ERA SIGNAL</div>
+        {Object.entries(era).sort((a,b)=>b[1]-a[1]).map(([e,v])=>(
+          <div key={e} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+            <div style={{ fontFamily:"monospace", fontSize:8, color:"#555", width:90, textAlign:"right", flexShrink:0 }}>{e}</div>
+            <div style={{ flex:1, height:3, background:"#111", borderRadius:2, overflow:"hidden" }}>
+              <div style={{
+                height:"100%",
+                width:`${Math.min(100, v / Math.max(...Object.values(era)) * 100)}%`,
+                background:`linear-gradient(90deg, ${theme.accent}, ${theme.glow})`,
+                borderRadius:2, transition:"width 0.7s ease",
+              }} />
+            </div>
+            <div style={{ fontFamily:"monospace", fontSize:9, color:"#555", width:14 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Type signal */}
+    {Object.keys(types).length > 0 && (
+      <div style={{ marginBottom:18 }}>
+        <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.2em", marginBottom:8 }}>TYPE AFFINITY</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {Object.entries(types).sort((a,b)=>b[1]-a[1]).map(([t,v])=>(
+            <span key={t} style={{
+              fontFamily:"monospace", fontSize:9,
+              color:TYPE_THEME[t]?.accent||"#aaa",
+              background:(TYPE_THEME[t]?.accent||"#aaa")+"18",
+              border:`1px solid ${(TYPE_THEME[t]?.accent||"#aaa")}33`,
+              borderRadius:20, padding:"3px 10px",
+            }}>{t} ×{v}</span>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Traits */}
+    {TRAITS.length > 0 && (
+      <div style={{ marginBottom:18 }}>
+        <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.2em", marginBottom:8 }}>COLLECTOR TRAITS</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+          {TRAITS.map(t=>(
+            <span key={t} style={{
+              fontFamily:"monospace", fontSize:9, color:theme.accent,
+              background:theme.accent+"15", border:`1px solid ${theme.accent}30`,
+              borderRadius:20, padding:"4px 12px",
+            }}>{t}</span>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Kept cards */}
+    {kept.length > 0 && (
+      <div style={{ marginBottom:18 }}>
+        <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.2em", marginBottom:8 }}>KEPT CARDS</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          {kept.map(c=>(
+            <div key={c.id} style={{
+              display:"flex", alignItems:"center", gap:10,
+              background:"rgba(0,230,118,0.04)",
+              border:"1px solid rgba(0,230,118,0.12)",
+              borderRadius:8, padding:"6px 10px",
+            }}>
+              <img src={c.images?.small} alt={c.name} style={{ width:32, height:44, objectFit:"cover", borderRadius:4 }} />
+              <div>
+                <div style={{ fontFamily:"monospace", fontSize:11, color:"#fff" }}>{c.name}</div>
+                <div style={{ fontFamily:"monospace", fontSize:8, color:"#555" }}>{c.set?.name} · {c.rarity}</div>
+              </div>
+              <div style={{ marginLeft:"auto", fontFamily:"monospace", fontSize:10, color:"#00E676" }}>♥</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Raw vector export */}
+    <div style={{ background:"#000", borderRadius:8, padding:"10px 12px", border:"1px solid #111" }}>
+      <div style={{ fontFamily:"monospace", fontSize:8, color:"#333", letterSpacing:"0.2em", marginBottom:6 }}>
+        RAW VECTOR // LEDGER EXPORT
+      </div>
+      <pre style={{
+        fontFamily:"monospace", fontSize:8, color:"#2a5c2a",
+        lineHeight:1.6, margin:0, overflow:"auto", maxHeight:160,
+      }}>{JSON.stringify({ total, era, types, rarity, pokemon, kept_ids: kept.map(c=>c.id) }, null, 2)}</pre>
+    </div>
+  </div>
+</div>
+```
+
+);
+}
+
+// ─── SEARCH SCREEN ────────────────────────────────────────────────────────────
+function SearchScreen({ onSelect, profile }) {
+const [query, setQuery] = useState(””);
+const [suggestions, setSuggestions] = useState([]);
+const [searching, setSearching] = useState(false);
+const debounceRef = useRef(null);
+
+useEffect(() => {
+if (query.length < 2) { setSuggestions([]); return; }
+clearTimeout(debounceRef.current);
+debounceRef.current = setTimeout(async () => {
+setSearching(true);
+try {
+const results = await searchPokemon(query);
+setSuggestions(results);
+} catch {}
+setSearching(false);
+}, 350);
+return () => clearTimeout(debounceRef.current);
+}, [query]);
+
+const hasProfile = profile.total > 0;
+
+return (
+<div style={{
+minHeight:“100vh”,
+background:“radial-gradient(ellipse at 20% 30%, #0d0020 0%, #000 70%)”,
+display:“flex”, flexDirection:“column”, alignItems:“center”,
+padding:“40px 20px 60px”,
+}}>
+<style>{`@keyframes pulse { 0%,100%{opacity:0.35} 50%{opacity:1} } @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} } @keyframes spin { to{transform:rotate(360deg)} } *{box-sizing:border-box} ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:#222;border-radius:2px}`}</style>
+<Scanlines />
+
+```
+  {/* Logo */}
+  <div style={{ textAlign:"center", marginBottom:40, animation:"fadeUp 0.6s ease" }}>
+    <div style={{
+      fontFamily:"monospace", fontSize:10, color:"#FFD700",
+      letterSpacing:"0.5em", marginBottom:8, opacity:0.7,
+    }}>◆ PANTHEON TCG ORACLE ◆</div>
+    <div style={{
+      fontFamily:"monospace", fontSize:"clamp(28px,7vw,48px)",
+      fontWeight:900, color:"#fff",
+      letterSpacing:"0.04em", lineHeight:1,
+    }}>CARD ORACLE</div>
+    <div style={{
+      fontFamily:"monospace", fontSize:10, color:"#444",
+      marginTop:8, letterSpacing:"0.3em",
+    }}>SWIPE · RANK · DISCOVER YOUR TASTE</div>
+  </div>
+
+  {/* Search box */}
+  <div style={{ width:"100%", maxWidth:420, marginBottom:24, position:"relative", animation:"fadeUp 0.7s ease" }}>
+    <input
+      value={query}
+      onChange={e=>setQuery(e.target.value)}
+      placeholder="Search any Pokémon..."
+      style={{
+        width:"100%",
+        background:"rgba(255,255,255,0.04)",
+        border:"1px solid rgba(255,255,255,0.15)",
+        borderRadius:12,
+        padding:"13px 18px 13px 42px",
+        fontFamily:"monospace", fontSize:14,
+        color:"#fff", outline:"none",
+        letterSpacing:"0.05em",
+      }}
+    />
+    <div style={{
+      position:"absolute", left:15, top:"50%",
+      transform:"translateY(-50%)",
+      fontSize:14, opacity:0.4,
+      animation: searching ? "spin 1s linear infinite" : "none",
+    }}>{searching ? "◌" : "◎"}</div>
+
+    {/* Suggestions dropdown */}
+    {suggestions.length > 0 && (
+      <div style={{
+        position:"absolute", top:"calc(100% + 6px)", left:0, right:0,
+        background:"#0a0015", border:"1px solid rgba(255,255,255,0.1)",
+        borderRadius:12, overflow:"hidden", zIndex:50,
+        boxShadow:"0 12px 40px rgba(0,0,0,0.6)",
+      }}>
+        {suggestions.map(name=>(
+          <button key={name} onClick={()=>{ onSelect(name); setQuery(""); setSuggestions([]); }} style={{
+            width:"100%", background:"transparent",
+            border:"none", borderBottom:"1px solid rgba(255,255,255,0.04)",
+            padding:"11px 18px", cursor:"pointer",
+            textAlign:"left", fontFamily:"monospace",
+            fontSize:13, color:"#ccc", letterSpacing:"0.05em",
+            transition:"background 0.15s",
+          }}
+            onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.05)"}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+          >{name}</button>
+        ))}
+      </div>
+    )}
+  </div>
+
+  {/* Popular grid */}
+  <div style={{ width:"100%", maxWidth:440, marginBottom:32, animation:"fadeUp 0.8s ease" }}>
+    <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.3em", marginBottom:12, textAlign:"center" }}>
+      POPULAR PICKS
+    </div>
+    <div style={{
+      display:"grid",
+      gridTemplateColumns:"repeat(auto-fill, minmax(100px, 1fr))",
+      gap:8,
+    }}>
+      {POPULAR.map(p=>(
+        <button key={p.name} onClick={()=>onSelect(p.name)} style={{
+          background:"rgba(255,255,255,0.025)",
+          border:"1px solid rgba(255,255,255,0.08)",
+          borderRadius:12, padding:"12px 8px",
+          cursor:"pointer", textAlign:"center",
+          transition:"all 0.18s ease",
+          color:"inherit",
+        }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.18)"; e.currentTarget.style.transform="translateY(-2px)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.025)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.08)"; e.currentTarget.style.transform="translateY(0)"; }}
+        >
+          <div style={{ fontSize:22, marginBottom:5 }}>{p.emoji}</div>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:"#ddd", letterSpacing:"0.05em" }}>{p.name}</div>
+          <div style={{ fontFamily:"monospace", fontSize:8, color:"#555", marginTop:2 }}>{p.type}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+
+  {/* Profile status */}
+  {hasProfile && (
+    <div style={{
+      fontFamily:"monospace", fontSize:10, color:"#333",
+      letterSpacing:"0.15em", animation:"pulse 3s infinite",
+    }}>
+      ◉ {profile.total} decisions logged · {profile.kept?.length || 0} cards kept
+    </div>
+  )}
+</div>
+```
+
+);
+}
+
+// ─── LOADING SCREEN ───────────────────────────────────────────────────────────
+function LoadingScreen({ pokemon }) {
+return (
+<div style={{
+minHeight:“100vh”, background:”#000”,
+display:“flex”, flexDirection:“column”,
+alignItems:“center”, justifyContent:“center”, gap:16,
+}}>
+<Scanlines />
+<div style={{
+fontFamily:“monospace”, fontSize:11,
+color:”#FFD700”, letterSpacing:“0.3em”,
+animation:“pulse 1s infinite”,
+}}>SCANNING TCG DATABASE</div>
+<div style={{ fontFamily:“monospace”, fontSize:22, color:”#fff”, fontWeight:900 }}>
+{pokemon}
+</div>
+<div style={{ fontFamily:“monospace”, fontSize:9, color:”#333”, letterSpacing:“0.2em” }}>
+fetching all cards ever printed…
+</div>
+<div style={{
+marginTop:10, width:200, height:2,
+background:”#111”, borderRadius:1, overflow:“hidden”,
+}}>
+<div style={{
+height:“100%”, width:“60%”,
+background:“linear-gradient(90deg,#FFD700,#FF8C00)”,
+borderRadius:1,
+animation:“load 1.2s ease-in-out infinite alternate”,
+}} />
+</div>
+<style>{`@keyframes load { from{width:10%} to{width:90%} } @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }`}</style>
+</div>
+);
+}
+
+// ─── EMPTY / DONE SCREEN ──────────────────────────────────────────────────────
+function DoneScreen({ pokemon, kept, total, onBack, onViewProfile, onShuffle }) {
+return (
+<div style={{
+minHeight:“100vh”, background:”#000”,
+display:“flex”, flexDirection:“column”,
+alignItems:“center”, justifyContent:“center”,
+padding:30, textAlign:“center”, gap:16,
+}}>
+<Scanlines />
+<div style={{ fontFamily:“monospace”, fontSize:40, marginBottom:4 }}>⬡</div>
+<div style={{ fontFamily:“monospace”, fontSize:10, color:”#FFD700”, letterSpacing:“0.3em” }}>
+SCAN COMPLETE
+</div>
+<div style={{ fontFamily:“monospace”, fontSize:22, color:”#fff”, fontWeight:900 }}>{pokemon}</div>
+<div style={{ fontFamily:“monospace”, fontSize:10, color:”#444”, letterSpacing:“0.1em” }}>
+{total} cards evaluated · {kept} kept
+</div>
+<div style={{ display:“flex”, gap:10, marginTop:12, flexWrap:“wrap”, justifyContent:“center” }}>
+<button onClick={onViewProfile} style={{
+background:“rgba(255,215,0,0.08)”, border:“1px solid rgba(255,215,0,0.22)”,
+borderRadius:8, padding:“10px 20px”,
+cursor:“pointer”, fontFamily:“monospace”, fontSize:10,
+color:”#FFD700”, letterSpacing:“0.15em”, transition:“all 0.2s”,
+}}
+onMouseEnter={e=>e.currentTarget.style.background=“rgba(255,215,0,0.16)”}
+onMouseLeave={e=>e.currentTarget.style.background=“rgba(255,215,0,0.08)”}
+>VIEW PROFILE</button>
+<button onClick={onShuffle} style={{
+background:“rgba(255,255,255,0.04)”, border:“1px solid rgba(255,255,255,0.1)”,
+borderRadius:8, padding:“10px 20px”,
+cursor:“pointer”, fontFamily:“monospace”, fontSize:10,
+color:”#666”, letterSpacing:“0.15em”, transition:“all 0.2s”,
+}}>RESHUFFLE</button>
+<button onClick={onBack} style={{
+background:“rgba(255,255,255,0.03)”, border:“1px solid rgba(255,255,255,0.08)”,
+borderRadius:8, padding:“10px 20px”,
+cursor:“pointer”, fontFamily:“monospace”, fontSize:10,
+color:”#444”, letterSpacing:“0.15em”, transition:“all 0.2s”,
+}}>← NEW POKÉMON</button>
+</div>
+</div>
+);
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+export default function PokemonOracle() {
+const [screen, setScreen] = useState(“search”); // search | loading | swipe | done
+const [activePokemon, setActivePokemon] = useState(null);
+const [deck, setDeck] = useState([]);
+const [originalDeck, setOriginalDeck] = useState([]);
+const [kept, setKept] = useState([]);
+const [passed, setPassed] = useState([]);
+const [unsure, setUnsure] = useState([]);
+const [showProfile, setShowProfile] = useState(false);
+const [toast, setToast] = useState(null);
+const [error, setError] = useState(null);
+
+// Persistent profile across sessions
+const [profile, setProfile] = useState(() => {
+try { return JSON.parse(localStorage.getItem(“tcg_oracle_profile”) || “{}”); } catch { return {}; }
+});
+
+const updateProfile = useCallback((card, action) => {
+if (action === “pass”) return;
+setProfile(prev => {
+const next = {
+…prev,
+total: (prev.total||0) + 1,
+era: { …(prev.era||{}), [ERA(card.set?.releaseDate)]: ((prev.era||{})[ERA(card.set?.releaseDate)]||0)+1 },
+types: { …(prev.types||{}) },
+rarity: { …(prev.rarity||{}), [card.rarity||“Common”]: ((prev.rarity||{})[card.rarity||“Common”]||0)+1 },
+pokemon: { …(prev.pokemon||{}), [activePokemon]: ((prev.pokemon||{})[activePokemon]||0)+1 },
+kept: action === “keep” ? […(prev.kept||[]), card] : (prev.kept||[]),
+};
+(card.types||[“Colorless”]).forEach(t => { next.types[t] = (next.types[t]||0)+1; });
+try { localStorage.setItem(“tcg_oracle_profile”, JSON.stringify(next)); } catch {}
+return next;
+});
+}, [activePokemon]);
+
+const selectPokemon = async (name) => {
+setActivePokemon(name);
+setScreen(“loading”);
+setError(null);
+try {
+const cards = await fetchAllCardsForPokemon(name);
+if (!cards.length) {
+setError(`No cards found for "${name}"`);
+setScreen(“search”);
+return;
+}
+const shuffled = shuffle(cards);
+setDeck(shuffled);
+setOriginalDeck(shuffled);
+setKept([]);
+setPassed([]);
+setUnsure([]);
+setScreen(“swipe”);
+} catch (e) {
+setError(“API error — check connection”);
+setScreen(“search”);
+}
+};
+
+const handleSwipe = useCallback((dir, card) => {
+setDeck(d => d.filter(c => c.id !== card.id));
+if (dir === “right”) {
+setKept(k => [card, …k]);
+updateProfile(card, “keep”);
+setToast({ type:“kept”, name:card.name });
+} else {
+setPassed(p => [card, …p]);
+updateProfile(card, “pass”);
+setToast({ type:“passed”, name:card.name });
+}
+setTimeout(() => setToast(null), 1800);
+}, [updateProfile]);
+
+const handleUnsure = useCallback(() => {
+const top = deck[deck.length - 1];
+if (!top) return;
+setDeck(d => d.filter(c => c.id !== top.id));
+setUnsure(u => [top, …u]);
+setToast({ type:“unsure”, name:top.name });
+setTimeout(() => setToast(null), 1800);
+}, [deck]);
+
+const topCard = deck[deck.length - 1];
+const theme = topCard ? getTheme(topCard) : { bg:”#000”, accent:”#FFD700”, glow:”#FFD700” };
+
+// Keyboard shortcuts
+useEffect(() => {
+if (screen !== “swipe”) return;
+const h = (e) => {
+if (showProfile) return;
+if (e.key === “ArrowLeft”) topCard && handleSwipe(“left”, topCard);
+if (e.key === “ArrowRight”) topCard && handleSwipe(“right”, topCard);
+if (e.key === “ “ || e.key === “ArrowDown”) { e.preventDefault(); handleUnsure(); }
+if (e.key === “p” || e.key === “P”) setShowProfile(s=>!s);
+if (e.key === “Escape”) setScreen(“search”);
+};
+window.addEventListener(“keydown”, h);
+return () => window.removeEventListener(“keydown”, h);
+}, [screen, topCard, handleSwipe, handleUnsure, showProfile]);
+
+// Auto-advance to done
+useEffect(() => {
+if (screen === “swipe” && deck.length === 0) {
+setTimeout(() => setScreen(“done”), 300);
+}
+}, [deck, screen]);
+
+// ── RENDER ──
+if (screen === “search”) return (
+<>
+{error && (
+<div style={{
+position:“fixed”, top:16, left:“50%”, transform:“translateX(-50%)”,
+background:“rgba(255,23,68,0.12)”, border:“1px solid rgba(255,23,68,0.3)”,
+borderRadius:20, padding:“6px 16px”, fontFamily:“monospace”,
+fontSize:10, color:”#FF1744”, letterSpacing:“0.1em”, zIndex:999,
+}}>{error}</div>
+)}
+<SearchScreen onSelect={selectPokemon} profile={profile} />
+</>
+);
+
+if (screen === “loading”) return <LoadingScreen pokemon={activePokemon} />;
+
+if (screen === “done”) return (
+<>
+<DoneScreen
+pokemon={activePokemon}
+kept={kept.length}
+total={originalDeck.length}
+onBack={() => setScreen(“search”)}
+onViewProfile={() => setShowProfile(true)}
+onShuffle={() => {
+setDeck(shuffle(originalDeck));
+setKept([]); setPassed([]); setUnsure([]);
+setScreen(“swipe”);
+}}
+/>
+{showProfile && <ProfilePanel profile={profile} onClose={()=>setShowProfile(false)} />}
+</>
+);
+
+return (
+<div style={{
+minHeight:“100vh”,
+background:`radial-gradient(ellipse at 50% 0%, ${theme.bg} 0%, #000 65%)`,
+display:“flex”, flexDirection:“column”,
+alignItems:“center”,
+transition:“background 0.5s ease”,
+overflow:“hidden”,
+}}>
+<Scanlines />
+<style>{`@keyframes pulse{0%,100%{opacity:0.35}50%{opacity:1}} @keyframes fadeUp{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}} *{box-sizing:border-box} ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:#222;border-radius:2px} input{color-scheme:dark}`}</style>
+
+```
+  {/* Top bar */}
+  <div style={{
+    width:"100%", maxWidth:440,
+    padding:"14px 18px 0",
+    display:"flex", justifyContent:"space-between", alignItems:"center",
+    position:"relative", zIndex:20,
+  }}>
+    <div>
+      <button onClick={()=>setScreen("search")} style={{
+        background:"transparent", border:"none", cursor:"pointer",
+        fontFamily:"monospace", fontSize:9,
+        color:theme.accent, letterSpacing:"0.25em", opacity:0.7,
+        padding:0,
+      }}>← ORACLE</button>
+      <div style={{ fontFamily:"monospace", fontSize:16, fontWeight:900, color:"#fff", marginTop:2 }}>
+        {activePokemon}
+      </div>
+      <div style={{ fontFamily:"monospace", fontSize:8, color:"#444", letterSpacing:"0.15em", marginTop:1 }}>
+        {deck.length} remaining · {kept.length} kept · {unsure.length} unsure
+      </div>
+    </div>
+    <button onClick={()=>setShowProfile(true)} style={{
+      background:"rgba(255,255,255,0.04)",
+      border:"1px solid rgba(255,255,255,0.1)",
+      borderRadius:20, padding:"6px 14px",
+      cursor:"pointer", fontFamily:"monospace",
+      fontSize:9, color:profile.total > 0 ? theme.accent : "#555",
+      letterSpacing:"0.1em", transition:"all 0.2s",
+    }}
+      onMouseEnter={e=>e.currentTarget.style.color="#fff"}
+      onMouseLeave={e=>e.currentTarget.style.color=profile.total>0?theme.accent:"#555"}
+    >{profile.total > 0 ? "◉ PROFILE" : "◎ PROFILE"}</button>
+  </div>
+
+  {/* Card stack */}
+  <div style={{
+    flex:1, display:"flex",
+    alignItems:"center", justifyContent:"center",
+    width:"100%", position:"relative",
+    minHeight:"calc(100vh - 160px)",
+  }}>
+    {deck.length > 0 ? (
+      <div style={{ position:"relative", width:"min(360px,90vw)", height:520 }}>
+        {deck.slice(-3).map((card, ri) => {
+          const si = 2 - ri;
+          return (
+            <SwipeCard
+              key={card.id}
+              card={card}
+              onSwipe={handleSwipe}
+              isTop={si === 0}
+              stackIndex={si}
+            />
+          );
+        })}
+      </div>
+    ) : (
+      <div style={{ fontFamily:"monospace", fontSize:10, color:"#333", letterSpacing:"0.2em", animation:"pulse 2s infinite" }}>
+        PROCESSING...
+      </div>
+    )}
+  </div>
+
+  {/* Action bar */}
+  <div style={{ paddingBottom:28, position:"relative", zIndex:20 }}>
+    <ActionBar
+      onPass={() => topCard && handleSwipe("left", topCard)}
+      onUnsure={handleUnsure}
+      onKeep={() => topCard && handleSwipe("right", topCard)}
+    />
+    <div style={{ textAlign:"center", marginTop:8, fontFamily:"monospace", fontSize:8, color:"#2a2a2a", letterSpacing:"0.15em" }}>
+      ← PASS · ? UNSURE · KEEP → · P PROFILE
+    </div>
+  </div>
+
+  {/* Toast */}
+  {toast && (
+    <div style={{
+      position:"fixed", top:56, left:"50%", transform:"translateX(-50%)",
+      background: toast.type==="kept" ? "rgba(0,230,118,0.1)" : toast.type==="passed" ? "rgba(255,23,68,0.1)" : "rgba(255,255,255,0.05)",
+      border:`1px solid ${toast.type==="kept" ? "rgba(0,230,118,0.25)" : toast.type==="passed" ? "rgba(255,23,68,0.25)" : "rgba(255,255,255,0.12)"}`,
+      borderRadius:20, padding:"5px 16px",
+      fontFamily:"monospace", fontSize:9,
+      color: toast.type==="kept" ? "#00E676" : toast.type==="passed" ? "#FF1744" : "#888",
+      letterSpacing:"0.12em", zIndex:50,
+      animation:"fadeUp 0.2s ease",
+      whiteSpace:"nowrap", pointerEvents:"none",
+    }}>
+      {toast.type==="kept"?"♥ KEPT":toast.type==="passed"?"✕ PASSED":"? UNSURE"} — {toast.name}
+    </div>
+  )}
+
+  {/* Profile panel */}
+  {showProfile && <ProfilePanel profile={profile} onClose={()=>setShowProfile(false)} />}
+</div>
+```
+
+);
+}
