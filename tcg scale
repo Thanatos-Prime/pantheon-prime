@@ -1,0 +1,668 @@
+Good. Here’s the scaled version as a clean repo scaffold you can paste into GitHub.
+
+This is the first version that looks like a real product base instead of a single script.
+
+Repo structure
+
+preference-signal-refinery/
+├── README.md
+├── requirements.txt
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── schemas.py
+│   ├── engine.py
+│   ├── storage.py
+│   ├── clustering.py
+│   └── trainer.py
+└── tests/
+    └── test_engine.py
+
+
+⸻
+
+README.md
+
+:::writing{variant=“standard” id=“15482”}
+
+# Preference Signal Refinery
+
+A scalable starter system for ingesting pairwise preference events, learning user/item vectors, clustering users, and exposing the engine through an API.
+
+## Features
+
+- Pairwise preference ingestion
+- Online vector updates
+- Event weighting via confidence + dwell time
+- SQLite storage
+- User clustering
+- User profile export
+- FastAPI API
+
+## Install
+
+```bash
+pip install -r requirements.txt
+
+Run API
+
+uvicorn app.main:app --reload
+
+Run tests
+
+pytest -q
+
+Example endpoints
+	•	POST /events
+	•	GET /users/{user_id}/profile
+	•	GET /clusters
+	•	POST /train/rebuild
+
+Notes
+
+This is an MVP scaffold.
+It is not yet production hardened.
+Future upgrades:
+	•	Postgres
+	•	auth
+	•	batch jobs
+	•	privacy-preserving aggregation
+	•	sequence modeling
+	•	cross-domain embeddings
+
+:::
+
+---
+
+## `requirements.txt`
+
+:::writing{variant="standard" id="15483"}
+```txt
+fastapi==0.116.1
+uvicorn==0.35.0
+numpy==2.3.2
+pydantic==2.11.7
+pytest==8.4.1
+
+:::
+
+⸻
+
+app/__init__.py
+
+:::writing{variant=“standard” id=“15484”}
+
+# app package
+
+:::
+
+⸻
+
+app/schemas.py
+
+:::writing{variant=“standard” id=“15485”}
+
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any, List
+
+
+class PreferenceEvent(BaseModel):
+    user_id: str
+    item_a: str
+    item_b: str
+    selected: str
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    dwell_ms: int = Field(default=1000, ge=0)
+    domain: str = "default"
+    context: Dict[str, Any] = Field(default_factory=dict)
+    item_a_features: Dict[str, Any] = Field(default_factory=dict)
+    item_b_features: Dict[str, Any] = Field(default_factory=dict)
+
+
+class UserProfile(BaseModel):
+    user_id: str
+    vector: List[float]
+    events_seen: int
+    domain_counts: Dict[str, int]
+
+
+class ClusterAssignment(BaseModel):
+    user_id: str
+    cluster_id: int
+
+:::
+
+⸻
+
+app/engine.py
+
+:::writing{variant=“standard” id=“15486”}
+
+from __future__ import annotations
+
+import hashlib
+from collections import defaultdict
+from typing import Dict, Any, List
+
+import numpy as np
+
+
+VECTOR_SIZE = 24
+LEARNING_RATE = 0.05
+FEATURE_SCALE = 0.20
+
+
+def sigmoid(x: float) -> float:
+    return 1.0 / (1.0 + np.exp(-np.clip(x, -20, 20)))
+
+
+def normalize_dwell(ms: int) -> float:
+    return min(ms / 3000.0, 1.0)
+
+
+def random_vector() -> np.ndarray:
+    return np.random.normal(0, 0.1, VECTOR_SIZE)
+
+
+def stable_hash(text: str) -> int:
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return int(digest[:16], 16)
+
+
+def feature_vector(features: Dict[str, Any]) -> np.ndarray:
+    vec = np.zeros(VECTOR_SIZE, dtype=float)
+
+    for key, value in sorted(features.items()):
+        token = f"{key}={value}"
+        idx = stable_hash(token) % VECTOR_SIZE
+        sign = 1.0 if stable_hash("sign:" + token) % 2 == 0 else -1.0
+        vec[idx] += sign
+
+    norm = np.linalg.norm(vec)
+    if norm > 0:
+        vec = vec / norm
+
+    return vec
+
+
+class PreferenceEngine:
+    def __init__(self) -> None:
+        self.user_vectors: Dict[str, np.ndarray] = defaultdict(random_vector)
+        self.item_vectors: Dict[str, np.ndarray] = defaultdict(random_vector)
+        self.user_event_counts: Dict[str, int] = defaultdict(int)
+        self.user_domain_counts: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+
+    def item_representation(self, item_id: str, features: Dict[str, Any]) -> np.ndarray:
+        base = self.item_vectors[item_id]
+        feat = feature_vector(features)
+        return base + FEATURE_SCALE * feat
+
+    def score(self, user_id: str, item_id: str, item_features: Dict[str, Any] | None = None) -> float:
+        if item_features is None:
+            item_features = {}
+        u = self.user_vectors[user_id]
+        i = self.item_representation(item_id, item_features)
+        return float(np.dot(u, i))
+
+    def preference_prob(
+        self,
+        user_id: str,
+        item_a: str,
+        item_b: str,
+        item_a_features: Dict[str, Any] | None = None,
+        item_b_features: Dict[str, Any] | None = None,
+    ) -> float:
+        sa = self.score(user_id, item_a, item_a_features or {})
+        sb = self.score(user_id, item_b, item_b_features or {})
+        return sigmoid(sa - sb)
+
+    def event_weight(self, confidence: float, dwell_ms: int) -> float:
+        return 0.5 * confidence + 0.5 * normalize_dwell(dwell_ms)
+
+    def update(
+        self,
+        user_id: str,
+        item_a: str,
+        item_b: str,
+        selected: str,
+        confidence: float = 0.5,
+        dwell_ms: int = 1000,
+        domain: str = "default",
+        item_a_features: Dict[str, Any] | None = None,
+        item_b_features: Dict[str, Any] | None = None,
+    ) -> Dict[str, float]:
+        item_a_features = item_a_features or {}
+        item_b_features = item_b_features or {}
+
+        if selected not in {item_a, item_b}:
+            raise ValueError("selected must equal item_a or item_b")
+
+        weight = self.event_weight(confidence, dwell_ms)
+
+        u_vec = self.user_vectors[user_id]
+        a_vec = self.item_representation(item_a, item_a_features)
+        b_vec = self.item_representation(item_b, item_b_features)
+
+        prob = sigmoid(float(np.dot(u_vec, a_vec - b_vec)))
+        target = 1.0 if selected == item_a else 0.0
+        error = (target - prob) * weight
+
+        self.user_vectors[user_id] = u_vec + LEARNING_RATE * error * (a_vec - b_vec)
+        self.item_vectors[item_a] = self.item_vectors[item_a] + LEARNING_RATE * error * u_vec
+        self.item_vectors[item_b] = self.item_vectors[item_b] - LEARNING_RATE * error * u_vec
+
+        self.user_event_counts[user_id] += 1
+        self.user_domain_counts[user_id][domain] += 1
+
+        return {
+            "prob_item_a": prob,
+            "target": target,
+            "weight": weight,
+            "error": error,
+        }
+
+    def user_profile(self, user_id: str) -> Dict[str, Any]:
+        return {
+            "user_id": user_id,
+            "vector": self.user_vectors[user_id].round(6).tolist(),
+            "events_seen": self.user_event_counts[user_id],
+            "domain_counts": dict(self.user_domain_counts[user_id]),
+        }
+
+    def all_user_vectors(self) -> Dict[str, List[float]]:
+        return {
+            user_id: vec.tolist()
+            for user_id, vec in self.user_vectors.items()
+        }
+
+    def similarity(self, item_x: str, item_y: str) -> float:
+        a = self.item_vectors[item_x]
+        b = self.item_vectors[item_y]
+        denom = float(np.linalg.norm(a) * np.linalg.norm(b)) + 1e-8
+        return float(np.dot(a, b) / denom)
+
+:::
+
+⸻
+
+app/storage.py
+
+:::writing{variant=“standard” id=“15487”}
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from pathlib import Path
+from typing import Any, Dict, List
+
+DB_PATH = Path("psr.db")
+
+
+def get_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db() -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            item_a TEXT NOT NULL,
+            item_b TEXT NOT NULL,
+            selected TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            dwell_ms INTEGER NOT NULL,
+            domain TEXT NOT NULL,
+            context_json TEXT NOT NULL,
+            item_a_features_json TEXT NOT NULL,
+            item_b_features_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def insert_event(event: Dict[str, Any]) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        INSERT INTO events (
+            user_id, item_a, item_b, selected, confidence, dwell_ms, domain,
+            context_json, item_a_features_json, item_b_features_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            event["user_id"],
+            event["item_a"],
+            event["item_b"],
+            event["selected"],
+            event["confidence"],
+            event["dwell_ms"],
+            event["domain"],
+            json.dumps(event.get("context", {}), sort_keys=True),
+            json.dumps(event.get("item_a_features", {}), sort_keys=True),
+            json.dumps(event.get("item_b_features", {}), sort_keys=True),
+        ),
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def fetch_all_events() -> List[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    rows = cur.execute("SELECT * FROM events ORDER BY id ASC").fetchall()
+    conn.close()
+
+    events: List[Dict[str, Any]] = []
+    for row in rows:
+        events.append(
+            {
+                "user_id": row["user_id"],
+                "item_a": row["item_a"],
+                "item_b": row["item_b"],
+                "selected": row["selected"],
+                "confidence": row["confidence"],
+                "dwell_ms": row["dwell_ms"],
+                "domain": row["domain"],
+                "context": json.loads(row["context_json"]),
+                "item_a_features": json.loads(row["item_a_features_json"]),
+                "item_b_features": json.loads(row["item_b_features_json"]),
+            }
+        )
+    return events
+
+:::
+
+⸻
+
+app/clustering.py
+
+:::writing{variant=“standard” id=“15488”}
+
+from __future__ import annotations
+
+from typing import Dict, List
+import numpy as np
+
+
+def cluster_user_vectors(user_vectors: Dict[str, List[float]], k: int = 3, iterations: int = 20) -> Dict[str, int]:
+    if not user_vectors:
+        return {}
+
+    users = list(user_vectors.keys())
+    vectors = np.array([user_vectors[u] for u in users], dtype=float)
+
+    if len(users) <= k:
+        return {u: i for i, u in enumerate(users)}
+
+    centroids = vectors[:k].copy()
+
+    for _ in range(iterations):
+        distances = np.linalg.norm(vectors[:, None, :] - centroids[None, :, :], axis=2)
+        labels = np.argmin(distances, axis=1)
+
+        for idx in range(k):
+            mask = labels == idx
+            if np.any(mask):
+                centroids[idx] = vectors[mask].mean(axis=0)
+
+    return {users[i]: int(labels[i]) for i in range(len(users))}
+
+:::
+
+⸻
+
+app/trainer.py
+
+:::writing{variant=“standard” id=“15489”}
+
+from __future__ import annotations
+
+from app.engine import PreferenceEngine
+from app.storage import fetch_all_events
+
+
+def rebuild_engine_from_storage() -> PreferenceEngine:
+    engine = PreferenceEngine()
+    events = fetch_all_events()
+
+    for event in events:
+        engine.update(
+            user_id=event["user_id"],
+            item_a=event["item_a"],
+            item_b=event["item_b"],
+            selected=event["selected"],
+            confidence=event["confidence"],
+            dwell_ms=event["dwell_ms"],
+            domain=event["domain"],
+            item_a_features=event["item_a_features"],
+            item_b_features=event["item_b_features"],
+        )
+
+    return engine
+
+:::
+
+⸻
+
+app/main.py
+
+:::writing{variant=“standard” id=“15490”}
+
+from __future__ import annotations
+
+from fastapi import FastAPI, HTTPException
+
+from app.schemas import PreferenceEvent, UserProfile
+from app.storage import init_db, insert_event
+from app.trainer import rebuild_engine_from_storage
+from app.clustering import cluster_user_vectors
+
+app = FastAPI(title="Preference Signal Refinery")
+
+_engine = None
+
+
+def get_engine():
+    global _engine
+    if _engine is None:
+        _engine = rebuild_engine_from_storage()
+    return _engine
+
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
+    get_engine()
+
+
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "Preference Signal Refinery"}
+
+
+@app.post("/events")
+def ingest_event(event: PreferenceEvent):
+    insert_event(event.model_dump())
+
+    engine = get_engine()
+    result = engine.update(
+        user_id=event.user_id,
+        item_a=event.item_a,
+        item_b=event.item_b,
+        selected=event.selected,
+        confidence=event.confidence,
+        dwell_ms=event.dwell_ms,
+        domain=event.domain,
+        item_a_features=event.item_a_features,
+        item_b_features=event.item_b_features,
+    )
+
+    return {
+        "status": "ingested",
+        "update": result,
+    }
+
+
+@app.get("/users/{user_id}/profile", response_model=UserProfile)
+def user_profile(user_id: str):
+    engine = get_engine()
+    profile = engine.user_profile(user_id)
+    return UserProfile(**profile)
+
+
+@app.get("/clusters")
+def clusters(k: int = 3):
+    engine = get_engine()
+    assignments = cluster_user_vectors(engine.all_user_vectors(), k=k)
+    return {"clusters": assignments}
+
+
+@app.post("/train/rebuild")
+def rebuild():
+    global _engine
+    _engine = rebuild_engine_from_storage()
+    return {"status": "rebuilt"}
+
+
+@app.get("/items/similarity")
+def item_similarity(item_x: str, item_y: str):
+    engine = get_engine()
+    try:
+        similarity = engine.similarity(item_x, item_y)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return {
+        "item_x": item_x,
+        "item_y": item_y,
+        "similarity": similarity,
+    }
+
+:::
+
+⸻
+
+tests/test_engine.py
+
+:::writing{variant=“standard” id=“15491”}
+
+from app.engine import PreferenceEngine
+
+
+def test_engine_update_and_profile():
+    engine = PreferenceEngine()
+
+    engine.update(
+        user_id="u1",
+        item_a="pikachu",
+        item_b="charizard",
+        selected="pikachu",
+        confidence=0.9,
+        dwell_ms=1500,
+        domain="pokemon",
+        item_a_features={"type": "electric", "rarity": "common"},
+        item_b_features={"type": "fire", "rarity": "rare"},
+    )
+
+    profile = engine.user_profile("u1")
+
+    assert profile["user_id"] == "u1"
+    assert profile["events_seen"] == 1
+    assert profile["domain_counts"]["pokemon"] == 1
+    assert len(profile["vector"]) == 24
+
+:::
+
+⸻
+
+How to paste it on phone
+
+Create the repo, then add each file one by one with the exact filenames above.
+
+The minimum order:
+	1.	requirements.txt
+	2.	README.md
+	3.	app/__init__.py
+	4.	app/schemas.py
+	5.	app/engine.py
+	6.	app/storage.py
+	7.	app/clustering.py
+	8.	app/trainer.py
+	9.	app/main.py
+	10.	tests/test_engine.py
+
+⸻
+
+What this scaled version adds
+
+Compared to the one-file MVP, this now has:
+	•	API layer
+	•	persistent storage
+	•	rebuild-from-database training
+	•	clustering endpoint
+	•	profile export
+	•	cleaner repo shape
+
+⸻
+
+Fast test request
+
+Once it’s running, you can post an event like this:
+
+:::writing{variant=“standard” id=“15492”}
+
+curl -X POST "http://127.0.0.1:8000/events" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "u1",
+    "item_a": "pikachu",
+    "item_b": "charizard",
+    "selected": "pikachu",
+    "confidence": 0.92,
+    "dwell_ms": 1800,
+    "domain": "pokemon",
+    "context": {"session": 1},
+    "item_a_features": {"type": "electric", "rarity": "common"},
+    "item_b_features": {"type": "fire", "rarity": "rare"}
+  }'
+
+:::
+
+Then check:
+
+:::writing{variant=“standard” id=“15493”}
+
+curl "http://127.0.0.1:8000/users/u1/profile"
+
+:::
+
+⸻
+
+Next real upgrade
+
+The strongest next step is turning this into a proper deployable stack:
+	•	Postgres instead of SQLite
+	•	SQLAlchemy models
+	•	background batch jobs
+	•	auth and tenant separation
+	•	event export
+	•	domain-specific feature stores
+	•	interpretable trait labels
+	•	privacy-preserving aggregation
+
+I can do that next as v2 production scaffold, same copy-paste format.
