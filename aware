@@ -1,0 +1,571 @@
+Here’s the next layer: a Reputation Ledger that updates each source over time based on how well its signals predict later outcomes.
+
+This makes the governance system adaptive.
+
+What it does
+	•	stores source reputation stats
+	•	updates predictive accuracy from real outcomes
+	•	tracks consistency
+	•	raises manipulation risk when behavior looks suspicious
+	•	feeds those updated values back into governance
+
+Add this file
+
+app/reputation.py
+
+:::writing{variant=“standard” id=“31842”}
+
+from __future__ import annotations
+
+from dataclasses import dataclass, asdict
+from typing import Dict, Any
+
+
+def clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
+    return max(lo, min(hi, value))
+
+
+@dataclass
+class ReputationRecord:
+    source_id: str
+    total_predictions: int = 0
+    correct_predictions: int = 0
+    predictive_accuracy: float = 0.5
+    consistency: float = 0.5
+    stake: float = 0.0
+    expertise: float = 0.0
+    manipulation_risk: float = 0.0
+    volume: int = 0
+
+    mean_score: float = 0.5
+    score_variance_proxy: float = 0.0
+    last_outcome_error: float = 0.5
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+class ReputationLedger:
+    """
+    Tracks source quality over time from observed prediction outcomes.
+
+    outcome should be in [0,1]
+    predicted_score should be in [0,1]
+    """
+
+    def __init__(self) -> None:
+        self.records: Dict[str, ReputationRecord] = {}
+
+    def get_or_create(self, source_id: str) -> ReputationRecord:
+        if source_id not in self.records:
+            self.records[source_id] = ReputationRecord(source_id=source_id)
+        return self.records[source_id]
+
+    def register_source(
+        self,
+        source_id: str,
+        stake: float = 0.0,
+        expertise: float = 0.0,
+    ) -> ReputationRecord:
+        record = self.get_or_create(source_id)
+        record.stake = clamp(stake)
+        record.expertise = clamp(expertise)
+        return record
+
+    def update_prediction(
+        self,
+        source_id: str,
+        predicted_score: float,
+        outcome: float,
+    ) -> ReputationRecord:
+        record = self.get_or_create(source_id)
+
+        predicted_score = clamp(predicted_score)
+        outcome = clamp(outcome)
+
+        record.total_predictions += 1
+        record.volume += 1
+
+        error = abs(predicted_score - outcome)
+        record.last_outcome_error = error
+
+        # Binary correctness proxy
+        predicted_label = 1 if predicted_score >= 0.5 else 0
+        outcome_label = 1 if outcome >= 0.5 else 0
+        if predicted_label == outcome_label:
+            record.correct_predictions += 1
+
+        # Rolling predictive accuracy
+        record.predictive_accuracy = record.correct_predictions / max(record.total_predictions, 1)
+
+        # Running mean score
+        n = record.total_predictions
+        old_mean = record.mean_score
+        new_mean = old_mean + (predicted_score - old_mean) / n
+        record.mean_score = new_mean
+
+        # Variance proxy for instability / inconsistency
+        delta = predicted_score - old_mean
+        record.score_variance_proxy = (
+            ((n - 1) * record.score_variance_proxy) + delta * (predicted_score - new_mean)
+        ) / max(n, 1)
+
+        variance_norm = clamp(record.score_variance_proxy)
+        record.consistency = clamp(1.0 - variance_norm)
+
+        # Manipulation risk heuristic:
+        # if scores are extreme but outcomes miss often, risk rises
+        extremeness = abs(predicted_score - 0.5) * 2.0
+        risk_delta = 0.15 * extremeness * error - 0.05 * (1.0 - error)
+        record.manipulation_risk = clamp(record.manipulation_risk + risk_delta)
+
+        return record
+
+    def apply_manual_adjustment(
+        self,
+        source_id: str,
+        stake: float | None = None,
+        expertise: float | None = None,
+        manipulation_risk: float | None = None,
+    ) -> ReputationRecord:
+        record = self.get_or_create(source_id)
+        if stake is not None:
+            record.stake = clamp(stake)
+        if expertise is not None:
+            record.expertise = clamp(expertise)
+        if manipulation_risk is not None:
+            record.manipulation_risk = clamp(manipulation_risk)
+        return record
+
+    def export_sources_for_governance(self) -> Dict[str, Dict[str, Any]]:
+        export: Dict[str, Dict[str, Any]] = {}
+        for source_id, record in self.records.items():
+            export[source_id] = {
+                "source_id": record.source_id,
+                "source_type": "user",
+                "predictive_accuracy": record.predictive_accuracy,
+                "consistency": record.consistency,
+                "stake": record.stake,
+                "expertise": record.expertise,
+                "manipulation_risk": record.manipulation_risk,
+                "volume": record.volume,
+            }
+        return export
+
+:::
+
+Add persistence for reputation
+
+Create:
+
+app/reputation_storage.py
+
+:::writing{variant=“standard” id=“31843”}
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+from typing import Dict, Any, List
+
+DB_PATH = Path("psr.db")
+
+
+def get_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_reputation_db() -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS reputation (
+            source_id TEXT PRIMARY KEY,
+            total_predictions INTEGER NOT NULL,
+            correct_predictions INTEGER NOT NULL,
+            predictive_accuracy REAL NOT NULL,
+            consistency REAL NOT NULL,
+            stake REAL NOT NULL,
+            expertise REAL NOT NULL,
+            manipulation_risk REAL NOT NULL,
+            volume INTEGER NOT NULL,
+            mean_score REAL NOT NULL,
+            score_variance_proxy REAL NOT NULL,
+            last_outcome_error REAL NOT NULL
+        )
+        """
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def upsert_reputation(record: Dict[str, Any]) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        INSERT INTO reputation (
+            source_id, total_predictions, correct_predictions, predictive_accuracy,
+            consistency, stake, expertise, manipulation_risk, volume,
+            mean_score, score_variance_proxy, last_outcome_error
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source_id) DO UPDATE SET
+            total_predictions=excluded.total_predictions,
+            correct_predictions=excluded.correct_predictions,
+            predictive_accuracy=excluded.predictive_accuracy,
+            consistency=excluded.consistency,
+            stake=excluded.stake,
+            expertise=excluded.expertise,
+            manipulation_risk=excluded.manipulation_risk,
+            volume=excluded.volume,
+            mean_score=excluded.mean_score,
+            score_variance_proxy=excluded.score_variance_proxy,
+            last_outcome_error=excluded.last_outcome_error
+        """,
+        (
+            record["source_id"],
+            record["total_predictions"],
+            record["correct_predictions"],
+            record["predictive_accuracy"],
+            record["consistency"],
+            record["stake"],
+            record["expertise"],
+            record["manipulation_risk"],
+            record["volume"],
+            record["mean_score"],
+            record["score_variance_proxy"],
+            record["last_outcome_error"],
+        ),
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def fetch_all_reputation() -> List[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    rows = cur.execute("SELECT * FROM reputation").fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]
+
+:::
+
+Patch your startup init
+
+In app/storage.py, update init_db() to also create an outcomes table.
+
+Replace init_db() with this:
+
+:::writing{variant=“standard” id=“31844”}
+
+def init_db() -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            item_a TEXT NOT NULL,
+            item_b TEXT NOT NULL,
+            selected TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            dwell_ms INTEGER NOT NULL,
+            domain TEXT NOT NULL,
+            context_json TEXT NOT NULL,
+            item_a_features_json TEXT NOT NULL,
+            item_b_features_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS outcomes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_id TEXT NOT NULL,
+            predicted_score REAL NOT NULL,
+            outcome REAL NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    conn.commit()
+    conn.close()
+
+:::
+
+Add outcome insert helper
+
+Also in app/storage.py, add:
+
+:::writing{variant=“standard” id=“31845”}
+
+def insert_outcome(source_id: str, predicted_score: float, outcome: float) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        INSERT INTO outcomes (source_id, predicted_score, outcome)
+        VALUES (?, ?, ?)
+        """,
+        (source_id, predicted_score, outcome),
+    )
+
+    conn.commit()
+    conn.close()
+
+:::
+
+Add API schemas
+
+In app/schemas.py, add:
+
+:::writing{variant=“standard” id=“31846”}
+
+class ReputationUpdateRequest(BaseModel):
+    source_id: str
+    predicted_score: float = Field(ge=0.0, le=1.0)
+    outcome: float = Field(ge=0.0, le=1.0)
+
+
+class ReputationAdjustRequest(BaseModel):
+    source_id: str
+    stake: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    expertise: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    manipulation_risk: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+:::
+
+Wire it into the API
+
+In app/main.py, add these imports:
+
+:::writing{variant=“standard” id=“31847”}
+
+from app.schemas import ReputationUpdateRequest, ReputationAdjustRequest
+from app.reputation import ReputationLedger
+from app.reputation_storage import init_reputation_db, upsert_reputation
+from app.storage import insert_outcome
+
+:::
+
+Then add a global ledger near _engine = None:
+
+:::writing{variant=“standard” id=“31848”}
+
+_reputation_ledger = ReputationLedger()
+
+:::
+
+Update the startup block:
+
+:::writing{variant=“standard” id=“31849”}
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
+    init_reputation_db()
+    get_engine()
+
+:::
+
+Now add these endpoints to app/main.py:
+
+:::writing{variant=“standard” id=“31850”}
+
+@app.post("/reputation/update")
+def reputation_update(request: ReputationUpdateRequest):
+    insert_outcome(
+        source_id=request.source_id,
+        predicted_score=request.predicted_score,
+        outcome=request.outcome,
+    )
+
+    record = _reputation_ledger.update_prediction(
+        source_id=request.source_id,
+        predicted_score=request.predicted_score,
+        outcome=request.outcome,
+    )
+    upsert_reputation(record.to_dict())
+
+    return {
+        "status": "updated",
+        "record": record.to_dict(),
+    }
+
+
+@app.post("/reputation/adjust")
+def reputation_adjust(request: ReputationAdjustRequest):
+    record = _reputation_ledger.apply_manual_adjustment(
+        source_id=request.source_id,
+        stake=request.stake,
+        expertise=request.expertise,
+        manipulation_risk=request.manipulation_risk,
+    )
+    upsert_reputation(record.to_dict())
+
+    return {
+        "status": "adjusted",
+        "record": record.to_dict(),
+    }
+
+
+@app.get("/reputation/{source_id}")
+def reputation_get(source_id: str):
+    record = _reputation_ledger.get_or_create(source_id)
+    return record.to_dict()
+
+:::
+
+Make governance use live reputation
+
+In app/main.py, replace the current /governance/aggregate endpoint with this version so it can pull from the ledger when a source already exists there:
+
+:::writing{variant=“standard” id=“31851”}
+
+@app.post("/governance/aggregate")
+def governance_aggregate(request: GovernanceRequest):
+    engine = SignalGovernanceEngine()
+
+    exported = _reputation_ledger.export_sources_for_governance()
+
+    for source in request.sources:
+        ledger_data = exported.get(source.source_id, {})
+        engine.register_source(
+            SignalSource(
+                source_id=source.source_id,
+                source_type=source.source_type,
+                predictive_accuracy=ledger_data.get("predictive_accuracy", source.predictive_accuracy),
+                consistency=ledger_data.get("consistency", source.consistency),
+                stake=ledger_data.get("stake", source.stake),
+                expertise=ledger_data.get("expertise", source.expertise),
+                manipulation_risk=ledger_data.get("manipulation_risk", source.manipulation_risk),
+                volume=ledger_data.get("volume", source.volume),
+            )
+        )
+
+    votes = [
+        SignalVote(
+            source_id=v.source_id,
+            score=v.score,
+            confidence=v.confidence,
+            personalization_alignment=v.personalization_alignment,
+        )
+        for v in request.votes
+    ]
+
+    invariants = InvariantReport(
+        reversibility_ok=request.invariants.get("reversibility_ok", True),
+        transparency_ok=request.invariants.get("transparency_ok", True),
+        anti_gaming_ok=request.invariants.get("anti_gaming_ok", True),
+        consent_ok=request.invariants.get("consent_ok", True),
+        coherence_ok=request.invariants.get("coherence_ok", True),
+    )
+
+    return engine.aggregate(votes, invariants=invariants)
+
+:::
+
+Add a test
+
+Create:
+
+tests/test_reputation.py
+
+:::writing{variant=“standard” id=“31852”}
+
+from app.reputation import ReputationLedger
+
+
+def test_reputation_update():
+    ledger = ReputationLedger()
+
+    ledger.register_source("u1", stake=0.3, expertise=0.2)
+
+    record = ledger.update_prediction(
+        source_id="u1",
+        predicted_score=0.9,
+        outcome=1.0,
+    )
+
+    assert record.source_id == "u1"
+    assert record.total_predictions == 1
+    assert 0.0 <= record.predictive_accuracy <= 1.0
+    assert 0.0 <= record.consistency <= 1.0
+    assert 0.0 <= record.manipulation_risk <= 1.0
+
+:::
+
+Example calls
+
+Update reputation from a real outcome:
+
+:::writing{variant=“standard” id=“31853”}
+
+curl -X POST "http://127.0.0.1:8000/reputation/update" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_id": "u1",
+    "predicted_score": 0.88,
+    "outcome": 1.0
+  }'
+
+:::
+
+Adjust source weight manually:
+
+:::writing{variant=“standard” id=“31854”}
+
+curl -X POST "http://127.0.0.1:8000/reputation/adjust" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_id": "expert1",
+    "stake": 0.4,
+    "expertise": 0.95
+  }'
+
+:::
+
+Read reputation:
+
+:::writing{variant=“standard” id=“31855”}
+
+curl "http://127.0.0.1:8000/reputation/u1"
+
+:::
+
+What changed conceptually
+
+Before:
+	•	governance weights were mostly static inputs
+
+Now:
+	•	source credibility evolves from outcomes
+	•	bad predictors lose influence
+	•	stable good predictors gain influence
+	•	expert/stake overlays still work, but they no longer float free from performance
+
+That’s the start of a real decision ecology.
+
+Next strongest move
+
+The next upgrade after this is a domain-aware ledger, where a source can be strong in one domain and weak in another:
+	•	u1 good at Pokémon taste
+	•	weak at dating prediction
+	•	expert1 high expertise in finance, not fashion
+
+That would make the system much smarter without making it much more complicated.
