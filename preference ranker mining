@@ -1,0 +1,230 @@
+Got you — you want something you can copy directly from here → paste into GitHub → works.
+
+I’ll give you a clean single-file version (so no folder juggling on mobile), plus optional multi-file after if you want to expand.
+
+⸻
+
+📦 OPTION 1 (BEST FOR PHONE)
+
+Single-file MVP: psr_engine.py
+
+Copy EVERYTHING below into a new file in your repo:
+
+:::writing{variant=“standard” id=“48291”}
+
+# Preference Signal Refinery (PSR) - Single File MVP
+# Drop this into your repo as: psr_engine.py
+
+import numpy as np
+import time
+from collections import defaultdict
+
+# -----------------------------
+# CONFIG
+# -----------------------------
+VECTOR_SIZE = 16
+LEARNING_RATE = 0.05
+
+
+# -----------------------------
+# UTIL
+# -----------------------------
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+
+def normalize_dwell(ms):
+    return min(ms / 3000.0, 1.0)
+
+
+def random_vector():
+    return np.random.normal(0, 0.1, VECTOR_SIZE)
+
+
+# -----------------------------
+# ENGINE
+# -----------------------------
+class PreferenceEngine:
+    def __init__(self):
+        self.user_vectors = defaultdict(random_vector)
+        self.item_vectors = defaultdict(random_vector)
+        self.user_events = defaultdict(list)
+
+    def score(self, user, item):
+        return np.dot(self.user_vectors[user], self.item_vectors[item])
+
+    def preference_prob(self, user, a, b):
+        return sigmoid(self.score(user, a) - self.score(user, b))
+
+    def event_weight(self, confidence, dwell_ms):
+        return 0.5 * confidence + 0.5 * normalize_dwell(dwell_ms)
+
+    def update(self, user, a, b, selected, confidence=0.5, dwell_ms=1000):
+        weight = self.event_weight(confidence, dwell_ms)
+
+        prob = self.preference_prob(user, a, b)
+        y = 1 if selected == a else 0
+
+        error = (y - prob) * weight
+
+        u_vec = self.user_vectors[user]
+        a_vec = self.item_vectors[a]
+        b_vec = self.item_vectors[b]
+
+        # gradient updates
+        self.user_vectors[user] += LEARNING_RATE * error * (a_vec - b_vec)
+        self.item_vectors[a] += LEARNING_RATE * error * u_vec
+        self.item_vectors[b] -= LEARNING_RATE * error * u_vec
+
+        # store event
+        self.user_events[user].append({
+            "a": a,
+            "b": b,
+            "selected": selected,
+            "confidence": confidence,
+            "dwell": dwell_ms,
+            "timestamp": time.time()
+        })
+
+    def get_user_vector(self, user):
+        return self.user_vectors[user]
+
+    def similarity(self, item_a, item_b):
+        a = self.item_vectors[item_a]
+        b = self.item_vectors[item_b]
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8)
+
+
+# -----------------------------
+# CLUSTERING
+# -----------------------------
+def cluster_users(engine, k=3):
+    users = list(engine.user_vectors.keys())
+    vectors = np.array([engine.user_vectors[u] for u in users])
+
+    if len(users) < k:
+        return {u: 0 for u in users}
+
+    # simple k-means
+    centroids = vectors[:k]
+
+    for _ in range(10):
+        distances = np.linalg.norm(vectors[:, None] - centroids, axis=2)
+        labels = np.argmin(distances, axis=1)
+
+        for i in range(k):
+            if np.any(labels == i):
+                centroids[i] = vectors[labels == i].mean(axis=0)
+
+    return dict(zip(users, labels))
+
+
+# -----------------------------
+# DEMO
+# -----------------------------
+if __name__ == "__main__":
+    engine = PreferenceEngine()
+
+    # simulate some users
+    users = ["u1", "u2", "u3"]
+    items = ["A", "B", "C", "D"]
+
+    # fake behavior patterns
+    for _ in range(200):
+        for u in users:
+            a, b = np.random.choice(items, 2, replace=False)
+
+            # biased behavior
+            if u == "u1":
+                selected = a if a in ["A", "B"] else b
+            elif u == "u2":
+                selected = a if a in ["C", "D"] else b
+            else:
+                selected = np.random.choice([a, b])
+
+            engine.update(
+                user=u,
+                a=a,
+                b=b,
+                selected=selected,
+                confidence=np.random.uniform(0.4, 1.0),
+                dwell_ms=np.random.randint(300, 3000)
+            )
+
+    print("\nUser Vectors:")
+    for u in users:
+        print(u, engine.get_user_vector(u))
+
+    print("\nClusters:")
+    clusters = cluster_users(engine)
+    print(clusters)
+
+    print("\nItem Similarity A vs B:")
+    print(engine.similarity("A", "B"))
+
+:::
+
+⸻
+
+✅ HOW TO USE (ON PHONE)
+	1.	Open GitHub app or browser
+	2.	Go to your repo
+	3.	Tap Add file → Create new file
+	4.	Name it:
+
+psr_engine.py
+
+	5.	Paste the code
+	6.	Commit
+
+⸻
+
+▶️ HOW TO RUN (later on computer)
+
+python psr_engine.py
+
+
+⸻
+
+🧠 WHAT THIS GIVES YOU
+
+This is a working core engine:
+	•	learns preferences from A vs B
+	•	builds user taste vectors
+	•	builds item vectors
+	•	clusters users
+	•	computes similarity
+	•	weights decisions by confidence + dwell time
+
+⸻
+
+🚀 NEXT STEP (when ready)
+
+Say the word and I’ll give you:
+
+🔥 Upgrade Pack
+	•	FastAPI server (real API)
+	•	database schema
+	•	frontend swipe interface
+	•	multi-domain fusion layer
+	•	Signal Units + credit system
+	•	production-ready repo structure
+
+⸻
+
+⚡ IMPORTANT
+
+This version is intentionally:
+	•	minimal
+	•	portable
+	•	copy-paste friendly
+
+But structurally correct.
+
+⸻
+
+If you want, next I can:
+👉 turn this into a real app (Tinder-style UI + backend)
+👉 or scale it into your full “data refinery” system
+
+Just say: “scale it”
