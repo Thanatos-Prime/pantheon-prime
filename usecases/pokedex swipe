@@ -1,0 +1,1042 @@
+import { useState, useRef, useEffect, useCallback } from “react”;
+
+// ── TYPE SYSTEM ──────────────────────────────────────────────────────────────
+const TYPE_THEME = {
+Ghost:    { bg: “#1a0a2e”, accent: “#9B6FD4”, glow: “#7B4FC4”, text: “#D4B8F0”, badge: “#4A1A7A” },
+Fire:     { bg: “#1a0800”, accent: “#FF6B35”, glow: “#FF4500”, text: “#FFB899”, badge: “#7A2200” },
+Electric: { bg: “#1a1600”, accent: “#FFD700”, glow: “#FFC400”, text: “#FFF0A0”, badge: “#6A5400” },
+Psychic:  { bg: “#1a0010”, accent: “#FF4D8F”, glow: “#E0006A”, text: “#FFB3D1”, badge: “#6A0030” },
+Normal:   { bg: “#0e0e12”, accent: “#C8A46E”, glow: “#A88040”, text: “#E8D4B0”, badge: “#4A3A1A” },
+Water:    { bg: “#001a2e”, accent: “#4FC3F7”, glow: “#0288D1”, text: “#B3E5FC”, badge: “#00405A” },
+Grass:    { bg: “#001a08”, accent: “#66BB6A”, glow: “#2E7D32”, text: “#C8E6C9”, badge: “#1B5E20” },
+Dragon:   { bg: “#0a0020”, accent: “#7E57C2”, glow: “#4527A0”, text: “#D1C4E9”, badge: “#311B92” },
+};
+
+// ── CARD DATABASE ────────────────────────────────────────────────────────────
+const CARDS = [
+{
+id: “g-base1”,
+pokemon: “Gengar”,
+number: “094”,
+types: [“Ghost”, “Poison”],
+primaryType: “Ghost”,
+set: “Base Set”,
+year: 1999,
+rarity: “Holo Rare”,
+rarityIcon: “◆◆◆◆”,
+artist: “Ken Sugimori”,
+hp: 80,
+attacks: [{ name: “Darkness”, cost: “PP”, damage: “30”, desc: “Flip a coin; if tails, this attack does nothing.” }, { name: “Nightmare”, cost: “PPP”, damage: “50”, desc: “The Defending Pokémon is now Asleep.” }],
+weakness: “Darkness ×2”,
+resistance: “Fighting −30”,
+retreatCost: 3,
+flavorText: “Under a full moon, this Pokémon likes to mimic the shadows of people and laugh at their fright.”,
+img: “https://images.pokemontcg.io/base1/5_hires.png”,
+tags: [“vintage”, “watercolor”, “first-edition”, “iconic”],
+marketValue: “$420”,
+totalPrinted: “~12,000”,
+},
+{
+id: “g-vmax”,
+pokemon: “Gengar”,
+number: “157”,
+types: [“Ghost”],
+primaryType: “Ghost”,
+set: “Chilling Reign”,
+year: 2021,
+rarity: “Alt Art VMAX”,
+rarityIcon: “◆◆◆◆◆”,
+artist: “PLANETA Tsuji”,
+hp: 330,
+attacks: [{ name: “G-Max Swallow Up”, cost: “PPPC”, damage: “270”, desc: “This Pokémon recovers 30 HP for each Prize card your opponent has taken.” }],
+weakness: “Darkness ×2”,
+resistance: null,
+retreatCost: 4,
+flavorText: null,
+img: “https://images.pokemontcg.io/swsh6/157_hires.png”,
+tags: [“alt-art”, “vmax”, “premium”, “modern”, “cinematic”],
+marketValue: “$180”,
+totalPrinted: “~40,000”,
+},
+{
+id: “c-base1”,
+pokemon: “Charizard”,
+number: “006”,
+types: [“Fire”, “Flying”],
+primaryType: “Fire”,
+set: “Base Set”,
+year: 1999,
+rarity: “Holo Rare”,
+rarityIcon: “◆◆◆◆”,
+artist: “Mitsuhiro Arita”,
+hp: 120,
+attacks: [{ name: “Energy Burn”, cost: “Any”, damage: “—”, desc: “As often as you like during your turn, you may turn all Energy attached to Charizard into Fire Energy.” }, { name: “Fire Spin”, cost: “FFFF”, damage: “100”, desc: “Discard 2 Energy cards attached to Charizard.” }],
+weakness: “Water ×2”,
+resistance: “Fighting −30”,
+retreatCost: 3,
+flavorText: “Spits fire that is hot enough to melt boulders. Known to cause forest fires unintentionally.”,
+img: “https://images.pokemontcg.io/base1/4_hires.png”,
+tags: [“vintage”, “holy-grail”, “iconic”, “watercolor”],
+marketValue: “$12,000+”,
+totalPrinted: “~10,000”,
+},
+{
+id: “c-sir”,
+pokemon: “Charizard”,
+number: “125”,
+types: [“Fire”],
+primaryType: “Fire”,
+set: “Obsidian Flames”,
+year: 2023,
+rarity: “Special Illustration Rare”,
+rarityIcon: “◆◆◆◆◆✦”,
+artist: “Akira Egawa”,
+hp: 330,
+attacks: [{ name: “Burning Darkness”, cost: “RRC”, damage: “180+”, desc: “+20 damage for each Prize card your opponent has taken.” }],
+weakness: “Water ×2”,
+resistance: null,
+retreatCost: 2,
+flavorText: null,
+img: “https://images.pokemontcg.io/sv3/125_hires.png”,
+tags: [“SIR”, “illustration”, “modern”, “chase-card”, “cinematic”],
+marketValue: “$95”,
+totalPrinted: “~60,000”,
+},
+{
+id: “p-base1”,
+pokemon: “Pikachu”,
+number: “025”,
+types: [“Electric”],
+primaryType: “Electric”,
+set: “Base Set”,
+year: 1999,
+rarity: “Common”,
+rarityIcon: “◆”,
+artist: “Mitsuhiro Arita”,
+hp: 40,
+attacks: [{ name: “Thunder Shock”, cost: “L”, damage: “10”, desc: “Flip a coin; if heads, the Defending Pokémon is now Paralyzed.” }, { name: “Gnaw”, cost: “CC”, damage: “20”, desc: “” }],
+weakness: “Fighting ×2”,
+resistance: null,
+retreatCost: 1,
+flavorText: “When several of these Pokémon gather, their electricity could build and cause lightning storms.”,
+img: “https://images.pokemontcg.io/base1/58_hires.png”,
+tags: [“vintage”, “nostalgic”, “common”, “mascot”],
+marketValue: “$18”,
+totalPrinted: “~500,000”,
+},
+{
+id: “p-sir”,
+pokemon: “Pikachu”,
+number: “167”,
+types: [“Electric”],
+primaryType: “Electric”,
+set: “Paldean Fates”,
+year: 2024,
+rarity: “Special Illustration Rare”,
+rarityIcon: “◆◆◆◆◆✦”,
+artist: “Mitsuhiro Arita”,
+hp: 120,
+attacks: [{ name: “Circle Circuit”, cost: “L”, damage: “20×”, desc: “×20 for each of your Benched Pikachu.” }],
+weakness: “Fighting ×2”,
+resistance: null,
+retreatCost: 1,
+flavorText: null,
+img: “https://images.pokemontcg.io/sv4pt5/167_hires.png”,
+tags: [“SIR”, “modern”, “illustration”, “same-artist-callback”],
+marketValue: “$55”,
+totalPrinted: “~70,000”,
+},
+{
+id: “m-base1”,
+pokemon: “Mewtwo”,
+number: “150”,
+types: [“Psychic”],
+primaryType: “Psychic”,
+set: “Base Set”,
+year: 1999,
+rarity: “Holo Rare”,
+rarityIcon: “◆◆◆◆”,
+artist: “Ken Sugimori”,
+hp: 60,
+attacks: [{ name: “Psyburn”, cost: “PP”, damage: “30”, desc: “” }, { name: “Barrier”, cost: “PP”, damage: “—”, desc: “During your opponent’s next turn, prevent all effects of attacks, including damage, done to Mewtwo.” }],
+weakness: “Psychic ×2”,
+resistance: null,
+retreatCost: 3,
+flavorText: “It was created by a scientist after years of horrific gene-splicing and DNA engineering experiments.”,
+img: “https://images.pokemontcg.io/base1/10_hires.png”,
+tags: [“vintage”, “legendary”, “watercolor”, “iconic”],
+marketValue: “$280”,
+totalPrinted: “~12,000”,
+},
+{
+id: “e-sir”,
+pokemon: “Eevee”,
+number: “208”,
+types: [“Normal”],
+primaryType: “Normal”,
+set: “Scarlet & Violet”,
+year: 2023,
+rarity: “Special Illustration Rare”,
+rarityIcon: “◆◆◆◆◆✦”,
+artist: “sui”,
+hp: 120,
+attacks: [{ name: “Hyper Potential”, cost: “CC”, damage: “30+”, desc: “+30 for each different type of Energy in your discard pile.” }],
+weakness: “Fighting ×2”,
+resistance: null,
+retreatCost: 1,
+flavorText: null,
+img: “https://images.pokemontcg.io/sv1/208_hires.png”,
+tags: [“SIR”, “illustration”, “modern”, “soft”, “aesthetic”],
+marketValue: “$140”,
+totalPrinted: “~50,000”,
+},
+];
+
+const ERA_MAP = { 1999: “Base Era”, 2000: “Neo Era”, 2001: “Neo Era”, 2002: “Neo Era”, 2003: “EX Era”, 2004: “EX Era”, 2005: “EX Era”, 2006: “EX Era”, 2007: “DP Era”, 2008: “DP Era”, 2009: “DP Era”, 2010: “HGSS Era”, 2011: “BW Era”, 2012: “BW Era”, 2013: “XY Era”, 2014: “XY Era”, 2015: “XY Era”, 2016: “XY Era”, 2017: “SM Era”, 2018: “SM Era”, 2019: “SM Era”, 2020: “SwSh Era”, 2021: “SwSh Era”, 2022: “SwSh Era”, 2023: “SV Era”, 2024: “SV Era” };
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+
+// ── SCANLINE OVERLAY ─────────────────────────────────────────────────────────
+function Scanlines() {
+return (
+<div style={{
+position: “fixed”, inset: 0, pointerEvents: “none”, zIndex: 9999,
+backgroundImage: “repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)”,
+}} />
+);
+}
+
+// ── RARITY DISPLAY ───────────────────────────────────────────────────────────
+function RarityBadge({ rarity, accent }) {
+const colors = {
+“Common”: “#9E9E9E”, “Uncommon”: “#4CAF50”, “Rare”: “#64B5F6”,
+“Holo Rare”: accent, “Ultra Rare”: “#CE93D8”, “Full Art Ultra Rare”: “#F48FB1”,
+“Alt Art VMAX”: accent, “Special Illustration Rare”: “#FFD700”,
+“Rainbow Rare VMAX”: “#FF8A65”,
+};
+return (
+<span style={{
+fontFamily: “‘Courier New’, monospace”,
+fontSize: 10,
+color: colors[rarity] || accent,
+letterSpacing: “0.08em”,
+textTransform: “uppercase”,
+opacity: 0.9,
+}}>{rarity}</span>
+);
+}
+
+// ── TYPE CHIP ────────────────────────────────────────────────────────────────
+function TypeChip({ type }) {
+const typeColors = {
+Ghost: “#7B4FC4”, Fire: “#FF6B35”, Electric: “#FFD700”,
+Psychic: “#FF4D8F”, Normal: “#C8A46E”, Water: “#4FC3F7”,
+Grass: “#66BB6A”, Poison: “#AB47BC”, Flying: “#90CAF9”, Dragon: “#7E57C2”,
+};
+return (
+<span style={{
+display: “inline-block”,
+background: (typeColors[type] || “#888”) + “33”,
+border: `1px solid ${typeColors[type] || "#888"}66`,
+borderRadius: 20,
+padding: “2px 10px”,
+fontSize: 10,
+fontFamily: “‘Courier New’, monospace”,
+color: typeColors[type] || “#ccc”,
+letterSpacing: “0.1em”,
+textTransform: “uppercase”,
+}}>{type}</span>
+);
+}
+
+// ── SWIPEABLE CARD ───────────────────────────────────────────────────────────
+function SwipeCard({ card, onSwipe, isTop, stackIndex }) {
+const theme = TYPE_THEME[card.primaryType] || TYPE_THEME.Normal;
+const [drag, setDrag] = useState({ x: 0, y: 0, dragging: false });
+const [expanded, setExpanded] = useState(false);
+const [imgError, setImgError] = useState(false);
+const [exiting, setExiting] = useState(null); // “left” | “right” | null
+const startPos = useRef(null);
+const cardRef = useRef(null);
+
+const rotation = drag.x * 0.08;
+const likeOpacity = clamp(drag.x / 80, 0, 1);
+const nopeOpacity = clamp(-drag.x / 80, 0, 1);
+
+// Touch / mouse handlers
+const onPointerDown = (e) => {
+if (expanded) return;
+startPos.current = { x: e.clientX || e.touches?.[0]?.clientX, y: e.clientY || e.touches?.[0]?.clientY };
+setDrag(d => ({ …d, dragging: true }));
+};
+
+const onPointerMove = useCallback((e) => {
+if (!drag.dragging || !startPos.current) return;
+const cx = e.clientX || e.touches?.[0]?.clientX;
+const cy = e.clientY || e.touches?.[0]?.clientY;
+setDrag(d => ({ …d, x: cx - startPos.current.x, y: cy - startPos.current.y }));
+}, [drag.dragging]);
+
+const onPointerUp = useCallback(() => {
+if (!drag.dragging) return;
+const threshold = 100;
+if (drag.x > threshold) triggerSwipe(“right”);
+else if (drag.x < -threshold) triggerSwipe(“left”);
+else setDrag({ x: 0, y: 0, dragging: false });
+startPos.current = null;
+}, [drag]);
+
+const triggerSwipe = (direction) => {
+setExiting(direction);
+setTimeout(() => onSwipe(direction, card), 400);
+};
+
+useEffect(() => {
+if (drag.dragging) {
+window.addEventListener(“mousemove”, onPointerMove);
+window.addEventListener(“mouseup”, onPointerUp);
+window.addEventListener(“touchmove”, onPointerMove);
+window.addEventListener(“touchend”, onPointerUp);
+return () => {
+window.removeEventListener(“mousemove”, onPointerMove);
+window.removeEventListener(“mouseup”, onPointerUp);
+window.removeEventListener(“touchmove”, onPointerMove);
+window.removeEventListener(“touchend”, onPointerUp);
+};
+}
+}, [drag.dragging, onPointerMove, onPointerUp]);
+
+const tx = exiting === “right” ? 800 : exiting === “left” ? -800 : drag.x;
+const ty = exiting ? -200 : drag.y * 0.4;
+const rot = exiting === “right” ? 30 : exiting === “left” ? -30 : rotation;
+
+return (
+<div
+ref={cardRef}
+onMouseDown={onPointerDown}
+onTouchStart={onPointerDown}
+onClick={() => !drag.x && setExpanded(e => !e)}
+style={{
+position: “absolute”,
+width: “min(380px, 92vw)”,
+cursor: drag.dragging ? “grabbing” : “grab”,
+userSelect: “none”,
+touchAction: “none”,
+zIndex: isTop ? 10 : 10 - stackIndex,
+transform: `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${isTop ? 1 : 1 - stackIndex * 0.04}) translateY(${stackIndex * 12}px)`,
+transition: drag.dragging ? “none” : exiting ? “transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)” : “transform 0.35s cubic-bezier(0.34,1.56,0.64,1)”,
+borderRadius: 20,
+overflow: “hidden”,
+boxShadow: isTop
+? `0 24px 80px rgba(0,0,0,0.6), 0 0 40px ${theme.glow}44`
+: `0 8px 30px rgba(0,0,0,0.4)`,
+}}
+>
+{/* ── CARD BODY ── */}
+<div style={{
+background: `linear-gradient(160deg, ${theme.bg} 0%, #000 100%)`,
+border: `1px solid ${theme.accent}33`,
+borderRadius: 20,
+overflow: “hidden”,
+}}>
+
+```
+    {/* IMAGE ZONE */}
+    <div style={{
+      position: "relative",
+      height: expanded ? 220 : 400,
+      transition: "height 0.4s cubic-bezier(0.4,0,0.2,1)",
+      overflow: "hidden",
+    }}>
+      {/* Glow bg behind image */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `radial-gradient(ellipse at 50% 40%, ${theme.glow}30 0%, transparent 70%)`,
+      }} />
+
+      {imgError ? (
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexDirection: "column", gap: 8,
+          background: `linear-gradient(145deg, ${theme.bg}, ${theme.badge})`,
+        }}>
+          <div style={{ fontSize: 72 }}>🃏</div>
+          <div style={{ fontFamily: "'Courier New', monospace", color: theme.accent, fontSize: 16 }}>{card.pokemon}</div>
+        </div>
+      ) : (
+        <img
+          src={card.img}
+          alt={card.pokemon}
+          onError={() => setImgError(true)}
+          draggable={false}
+          style={{
+            position: "absolute", inset: 0,
+            width: "100%", height: "100%",
+            objectFit: "cover",
+            objectPosition: "top center",
+            transition: "transform 0.4s ease",
+            transform: expanded ? "scale(1.05)" : "scale(1)",
+          }}
+        />
+      )}
+
+      {/* Top HUD bar */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0,
+        padding: "12px 14px",
+        background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%)",
+        display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+      }}>
+        {/* Dex number + set */}
+        <div>
+          <div style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: 10, color: theme.accent, letterSpacing: "0.2em",
+            opacity: 0.8,
+          }}>NO.{card.number}</div>
+          <div style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: 9, color: "#666", letterSpacing: "0.15em",
+            marginTop: 1,
+          }}>{ERA_MAP[card.year] || card.set.toUpperCase()}</div>
+        </div>
+        {/* HP */}
+        <div style={{
+          fontFamily: "'Courier New', monospace",
+          fontSize: 11, color: theme.text,
+          background: "rgba(0,0,0,0.5)",
+          backdropFilter: "blur(6px)",
+          padding: "3px 10px",
+          borderRadius: 20,
+          border: `1px solid ${theme.accent}44`,
+        }}>HP {card.hp}</div>
+      </div>
+
+      {/* LIKE / NOPE overlays */}
+      <div style={{
+        position: "absolute", top: 20, left: 16,
+        opacity: likeOpacity,
+        transform: `rotate(-15deg)`,
+        border: `3px solid #00E676`,
+        borderRadius: 6,
+        padding: "4px 14px",
+        fontFamily: "'Courier New', monospace",
+        fontSize: 22, fontWeight: 900,
+        color: "#00E676",
+        textShadow: "0 0 20px #00E676",
+        pointerEvents: "none",
+      }}>KEEP</div>
+
+      <div style={{
+        position: "absolute", top: 20, right: 16,
+        opacity: nopeOpacity,
+        transform: `rotate(15deg)`,
+        border: `3px solid #FF1744`,
+        borderRadius: 6,
+        padding: "4px 14px",
+        fontFamily: "'Courier New', monospace",
+        fontSize: 22, fontWeight: 900,
+        color: "#FF1744",
+        textShadow: "0 0 20px #FF1744",
+        pointerEvents: "none",
+      }}>PASS</div>
+
+      {/* Expand indicator */}
+      {isTop && !drag.dragging && (
+        <div style={{
+          position: "absolute", bottom: 10, left: "50%",
+          transform: "translateX(-50%)",
+          fontFamily: "'Courier New', monospace",
+          fontSize: 10, color: theme.accent + "99",
+          letterSpacing: "0.15em",
+          animation: "pulse 2s infinite",
+        }}>
+          {expanded ? "▲ TAP TO COLLAPSE" : "▼ TAP FOR DEX ENTRY"}
+        </div>
+      )}
+    </div>
+
+    {/* ── NAME STRIP ── */}
+    <div style={{
+      padding: "14px 16px 10px",
+      background: `linear-gradient(180deg, ${theme.bg}CC 0%, ${theme.bg} 100%)`,
+      borderTop: `1px solid ${theme.accent}22`,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: 24, fontWeight: 900,
+            color: "#fff",
+            letterSpacing: "0.05em",
+            lineHeight: 1,
+          }}>{card.pokemon}</div>
+          <div style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: 11, color: theme.accent,
+            marginTop: 4, letterSpacing: "0.1em",
+          }}>{card.set} · {card.year}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "wrap", marginBottom: 4 }}>
+            {card.types.map(t => <TypeChip key={t} type={t} />)}
+          </div>
+          <div style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: 13, color: "#FFD700",
+            letterSpacing: "0.05em",
+          }}>{card.marketValue}</div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 8 }}>
+        <RarityBadge rarity={card.rarity} accent={theme.accent} />
+        <span style={{
+          fontFamily: "'Courier New', monospace",
+          fontSize: 10, color: "#444",
+          marginLeft: 10, letterSpacing: "0.15em",
+        }}>by {card.artist}</span>
+      </div>
+    </div>
+
+    {/* ── EXPANDED DEX PANEL ── */}
+    <div style={{
+      maxHeight: expanded ? 400 : 0,
+      overflow: "hidden",
+      transition: "max-height 0.45s cubic-bezier(0.4,0,0.2,1)",
+    }}>
+      <div style={{
+        padding: "0 16px 20px",
+        background: theme.bg,
+        borderTop: `1px solid ${theme.accent}22`,
+      }}>
+
+        {/* Divider line */}
+        <div style={{
+          height: 1,
+          background: `linear-gradient(90deg, transparent, ${theme.accent}66, transparent)`,
+          margin: "12px 0",
+        }} />
+
+        {/* Stats row */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+          gap: 8, marginBottom: 14,
+        }}>
+          {[
+            { label: "WEAKNESS", value: card.weakness || "—" },
+            { label: "RESISTANCE", value: card.resistance || "—" },
+            { label: "RETREAT", value: "●".repeat(card.retreatCost) || "Free" },
+          ].map(s => (
+            <div key={s.label} style={{
+              background: "rgba(255,255,255,0.03)",
+              borderRadius: 8, padding: "8px 10px",
+              border: `1px solid ${theme.accent}22`,
+            }}>
+              <div style={{ fontFamily: "'Courier New', monospace", fontSize: 8, color: "#555", letterSpacing: "0.12em", marginBottom: 4 }}>{s.label}</div>
+              <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: theme.text }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Attacks */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontFamily: "'Courier New', monospace", fontSize: 9, color: "#555", letterSpacing: "0.2em", marginBottom: 8 }}>ATTACKS</div>
+          {card.attacks.map((atk, i) => (
+            <div key={i} style={{
+              marginBottom: 8,
+              padding: "8px 12px",
+              background: "rgba(255,255,255,0.02)",
+              borderRadius: 8,
+              border: `1px solid ${theme.accent}18`,
+              display: "flex", gap: 10, alignItems: "flex-start",
+            }}>
+              <div style={{
+                fontFamily: "'Courier New', monospace",
+                fontSize: 10, color: theme.accent,
+                background: theme.accent + "22",
+                borderRadius: 4, padding: "2px 6px",
+                whiteSpace: "nowrap",
+              }}>{atk.cost}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontFamily: "'Courier New', monospace", fontSize: 12, color: "#fff", fontWeight: 700 }}>{atk.name}</span>
+                  <span style={{ fontFamily: "'Courier New', monospace", fontSize: 12, color: theme.accent }}>{atk.damage}</span>
+                </div>
+                {atk.desc && <div style={{ fontFamily: "'Courier New', monospace", fontSize: 9, color: "#666", marginTop: 4, lineHeight: 1.5 }}>{atk.desc}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Flavor text */}
+        {card.flavorText && (
+          <div style={{
+            fontFamily: "'Courier New', monospace",
+            fontStyle: "italic",
+            fontSize: 10, color: "#666",
+            lineHeight: 1.7,
+            borderTop: `1px solid ${theme.accent}18`,
+            paddingTop: 12,
+            marginBottom: 10,
+          }}>
+            "{card.flavorText}"
+          </div>
+        )}
+
+        {/* Tags */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+          {card.tags.map(tag => (
+            <span key={tag} style={{
+              fontFamily: "'Courier New', monospace",
+              fontSize: 9, color: "#555",
+              border: "1px solid #333",
+              borderRadius: 4,
+              padding: "2px 7px",
+              letterSpacing: "0.1em",
+            }}>#{tag}</span>
+          ))}
+        </div>
+
+        {/* Print run */}
+        <div style={{
+          marginTop: 12,
+          fontFamily: "'Courier New', monospace",
+          fontSize: 9, color: "#444",
+          letterSpacing: "0.1em",
+        }}>EST. PRINT RUN: {card.totalPrinted}</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+```
+
+);
+}
+
+// ── BOTTOM ACTION BAR ────────────────────────────────────────────────────────
+function ActionBar({ onPass, onUnsure, onKeep, theme }) {
+return (
+<div style={{
+display: “flex”, alignItems: “center”, justifyContent: “center”,
+gap: 16, padding: “0 20px”,
+}}>
+<button onClick={onPass} style={{
+width: 60, height: 60, borderRadius: “50%”,
+background: “rgba(255,23,68,0.1)”,
+border: “2px solid rgba(255,23,68,0.4)”,
+cursor: “pointer”, fontSize: 22,
+display: “flex”, alignItems: “center”, justifyContent: “center”,
+transition: “all 0.2s ease”, color: “inherit”,
+}}
+onMouseEnter={e => { e.currentTarget.style.background = “rgba(255,23,68,0.25)”; e.currentTarget.style.transform = “scale(1.1)”; }}
+onMouseLeave={e => { e.currentTarget.style.background = “rgba(255,23,68,0.1)”; e.currentTarget.style.transform = “scale(1)”; }}
+title=“Pass (swipe left)”
+>✕</button>
+
+```
+  <button onClick={onUnsure} style={{
+    width: 48, height: 48, borderRadius: "50%",
+    background: "rgba(255,255,255,0.05)",
+    border: "2px solid rgba(255,255,255,0.15)",
+    cursor: "pointer", fontSize: 18,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    transition: "all 0.2s ease", color: "inherit",
+  }}
+    onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.transform = "scale(1.1)"; }}
+    onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.transform = "scale(1)"; }}
+    title="Unsure — save for later"
+  >?</button>
+
+  <button onClick={onKeep} style={{
+    width: 60, height: 60, borderRadius: "50%",
+    background: "rgba(0,230,118,0.1)",
+    border: "2px solid rgba(0,230,118,0.4)",
+    cursor: "pointer", fontSize: 22,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    transition: "all 0.2s ease", color: "inherit",
+  }}
+    onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,230,118,0.25)"; e.currentTarget.style.transform = "scale(1.1)"; }}
+    onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,230,118,0.1)"; e.currentTarget.style.transform = "scale(1)"; }}
+    title="Keep (swipe right)"
+  >♥</button>
+</div>
+```
+
+);
+}
+
+// ── PROFILE PANEL ────────────────────────────────────────────────────────────
+function ProfilePanel({ metadata, onClose }) {
+const { kept = [], passed = [], unsure = [], decisions = 0, era_signal = {}, type_signal = {}, style_signal = {} } = metadata;
+
+const topEra = Object.entries(era_signal).sort((a,b)=>b[1]-a[1])[0]?.[0];
+const topType = Object.entries(type_signal).sort((a,b)=>b[1]-a[1])[0]?.[0];
+const theme = TYPE_THEME[topType] || TYPE_THEME.Normal;
+
+const TRAITS = [];
+if (era_signal[“Base Era”] > 0) TRAITS.push(“Vintage Archivist”);
+if (era_signal[“SV Era”] > 0 || era_signal[“SwSh Era”] > 0) TRAITS.push(“Modern Collector”);
+if (style_signal[“SIR”] > 0) TRAITS.push(“Illustration Purist”);
+if (style_signal[“alt-art”] > 0 || style_signal[“vmax”] > 0) TRAITS.push(“Alt-Art Hunter”);
+if (style_signal[“iconic”] > 0) TRAITS.push(“Iconophile”);
+if (style_signal[“watercolor”] > 0) TRAITS.push(“Painterly Taste”);
+if (style_signal[“vintage”] > 1) TRAITS.push(“Holy Grail Seeker”);
+if (kept.length > passed.length) TRAITS.push(“Permissive Eye”);
+if (passed.length > kept.length) TRAITS.push(“Ruthless Curator”);
+
+return (
+<div style={{
+position: “fixed”, inset: 0, zIndex: 100,
+background: “rgba(0,0,0,0.85)”,
+backdropFilter: “blur(12px)”,
+display: “flex”, alignItems: “flex-end”, justifyContent: “center”,
+padding: “0 0 env(safe-area-inset-bottom)”,
+}} onClick={onClose}>
+<div
+onClick={e => e.stopPropagation()}
+style={{
+width: “min(440px, 100vw)”,
+maxHeight: “80vh”,
+overflowY: “auto”,
+background: “#070010”,
+borderRadius: “20px 20px 0 0”,
+border: `1px solid ${theme.accent}33`,
+borderBottom: “none”,
+padding: “24px 20px 40px”,
+}}
+>
+<div style={{
+width: 40, height: 4, background: “#333”, borderRadius: 2,
+margin: “0 auto 24px”, cursor: “pointer”,
+}} onClick={onClose} />
+
+```
+    <div style={{
+      fontFamily: "'Courier New', monospace",
+      fontSize: 10, color: theme.accent, letterSpacing: "0.3em",
+      marginBottom: 4, textTransform: "uppercase",
+    }}>ORACLE // DATA PROFILE</div>
+
+    <div style={{
+      fontFamily: "'Courier New', monospace",
+      fontSize: 20, fontWeight: 900, color: "#fff",
+      marginBottom: 20,
+    }}>Collector ID</div>
+
+    {/* Signal bars */}
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ fontFamily: "'Courier New', monospace", fontSize: 9, color: "#555", letterSpacing: "0.2em", marginBottom: 10 }}>PREFERENCE SIGNAL</div>
+      {Object.entries(era_signal).sort((a,b)=>b[1]-a[1]).map(([era, v]) => (
+        <div key={era} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
+          <div style={{ fontFamily: "'Courier New', monospace", fontSize: 9, color: "#666", width: 70, textAlign: "right" }}>{era}</div>
+          <div style={{ flex: 1, height: 3, background: "#111", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{
+              height: "100%",
+              width: `${Math.min(100, v * 20)}%`,
+              background: `linear-gradient(90deg, ${theme.accent}, ${theme.glow})`,
+              borderRadius: 2,
+              transition: "width 0.8s ease",
+            }} />
+          </div>
+          <div style={{ fontFamily: "'Courier New', monospace", fontSize: 9, color: "#444", width: 16 }}>{v}</div>
+        </div>
+      ))}
+    </div>
+
+    {/* Trait tags */}
+    {TRAITS.length > 0 && (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Courier New', monospace", fontSize: 9, color: "#555", letterSpacing: "0.2em", marginBottom: 10 }}>COLLECTOR TRAITS</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+          {TRAITS.map(t => (
+            <span key={t} style={{
+              fontFamily: "'Courier New', monospace",
+              fontSize: 10, color: theme.accent,
+              background: theme.accent + "15",
+              border: `1px solid ${theme.accent}33`,
+              borderRadius: 20,
+              padding: "4px 12px",
+            }}>{t}</span>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Kept cards */}
+    {kept.length > 0 && (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Courier New', monospace", fontSize: 9, color: "#555", letterSpacing: "0.2em", marginBottom: 10 }}>KEPT ({kept.length})</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {kept.map(c => (
+            <div key={c.id} style={{
+              fontFamily: "'Courier New', monospace",
+              fontSize: 10, color: "#00E676",
+              background: "rgba(0,230,118,0.05)",
+              border: "1px solid rgba(0,230,118,0.2)",
+              borderRadius: 6,
+              padding: "4px 10px",
+            }}>✓ {c.pokemon} ({c.set.split(" ")[0]})</div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Raw metadata preview */}
+    <div style={{
+      background: "#000",
+      borderRadius: 8,
+      padding: "12px 14px",
+      border: "1px solid #1a1a1a",
+    }}>
+      <div style={{ fontFamily: "'Courier New', monospace", fontSize: 9, color: "#444", letterSpacing: "0.2em", marginBottom: 8 }}>RAW VECTOR // EXPORT READY</div>
+      <pre style={{
+        fontFamily: "'Courier New', monospace",
+        fontSize: 9, color: "#336633",
+        lineHeight: 1.7, margin: 0, overflow: "auto",
+      }}>{JSON.stringify({ decisions, era_signal, type_signal, style_signal, kept_ids: kept.map(c => c.id) }, null, 2)}</pre>
+    </div>
+  </div>
+</div>
+```
+
+);
+}
+
+// ── MAIN APP ─────────────────────────────────────────────────────────────────
+export default function PokedexSwipe() {
+const [deck, setDeck] = useState(() => […CARDS].sort(() => Math.random() - 0.5));
+const [kept, setKept] = useState([]);
+const [passed, setPassed] = useState([]);
+const [unsure, setUnsure] = useState([]);
+const [showProfile, setShowProfile] = useState(false);
+const [lastAction, setLastAction] = useState(null); // for undo toast
+
+const [metadata, setMetadata] = useState({
+decisions: 0,
+era_signal: {},
+type_signal: {},
+style_signal: {},
+});
+
+const topCard = deck[deck.length - 1];
+const theme = topCard ? (TYPE_THEME[topCard.primaryType] || TYPE_THEME.Normal) : TYPE_THEME.Normal;
+
+const recordSignal = (card, action) => {
+if (action === “pass”) return;
+setMetadata(prev => {
+const next = { …prev, decisions: prev.decisions + 1 };
+const era = ERA_MAP[card.year] || “Other”;
+next.era_signal = { …prev.era_signal, [era]: (prev.era_signal[era] || 0) + 1 };
+card.types.forEach(t => {
+next.type_signal = { …prev.type_signal, [t]: (prev.type_signal[t] || 0) + 1 };
+});
+card.tags.forEach(tag => {
+next.style_signal = { …prev.style_signal, [tag]: (prev.style_signal[tag] || 0) + 1 };
+});
+return next;
+});
+};
+
+const handleSwipe = (direction, card) => {
+setDeck(d => d.filter(c => c.id !== card.id));
+if (direction === “right”) {
+setKept(k => [card, …k]);
+recordSignal(card, “keep”);
+setLastAction({ type: “kept”, card });
+} else {
+setPassed(p => [card, …p]);
+setLastAction({ type: “passed”, card });
+}
+setTimeout(() => setLastAction(null), 2000);
+};
+
+const handleUnsure = () => {
+if (!topCard) return;
+setDeck(d => d.filter(c => c.id !== topCard.id));
+setUnsure(u => [topCard, …u]);
+setLastAction({ type: “unsure”, card: topCard });
+setTimeout(() => setLastAction(null), 2000);
+};
+
+const handleRestart = () => {
+const all = […kept, …passed, …unsure, …deck].sort(() => Math.random() - 0.5);
+setDeck(all);
+setKept([]); setPassed([]); setUnsure([]);
+setLastAction(null);
+};
+
+// Keyboard
+useEffect(() => {
+const handler = (e) => {
+if (showProfile) return;
+if (e.key === “ArrowLeft”) topCard && handleSwipe(“left”, topCard);
+if (e.key === “ArrowRight”) topCard && handleSwipe(“right”, topCard);
+if (e.key === “ “ || e.key === “ArrowDown”) { e.preventDefault(); handleUnsure(); }
+if (e.key === “p”) setShowProfile(s => !s);
+};
+window.addEventListener(“keydown”, handler);
+return () => window.removeEventListener(“keydown”, handler);
+}, [topCard, showProfile]);
+
+const isEmpty = deck.length === 0;
+
+return (
+<div style={{
+minHeight: “100vh”,
+background: isEmpty ? “#000” : `radial-gradient(ellipse at 50% 0%, ${theme.bg} 0%, #000 70%)`,
+display: “flex”, flexDirection: “column”,
+alignItems: “center”,
+transition: “background 0.6s ease”,
+fontFamily: “‘Courier New’, monospace”,
+color: “#fff”,
+overflow: “hidden”,
+}}>
+<Scanlines />
+
+```
+  <style>{`
+    @keyframes pulse { 0%,100% { opacity:0.4 } 50% { opacity:0.9 } }
+    @keyframes fadeSlide { from { opacity:0; transform:translateY(-10px) } to { opacity:1; transform:translateY(0) } }
+    @keyframes fadeOut { from { opacity:1 } to { opacity:0 } }
+    * { box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #111; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+  `}</style>
+
+  {/* ── TOP BAR ── */}
+  <div style={{
+    width: "100%", maxWidth: 440,
+    padding: "16px 20px 0",
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    position: "relative", zIndex: 20,
+  }}>
+    <div>
+      <div style={{
+        fontSize: 10, color: theme.accent || "#FFD700",
+        letterSpacing: "0.3em", opacity: 0.8,
+      }}>PANTHEON TCG</div>
+      <div style={{ fontSize: 8, color: "#444", letterSpacing: "0.2em", marginTop: 2 }}>
+        {deck.length} remaining · {kept.length} kept · {unsure.length} unsure
+      </div>
+    </div>
+    <button
+      onClick={() => setShowProfile(true)}
+      style={{
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: 20,
+        padding: "6px 14px",
+        cursor: "pointer",
+        fontSize: 10, color: "#888",
+        letterSpacing: "0.1em",
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={e => e.currentTarget.style.color = "#fff"}
+      onMouseLeave={e => e.currentTarget.style.color = "#888"}
+    >
+      {metadata.decisions > 0 ? `◉ PROFILE` : `◎ PROFILE`}
+    </button>
+  </div>
+
+  {/* ── CARD STACK ── */}
+  <div style={{
+    flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+    width: "100%", position: "relative",
+    paddingTop: 20, paddingBottom: 20,
+    minHeight: "calc(100vh - 180px)",
+  }}>
+    {isEmpty ? (
+      <div style={{ textAlign: "center", animation: "fadeSlide 0.5s ease" }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⬡</div>
+        <div style={{ fontSize: 14, color: "#444", letterSpacing: "0.15em", marginBottom: 8 }}>DECK EXHAUSTED</div>
+        <div style={{ fontSize: 10, color: "#333", marginBottom: 24 }}>
+          {kept.length} kept · {passed.length} passed · {unsure.length} unsure
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+          <button onClick={() => setShowProfile(true)} style={{
+            background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)",
+            borderRadius: 8, padding: "10px 20px", cursor: "pointer",
+            fontSize: 10, color: "#FFD700", letterSpacing: "0.15em",
+            transition: "all 0.2s ease",
+          }}>VIEW PROFILE</button>
+          <button onClick={handleRestart} style={{
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 8, padding: "10px 20px", cursor: "pointer",
+            fontSize: 10, color: "#666", letterSpacing: "0.15em",
+            transition: "all 0.2s ease",
+          }}>RESTART</button>
+        </div>
+      </div>
+    ) : (
+      <div style={{ position: "relative", width: "min(380px, 92vw)", height: 500 }}>
+        {deck.slice(-3).map((card, revI) => {
+          const stackIndex = 2 - revI;
+          const isTop = stackIndex === 0;
+          return (
+            <SwipeCard
+              key={card.id}
+              card={card}
+              onSwipe={handleSwipe}
+              isTop={isTop}
+              stackIndex={stackIndex}
+            />
+          );
+        })}
+      </div>
+    )}
+  </div>
+
+  {/* ── ACTION BAR ── */}
+  {!isEmpty && (
+    <div style={{ paddingBottom: 28, position: "relative", zIndex: 20 }}>
+      <ActionBar
+        onPass={() => topCard && handleSwipe("left", topCard)}
+        onUnsure={handleUnsure}
+        onKeep={() => topCard && handleSwipe("right", topCard)}
+        theme={theme}
+      />
+      <div style={{
+        textAlign: "center", marginTop: 10,
+        fontSize: 9, color: "#333", letterSpacing: "0.15em",
+      }}>← PASS · ? UNSURE · KEEP → · P PROFILE</div>
+    </div>
+  )}
+
+  {/* ── ACTION TOAST ── */}
+  {lastAction && (
+    <div style={{
+      position: "fixed", top: 60, left: "50%",
+      transform: "translateX(-50%)",
+      background: lastAction.type === "kept" ? "rgba(0,230,118,0.12)" : lastAction.type === "passed" ? "rgba(255,23,68,0.12)" : "rgba(255,255,255,0.06)",
+      border: `1px solid ${lastAction.type === "kept" ? "rgba(0,230,118,0.3)" : lastAction.type === "passed" ? "rgba(255,23,68,0.3)" : "rgba(255,255,255,0.15)"}`,
+      borderRadius: 20,
+      padding: "6px 16px",
+      fontSize: 10,
+      color: lastAction.type === "kept" ? "#00E676" : lastAction.type === "passed" ? "#FF1744" : "#888",
+      letterSpacing: "0.15em",
+      zIndex: 50,
+      animation: "fadeSlide 0.2s ease",
+      whiteSpace: "nowrap",
+      pointerEvents: "none",
+    }}>
+      {lastAction.type === "kept" ? "♥ KEPT" : lastAction.type === "passed" ? "✕ PASSED" : "? UNSURE"} — {lastAction.card.pokemon} ({lastAction.card.set.split(" ")[0]})
+    </div>
+  )}
+
+  {/* ── PROFILE PANEL ── */}
+  {showProfile && (
+    <ProfilePanel
+      metadata={{ ...metadata, kept, passed, unsure, decisions: metadata.decisions }}
+      onClose={() => setShowProfile(false)}
+    />
+  )}
+</div>
+```
+
+);
+}
