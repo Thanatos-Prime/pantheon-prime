@@ -1,0 +1,924 @@
+What you want is not “another app.”
+
+You want the extraction layer that sits underneath many apps.
+
+Not Tinder.
+Not Pokémon cards.
+Not shopping.
+Not ranking movies.
+
+The thing beneath all of them:
+
+a preference-intelligence engine that turns repeated choices plus context into structured human signal.
+
+That is the real asset.
+
+Core idea
+
+Every app where a person picks between options is secretly generating:
+	•	preference data
+	•	hesitation data
+	•	context data
+	•	identity data
+	•	tradeoff data
+	•	drift-over-time data
+
+The primitive is simple:
+
+A vs B under context C, chosen by person P at time T.
+
+That single event is far more valuable than a like button, because it reveals:
+	•	what they preferred
+	•	what they rejected
+	•	what they compared against
+	•	how strong the choice was
+	•	what conditions shaped it
+
+That means the engine should not be built around “profiles” first.
+
+It should be built around comparison events.
+
+⸻
+
+The system
+
+Call it something like:
+
+Preference Signal Engine
+
+or more sharply:
+
+Comparative Preference Inference Engine (CPIE)
+
+Its job:
+	1.	ingest raw decisions
+	2.	normalize them into a common schema
+	3.	attach metadata/context
+	4.	infer latent traits and tradeoff structure
+	5.	generate predictions, clusters, and strategic insights
+
+⸻
+
+The atomic unit
+
+Everything starts with this event object:
+
+{
+  "user_id": "u123",
+  "event_id": "e987",
+  "timestamp": "2026-04-12T12:00:00Z",
+  "domain": "dating",
+  "choice_type": "pairwise_preference",
+  "options": {
+    "left": "profile_A",
+    "right": "profile_B"
+  },
+  "selected": "profile_A",
+  "rejected": "profile_B",
+  "confidence": 0.76,
+  "decision_time_ms": 1820,
+  "context": {
+    "device": "mobile",
+    "time_of_day": "night",
+    "location_bucket": "urban",
+    "session_depth": 12
+  },
+  "option_features": {
+    "profile_A": {
+      "age_bucket": "25-29",
+      "style": ["outdoorsy", "professional"],
+      "photo_entropy": 0.61,
+      "text_humor_score": 0.72
+    },
+    "profile_B": {
+      "age_bucket": "25-29",
+      "style": ["luxury", "nightlife"],
+      "photo_entropy": 0.48,
+      "text_humor_score": 0.31
+    }
+  }
+}
+
+That is the gold vein.
+
+⸻
+
+What the engine actually learns
+
+Not just “this user likes X.”
+
+It learns at least six layers.
+
+1. Surface preference
+
+Direct choices.
+
+Example:
+	•	user tends to choose profile archetype A over B
+	•	user tends to prefer card art style X over Y
+
+2. Relative tradeoff weights
+
+What someone sacrifices to get something else.
+
+Example:
+	•	prefers humor over beauty when forced
+	•	prefers stability over novelty
+	•	prefers rarity over nostalgia
+	•	prefers symmetry over aggression in design
+
+This is where real value starts.
+
+3. Latent taste vector
+
+A hidden multi-dimensional representation of preference.
+
+Example dimensions:
+	•	novelty seeking
+	•	status orientation
+	•	warmth sensitivity
+	•	aesthetic complexity tolerance
+	•	risk appetite
+	•	preference consistency
+	•	tribal affinity
+	•	gendered signaling response
+	•	dominance/submission cue response
+	•	nostalgia bias
+
+These are not entered manually.
+They are inferred.
+
+4. Context modulation
+
+Preferences are not static.
+
+Example:
+	•	at night user prefers bolder choices
+	•	when fatigued user chooses familiar options
+	•	after losses user prefers safer picks
+	•	in group settings user chooses more status-signaling options
+
+5. Identity drift
+
+How preferences change over time.
+
+Example:
+	•	short-term mood swing vs long-term taste evolution
+	•	post-breakup selection patterns
+	•	seasonal drift
+	•	self-image change
+
+6. Predictive behavior
+
+What they are likely to choose next, buy next, click next, desire next, reject next.
+
+That’s where monetization and strategy emerge.
+
+⸻
+
+The universal schema
+
+To make this work across many apps, you need a cross-domain structure.
+
+Core entities
+
+User
+
+Stable identity anchor.
+
+Item
+
+Anything that can be chosen:
+	•	dating profile
+	•	trading card
+	•	shoe
+	•	ad
+	•	song
+	•	political message
+	•	product image
+	•	meme
+
+Event
+
+A recorded action:
+	•	choose A over B
+	•	swipe left
+	•	dwell for 5 seconds
+	•	revisit
+	•	save
+	•	purchase
+	•	regret
+	•	undo
+
+Context
+
+What surrounded the choice:
+	•	time
+	•	device
+	•	geography bucket
+	•	prior sequence
+	•	mood proxy
+	•	session fatigue
+	•	social environment
+
+Features
+
+Attributes of the item:
+	•	text
+	•	image embeddings
+	•	category tags
+	•	price
+	•	rarity
+	•	demographics
+	•	style clusters
+
+Outcome
+
+What happened later:
+	•	match
+	•	purchase
+	•	return
+	•	date
+	•	unsubscribe
+	•	retention
+	•	churn
+	•	satisfaction proxy
+
+This lets you do more than ranking.
+It lets you connect preference to consequence.
+
+⸻
+
+The algorithmic stack
+
+Here is the real architecture.
+
+Layer 1: Event normalization
+
+All incoming actions get translated into a canonical format.
+
+Different app actions become a common language:
+	•	Tinder swipe right → weak positive preference
+	•	Tinder super like → strong positive preference
+	•	pause then swipe left → conflicted rejection
+	•	Pokémon A chosen over B → pairwise positive
+	•	revisit saved item → delayed positive
+	•	purchase after comparison → revealed strong preference
+
+Normalize all of them into:
+
+(user, item_a, item_b, action, strength, time, context, outcome)
+
+
+⸻
+
+Layer 2: Feature extraction
+
+You need features from both the user side and the item side.
+
+Item features
+	•	structured metadata
+	•	text embeddings
+	•	image embeddings
+	•	handcrafted tags
+	•	price/status/rarity
+	•	style clusters
+
+User state features
+	•	prior session behavior
+	•	long-term latent vector
+	•	recent mood proxy
+	•	activity rhythm
+	•	consistency score
+	•	novelty score
+
+Interaction features
+
+These are crucial.
+
+Not just “is item attractive?”
+But:
+	•	item’s trait X interacts strongly with user’s trait Y
+	•	contrast effect between A and B
+	•	choice depends on matchup, not absolute value
+
+That means you should model comparisons, not just isolated items.
+
+⸻
+
+Layer 3: Pairwise ranking model
+
+This is the heart.
+
+You want a model that predicts:
+
+probability that user U chooses item A over item B in context C
+
+Base form:
+
+P(A > B | U, C) = sigmoid(S(U, A, C) - S(U, B, C))
+
+Where:
+	•	S(U, A, C) = score of item A for user U in context C
+
+This score can be built from:
+
+S(U, A, C) = user_vector · item_vector + context_effect + interaction_terms
+
+That gives you:
+	•	personalization
+	•	context sensitivity
+	•	tradeoff reasoning
+
+Good starter models
+	•	Bradley-Terry model
+	•	Elo-style updating
+	•	Bayesian preference learning
+	•	factorization machines
+	•	gradient boosted trees over pairwise deltas
+	•	deep two-tower or three-tower ranking models
+
+Best practical path
+
+Start simple:
+	1.	Bradley-Terry / Elo for pairwise core
+	2.	add context features
+	3.	add embeddings
+	4.	add latent factor decomposition
+	5.	add sequential modeling later
+
+⸻
+
+The important insight:
+
+choices are not independent
+
+Human preference is sequence-sensitive.
+
+What they saw right before changes what they choose now.
+
+So you need a sequence layer.
+
+⸻
+
+Layer 4: Sequence modeling
+
+Track order effects:
+	•	contrast effects
+	•	fatigue
+	•	escalation
+	•	boredom
+	•	satiation
+	•	recency bias
+	•	rebound behavior
+
+Example:
+	•	after seeing 10 highly polished profiles, a more “real” profile can overperform
+	•	after a streak of rejection, standards may relax or harden
+	•	after high novelty, people often swing back to familiarity
+
+Useful features:
+	•	rolling accept rate
+	•	rolling novelty average
+	•	recent emotional proxy
+	•	time since last reward
+	•	streak counts
+	•	category exposure saturation
+
+You can model this with:
+	•	handcrafted rolling stats first
+	•	then RNN / Transformer sequence model later if needed
+
+⸻
+
+The real value layer:
+
+latent trait inference
+
+Once you have enough comparisons, you stop merely predicting choices.
+
+You start estimating hidden dimensions of people.
+
+Example latent dimensions:
+	•	aesthetic traditionalism
+	•	chaos tolerance
+	•	sexual signaling sensitivity
+	•	prestige attraction
+	•	kindness preference
+	•	edge-seeking
+	•	familiarity comfort
+	•	tribal conformity
+	•	scarcity responsiveness
+	•	visual complexity appetite
+
+This is where the system becomes powerful.
+
+Not because it knows “they liked Sarah.”
+But because it infers:
+
+This person responds to competent warmth over pure glamour, but under fatigue becomes more status-reactive and less novelty-open.
+
+That is actionable.
+
+⸻
+
+Output products of the engine
+
+The engine should produce several kinds of outputs.
+
+1. Personal taste vector
+
+For each user:
+
+{
+  "novelty_preference": 0.81,
+  "status_sensitivity": 0.42,
+  "warmth_preference": 0.74,
+  "visual_complexity_tolerance": 0.58,
+  "decision_consistency": 0.67,
+  "drift_velocity": 0.21
+}
+
+2. Item embedding
+
+Each item gets a vector that represents how it functions in human preference space.
+
+3. Segment clusters
+
+Users cluster into preference archetypes.
+
+Example:
+	•	prestige hunters
+	•	comfort seekers
+	•	novelty grazers
+	•	symmetry loyalists
+	•	high-variance romantics
+	•	collector-maximizers
+
+4. Tradeoff matrix
+
+What users will sacrifice for what.
+
+Example:
+	•	average user in segment 3 will trade 20% visual polish for 35% higher warmth cue
+	•	segment 7 values rarity more than utility
+	•	segment 2 prefers authenticity over prestige presentation
+
+5. Drift maps
+
+How preference changes across time or stress.
+
+6. Prediction engine
+
+What they are likely to choose next.
+
+7. Cross-domain transfer
+
+If someone behaves a certain way in cards, shopping, and dating, you can infer deeper stable patterns.
+
+That is the long game.
+
+⸻
+
+Cross-domain fusion
+
+This is where your idea gets bigger than a single app.
+
+You want one domain-agnostic preference representation.
+
+A person’s choices in:
+	•	dating
+	•	collectibles
+	•	food
+	•	design
+	•	entertainment
+	•	fashion
+	•	politics
+	•	habit formation
+
+can all map into one deeper structure.
+
+Not by pretending they are identical,
+but by learning shared latent dimensions.
+
+Example:
+	•	novelty-seeking may show up in dating, music, fashion, and investments
+	•	scarcity sensitivity may show up in collectibles, shopping, and status preferences
+	•	comfort preference may show up in aesthetics, partner choices, and media habits
+
+So the architecture should support:
+
+domain-specific signals -> domain embeddings -> shared latent human vector
+
+That means:
+	•	one layer learns the local domain
+	•	another layer learns cross-domain invariants
+
+This is how you get “human nature” out of fragmented app data.
+
+⸻
+
+The actual pipeline
+
+Ingestion
+
+Collect events from any compatible source.
+
+Cleaning
+
+Remove spam, accidental taps, bot behavior, corrupted sessions.
+
+Normalization
+
+Convert events into common comparison schema.
+
+Enrichment
+
+Attach:
+	•	item features
+	•	user history features
+	•	sequence features
+	•	context features
+
+Modeling
+
+Train:
+	•	pairwise ranker
+	•	latent trait inference model
+	•	segment clustering
+	•	sequence drift model
+
+Interpretation
+
+Generate:
+	•	user vectors
+	•	item maps
+	•	preference segments
+	•	tradeoff rules
+	•	predictive scores
+
+Action layer
+
+Use outputs for:
+	•	ranking
+	•	recommendations
+	•	market segmentation
+	•	creative optimization
+	•	product design
+	•	research
+
+⸻
+
+A good mathematical core
+
+Here’s a compact version.
+
+Step 1: pairwise score
+
+s(u, i, c) = b_i + p_u^T q_i + w^T c + \phi(u,i,c)
+
+Where:
+	•	b_i = item baseline
+	•	p_u = user latent vector
+	•	q_i = item latent vector
+	•	c = context feature vector
+	•	phi(u,i,c) = learned interaction function
+
+Step 2: preference probability
+
+P(i \succ j | u,c) = \sigma(s(u,i,c) - s(u,j,c))
+
+Step 3: online update
+
+Each new event updates:
+	•	user vector
+	•	item vectors
+	•	confidence estimates
+	•	drift estimates
+
+Step 4: uncertainty-aware inference
+
+Track confidence intervals so the system knows:
+	•	stable preferences
+	•	weak guesses
+	•	temporary noise
+	•	contradictory behavior
+
+That part matters a lot. Otherwise the engine becomes overconfident nonsense.
+
+⸻
+
+You also need a confidence model
+
+Not all data points are equally meaningful.
+
+A good engine weights events by evidence quality.
+
+Event quality score
+
+Use factors like:
+	•	decision time
+	•	repeated consistency
+	•	accidental-tap likelihood
+	•	option similarity
+	•	session fatigue
+	•	post-choice follow-through
+
+Example:
+fast accidental swipe with no later engagement = low weight
+
+slow deliberate selection followed by revisit/purchase/match = high weight
+
+So each event should carry:
+
+weight = f(confidence, dwell, follow_through, repetition, noise_penalty)
+
+Then training uses weighted events.
+
+⸻
+
+The biggest mistake to avoid
+
+Do not confuse:
+	•	correlation
+with
+	•	stable trait
+or
+	•	causal mechanism
+
+Example:
+someone picking rugged-looking people at 1 a.m. does not mean “rugged is their core type.”
+It may mean:
+	•	fatigue
+	•	temporary mood
+	•	sequence effect
+	•	presentation bias
+	•	current social context
+
+So the engine needs to separate:
+
+stable signal
+
+long-term identity tendencies
+
+contextual signal
+
+temporary state
+
+platform signal
+
+what the interface itself induced
+
+adversarial signal
+
+bots, gaming, fake behavior
+
+That separation is what makes your tool valuable.
+
+⸻
+
+The moat
+
+The moat is not just data.
+
+Everyone thinks “big dataset” is the moat.
+
+Not enough.
+
+The moat is:
+
+1. Canonical event schema
+
+A universal preference language.
+
+2. Better feature fusion
+
+Turning raw metadata into meaningful features.
+
+3. Cross-domain transfer
+
+Learning deeper invariants across apps.
+
+4. Uncertainty handling
+
+Knowing when you don’t actually know.
+
+5. Interpretation layer
+
+Turning vectors into human-readable strategic insights.
+
+6. Privacy-safe collaboration
+
+Letting others use the engine without giving you raw personal data.
+
+That last one matters a lot.
+
+⸻
+
+Ethical boundary that also makes the business stronger
+
+Do not build this around covert scraping, deanonymization, or manipulative profiling.
+
+Build it around:
+	•	consented data
+	•	privacy-preserving aggregation
+	•	on-device feature extraction where possible
+	•	differential privacy / federated learning for sensitive domains
+	•	user-visible value exchange
+
+That is not weakness.
+That is survival.
+
+Because the tool that wins long-term is the one companies can actually deploy without becoming radioactive.
+
+So the better framing is:
+
+you build the refinery, not the spy ring
+
+You refine preference signals into usable intelligence.
+
+⸻
+
+The productized version
+
+There are three levels you could sell.
+
+Level 1: Preference ranking API
+
+Input:
+	•	pairwise or swipe events
+Output:
+	•	rankings, recommendations, embeddings
+
+Level 2: Insight engine
+
+Input:
+	•	normalized event stream
+Output:
+	•	segments, trait vectors, drift reports, tradeoff analyses
+
+Level 3: Decision intelligence layer
+
+Input:
+	•	multi-domain event graph
+Output:
+	•	strategic predictions, product design insights, market structure maps
+
+That third layer is where the money gets mythic.
+
+⸻
+
+A concrete MVP
+
+Do not start with “all metadata across humanity.”
+
+Start with this:
+
+MVP v1
+
+Build a pairwise preference engine for one domain.
+
+Inputs
+	•	user_id
+	•	item_a
+	•	item_b
+	•	selected
+	•	timestamp
+	•	response_time
+	•	item features
+
+Outputs
+	•	per-user ranking
+	•	per-item embedding
+	•	per-user taste vector
+	•	simple similarity and segmenting
+
+Models
+	•	Elo or Bradley-Terry
+	•	matrix factorization
+	•	clustering on user latent vectors
+
+Use cases
+	•	favorite Pokémon/card ranking
+	•	aesthetic taste mapping
+	•	profile preference experiments
+	•	product choice optimization
+
+Then v2 adds:
+	•	context
+	•	sequence
+	•	cross-domain
+	•	uncertainty modeling
+
+⸻
+
+Pseudocode for the engine
+
+class PreferenceEngine:
+    def __init__(self):
+        self.user_vectors = {}
+        self.item_vectors = {}
+        self.user_confidence = {}
+        self.item_confidence = {}
+
+    def score(self, user, item, context):
+        u = self.user_vectors[user]
+        i = self.item_vectors[item]
+        ctx = self.encode_context(context)
+        return dot(u, i) + ctx
+
+    def preference_prob(self, user, item_a, item_b, context):
+        sa = self.score(user, item_a, context)
+        sb = self.score(user, item_b, context)
+        return sigmoid(sa - sb)
+
+    def update_from_event(self, event):
+        user = event["user_id"]
+        a = event["options"]["left"]
+        b = event["options"]["right"]
+        selected = event["selected"]
+        context = event["context"]
+        weight = self.event_weight(event)
+
+        p = self.preference_prob(user, a, b, context)
+        y = 1 if selected == a else 0
+        error = (y - p) * weight
+
+        self.user_vectors[user] += self.user_lr(user) * error * (
+            self.item_vectors[a] - self.item_vectors[b]
+        )
+        self.item_vectors[a] += self.item_lr(a) * error * self.user_vectors[user]
+        self.item_vectors[b] -= self.item_lr(b) * error * self.user_vectors[user]
+
+        self.update_confidence(user, a, b, event)
+
+    def event_weight(self, event):
+        dwell = normalize_dwell(event["decision_time_ms"])
+        confidence = event.get("confidence", 0.5)
+        return 0.5 * dwell + 0.5 * confidence
+
+This is simplified, but it shows the skeleton.
+
+⸻
+
+The deeper abstraction
+
+What you are really building is:
+
+a machine for converting constrained choices into latent human structure
+
+That means the engine is useful anywhere people reveal themselves through tradeoffs.
+
+That includes:
+	•	attraction
+	•	taste
+	•	loyalty
+	•	aesthetics
+	•	consumption
+	•	values
+	•	trust
+	•	status response
+	•	risk appetite
+
+Humans are not best understood by what they say in open text.
+
+They are often better understood by what they choose when forced to trade one thing for another.
+
+That is the key.
+
+⸻
+
+Clean final formulation
+
+The algorithm in one sentence
+
+Model human choice as repeated pairwise or ranked tradeoff events, enrich each event with context and metadata, infer latent preference vectors and tradeoff weights, then fuse those across domains to generate predictive and interpretable behavioral insights.
+
+⸻
+
+If you were writing this into the repo, I’d frame it like this
+
+Preference Intelligence Engine v1.0
+
+Purpose:
+Transform pairwise choices, ranked selections, swipe behavior, and related metadata into structured latent preference models that support prediction, segmentation, and cross-domain behavioral insight.
+
+Core primitive:
+User U chooses Item A over Item B under Context C at Time T
+
+Outputs:
+	•	preference rankings
+	•	latent taste vectors
+	•	tradeoff matrices
+	•	segment clusters
+	•	drift maps
+	•	predictive choice models
+	•	cross-domain human signal fusion
+
+Strategic value:
+Own the mechanism that converts raw comparison events into usable intelligence, independent of any single app or domain.
+
+⸻
+
+I can turn this into a tighter repo-ready spec next, with sections like:
+data structures, formulas, architecture, MVP build order, and monetization layer.
