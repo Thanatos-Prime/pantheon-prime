@@ -1,0 +1,1168 @@
+import { useState, useEffect, useRef, useCallback } from “react”;
+
+// ─── MOCK DATA LAYER ──────────────────────────────────────────────────────────
+// In production this would be the full Pokémon TCG API (https://pokemontcg.io)
+// seeded with every card ever printed. Here we use representative real card data.
+
+const POKEMON_CATEGORIES = [
+{ id: “gengar”, name: “Gengar”, type: “Psychic/Ghost”, emoji: “👻” },
+{ id: “charizard”, name: “Charizard”, type: “Fire/Flying”, emoji: “🔥” },
+{ id: “pikachu”, name: “Pikachu”, type: “Electric”, emoji: “⚡” },
+{ id: “mewtwo”, name: “Mewtwo”, type: “Psychic”, emoji: “🔮” },
+{ id: “eevee”, name: “Eevee”, type: “Normal”, emoji: “✨” },
+];
+
+const CARD_DATABASE = {
+gengar: [
+{ id: “g1”, name: “Gengar”, set: “Base Set (1999)”, number: “5/62”, rarity: “Holo Rare”, artist: “Ken Sugimori”, hp: 80, attack: “Darkness — 30”, flavor: “Under a full moon, this Pokémon likes to mimic the shadows of people and laugh at their fright.”, era: “vintage”, style: “watercolor”, color: “#6B3FA0”, img: “https://images.pokemontcg.io/base1/5_hires.png” },
+{ id: “g2”, name: “Gengar”, set: “Fossil (1999)”, number: “18/62”, rarity: “Rare”, artist: “Kagemaru Himeno”, hp: 80, attack: “Curse — 10”, flavor: “It is said to emerge from darkness to steal the lives of those who fear the dark.”, era: “vintage”, style: “painted”, color: “#4A2D6B”, img: “https://images.pokemontcg.io/fossil/18_hires.png” },
+{ id: “g3”, name: “Gengar”, set: “Neo Destiny (2002)”, number: “3/105”, rarity: “Holo Rare”, artist: “Mitsuhiro Arita”, hp: 90, attack: “Shadow Dance”, flavor: “Hiding in shadows, it awaits chances to steal the lives of its prey.”, era: “neo”, style: “neo”, color: “#7B4FA8”, img: “https://images.pokemontcg.io/n4/3_hires.png” },
+{ id: “g4”, name: “Gengar ex”, set: “FireRed & LeafGreen (2004)”, number: “109/112”, rarity: “Rare ex”, artist: “Ryo Ueda”, hp: 150, attack: “Chaos Move”, flavor: null, era: “ex”, style: “ex”, color: “#5C3380”, img: “https://images.pokemontcg.io/ex7/109_hires.png” },
+{ id: “g5”, name: “Gengar Lv.X”, set: “Stormfront (2008)”, number: “121/100”, rarity: “Lv.X”, artist: “Hiromichi Sugiyama”, hp: 120, attack: “Fainting Spell”, flavor: null, era: “dppt”, style: “levelx”, color: “#8B5FBE”, img: “https://images.pokemontcg.io/dp7/121_hires.png” },
+{ id: “g6”, name: “Gengar Prime”, set: “Triumphant (2010)”, number: “94/102”, rarity: “Prime”, artist: “Noriko Hotta”, hp: 110, attack: “Compound Pain”, flavor: “It lurks in the shadows. It is said to take the lives of those who mistake its shadow for that of a person.”, era: “hgss”, style: “prime”, color: “#4D2668”, img: “https://images.pokemontcg.io/col1/94_hires.png” },
+{ id: “g7”, name: “Gengar EX”, set: “Phantom Forces (2014)”, number: “34/119”, rarity: “Ultra Rare”, artist: “Eske Yoshinob”, hp: 170, attack: “Dark Corridor”, flavor: null, era: “xy”, style: “ex_xy”, color: “#6A3D8F”, img: “https://images.pokemontcg.io/xy4/34_hires.png” },
+{ id: “g8”, name: “Gengar & Mimikyu GX”, set: “Team Up (2019)”, number: “53/181”, rarity: “GX”, artist: “5ban Graphics”, hp: 240, attack: “Horror House GX”, flavor: null, era: “sm”, style: “tagteam”, color: “#9B6FBF”, img: “https://images.pokemontcg.io/sm9/53_hires.png” },
+{ id: “g9”, name: “Gengar VMAX”, set: “Chilling Reign (2021)”, number: “157/198”, rarity: “Alt Art VMAX”, artist: “PLANETA Tsuji”, hp: 330, attack: “G-Max Swallow Up”, flavor: null, era: “swsh”, style: “vmax_alt”, color: “#7256A0”, img: “https://images.pokemontcg.io/swsh6/157_hires.png” },
+{ id: “g10”, name: “Gengar ex”, set: “Scarlet & Violet (2023)”, number: “76/198”, rarity: “Double Rare”, artist: “DOM”, hp: 260, attack: “Nightmare Swipe”, flavor: null, era: “sv”, style: “sv”, color: “#5E3B8C”, img: “https://images.pokemontcg.io/sv1/76_hires.png” },
+],
+charizard: [
+{ id: “c1”, name: “Charizard”, set: “Base Set (1999)”, number: “4/102”, rarity: “Holo Rare”, artist: “Mitsuhiro Arita”, hp: 120, attack: “Fire Spin — 100”, flavor: “Spits fire that is hot enough to melt boulders. Known to cause forest fires unintentionally.”, era: “vintage”, style: “watercolor”, color: “#E8490F”, img: “https://images.pokemontcg.io/base1/4_hires.png” },
+{ id: “c2”, name: “Charizard”, set: “Base Set 2 (2000)”, number: “4/130”, rarity: “Holo Rare”, artist: “Mitsuhiro Arita”, hp: 120, attack: “Fire Spin — 100”, flavor: “Spits fire that is hot enough to melt boulders.”, era: “vintage”, style: “watercolor”, color: “#D94000”, img: “https://images.pokemontcg.io/base4/4_hires.png” },
+{ id: “c3”, name: “Charizard ex”, set: “FireRed & LeafGreen (2004)”, number: “105/112”, rarity: “Rare ex”, artist: “Ryo Ueda”, hp: 160, attack: “Flame Tail — 60”, flavor: null, era: “ex”, style: “ex”, color: “#FF5A1F”, img: “https://images.pokemontcg.io/ex7/105_hires.png” },
+{ id: “c4”, name: “Charizard G Lv.X”, set: “Supreme Victors (2009)”, number: “143/147”, rarity: “Lv.X”, artist: “Mitsuhiro Arita”, hp: 130, attack: “Malevolent Fire”, flavor: null, era: “dppt”, style: “levelx”, color: “#C73D0A”, img: “https://images.pokemontcg.io/pl3/143_hires.png” },
+{ id: “c5”, name: “Charizard EX”, set: “Flashfire (2014)”, number: “107/106”, rarity: “Full Art Ultra Rare”, artist: “Eske Yoshinob”, hp: 180, attack: “Combustion Blast”, flavor: null, era: “xy”, style: “full_art”, color: “#FF6B35”, img: “https://images.pokemontcg.io/xy2/107_hires.png” },
+{ id: “c6”, name: “Charizard GX”, set: “Hidden Fates (2019)”, number: “9/68”, rarity: “Holo Rare GX”, artist: “5ban Graphics”, hp: 250, attack: “Flare Blitz GX”, flavor: null, era: “sm”, style: “gx”, color: “#E85D20”, img: “https://images.pokemontcg.io/sma/9_hires.png” },
+{ id: “c7”, name: “Charizard VMAX”, set: “Champion’s Path (2020)”, number: “74/73”, rarity: “Rainbow Rare VMAX”, artist: “5ban Graphics”, hp: 330, attack: “G-Max Wildfire”, flavor: null, era: “swsh”, style: “rainbow”, color: “#FF7043”, img: “https://images.pokemontcg.io/swsh35/74_hires.png” },
+{ id: “c8”, name: “Charizard ex”, set: “Obsidian Flames (2023)”, number: “125/197”, rarity: “Special Illustration Rare”, artist: “Akira Egawa”, hp: 330, attack: “Burning Darkness”, flavor: null, era: “sv”, style: “sir”, color: “#CC3300”, img: “https://images.pokemontcg.io/sv3/125_hires.png” },
+],
+pikachu: [
+{ id: “p1”, name: “Pikachu”, set: “Base Set (1999)”, number: “58/102”, rarity: “Common”, artist: “Mitsuhiro Arita”, hp: 40, attack: “Thunder Shock — 10”, flavor: “When several of these Pokémon gather, their electricity could build and cause lightning storms.”, era: “vintage”, style: “watercolor”, color: “#FFD700”, img: “https://images.pokemontcg.io/base1/58_hires.png” },
+{ id: “p2”, name: “Pikachu”, set: “Jungle (1999)”, number: “60/64”, rarity: “Common”, artist: “Keiji Kinebuchi”, hp: 50, attack: “Spark — 20”, flavor: “It keeps its tail raised to monitor its surroundings.”, era: “vintage”, style: “watercolor”, color: “#FFC107”, img: “https://images.pokemontcg.io/jungle/60_hires.png” },
+{ id: “p3”, name: “Flying Pikachu”, set: “Base Set Promo (2000)”, number: “PROMO”, rarity: “Promo”, artist: “Atsuko Nishida”, hp: 40, attack: “Lightning Kick”, flavor: null, era: “vintage”, style: “promo”, color: “#FFE033”, img: “https://images.pokemontcg.io/basep/Flying_Pikachu.png” },
+{ id: “p4”, name: “Pikachu ★”, set: “Diamond & Pearl (2007)”, number: “112/130”, rarity: “Star Rare”, artist: “Masakazu Fukuda”, hp: 60, attack: “Thunderbolt”, flavor: null, era: “dppt”, style: “star”, color: “#FFCA28”, img: “https://images.pokemontcg.io/dp1/112_hires.png” },
+{ id: “p5”, name: “Pikachu EX”, set: “XY Promos (2014)”, number: “XY42”, rarity: “Promo”, artist: “5ban Graphics”, hp: 120, attack: “Agility”, flavor: null, era: “xy”, style: “promo_ex”, color: “#FFD740”, img: “https://images.pokemontcg.io/xyp/XY42_hires.png” },
+{ id: “p6”, name: “Pikachu VMAX”, set: “Vivid Voltage (2020)”, number: “188/185”, rarity: “Rainbow Rare”, artist: “5ban Graphics”, hp: 310, attack: “G-Max Volt Tackle”, flavor: null, era: “swsh”, style: “rainbow”, color: “#FFF176”, img: “https://images.pokemontcg.io/swsh4/188_hires.png” },
+{ id: “p7”, name: “Pikachu ex”, set: “Paldean Fates (2024)”, number: “167/91”, rarity: “Special Illustration Rare”, artist: “Mitsuhiro Arita”, hp: 120, attack: “Circle Circuit”, flavor: null, era: “sv”, style: “sir”, color: “#FFEE58”, img: “https://images.pokemontcg.io/sv4pt5/167_hires.png” },
+],
+mewtwo: [
+{ id: “m1”, name: “Mewtwo”, set: “Base Set (1999)”, number: “10/102”, rarity: “Holo Rare”, artist: “Ken Sugimori”, hp: 60, attack: “Psyburn — 30”, flavor: “It was created by a scientist after years of horrific gene-splicing experiments.”, era: “vintage”, style: “watercolor”, color: “#9C64C8”, img: “https://images.pokemontcg.io/base1/10_hires.png” },
+{ id: “m2”, name: “Mewtwo”, set: “Wizards Black Star Promos (1999)”, number: “14”, rarity: “Promo”, artist: “Keiji Kinebuchi”, hp: 70, attack: “Psyshot — 20”, flavor: “A scientist created this Pokémon for his own ends.”, era: “vintage”, style: “promo”, color: “#7C44A8”, img: “https://images.pokemontcg.io/basep/14_hires.png” },
+{ id: “m3”, name: “Mewtwo EX”, set: “Next Destinies (2012)”, number: “98/99”, rarity: “Full Art Ultra Rare”, artist: “Ryo Ueda”, hp: 170, attack: “X Ball”, flavor: null, era: “bw”, style: “full_art”, color: “#8E57C0”, img: “https://images.pokemontcg.io/bw4/98_hires.png” },
+{ id: “m4”, name: “M Mewtwo EX”, set: “BREAKthrough (2015)”, number: “63/162”, rarity: “Ultra Rare”, artist: “5ban Graphics”, hp: 220, attack: “Psychic Infinity”, flavor: null, era: “xy”, style: “mega”, color: “#A070D0”, img: “https://images.pokemontcg.io/xy8/63_hires.png” },
+{ id: “m5”, name: “Mewtwo GX”, set: “Shining Legends (2017)”, number: “39/73”, rarity: “Ultra Rare GX”, artist: “5ban Graphics”, hp: 190, attack: “Psy Purge”, flavor: null, era: “sm”, style: “gx”, color: “#B080E0”, img: “https://images.pokemontcg.io/sm35/39_hires.png” },
+{ id: “m6”, name: “Mewtwo VSTAR”, set: “Pokémon GO (2022)”, number: “79/78”, rarity: “Special Illustration Rare”, artist: “Atsushi Furusawa”, hp: 270, attack: “Psy Purge VSTAR”, flavor: null, era: “swsh”, style: “sir”, color: “#C090F0”, img: “https://images.pokemontcg.io/pgo/79_hires.png” },
+],
+eevee: [
+{ id: “e1”, name: “Eevee”, set: “Jungle (1999)”, number: “51/64”, rarity: “Common”, artist: “Mitsuhiro Arita”, hp: 50, attack: “Tail Wag”, flavor: “Its genetic code is irregular. It may mutate if it is exposed to radiation from element stones.”, era: “vintage”, style: “watercolor”, color: “#C8A46E”, img: “https://images.pokemontcg.io/jungle/51_hires.png” },
+{ id: “e2”, name: “Eevee”, set: “Neo Discovery (2001)”, number: “46/75”, rarity: “Common”, artist: “Atsuko Nishida”, hp: 40, attack: “Bite — 10”, flavor: “An extremely rare Pokémon that may evolve in a number of different ways.”, era: “neo”, style: “neo”, color: “#D4A76A”, img: “https://images.pokemontcg.io/n2/46_hires.png” },
+{ id: “e3”, name: “Eevee”, set: “Majestic Dawn (2008)”, number: “48/100”, rarity: “Common”, artist: “Yukiko Baba”, hp: 50, attack: “Growth — 10”, flavor: null, era: “dppt”, style: “dp”, color: “#BFA060”, img: “https://images.pokemontcg.io/dp4/48_hires.png” },
+{ id: “e4”, name: “Eevee GX”, set: “Hidden Fates (2019)”, number: “SV20/SV94”, rarity: “Shiny GX”, artist: “5ban Graphics”, hp: 170, attack: “Drive Off GX”, flavor: null, era: “sm”, style: “shiny_gx”, color: “#E0C080”, img: “https://images.pokemontcg.io/sma/SV20_hires.png” },
+{ id: “e5”, name: “Eevee VMAX”, set: “Evolving Skies (2021)”, number: “207/203”, rarity: “Gold Rare”, artist: “5ban Graphics”, hp: 310, attack: “G-Max Cuddle”, flavor: null, era: “swsh”, style: “gold”, color: “#FFD580”, img: “https://images.pokemontcg.io/swsh7/207_hires.png” },
+{ id: “e6”, name: “Eevee ex”, set: “Scarlet & Violet (2023)”, number: “208/198”, rarity: “Special Illustration Rare”, artist: “sui”, hp: 120, attack: “Hyper Potential”, flavor: null, era: “sv”, style: “sir”, color: “#C4904A”, img: “https://images.pokemontcg.io/sv1/208_hires.png” },
+],
+};
+
+const ERA_METADATA = {
+vintage: { label: “Vintage Era (1999–2002)”, traits: [“nostalgic”, “collector”, “classic_art”, “low_power_creep”] },
+neo: { label: “Neo Era (2000–2002)”, traits: [“storytelling”, “cinematic”, “evolution_focused”] },
+ex: { label: “EX Era (2003–2007)”, traits: [“competitive”, “power_oriented”, “modern_art”] },
+dppt: { label: “DP Era (2007–2010)”, traits: [“strategic”, “level_based”, “dense_mechanics”] },
+bw: { label: “Black & White Era (2011–2013)”, traits: [“minimalist”, “bold_borders”, “full_art”] },
+xy: { label: “XY Era (2013–2016)”, traits: [“full_art_preference”, “mega_evolution”, “sleek”] },
+sm: { label: “Sun & Moon Era (2016–2019)”, traits: [“gx_fan”, “tag_team”, “anime_style”] },
+swsh: { label: “Sword & Shield Era (2019–2022)”, traits: [“vmax_aesthetic”, “alt_art”, “premium”] },
+sv: { label: “Scarlet & Violet Era (2022–)”, traits: [“modern”, “illustration_rare”, “cinematic_full_art”] },
+};
+
+const STYLE_METADATA = {
+watercolor: { label: “Original Watercolor”, traits: [“artistic”, “painterly”, “vintage_soul”] },
+painted: { label: “Oil/Acrylic Painted”, traits: [“art_collector”, “classic_medium”] },
+neo: { label: “Neo Generation Style”, traits: [“narrative_depth”, “gen2_nostalgia”] },
+ex: { label: “EX Border Style”, traits: [“competitive_player”, “ex_mechanic_fan”] },
+levelx: { label: “Level X Overlay”, traits: [“dppt_era”, “overlay_aesthetic”] },
+prime: { label: “Prime Holo”, traits: [“hgss_love”, “side_scrolling_holo”] },
+ex_xy: { label: “XY EX Full Art”, traits: [“full_art_appreciation”, “textured_holo”] },
+tagteam: { label: “Tag Team GX”, traits: [“narrative_pairings”, “duo_art”] },
+vmax_alt: { label: “VMAX Alt Art”, traits: [“premium_alt_art”, “character_depth”] },
+rainbow: { label: “Rainbow Rare”, traits: [“spectacle”, “chase_card”] },
+sir: { label: “Special Illustration Rare”, traits: [“illustration_fan”, “worldbuilding”, “premium_modern”] },
+full_art: { label: “Full Art Ultra Rare”, traits: [“borderless_preference”, “showcase”] },
+gx: { label: “GX Holo”, traits: [“sun_moon_era”, “holo_fan”] },
+mega: { label: “Mega Evolution”, traits: [“xy_era”, “mega_fan”] },
+star: { label: “Star Rare ★”, traits: [“dp_era”, “star_rarity_fan”] },
+promo: { label: “Promotional Card”, traits: [“collector”, “event_chaser”] },
+gold: { label: “Gold Rare”, traits: [“premium_gold”, “bling_aesthetic”] },
+shiny_gx: { label: “Shiny GX”, traits: [“shiny_hunter”, “alt_coloring”] },
+};
+
+// ─── COMPONENTS ───────────────────────────────────────────────────────────────
+
+const rarityColors = {
+“Common”: “#9E9E9E”,
+“Rare”: “#4CAF50”,
+“Holo Rare”: “#2196F3”,
+“Ultra Rare”: “#9C27B0”,
+“Full Art Ultra Rare”: “#E91E63”,
+“GX”: “#FF9800”,
+“Rare ex”: “#FF5722”,
+“Rare ex (Mega)”: “#FF5722”,
+“Lv.X”: “#607D8B”,
+“Prime”: “#795548”,
+“VMAX”: “#F44336”,
+“Alt Art VMAX”: “#880E4F”,
+“Special Illustration Rare”: “#4A148C”,
+“Rainbow Rare VMAX”: “linear-gradient(135deg, #f44336, #ff9800, #ffeb3b, #4caf50, #2196f3, #9c27b0)”,
+“Double Rare”: “#3F51B5”,
+“Promo”: “#00BCD4”,
+“Star Rare”: “#FFD700”,
+“Gold Rare”: “#F9A825”,
+“Shiny GX”: “#00E5FF”,
+};
+
+function CardDisplay({ card, isWinner = false, isLoser = false }) {
+const [imgError, setImgError] = useState(false);
+
+return (
+<div style={{
+position: “relative”,
+width: “100%”,
+maxWidth: 280,
+borderRadius: 16,
+overflow: “hidden”,
+background: `linear-gradient(135deg, ${card.color}22, ${card.color}44)`,
+border: `2px solid ${card.color}88`,
+boxShadow: isWinner
+? `0 0 40px ${card.color}, 0 0 80px ${card.color}66`
+: isLoser
+? “0 4px 20px rgba(0,0,0,0.5)”
+: `0 8px 32px rgba(0,0,0,0.4), 0 0 20px ${card.color}33`,
+transform: isWinner ? “scale(1.02)” : isLoser ? “scale(0.97) opacity(0.6)” : “scale(1)”,
+transition: “all 0.3s ease”,
+opacity: isLoser ? 0.6 : 1,
+}}>
+{/* Card image */}
+<div style={{
+width: “100%”,
+aspectRatio: “2.5/3.5”,
+background: imgError
+? `linear-gradient(145deg, ${card.color}44, ${card.color}88)`
+: “transparent”,
+display: “flex”,
+alignItems: “center”,
+justifyContent: “center”,
+position: “relative”,
+overflow: “hidden”,
+}}>
+{!imgError ? (
+<img
+src={card.img}
+alt={`${card.name} - ${card.set}`}
+onError={() => setImgError(true)}
+style={{ width: “100%”, height: “100%”, objectFit: “cover”, display: “block” }}
+/>
+) : (
+<div style={{
+textAlign: “center”,
+padding: 20,
+color: card.color,
+}}>
+<div style={{ fontSize: 64, marginBottom: 8 }}>🃏</div>
+<div style={{ fontFamily: “‘Cinzel’, serif”, fontSize: 18, fontWeight: 700, color: “#fff” }}>{card.name}</div>
+<div style={{ fontFamily: “‘Crimson Text’, serif”, fontSize: 13, color: “#ccc”, marginTop: 4 }}>{card.set}</div>
+</div>
+)}
+
+```
+    {/* Rarity badge overlay */}
+    <div style={{
+      position: "absolute",
+      top: 8,
+      right: 8,
+      background: "rgba(0,0,0,0.75)",
+      backdropFilter: "blur(8px)",
+      borderRadius: 20,
+      padding: "3px 10px",
+      fontSize: 11,
+      fontFamily: "'Cinzel', serif",
+      color: "#FFD700",
+      border: "1px solid rgba(255,215,0,0.3)",
+    }}>{card.rarity}</div>
+  </div>
+
+  {/* Card info */}
+  <div style={{ padding: "12px 14px 14px" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div>
+        <div style={{
+          fontFamily: "'Cinzel', serif",
+          fontSize: 15,
+          fontWeight: 700,
+          color: "#fff",
+          letterSpacing: "0.05em",
+        }}>{card.name}</div>
+        <div style={{
+          fontFamily: "'Crimson Text', serif",
+          fontSize: 12,
+          color: "#aaa",
+          marginTop: 2,
+        }}>{card.set}</div>
+      </div>
+      <div style={{
+        fontFamily: "'Cinzel', serif",
+        fontSize: 12,
+        color: card.color,
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+      }}>HP {card.hp}</div>
+    </div>
+
+    {card.artist && (
+      <div style={{
+        marginTop: 6,
+        fontSize: 11,
+        color: "#888",
+        fontFamily: "'Crimson Text', serif",
+        fontStyle: "italic",
+      }}>Art: {card.artist}</div>
+    )}
+
+    {card.flavor && (
+      <div style={{
+        marginTop: 8,
+        fontSize: 11,
+        color: "#bbb",
+        fontFamily: "'Crimson Text', serif",
+        fontStyle: "italic",
+        lineHeight: 1.5,
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        paddingTop: 8,
+      }}>"{card.flavor.length > 80 ? card.flavor.slice(0, 80) + "…" : card.flavor}"</div>
+    )}
+  </div>
+</div>
+```
+
+);
+}
+
+function PersonaRadar({ metadata }) {
+const eraVotes = metadata.era_votes || {};
+const styleVotes = metadata.style_votes || {};
+const totalDecisions = metadata.total_decisions || 0;
+
+const topEras = Object.entries(eraVotes)
+.sort((a, b) => b[1] - a[1])
+.slice(0, 3);
+
+const topStyles = Object.entries(styleVotes)
+.sort((a, b) => b[1] - a[1])
+.slice(0, 4);
+
+const allTraits = new Set();
+topEras.forEach(([era]) => ERA_METADATA[era]?.traits?.forEach(t => allTraits.add(t)));
+topStyles.forEach(([style]) => STYLE_METADATA[style]?.traits?.forEach(t => allTraits.add(t)));
+
+const traitLabels = {
+nostalgic: “Nostalgic Collector”,
+collector: “Dedicated Collector”,
+classic_art: “Classic Art Devotee”,
+competitive: “Competitive Player”,
+power_oriented: “Power-Oriented”,
+full_art_preference: “Full-Art Enthusiast”,
+premium: “Premium Chaser”,
+alt_art: “Alt Art Hunter”,
+worldbuilding: “Worldbuilding Lover”,
+illustration_fan: “Illustration Purist”,
+cinematic_full_art: “Cinematic Aesthetic”,
+painterly: “Painterly Taste”,
+art_collector: “Art Collector Mindset”,
+spectacle: “Spectacle Seeker”,
+chase_card: “Chase Card Hunter”,
+};
+
+return (
+<div style={{
+background: “rgba(255,255,255,0.04)”,
+borderRadius: 16,
+padding: “20px 24px”,
+border: “1px solid rgba(255,255,255,0.08)”,
+}}>
+<div style={{
+fontFamily: “‘Cinzel’, serif”,
+fontSize: 13,
+color: “#FFD700”,
+letterSpacing: “0.15em”,
+marginBottom: 16,
+textTransform: “uppercase”,
+}}>🧬 Taste Profile</div>
+
+```
+  <div style={{ fontSize: 12, color: "#888", fontFamily: "'Crimson Text', serif", marginBottom: 12 }}>
+    Based on {totalDecisions} decisions
+  </div>
+
+  {topEras.length > 0 && (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 11, color: "#666", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Preferred Eras</div>
+      {topEras.map(([era, count]) => (
+        <div key={era} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div style={{
+            height: 4,
+            flex: 1,
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: 2,
+            overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%",
+              width: `${Math.min(100, (count / Math.max(...Object.values(eraVotes))) * 100)}%`,
+              background: "linear-gradient(90deg, #FFD700, #FF8C00)",
+              borderRadius: 2,
+              transition: "width 0.5s ease",
+            }} />
+          </div>
+          <div style={{ fontSize: 11, color: "#ccc", fontFamily: "'Crimson Text', serif", whiteSpace: "nowrap", minWidth: 80 }}>
+            {ERA_METADATA[era]?.label?.split("(")[0].trim() || era}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {allTraits.size > 0 && (
+    <div>
+      <div style={{ fontSize: 11, color: "#666", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Collector Traits</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {[...allTraits].slice(0, 6).map(trait => (
+          <div key={trait} style={{
+            background: "rgba(255,215,0,0.1)",
+            border: "1px solid rgba(255,215,0,0.2)",
+            borderRadius: 20,
+            padding: "3px 10px",
+            fontSize: 11,
+            color: "#FFD700",
+            fontFamily: "'Crimson Text', serif",
+          }}>
+            {traitLabels[trait] || trait.replace(/_/g, " ")}
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
+```
+
+);
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+
+export default function PokemonCardRanker() {
+const [screen, setScreen] = useState(“home”); // home | category | duel | result | persona
+const [selectedCategory, setSelectedCategory] = useState(null);
+const [cards, setCards] = useState([]);
+const [queue, setQueue] = useState([]);
+const [unsurePile, setUnsurePile] = useState([]);
+const [winner, setWinner] = useState(null);
+const [cardA, setCardA] = useState(null);
+const [cardB, setCardB] = useState(null);
+const [round, setRound] = useState(1);
+const [totalComparisons, setTotalComparisons] = useState(0);
+const [phase, setPhase] = useState(“main”); // main | unsure
+const [choiceAnim, setChoiceAnim] = useState(null); // “A” | “B” | “unsure” | null
+const [metadata, setMetadata] = useState({
+total_decisions: 0,
+era_votes: {},
+style_votes: {},
+category_champions: {},
+rarity_votes: {},
+});
+
+// Shuffle utility
+const shuffle = arr => […arr].sort(() => Math.random() - 0.5);
+
+const startCategory = (category) => {
+const categoryCards = CARD_DATABASE[category.id] || [];
+const shuffled = shuffle(categoryCards);
+setSelectedCategory(category);
+setCards(shuffled);
+setQueue(shuffled.slice(2));
+setCardA(shuffled[0]);
+setCardB(shuffled[1]);
+setUnsurePile([]);
+setWinner(null);
+setRound(1);
+setTotalComparisons(0);
+setPhase(“main”);
+setChoiceAnim(null);
+setScreen(“duel”);
+};
+
+const recordVote = (chosen, rejected) => {
+setMetadata(prev => {
+const next = { …prev, total_decisions: prev.total_decisions + 1 };
+next.era_votes = { …prev.era_votes };
+next.era_votes[chosen.era] = (next.era_votes[chosen.era] || 0) + 1;
+next.style_votes = { …prev.style_votes };
+next.style_votes[chosen.style] = (next.style_votes[chosen.style] || 0) + 1;
+return next;
+});
+};
+
+const handleChoice = useCallback((choice) => {
+if (choiceAnim) return;
+setChoiceAnim(choice);
+
+```
+setTimeout(() => {
+  setChoiceAnim(null);
+  setTotalComparisons(c => c + 1);
+
+  if (choice === "unsure") {
+    setUnsurePile(p => [...p, cardA, cardB]);
+    advanceQueue(null, null);
+  } else {
+    const chosen = choice === "A" ? cardA : cardB;
+    const rejected = choice === "A" ? cardB : cardA;
+    recordVote(chosen, rejected);
+    advanceQueue(chosen, rejected);
+  }
+}, 600);
+```
+
+}, [cardA, cardB, queue, unsurePile, phase, choiceAnim]);
+
+const advanceQueue = (chosen, rejected) => {
+setQueue(prev => {
+const remaining = […prev];
+
+```
+  if (chosen && remaining.length > 0) {
+    // Winner vs next challenger
+    const next = remaining.shift();
+    setCardA(chosen);
+    setCardB(next);
+    return remaining;
+  } else if (!chosen && remaining.length >= 2) {
+    // Unsure path: grab next two
+    const nextA = remaining.shift();
+    const nextB = remaining.shift();
+    setCardA(nextA);
+    setCardB(nextB);
+    return remaining;
+  } else if (chosen && remaining.length === 0) {
+    // Queue exhausted — check unsure pile
+    if (unsurePile.length >= 2) {
+      const shuffledUnsure = shuffle(unsurePile);
+      setUnsurePile([]);
+      setPhase("unsure");
+      setCardA(shuffledUnsure[0]);
+      setCardB(shuffledUnsure[1]);
+      setRound(r => r + 1);
+      return shuffledUnsure.slice(2);
+    } else {
+      // DONE — champion found
+      setWinner(chosen);
+      setMetadata(prev => {
+        const next = { ...prev };
+        next.category_champions = { ...prev.category_champions };
+        next.category_champions[selectedCategory.id] = chosen;
+        return next;
+      });
+      setScreen("result");
+      return [];
+    }
+  } else {
+    // Unsure pile becomes new queue
+    if (unsurePile.length >= 2) {
+      const shuffledUnsure = shuffle(unsurePile);
+      setUnsurePile([]);
+      setPhase("unsure");
+      setCardA(shuffledUnsure[0]);
+      setCardB(shuffledUnsure[1]);
+      setRound(r => r + 1);
+      return shuffledUnsure.slice(2);
+    } else if (unsurePile.length === 1 && chosen) {
+      setWinner(chosen);
+      setScreen("result");
+      return [];
+    } else if (chosen) {
+      setWinner(chosen);
+      setScreen("result");
+      return [];
+    }
+    return prev;
+  }
+});
+```
+
+};
+
+// Keyboard shortcuts
+useEffect(() => {
+if (screen !== “duel”) return;
+const handler = (e) => {
+if (e.key === “ArrowLeft”) handleChoice(“A”);
+else if (e.key === “ArrowRight”) handleChoice(“B”);
+else if (e.key === “ “ || e.key === “ArrowDown”) handleChoice(“unsure”);
+};
+window.addEventListener(“keydown”, handler);
+return () => window.removeEventListener(“keydown”, handler);
+}, [screen, handleChoice]);
+
+// ── SCREENS ────────────────────────────────────────────────────────────────
+
+if (screen === “home”) return (
+<div style={{
+minHeight: “100vh”,
+background: “radial-gradient(ellipse at 20% 50%, #1a0a2e 0%, #0d0118 50%, #000508 100%)”,
+display: “flex”,
+flexDirection: “column”,
+alignItems: “center”,
+justifyContent: “center”,
+padding: “40px 20px”,
+position: “relative”,
+overflow: “hidden”,
+}}>
+{/* Ambient orbs */}
+<div style={{ position: “absolute”, top: “10%”, left: “15%”, width: 300, height: 300, borderRadius: “50%”, background: “radial-gradient(circle, rgba(106,61,232,0.12) 0%, transparent 70%)”, pointerEvents: “none” }} />
+<div style={{ position: “absolute”, bottom: “15%”, right: “10%”, width: 250, height: 250, borderRadius: “50%”, background: “radial-gradient(circle, rgba(255,215,0,0.08) 0%, transparent 70%)”, pointerEvents: “none” }} />
+
+```
+  {/* Logo */}
+  <div style={{ textAlign: "center", marginBottom: 48, zIndex: 1 }}>
+    <div style={{
+      fontFamily: "'Cinzel Decorative', 'Cinzel', serif",
+      fontSize: "clamp(28px, 6vw, 52px)",
+      fontWeight: 900,
+      background: "linear-gradient(135deg, #FFD700 0%, #FF8C00 40%, #FFD700 80%)",
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      letterSpacing: "0.05em",
+      lineHeight: 1.1,
+      marginBottom: 8,
+    }}>PANTHEON TCG</div>
+    <div style={{
+      fontFamily: "'Crimson Text', Georgia, serif",
+      fontSize: "clamp(14px, 3vw, 18px)",
+      color: "#9B7FD4",
+      letterSpacing: "0.3em",
+      textTransform: "uppercase",
+    }}>Card Oracle · Taste Engine</div>
+  </div>
+
+  {/* Subtitle */}
+  <div style={{
+    maxWidth: 520,
+    textAlign: "center",
+    marginBottom: 48,
+    zIndex: 1,
+  }}>
+    <p style={{
+      fontFamily: "'Crimson Text', Georgia, serif",
+      fontSize: "clamp(15px, 2.5vw, 18px)",
+      color: "#C4A8E8",
+      lineHeight: 1.7,
+    }}>
+      Choose between cards. Discover your taste. The Oracle maps your preferences into a digital persona —
+      revealing what your choices say about who you are as a collector.
+    </p>
+  </div>
+
+  {/* Category grid */}
+  <div style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 16,
+    maxWidth: 640,
+    width: "100%",
+    zIndex: 1,
+    marginBottom: 32,
+  }}>
+    {POKEMON_CATEGORIES.map(cat => (
+      <button
+        key={cat.id}
+        onClick={() => startCategory(cat)}
+        style={{
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 14,
+          padding: "20px 16px",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          textAlign: "center",
+          backdropFilter: "blur(10px)",
+          color: "inherit",
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = "rgba(255,215,0,0.06)";
+          e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)";
+          e.currentTarget.style.transform = "translateY(-2px)";
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+          e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+          e.currentTarget.style.transform = "translateY(0)";
+        }}
+      >
+        <div style={{ fontSize: 36, marginBottom: 10 }}>{cat.emoji}</div>
+        <div style={{
+          fontFamily: "'Cinzel', serif",
+          fontSize: 16,
+          fontWeight: 700,
+          color: "#fff",
+          marginBottom: 4,
+        }}>{cat.name}</div>
+        <div style={{
+          fontFamily: "'Crimson Text', serif",
+          fontSize: 12,
+          color: "#888",
+        }}>{CARD_DATABASE[cat.id]?.length || 0} cards</div>
+        <div style={{
+          fontFamily: "'Crimson Text', serif",
+          fontSize: 11,
+          color: "#666",
+          marginTop: 2,
+        }}>{cat.type}</div>
+      </button>
+    ))}
+  </div>
+
+  {/* Persona button */}
+  {metadata.total_decisions > 0 && (
+    <button
+      onClick={() => setScreen("persona")}
+      style={{
+        background: "linear-gradient(135deg, rgba(106,61,232,0.2), rgba(255,140,0,0.1))",
+        border: "1px solid rgba(255,215,0,0.3)",
+        borderRadius: 12,
+        padding: "12px 28px",
+        cursor: "pointer",
+        fontFamily: "'Cinzel', serif",
+        fontSize: 14,
+        color: "#FFD700",
+        letterSpacing: "0.1em",
+        zIndex: 1,
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = "linear-gradient(135deg, rgba(106,61,232,0.35), rgba(255,140,0,0.2))"}
+      onMouseLeave={e => e.currentTarget.style.background = "linear-gradient(135deg, rgba(106,61,232,0.2), rgba(255,140,0,0.1))"}
+    >
+      🔮 View My Oracle Profile ({metadata.total_decisions} decisions)
+    </button>
+  )}
+
+  <div style={{
+    position: "absolute",
+    bottom: 20,
+    fontFamily: "'Crimson Text', serif",
+    fontSize: 12,
+    color: "#444",
+    letterSpacing: "0.1em",
+  }}>
+    ← Arrow keys to choose · Space = Unsure →
+  </div>
+</div>
+```
+
+);
+
+if (screen === “duel” && cardA && cardB) return (
+<div style={{
+minHeight: “100vh”,
+background: “radial-gradient(ellipse at center, #0f0520 0%, #050010 60%, #000 100%)”,
+display: “flex”,
+flexDirection: “column”,
+alignItems: “center”,
+padding: “20px 16px”,
+position: “relative”,
+overflow: “hidden”,
+}}>
+{/* Back */}
+<button onClick={() => setScreen(“home”)} style={{
+position: “absolute”, top: 16, left: 16,
+background: “transparent”, border: “none”, cursor: “pointer”,
+color: “#666”, fontSize: 13, fontFamily: “‘Cinzel’, serif”,
+letterSpacing: “0.1em”,
+}}>← HOME</button>
+
+```
+  {/* Header */}
+  <div style={{ textAlign: "center", marginBottom: 20, paddingTop: 8 }}>
+    <div style={{
+      fontFamily: "'Cinzel Decorative', 'Cinzel', serif",
+      fontSize: 13,
+      color: "#FFD700",
+      letterSpacing: "0.3em",
+      textTransform: "uppercase",
+    }}>
+      {selectedCategory?.emoji} {selectedCategory?.name} Oracle
+    </div>
+    <div style={{
+      fontFamily: "'Crimson Text', serif",
+      fontSize: 12,
+      color: "#666",
+      marginTop: 4,
+    }}>
+      Round {round} · {totalComparisons} decisions
+      {phase === "unsure" && " · 🤔 Resolving Unsure Pile"}
+    </div>
+  </div>
+
+  {/* VS layout */}
+  <div style={{
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "clamp(12px, 4vw, 40px)",
+    width: "100%",
+    maxWidth: 680,
+    position: "relative",
+  }}>
+    {/* Card A */}
+    <div style={{
+      flex: 1,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 12,
+      opacity: choiceAnim === "B" ? 0.3 : 1,
+      transform: choiceAnim === "A" ? "scale(1.04) translateX(-4px)" : choiceAnim === "B" ? "scale(0.95)" : "scale(1)",
+      transition: "all 0.4s ease",
+    }}>
+      <CardDisplay card={cardA} isWinner={choiceAnim === "A"} isLoser={choiceAnim === "B"} />
+      <button
+        onClick={() => handleChoice("A")}
+        disabled={!!choiceAnim}
+        style={{
+          width: "100%",
+          maxWidth: 280,
+          padding: "12px 0",
+          background: choiceAnim === "A"
+            ? "linear-gradient(135deg, #FFD700, #FF8C00)"
+            : "rgba(255,215,0,0.1)",
+          border: `1px solid ${choiceAnim === "A" ? "#FFD700" : "rgba(255,215,0,0.3)"}`,
+          borderRadius: 10,
+          cursor: choiceAnim ? "default" : "pointer",
+          fontFamily: "'Cinzel', serif",
+          fontSize: 13,
+          fontWeight: 700,
+          color: choiceAnim === "A" ? "#000" : "#FFD700",
+          letterSpacing: "0.1em",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={e => !choiceAnim && (e.currentTarget.style.background = "rgba(255,215,0,0.2)")}
+        onMouseLeave={e => !choiceAnim && (e.currentTarget.style.background = "rgba(255,215,0,0.1)")}
+      >
+        ← CHOOSE THIS
+      </button>
+    </div>
+
+    {/* VS */}
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 16,
+      paddingTop: "30%",
+      minWidth: 48,
+    }}>
+      <div style={{
+        fontFamily: "'Cinzel Decorative', serif",
+        fontSize: 22,
+        color: "#FFD700",
+        textShadow: "0 0 20px rgba(255,215,0,0.6)",
+      }}>VS</div>
+      <button
+        onClick={() => handleChoice("unsure")}
+        disabled={!!choiceAnim}
+        style={{
+          writingMode: "vertical-rl",
+          textOrientation: "mixed",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: 20,
+          padding: "14px 8px",
+          cursor: choiceAnim ? "default" : "pointer",
+          fontFamily: "'Cinzel', serif",
+          fontSize: 10,
+          color: "#888",
+          letterSpacing: "0.15em",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={e => !choiceAnim && (e.currentTarget.style.color = "#ccc")}
+        onMouseLeave={e => !choiceAnim && (e.currentTarget.style.color = "#888")}
+      >
+        🤔 UNSURE
+      </button>
+    </div>
+
+    {/* Card B */}
+    <div style={{
+      flex: 1,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 12,
+      opacity: choiceAnim === "A" ? 0.3 : 1,
+      transform: choiceAnim === "B" ? "scale(1.04) translateX(4px)" : choiceAnim === "A" ? "scale(0.95)" : "scale(1)",
+      transition: "all 0.4s ease",
+    }}>
+      <CardDisplay card={cardB} isWinner={choiceAnim === "B"} isLoser={choiceAnim === "A"} />
+      <button
+        onClick={() => handleChoice("B")}
+        disabled={!!choiceAnim}
+        style={{
+          width: "100%",
+          maxWidth: 280,
+          padding: "12px 0",
+          background: choiceAnim === "B"
+            ? "linear-gradient(135deg, #FFD700, #FF8C00)"
+            : "rgba(255,215,0,0.1)",
+          border: `1px solid ${choiceAnim === "B" ? "#FFD700" : "rgba(255,215,0,0.3)"}`,
+          borderRadius: 10,
+          cursor: choiceAnim ? "default" : "pointer",
+          fontFamily: "'Cinzel', serif",
+          fontSize: 13,
+          fontWeight: 700,
+          color: choiceAnim === "B" ? "#000" : "#FFD700",
+          letterSpacing: "0.1em",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={e => !choiceAnim && (e.currentTarget.style.background = "rgba(255,215,0,0.2)")}
+        onMouseLeave={e => !choiceAnim && (e.currentTarget.style.background = "rgba(255,215,0,0.1)")}
+      >
+        CHOOSE THIS →
+      </button>
+    </div>
+  </div>
+
+  {/* Queue indicator */}
+  <div style={{
+    marginTop: 24,
+    display: "flex",
+    gap: 4,
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    maxWidth: 300,
+  }}>
+    {queue.slice(0, 8).map((_, i) => (
+      <div key={i} style={{
+        width: 8, height: 8, borderRadius: "50%",
+        background: "rgba(255,215,0,0.4)",
+      }} />
+    ))}
+    {queue.length > 8 && <div style={{ fontSize: 11, color: "#666", fontFamily: "'Crimson Text', serif" }}>+{queue.length - 8}</div>}
+    {unsurePile.length > 0 && (
+      <div style={{ fontSize: 11, color: "#888", fontFamily: "'Crimson Text', serif", marginLeft: 8 }}>
+        🤔 {unsurePile.length} unsure
+      </div>
+    )}
+  </div>
+
+  <div style={{
+    marginTop: 16,
+    fontFamily: "'Crimson Text', serif",
+    fontSize: 12,
+    color: "#333",
+    letterSpacing: "0.08em",
+  }}>
+    ← / → keys · Space = Unsure
+  </div>
+</div>
+```
+
+);
+
+if (screen === “result” && winner) return (
+<div style={{
+minHeight: “100vh”,
+background: `radial-gradient(ellipse at center, ${winner.color}22 0%, #050010 50%, #000 100%)`,
+display: “flex”,
+flexDirection: “column”,
+alignItems: “center”,
+justifyContent: “center”,
+padding: “40px 20px”,
+textAlign: “center”,
+}}>
+{/* Crown aura */}
+<div style={{
+position: “absolute”,
+top: “50%”, left: “50%”,
+transform: “translate(-50%, -50%)”,
+width: 600, height: 600,
+borderRadius: “50%”,
+background: `radial-gradient(circle, ${winner.color}15 0%, transparent 70%)`,
+pointerEvents: “none”,
+}} />
+
+```
+  <div style={{
+    fontFamily: "'Cinzel Decorative', serif",
+    fontSize: 13,
+    color: "#FFD700",
+    letterSpacing: "0.4em",
+    textTransform: "uppercase",
+    marginBottom: 8,
+    zIndex: 1,
+  }}>✦ Oracle Declares ✦</div>
+
+  <div style={{
+    fontFamily: "'Cinzel Decorative', serif",
+    fontSize: "clamp(22px, 5vw, 38px)",
+    background: "linear-gradient(135deg, #FFD700, #FF8C00, #FFD700)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    marginBottom: 32,
+    letterSpacing: "0.05em",
+    zIndex: 1,
+  }}>Your Champion</div>
+
+  <div style={{ zIndex: 1, marginBottom: 28 }}>
+    <CardDisplay card={winner} isWinner />
+  </div>
+
+  <div style={{ zIndex: 1, maxWidth: 400, marginBottom: 32 }}>
+    <div style={{
+      fontFamily: "'Cinzel', serif",
+      fontSize: 20,
+      color: "#fff",
+      marginBottom: 6,
+    }}>{winner.name}</div>
+    <div style={{
+      fontFamily: "'Crimson Text', serif",
+      fontSize: 15,
+      color: "#9B7FD4",
+    }}>{winner.set} · {winner.rarity}</div>
+    <div style={{
+      fontFamily: "'Crimson Text', serif",
+      fontSize: 13,
+      color: "#666",
+      marginTop: 8,
+    }}>Survived {totalComparisons} comparisons</div>
+    {winner.flavor && (
+      <div style={{
+        fontFamily: "'Crimson Text', serif",
+        fontStyle: "italic",
+        fontSize: 14,
+        color: "#aaa",
+        marginTop: 16,
+        lineHeight: 1.6,
+      }}>"{winner.flavor}"</div>
+    )}
+  </div>
+
+  {/* Insight */}
+  <div style={{
+    zIndex: 1,
+    background: "rgba(255,255,255,0.04)",
+    borderRadius: 14,
+    padding: "16px 20px",
+    maxWidth: 380,
+    marginBottom: 32,
+    border: "1px solid rgba(255,255,255,0.06)",
+  }}>
+    <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12, color: "#FFD700", marginBottom: 10, letterSpacing: "0.15em" }}>
+      🔮 ORACLE INSIGHT
+    </div>
+    <div style={{ fontFamily: "'Crimson Text', serif", fontSize: 14, color: "#C4A8E8", lineHeight: 1.6 }}>
+      {ERA_METADATA[winner.era]?.label && (
+        <>You gravitate toward <strong style={{ color: "#fff" }}>{ERA_METADATA[winner.era].label}</strong> aesthetics. </>
+      )}
+      {STYLE_METADATA[winner.style]?.label && (
+        <>Your champion's <strong style={{ color: "#fff" }}>{STYLE_METADATA[winner.style].label}</strong> style reveals {STYLE_METADATA[winner.style].traits?.[0]?.replace(/_/g, " ")} sensibilities in your collector identity.</>
+      )}
+    </div>
+  </div>
+
+  <div style={{ display: "flex", gap: 12, zIndex: 1, flexWrap: "wrap", justifyContent: "center" }}>
+    <button onClick={() => setScreen("home")} style={{
+      background: "rgba(255,215,0,0.1)",
+      border: "1px solid rgba(255,215,0,0.3)",
+      borderRadius: 10,
+      padding: "12px 24px",
+      cursor: "pointer",
+      fontFamily: "'Cinzel', serif",
+      fontSize: 13,
+      color: "#FFD700",
+      letterSpacing: "0.1em",
+      transition: "all 0.2s ease",
+    }}
+      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,215,0,0.2)"}
+      onMouseLeave={e => e.currentTarget.style.background = "rgba(255,215,0,0.1)"}
+    >← Choose Category</button>
+
+    <button onClick={() => setScreen("persona")} style={{
+      background: "linear-gradient(135deg, rgba(106,61,232,0.3), rgba(255,140,0,0.15))",
+      border: "1px solid rgba(255,215,0,0.4)",
+      borderRadius: 10,
+      padding: "12px 24px",
+      cursor: "pointer",
+      fontFamily: "'Cinzel', serif",
+      fontSize: 13,
+      color: "#FFD700",
+      letterSpacing: "0.1em",
+      transition: "all 0.2s ease",
+    }}
+      onMouseEnter={e => e.currentTarget.style.background = "linear-gradient(135deg, rgba(106,61,232,0.45), rgba(255,140,0,0.25))"}
+      onMouseLeave={e => e.currentTarget.style.background = "linear-gradient(135deg, rgba(106,61,232,0.3), rgba(255,140,0,0.15))"}
+    >🔮 View Oracle Profile</button>
+  </div>
+</div>
+```
+
+);
+
+if (screen === “persona”) return (
+<div style={{
+minHeight: “100vh”,
+background: “radial-gradient(ellipse at 30% 20%, #1a0a2e 0%, #070014 60%, #000 100%)”,
+display: “flex”,
+flexDirection: “column”,
+alignItems: “center”,
+padding: “40px 20px”,
+}}>
+<button onClick={() => setScreen(“home”)} style={{
+alignSelf: “flex-start”,
+background: “transparent”, border: “none”, cursor: “pointer”,
+color: “#666”, fontSize: 13, fontFamily: “‘Cinzel’, serif”,
+letterSpacing: “0.1em”, marginBottom: 32,
+}}>← HOME</button>
+
+```
+  <div style={{
+    fontFamily: "'Cinzel Decorative', serif",
+    fontSize: "clamp(22px, 5vw, 36px)",
+    background: "linear-gradient(135deg, #9B7FD4, #FFD700)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    marginBottom: 8,
+    textAlign: "center",
+  }}>Oracle Profile</div>
+
+  <div style={{
+    fontFamily: "'Crimson Text', serif",
+    fontSize: 15,
+    color: "#666",
+    marginBottom: 40,
+    letterSpacing: "0.15em",
+    textTransform: "uppercase",
+  }}>Your Collector Persona</div>
+
+  <div style={{ width: "100%", maxWidth: 540, display: "flex", flexDirection: "column", gap: 20 }}>
+
+    <PersonaRadar metadata={metadata} />
+
+    {/* Champions */}
+    {Object.keys(metadata.category_champions).length > 0 && (
+      <div style={{
+        background: "rgba(255,255,255,0.03)",
+        borderRadius: 16,
+        padding: "20px 24px",
+        border: "1px solid rgba(255,255,255,0.07)",
+      }}>
+        <div style={{
+          fontFamily: "'Cinzel', serif",
+          fontSize: 13,
+          color: "#FFD700",
+          letterSpacing: "0.15em",
+          marginBottom: 16,
+          textTransform: "uppercase",
+        }}>🏆 Your Champions</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {Object.entries(metadata.category_champions).map(([catId, card]) => {
+            const cat = POKEMON_CATEGORIES.find(c => c.id === catId);
+            return (
+              <div key={catId} style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                background: "rgba(255,255,255,0.03)",
+                borderRadius: 10,
+                padding: "10px 14px",
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}>
+                <div style={{ fontSize: 24 }}>{cat?.emoji}</div>
+                <div>
+                  <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, color: "#fff" }}>
+                    {card.name}
+                  </div>
+                  <div style={{ fontFamily: "'Crimson Text', serif", fontSize: 11, color: "#888" }}>
+                    {card.set} · {card.rarity}
+                  </div>
+                </div>
+                <div style={{ marginLeft: "auto", fontFamily: "'Cinzel', serif", fontSize: 11, color: "#FFD700" }}>
+                  {ERA_METADATA[card.era]?.label?.split("(")[0].trim()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
+    {/* Metadata export hint */}
+    <div style={{
+      background: "rgba(106,61,232,0.06)",
+      borderRadius: 14,
+      padding: "16px 20px",
+      border: "1px solid rgba(106,61,232,0.15)",
+    }}>
+      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12, color: "#9B7FD4", marginBottom: 10, letterSpacing: "0.1em" }}>
+        ⚡ SIGNAL LAYER
+      </div>
+      <div style={{ fontFamily: "'Crimson Text', serif", fontSize: 13, color: "#8875AA", lineHeight: 1.7 }}>
+        Your preference vector can seed generative art prompts, card collection recommendations,
+        deck-building suggestions, and collector identity modeling. Every choice is a data point
+        in your aesthetic eigenstate.
+      </div>
+      <div style={{
+        marginTop: 12,
+        fontFamily: "monospace",
+        fontSize: 10,
+        color: "#554488",
+        background: "rgba(0,0,0,0.3)",
+        borderRadius: 6,
+        padding: "8px 12px",
+        letterSpacing: "0.05em",
+      }}>
+        decisions: {metadata.total_decisions} · eras tracked: {Object.keys(metadata.era_votes).length} · styles tracked: {Object.keys(metadata.style_votes).length}
+      </div>
+    </div>
+
+    {metadata.total_decisions === 0 && (
+      <div style={{
+        textAlign: "center",
+        fontFamily: "'Crimson Text', serif",
+        color: "#555",
+        fontSize: 15,
+        padding: 20,
+      }}>
+        No decisions recorded yet. Choose a Pokémon category to begin the Oracle process.
+      </div>
+    )}
+
+    <button onClick={() => setScreen("home")} style={{
+      width: "100%",
+      padding: "14px 0",
+      background: "linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,140,0,0.06))",
+      border: "1px solid rgba(255,215,0,0.25)",
+      borderRadius: 12,
+      cursor: "pointer",
+      fontFamily: "'Cinzel', serif",
+      fontSize: 14,
+      color: "#FFD700",
+      letterSpacing: "0.12em",
+      transition: "all 0.2s ease",
+    }}
+      onMouseEnter={e => e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,140,0,0.1))"}
+      onMouseLeave={e => e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,140,0,0.06))"}
+    >+ Rank More Categories</button>
+  </div>
+</div>
+```
+
+);
+
+return null;
+}
