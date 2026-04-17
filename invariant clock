@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PANTHEON OS — INVARIANT CLOCK</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Cinzel:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap');
+
+:root {
+–gold: #c9a84c;
+–gold-dim: #7a5e20;
+–ember: #e05c2a;
+–ice: #4ab8d4;
+–void: #080a0e;
+–surface: #0d1117;
+–panel: #111620;
+–border: #1e2a38;
+–text-dim: #3a4a5a;
+–text-mid: #6a8a9a;
+–text-bright: #c8d8e8;
+–green: #2adb7a;
+–green-dim: #0a4025;
+–sigma: #8b5cf6;
+}
+
+- { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+background: var(–void);
+color: var(–text-bright);
+font-family: ‘Share Tech Mono’, monospace;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+overflow: hidden;
+position: relative;
+}
+
+/* Grain overlay */
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background-image: url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 256 256’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘noise’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23noise)’ opacity=‘0.04’/%3E%3C/svg%3E”);
+pointer-events: none;
+z-index: 100;
+opacity: 0.4;
+}
+
+/* Radial glow from center */
+body::after {
+content: ‘’;
+position: fixed;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+width: 800px;
+height: 800px;
+background: radial-gradient(circle, rgba(201,168,76,0.04) 0%, transparent 70%);
+pointer-events: none;
+z-index: 0;
+}
+
+.container {
+position: relative;
+z-index: 1;
+width: 100%;
+max-width: 900px;
+padding: 20px;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 24px;
+}
+
+/* Header */
+.header {
+text-align: center;
+border-bottom: 1px solid var(–border);
+padding-bottom: 16px;
+width: 100%;
+}
+
+.title {
+font-family: ‘Cinzel’, serif;
+font-size: clamp(18px, 3vw, 28px);
+font-weight: 900;
+letter-spacing: 0.3em;
+color: var(–gold);
+text-shadow: 0 0 30px rgba(201,168,76,0.4);
+}
+
+.subtitle {
+font-size: 10px;
+letter-spacing: 0.4em;
+color: var(–text-dim);
+margin-top: 4px;
+text-transform: uppercase;
+}
+
+/* Main clock */
+.clock-display {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 4px;
+}
+
+.time-string {
+font-family: ‘Cinzel’, serif;
+font-size: clamp(48px, 10vw, 88px);
+font-weight: 700;
+color: var(–text-bright);
+letter-spacing: 0.05em;
+text-shadow: 0 0 40px rgba(200,216,232,0.2);
+line-height: 1;
+animation: pulse-time 2s ease-in-out infinite;
+}
+
+@keyframes pulse-time {
+0%, 100% { opacity: 1; }
+49% { opacity: 1; }
+50% { opacity: 0.7; }
+51% { opacity: 1; }
+}
+
+.date-string {
+font-size: 11px;
+letter-spacing: 0.3em;
+color: var(–text-mid);
+}
+
+/* Sigma score */
+.sigma-block {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 6px;
+padding: 16px 40px;
+border: 1px solid var(–sigma);
+position: relative;
+background: rgba(139,92,246,0.04);
+}
+
+.sigma-block::before,
+.sigma-block::after {
+content: ‘’;
+position: absolute;
+width: 8px;
+height: 8px;
+border-color: var(–sigma);
+border-style: solid;
+}
+.sigma-block::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.sigma-block::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+.sigma-label {
+font-size: 9px;
+letter-spacing: 0.4em;
+color: var(–sigma);
+opacity: 0.7;
+}
+
+.sigma-value {
+font-family: ‘Cinzel’, serif;
+font-size: 32px;
+font-weight: 700;
+color: var(–sigma);
+text-shadow: 0 0 20px rgba(139,92,246,0.5);
+}
+
+.sigma-status {
+font-size: 9px;
+letter-spacing: 0.3em;
+color: var(–green);
+}
+
+/* Invariant grid */
+.invariants-grid {
+display: grid;
+grid-template-columns: repeat(2, 1fr);
+gap: 8px;
+width: 100%;
+}
+
+.invariant {
+background: var(–panel);
+border: 1px solid var(–border);
+padding: 10px 14px;
+display: flex;
+align-items: center;
+gap: 12px;
+position: relative;
+overflow: hidden;
+cursor: default;
+transition: border-color 0.3s;
+}
+
+.invariant:hover {
+border-color: var(–gold-dim);
+}
+
+.invariant::after {
+content: ‘’;
+position: absolute;
+bottom: 0;
+left: 0;
+height: 1px;
+background: var(–green);
+transition: width 1s ease;
+}
+
+.inv-index {
+font-family: ‘Cinzel’, serif;
+font-size: 18px;
+font-weight: 900;
+color: var(–gold-dim);
+min-width: 24px;
+line-height: 1;
+}
+
+.inv-body {
+flex: 1;
+min-width: 0;
+}
+
+.inv-name {
+font-size: 9px;
+letter-spacing: 0.2em;
+color: var(–text-mid);
+text-transform: uppercase;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.inv-bar-wrap {
+margin-top: 4px;
+height: 2px;
+background: var(–border);
+width: 100%;
+}
+
+.inv-bar {
+height: 100%;
+background: var(–green);
+transition: width 2s ease;
+box-shadow: 0 0 6px rgba(42,219,122,0.4);
+}
+
+.inv-score {
+font-size: 11px;
+color: var(–green);
+min-width: 32px;
+text-align: right;
+}
+
+/* Status bar */
+.status-bar {
+width: 100%;
+display: flex;
+justify-content: space-between;
+align-items: center;
+border-top: 1px solid var(–border);
+padding-top: 12px;
+font-size: 9px;
+letter-spacing: 0.25em;
+color: var(–text-dim);
+}
+
+.status-dot {
+display: inline-block;
+width: 5px;
+height: 5px;
+background: var(–green);
+border-radius: 50%;
+margin-right: 6px;
+animation: blink 2s ease-in-out infinite;
+box-shadow: 0 0 6px var(–green);
+}
+
+@keyframes blink {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.2; }
+}
+
+/* Scan line */
+.scanline {
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 2px;
+background: linear-gradient(to right, transparent, rgba(201,168,76,0.06), transparent);
+animation: scan 6s linear infinite;
+pointer-events: none;
+z-index: 99;
+}
+
+@keyframes scan {
+0% { top: 0; }
+100% { top: 100vh; }
+}
+
+/* Mode indicator */
+.mode-row {
+display: flex;
+gap: 16px;
+font-size: 9px;
+letter-spacing: 0.3em;
+color: var(–text-dim);
+}
+
+.mode-tag {
+padding: 2px 8px;
+border: 1px solid var(–border);
+}
+
+.mode-tag.active {
+border-color: var(–gold-dim);
+color: var(–gold);
+background: rgba(201,168,76,0.05);
+}
+
+.commit-hash {
+color: var(–text-dim);
+font-size: 9px;
+}
+</style>
+
+</head>
+<body>
+<div class="scanline"></div>
+
+<div class="container">
+
+  <div class="header">
+    <div class="title">PANTHEON OS</div>
+    <div class="subtitle">Cognitive State Monitor — Invariant Clock v1.0 — Thanatos-Prime</div>
+  </div>
+
+  <div class="clock-display">
+    <div class="time-string" id="time">00:00:00</div>
+    <div class="date-string" id="date">LOADING...</div>
+  </div>
+
+  <div class="mode-row">
+    <div class="mode-tag active" id="mode-t1">T=1 ACTIVE</div>
+    <div class="mode-tag" id="mode-kairos">KAIROS STANDBY</div>
+    <div class="mode-tag" id="mode-bombadil">BOMBADIL</div>
+    <div class="mode-tag active">OASA LOOP ◈</div>
+  </div>
+
+  <div class="sigma-block">
+    <div class="sigma-label">SOLOMON GATE — ΣC SCORE</div>
+    <div class="sigma-value" id="sigma-val">0.00</div>
+    <div class="sigma-status" id="sigma-status">INITIALIZING...</div>
+  </div>
+
+  <div class="invariants-grid" id="inv-grid"></div>
+
+  <div class="status-bar">
+    <div><span class="status-dot"></span>KERNEL NOMINAL</div>
+    <div id="ledger-count">LEDGER: — ENTRIES</div>
+    <div class="commit-hash" id="commit-ref">REF: —</div>
+  </div>
+
+</div>
+
+<script>
+  const INVARIANTS = [
+    { id: 1, name: "Lawfulness > Mysticism" },
+    { id: 2, name: "Entropy + Constraint Aware" },
+    { id: 3, name: "Repair > Punishment" },
+    { id: 4, name: "Reversibility Bias" },
+    { id: 5, name: "Performance > Belief" },
+    { id: 6, name: "Optionality Preservation" },
+    { id: 7, name: "Truth Engine Doctrine" },
+    { id: 8, name: "No Identity Capture" },
+    { id: 9, name: "No Obedience Loops" },
+    { id: 10, name: "Sunset Rule" }
+  ];
+
+  // Pseudo-stable scores that drift slightly — each invariant has its own rhythm
+  let scores = INVARIANTS.map(() => 0.85 + Math.random() * 0.12);
+  let drifts = INVARIANTS.map(() => (Math.random() - 0.5) * 0.002);
+
+  function sigmaC(scores) {
+    return scores.reduce((a, b) => a + b, 0) / scores.length;
+  }
+
+  // Build invariant grid
+  const grid = document.getElementById('inv-grid');
+  INVARIANTS.forEach((inv, i) => {
+    const el = document.createElement('div');
+    el.className = 'invariant';
+    el.id = `inv-${i}`;
+    el.innerHTML = `
+      <div class="inv-index">${String(inv.id).padStart(2,'0')}</div>
+      <div class="inv-body">
+        <div class="inv-name">${inv.name}</div>
+        <div class="inv-bar-wrap"><div class="inv-bar" id="bar-${i}" style="width:0%"></div></div>
+      </div>
+      <div class="inv-score" id="score-${i}">-.--</div>
+    `;
+    grid.appendChild(el);
+  });
+
+  function padZ(n) { return String(n).padStart(2, '0'); }
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('time').textContent =
+      `${padZ(now.getHours())}:${padZ(now.getMinutes())}:${padZ(now.getSeconds())}`;
+
+    const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    document.getElementById('date').textContent =
+      `${days[now.getDay()]} ${padZ(now.getDate())} ${months[now.getMonth()]} ${now.getFullYear()} — LOCAL`;
+  }
+
+  function updateInvariants() {
+    scores = scores.map((s, i) => {
+      drifts[i] += (Math.random() - 0.5) * 0.001;
+      drifts[i] = Math.max(-0.003, Math.min(0.003, drifts[i]));
+      let next = s + drifts[i];
+      return Math.max(0.72, Math.min(0.99, next));
+    });
+
+    scores.forEach((s, i) => {
+      document.getElementById(`score-${i}`).textContent = s.toFixed(2);
+      document.getElementById(`bar-${i}`).style.width = `${(s * 100).toFixed(1)}%`;
+    });
+
+    const sigma = sigmaC(scores);
+    document.getElementById('sigma-val').textContent = sigma.toFixed(3);
+    const statusEl = document.getElementById('sigma-status');
+    if (sigma >= 0.7) {
+      statusEl.textContent = 'GATE: ALLOW — THRESHOLD MET';
+      statusEl.style.color = 'var(--green)';
+    } else {
+      statusEl.textContent = 'GATE: DENY — BELOW THRESHOLD';
+      statusEl.style.color = 'var(--ember)';
+    }
+  }
+
+  function updateMeta() {
+    // Simulated ledger count that grows
+    const base = 3500;
+    const extra = Math.floor(Date.now() / 60000) % 100;
+    document.getElementById('ledger-count').textContent = `LEDGER: ${base + extra} ENTRIES`;
+
+    // Short pseudo-hash
+    const chars = '0123456789abcdef';
+    let hash = '';
+    const seed = Math.floor(Date.now() / 30000);
+    for (let j = 0; j < 7; j++) {
+      hash += chars[(seed * (j+1) * 7 + j * 13) % 16];
+    }
+    document.getElementById('commit-ref').textContent = `REF: ${hash}`;
+  }
+
+  // Kairos flicker — occasional activation
+  setInterval(() => {
+    const kairos = document.getElementById('mode-kairos');
+    const on = Math.random() > 0.7;
+    kairos.classList.toggle('active', on);
+    kairos.textContent = on ? 'KAIROS ◈ ACTIVE' : 'KAIROS STANDBY';
+  }, 4000);
+
+  // Init and loop
+  updateClock();
+  updateInvariants();
+  updateMeta();
+
+  setInterval(updateClock, 1000);
+  setInterval(updateInvariants, 2000);
+  setInterval(updateMeta, 30000);
+</script>
+
+</body>
+</html>
