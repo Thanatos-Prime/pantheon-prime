@@ -1,0 +1,655 @@
+Repo Spec — Preference Arena / Pantheon Stack MVP
+
+A clean first version, this is.
+
+⸻
+
+1. Project Name
+
+Preference Arena MVP
+Pantheon-native reference implementation for:
+
+* BLP — Binding Layer Protocol
+* CE — Conversion Engine
+* CMP — Conversion Marketplace Protocol
+* UICL — Universal Identity & Credit Layer
+
+⸻
+
+2. Core Purpose
+
+Turn pairwise user choices into:
+
+* preference graphs
+* taste profiles
+* reusable output artifacts
+* attributable credit flows
+
+⸻
+
+3. MVP Use Case
+
+User sees two Pokémon.
+
+User picks one.
+
+System turns that into:
+
+* a binding record
+* a ranking update
+* a taste artifact
+* a credit allocation event
+
+⸻
+
+4. Suggested Repo Structure
+
+preference-arena/
+├── README.md
+├── docs/
+│   ├── architecture.md
+│   ├── protocol-blp.md
+│   ├── protocol-ce.md
+│   ├── protocol-cmp.md
+│   ├── protocol-uicl.md
+│   └── ethics-and-governance.md
+├── api/
+│   ├── openapi.yaml
+│   └── examples/
+├── app/
+│   ├── main.py
+│   ├── config.py
+│   ├── models/
+│   │   ├── user.py
+│   │   ├── entity.py
+│   │   ├── comparison.py
+│   │   ├── artifact.py
+│   │   ├── credit.py
+│   │   └── trust.py
+│   ├── services/
+│   │   ├── binding_service.py
+│   │   ├── ranking_service.py
+│   │   ├── artifact_service.py
+│   │   ├── credit_service.py
+│   │   └── trust_service.py
+│   ├── routes/
+│   │   ├── users.py
+│   │   ├── entities.py
+│   │   ├── comparisons.py
+│   │   ├── artifacts.py
+│   │   └── credits.py
+│   └── db/
+│       ├── schema.sql
+│       └── seeds.sql
+├── scripts/
+│   ├── seed_entities.py
+│   └── simulate_rounds.py
+└── tests/
+    ├── test_binding.py
+    ├── test_ranking.py
+    ├── test_artifacts.py
+    └── test_credit.py
+
+⸻
+
+5. Core Domain Objects
+
+User
+
+{
+  "id": "U_001",
+  "display_name": "Ash",
+  "trust_score": 0.85,
+  "credit_balance": 120.4,
+  "created_at": "2026-04-17T12:00:00Z"
+}
+
+Entity
+
+An item being compared.
+
+{
+  "id": "P_094",
+  "type": "pokemon",
+  "name": "Gengar",
+  "tags": ["ghost", "poison", "iconic"],
+  "active": true
+}
+
+Comparison Event
+
+{
+  "id": "EV_001",
+  "user_id": "U_001",
+  "left_entity_id": "P_025",
+  "right_entity_id": "P_094",
+  "chosen_entity_id": "P_094",
+  "confidence": 0.82,
+  "decision_time_ms": 2140,
+  "created_at": "2026-04-17T12:05:00Z"
+}
+
+Binding Record
+
+{
+  "id": "BR_001",
+  "source_event_id": "EV_001",
+  "subject_id": "U_001",
+  "object_a_id": "P_025",
+  "object_b_id": "P_094",
+  "relation": "prefers_over",
+  "winner_id": "P_094",
+  "traceable": true
+}
+
+Preference Rating
+
+{
+  "entity_id": "P_094",
+  "user_id": "U_001",
+  "rating": 1542.3,
+  "uncertainty": 0.18,
+  "updated_at": "2026-04-17T12:05:01Z"
+}
+
+Output Artifact
+
+{
+  "id": "OA_001",
+  "user_id": "U_001",
+  "type": "taste_profile",
+  "summary": {
+    "primary_style": "dark-iconic",
+    "secondary_style": "power-coded",
+    "top_entities": ["Gengar", "Charizard", "Snorlax"]
+  },
+  "derived_from": ["EV_001", "EV_002", "EV_003"]
+}
+
+Credit Event
+
+{
+  "id": "CR_001",
+  "user_id": "U_001",
+  "source_artifact_id": "OA_001",
+  "impact_score": 0.17,
+  "trust_weight": 0.85,
+  "credit_delta": 2.4,
+  "created_at": "2026-04-17T12:10:00Z"
+}
+
+⸻
+
+6. Database Schema
+
+A minimal SQL version.
+
+users
+
+CREATE TABLE users (
+  id TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  trust_score REAL NOT NULL DEFAULT 0.5,
+  credit_balance REAL NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+entities
+
+CREATE TABLE entities (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  tags TEXT,
+  active BOOLEAN NOT NULL DEFAULT 1
+);
+
+comparison_events
+
+CREATE TABLE comparison_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  left_entity_id TEXT NOT NULL,
+  right_entity_id TEXT NOT NULL,
+  chosen_entity_id TEXT NOT NULL,
+  confidence REAL,
+  decision_time_ms INTEGER,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+binding_records
+
+CREATE TABLE binding_records (
+  id TEXT PRIMARY KEY,
+  source_event_id TEXT NOT NULL,
+  subject_id TEXT NOT NULL,
+  object_a_id TEXT NOT NULL,
+  object_b_id TEXT NOT NULL,
+  relation TEXT NOT NULL,
+  winner_id TEXT NOT NULL,
+  traceable BOOLEAN NOT NULL DEFAULT 1
+);
+
+preference_ratings
+
+CREATE TABLE preference_ratings (
+  user_id TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  rating REAL NOT NULL DEFAULT 1500,
+  uncertainty REAL NOT NULL DEFAULT 0.25,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, entity_id)
+);
+
+output_artifacts
+
+CREATE TABLE output_artifacts (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  summary_json TEXT NOT NULL,
+  derived_from_json TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+credit_events
+
+CREATE TABLE credit_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  source_artifact_id TEXT NOT NULL,
+  impact_score REAL NOT NULL,
+  trust_weight REAL NOT NULL,
+  credit_delta REAL NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+⸻
+
+7. API Endpoints
+
+Create user
+
+POST /users
+
+Request:
+
+{
+  "display_name": "Ash"
+}
+
+⸻
+
+List entities
+
+GET /entities?type=pokemon
+
+⸻
+
+Get next comparison pair
+
+GET /comparisons/next?user_id=U_001
+
+Response:
+
+{
+  "left": {
+    "id": "P_025",
+    "name": "Pikachu"
+  },
+  "right": {
+    "id": "P_094",
+    "name": "Gengar"
+  }
+}
+
+⸻
+
+Submit comparison
+
+POST /comparisons
+
+Request:
+
+{
+  "user_id": "U_001",
+  "left_entity_id": "P_025",
+  "right_entity_id": "P_094",
+  "chosen_entity_id": "P_094",
+  "confidence": 0.82,
+  "decision_time_ms": 2140
+}
+
+Response:
+
+{
+  "comparison_event_id": "EV_001",
+  "binding_record_id": "BR_001",
+  "updated_ratings": [
+    { "entity_id": "P_094", "rating": 1542.3 },
+    { "entity_id": "P_025", "rating": 1478.9 }
+  ]
+}
+
+⸻
+
+Generate user taste artifact
+
+POST /artifacts/generate
+
+Request:
+
+{
+  "user_id": "U_001"
+}
+
+Response:
+
+{
+  "artifact_id": "OA_001",
+  "type": "taste_profile",
+  "summary": {
+    "primary_style": "dark-iconic",
+    "top_entities": ["Gengar", "Charizard", "Snorlax"]
+  }
+}
+
+⸻
+
+View user credits
+
+GET /credits?user_id=U_001
+
+Response:
+
+{
+  "user_id": "U_001",
+  "credit_balance": 120.4,
+  "recent_events": [
+    {
+      "id": "CR_001",
+      "credit_delta": 2.4,
+      "impact_score": 0.17
+    }
+  ]
+}
+
+⸻
+
+8. Ranking Logic
+
+For MVP, use simple Elo.
+
+Expected score
+
+def expected_score(rating_a: float, rating_b: float) -> float:
+    return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
+
+Update
+
+def update_elo(winner: float, loser: float, k: float = 32.0) -> tuple[float, float]:
+    expected_winner = expected_score(winner, loser)
+    expected_loser = expected_score(loser, winner)
+    new_winner = winner + k * (1 - expected_winner)
+    new_loser = loser + k * (0 - expected_loser)
+    return new_winner, new_loser
+
+Later, upgrade to:
+
+* Bradley-Terry
+* TrueSkill
+* embedding-based taste manifolds
+
+⸻
+
+9. Artifact Generation Logic
+
+After enough comparisons, create a taste profile.
+
+Minimal rule-based version
+
+def generate_taste_profile(top_entities: list[dict]) -> dict:
+    tags = []
+    for entity in top_entities:
+        tags.extend(entity.get("tags", []))
+    tag_counts = {}
+    for tag in tags:
+        tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+    primary_style = "-".join([tag for tag, _ in sorted_tags[:2]]) if sorted_tags else "unclear"
+    return {
+        "primary_style": primary_style,
+        "top_entities": [e["name"] for e in top_entities[:3]]
+    }
+
+⸻
+
+10. Credit Formula
+
+For MVP, keep it simple and auditable.
+
+credit_delta = impact_score * trust_weight * base_rate
+
+Example:
+
+impact_score = 0.17
+trust_weight = 0.85
+base_rate = 16
+credit_delta = 0.17 * 0.85 * 16
+# 2.312
+
+Round as needed.
+
+Suggested components
+
+impact_score
+
+* Did the event improve recommendation accuracy?
+* Did it reduce uncertainty?
+* Did it contribute to a useful artifact?
+
+trust_weight
+
+* consistency over time
+* low spam behavior
+* stable signal quality
+
+⸻
+
+11. Service Responsibilities
+
+binding_service.py
+
+Responsible for:
+
+* creating Binding Records
+* asserting traceability
+* linking user ↔ entities ↔ event
+
+ranking_service.py
+
+Responsible for:
+
+* loading current ratings
+* applying Elo update
+* saving new ratings
+
+artifact_service.py
+
+Responsible for:
+
+* finding enough comparison history
+* generating taste profiles
+* storing output artifacts
+
+credit_service.py
+
+Responsible for:
+
+* calculating impact
+* applying trust weight
+* minting credit events
+* updating user balances
+
+trust_service.py
+
+Responsible for:
+
+* detecting spammy decision patterns
+* measuring consistency
+* adjusting trust score
+
+⸻
+
+12. Example Runtime Flow
+
+Submit comparison
+
+1. User chooses Gengar over Pikachu
+2. Create comparison_event
+3. Create binding_record
+4. Update ratings
+5. Check if artifact generation threshold reached
+6. If yes, generate taste_profile
+7. If artifact has measurable value, create credit_event
+
+⸻
+
+13. Example FastAPI Shapes
+
+app/main.py
+
+from fastapi import FastAPI
+app = FastAPI(title="Preference Arena MVP")
+
+app/routes/comparisons.py
+
+from fastapi import APIRouter
+router = APIRouter()
+@router.post("/comparisons")
+def create_comparison(payload: dict):
+    # 1. save event
+    # 2. create binding
+    # 3. update ranking
+    # 4. maybe generate artifact
+    # 5. maybe allocate credit
+    return {"status": "ok"}
+
+⸻
+
+14. Governance Rules
+
+These should be explicit from day one.
+
+Required
+
+* trace every artifact back to source events
+* preserve user attribution
+* expose credit logic in readable form
+* allow audit of trust changes
+* support deletion/deactivation workflows where possible
+
+Forbidden
+
+* hidden credit extraction
+* silent repurposing of user data
+* undisclosed weighting changes
+* manipulation disguised as recommendation
+
+⸻
+
+15. Metrics Dashboard
+
+Track:
+
+* comparisons submitted per day
+* average decision time
+* average confidence
+* rating stability
+* artifact generation rate
+* average credit earned per user
+* trust-score distribution
+* recommendation accuracy lift
+
+⸻
+
+16. Seed Data Example
+
+INSERT INTO entities (id, type, name, tags) VALUES
+('P_025', 'pokemon', 'Pikachu', 'electric,cute,iconic'),
+('P_094', 'pokemon', 'Gengar', 'ghost,poison,iconic'),
+('P_006', 'pokemon', 'Charizard', 'fire,flying,power'),
+('P_143', 'pokemon', 'Snorlax', 'normal,bulky,classic');
+
+⸻
+
+17. README Opening
+
+You can use this nearly as-is.
+
+README.md
+
+# Preference Arena MVP
+Preference Arena is a Pantheon-native reference implementation for turning pairwise choices into attributable value.
+Users compare entities two at a time.
+Those comparisons become binding records.
+Binding records update preference models.
+Preference models generate useful artifacts.
+Useful artifacts generate credit back to contributors.
+## Stack
+- BLP: binding relationships
+- CE: converting comparisons into structure
+- CMP: packaging outputs into reusable value
+- UICL: assigning trust and credit
+## MVP domain
+Pokémon preferences
+## Future domains
+Movies, fashion, collectibles, hiring, taste discovery, recommendation systems
+
+⸻
+
+18. Versioned Roadmap
+
+v0.1
+
+* users
+* entities
+* pairwise comparisons
+* Elo ratings
+* simple taste profile
+* simple credits
+
+v0.2
+
+* uncertainty modeling
+* better pair selection
+* trust score logic
+* analytics dashboard
+
+v0.3
+
+* cluster detection
+* social comparison
+* recommendation engine
+* artifact marketplace hooks
+
+v1.0
+
+* full CMP/UICL integration
+* modular converters
+* portable identity and credit
+* multi-domain support
+
+⸻
+
+19. Final compression
+
+Choice becomes event.
+Event becomes binding.
+Binding becomes model.
+Model becomes artifact.
+Artifact becomes value.
+Value returns as credit.
+
+If you want, next I’ll turn this into actual starter code in Python/FastAPI with the files filled in.
