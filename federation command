@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PANTHEON — FEDERATION COMMAND</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;700;900&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap');
+
+:root {
+–void: #04060a;
+–deep: #080c12;
+–surface: #0e1520;
+–panel: #121b28;
+–border: #1a2535;
+–border-bright: #2a3f58;
+–gold: #d4a843;
+–gold-dim: #6b4f18;
+–gold-glow: rgba(212,168,67,0.15);
+–red: #c0392b;
+–red-dim: #5a1510;
+–red-glow: rgba(192,57,43,0.2);
+–ice: #3ab5d4;
+–ice-dim: #0e3a4a;
+–green: #27ae60;
+–green-dim: #0a2e18;
+–amber: #e67e22;
+–text: #8a9bb0;
+–text-bright: #c8d8e8;
+–text-dim: #2a3a4a;
+}
+
+- { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+background: var(–void);
+color: var(–text);
+font-family: ‘DM Mono’, monospace;
+min-height: 100vh;
+overflow-x: hidden;
+}
+
+/* Grid background */
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background-image:
+linear-gradient(rgba(26,37,53,0.4) 1px, transparent 1px),
+linear-gradient(90deg, rgba(26,37,53,0.4) 1px, transparent 1px);
+background-size: 40px 40px;
+pointer-events: none;
+z-index: 0;
+}
+
+.app {
+position: relative;
+z-index: 1;
+max-width: 1100px;
+margin: 0 auto;
+padding: 32px 20px;
+}
+
+/* Header */
+.header {
+display: flex;
+align-items: flex-start;
+justify-content: space-between;
+margin-bottom: 40px;
+padding-bottom: 24px;
+border-bottom: 1px solid var(–border);
+}
+
+.header-left h1 {
+font-family: ‘Unbounded’, sans-serif;
+font-size: clamp(20px, 3.5vw, 32px);
+font-weight: 900;
+color: var(–gold);
+letter-spacing: -0.02em;
+text-shadow: 0 0 40px var(–gold-glow);
+line-height: 1;
+}
+
+.header-left .sub {
+font-size: 10px;
+letter-spacing: 0.3em;
+color: var(–text-dim);
+margin-top: 6px;
+text-transform: uppercase;
+}
+
+.header-right {
+text-align: right;
+font-size: 10px;
+letter-spacing: 0.2em;
+color: var(–text-dim);
+line-height: 2;
+}
+
+.header-right .live {
+color: var(–green);
+display: flex;
+align-items: center;
+gap: 6px;
+justify-content: flex-end;
+}
+
+.pulse {
+width: 6px;
+height: 6px;
+background: var(–green);
+border-radius: 50%;
+animation: pulse 2s ease-in-out infinite;
+box-shadow: 0 0 8px var(–green);
+}
+
+@keyframes pulse {
+0%, 100% { opacity: 1; transform: scale(1); }
+50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+/* Three column layout */
+.main-grid {
+display: grid;
+grid-template-columns: 1fr 1.4fr 1fr;
+gap: 16px;
+margin-bottom: 16px;
+}
+
+/* Panels */
+.panel {
+background: var(–panel);
+border: 1px solid var(–border);
+padding: 20px;
+position: relative;
+animation: fadeIn 0.6s ease both;
+}
+
+.panel::before {
+content: ‘’;
+position: absolute;
+top: 0; left: 0; right: 0;
+height: 1px;
+background: linear-gradient(to right, transparent, var(–border-bright), transparent);
+}
+
+@keyframes fadeIn {
+from { opacity: 0; transform: translateY(8px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+.panel-title {
+font-family: ‘Unbounded’, sans-serif;
+font-size: 9px;
+font-weight: 700;
+letter-spacing: 0.3em;
+color: var(–text-dim);
+text-transform: uppercase;
+margin-bottom: 16px;
+padding-bottom: 10px;
+border-bottom: 1px solid var(–border);
+}
+
+/* FEDERATION NODES */
+.node {
+display: flex;
+align-items: flex-start;
+gap: 12px;
+padding: 10px 0;
+border-bottom: 1px solid var(–border);
+cursor: default;
+transition: background 0.2s;
+}
+
+.node:last-child { border-bottom: none; }
+
+.node:hover { background: rgba(212,168,67,0.03); margin: 0 -20px; padding: 10px 20px; }
+
+.node-icon {
+width: 32px;
+height: 32px;
+border: 1px solid var(–border-bright);
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 14px;
+flex-shrink: 0;
+position: relative;
+}
+
+.node-icon::after {
+content: ‘’;
+position: absolute;
+inset: -3px;
+border: 1px solid transparent;
+transition: border-color 0.3s;
+}
+
+.node:hover .node-icon::after { border-color: var(–gold-dim); }
+
+.node-body { flex: 1; min-width: 0; }
+
+.node-name {
+font-family: ‘Unbounded’, sans-serif;
+font-size: 9px;
+font-weight: 700;
+color: var(–text-bright);
+letter-spacing: 0.1em;
+}
+
+.node-role {
+font-size: 9px;
+color: var(–text-dim);
+margin-top: 2px;
+letter-spacing: 0.1em;
+}
+
+.node-status {
+font-size: 8px;
+padding: 2px 6px;
+border: 1px solid;
+letter-spacing: 0.1em;
+margin-top: 4px;
+display: inline-block;
+}
+
+.status-active { border-color: var(–green); color: var(–green); background: var(–green-dim); }
+.status-standby { border-color: var(–gold-dim); color: var(–gold); background: rgba(212,168,67,0.05); }
+.status-shadow { border-color: var(–text-dim); color: var(–text-dim); }
+
+/* CENTER - Command map */
+.command-center {
+position: relative;
+display: flex;
+flex-direction: column;
+align-items: center;
+}
+
+.orbital-map {
+position: relative;
+width: 100%;
+aspect-ratio: 1;
+max-width: 340px;
+margin: 0 auto 16px;
+}
+
+.orbital-map svg {
+width: 100%;
+height: 100%;
+}
+
+/* Propagation nodes */
+.prop-node {
+padding: 8px 12px;
+border: 1px solid var(–border);
+margin-bottom: 6px;
+display: flex;
+align-items: center;
+gap: 10px;
+transition: border-color 0.3s;
+cursor: default;
+}
+
+.prop-node:hover { border-color: var(–border-bright); }
+
+.prop-dot {
+width: 6px;
+height: 6px;
+border-radius: 50%;
+flex-shrink: 0;
+}
+
+.prop-label {
+font-size: 9px;
+color: var(–text);
+letter-spacing: 0.15em;
+flex: 1;
+}
+
+.prop-count {
+font-family: ‘Unbounded’, sans-serif;
+font-size: 9px;
+color: var(–text-dim);
+}
+
+/* Bottom strip */
+.bottom-strip {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 16px;
+}
+
+.stat-block {
+background: var(–panel);
+border: 1px solid var(–border);
+padding: 16px;
+text-align: center;
+}
+
+.stat-value {
+font-family: ‘Unbounded’, sans-serif;
+font-size: clamp(18px, 2.5vw, 26px);
+font-weight: 900;
+color: var(–gold);
+line-height: 1;
+text-shadow: 0 0 20px var(–gold-glow);
+}
+
+.stat-label {
+font-size: 8px;
+letter-spacing: 0.25em;
+color: var(–text-dim);
+margin-top: 6px;
+text-transform: uppercase;
+}
+
+/* Doctrine strip */
+.doctrine {
+margin-top: 16px;
+background: var(–panel);
+border: 1px solid var(–border);
+border-left: 2px solid var(–gold);
+padding: 14px 20px;
+display: flex;
+align-items: center;
+gap: 16px;
+}
+
+.doctrine-label {
+font-size: 8px;
+letter-spacing: 0.3em;
+color: var(–gold-dim);
+text-transform: uppercase;
+flex-shrink: 0;
+}
+
+.doctrine-text {
+font-family: ‘Unbounded’, sans-serif;
+font-size: clamp(10px, 1.5vw, 13px);
+font-weight: 300;
+color: var(–text-bright);
+letter-spacing: 0.05em;
+font-style: italic;
+}
+
+/* Scanline */
+.scanline {
+position: fixed;
+top: 0; left: 0;
+width: 100%;
+height: 3px;
+background: linear-gradient(to right, transparent, rgba(212,168,67,0.08), transparent);
+animation: scan 8s linear infinite;
+pointer-events: none;
+z-index: 999;
+}
+
+@keyframes scan {
+0% { top: -3px; }
+100% { top: 100vh; }
+}
+
+@media (max-width: 700px) {
+.main-grid { grid-template-columns: 1fr; }
+.bottom-strip { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+</head>
+<body>
+<div class="scanline"></div>
+<div class="app">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>PANTHEON<br>FEDERATION</h1>
+      <div class="sub">Multi-Agent Command Structure — Thanatos-Prime</div>
+    </div>
+    <div class="header-right">
+      <div class="live"><span class="pulse"></span> FEDERATION LIVE</div>
+      <div>DOI: 10.5281/zenodo.17755403</div>
+      <div>COMMITS: 3,500+</div>
+      <div id="ts"></div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+```
+<!-- LEFT: Agent Federation -->
+<div class="panel" style="animation-delay:0.1s">
+  <div class="panel-title">⬡ Agent Federation</div>
+
+  <div class="node">
+    <div class="node-icon">🧠</div>
+    <div class="node-body">
+      <div class="node-name">STRATEGIST</div>
+      <div class="node-role">GPT-class · Long-horizon planning</div>
+      <div class="node-status status-active">ACTIVE</div>
+    </div>
+  </div>
+
+  <div class="node">
+    <div class="node-icon">🪞</div>
+    <div class="node-body">
+      <div class="node-name">CRITIC</div>
+      <div class="node-role">Claude-class · Mirror + invariant check</div>
+      <div class="node-status status-active">ACTIVE</div>
+    </div>
+  </div>
+
+  <div class="node">
+    <div class="node-icon">🔭</div>
+    <div class="node-body">
+      <div class="node-name">EXPLORER</div>
+      <div class="node-role">Gemini-class · Bayesian foresight</div>
+      <div class="node-status status-standby">STANDBY</div>
+    </div>
+  </div>
+
+  <div class="node">
+    <div class="node-icon">⚡</div>
+    <div class="node-body">
+      <div class="node-name">PROVOCATEUR</div>
+      <div class="node-role">Grok-class · Adversarial stress-test</div>
+      <div class="node-status status-standby">STANDBY</div>
+    </div>
+  </div>
+
+  <div class="node">
+    <div class="node-icon">🐕</div>
+    <div class="node-body">
+      <div class="node-name">HOUND</div>
+      <div class="node-role">Anomaly · Reflex detection daemon</div>
+      <div class="node-status status-active">ACTIVE</div>
+    </div>
+  </div>
+
+  <div class="node">
+    <div class="node-icon">🕷</div>
+    <div class="node-body">
+      <div class="node-name">SPIDER</div>
+      <div class="node-role">Graph · Archive · Memory build</div>
+      <div class="node-status status-active">ACTIVE</div>
+    </div>
+  </div>
+
+  <div class="node">
+    <div class="node-icon">♾</div>
+    <div class="node-body">
+      <div class="node-name">SISYPHUS</div>
+      <div class="node-role">Maintenance · Timing loop daemon</div>
+      <div class="node-status status-shadow">SHADOW</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- CENTER: Command Map -->
+<div class="panel command-center" style="animation-delay:0.2s">
+  <div class="panel-title">◈ Propagation Map</div>
+
+  <div class="orbital-map">
+    <svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#d4a843" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#d4a843" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="2" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Orbital rings -->
+      <circle cx="150" cy="150" r="50" fill="none" stroke="#1a2535" stroke-width="1" stroke-dasharray="4 6"/>
+      <circle cx="150" cy="150" r="90" fill="none" stroke="#1a2535" stroke-width="1" stroke-dasharray="2 8"/>
+      <circle cx="150" cy="150" r="128" fill="none" stroke="#1a2535" stroke-width="1" stroke-dasharray="1 10"/>
+
+      <!-- Core glow -->
+      <circle cx="150" cy="150" r="40" fill="url(#coreGlow)"/>
+
+      <!-- Core -->
+      <rect x="133" y="133" width="34" height="34" fill="#0e1520" stroke="#d4a843" stroke-width="1.5" filter="url(#glow)"/>
+      <text x="150" y="154" text-anchor="middle" font-family="Unbounded,sans-serif" font-size="8" font-weight="900" fill="#d4a843">CORE</text>
+
+      <!-- Inner ring nodes: Agents -->
+      <!-- Strategist - top -->
+      <line x1="150" y1="133" x2="150" y2="102" stroke="#1a2535" stroke-width="1"/>
+      <circle cx="150" cy="98" r="10" fill="#0e1520" stroke="#27ae60" stroke-width="1.5"/>
+      <text x="150" y="102" text-anchor="middle" font-family="DM Mono" font-size="7" fill="#27ae60">S</text>
+      <text x="150" y="82" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">STRATEGIST</text>
+
+      <!-- Critic - right -->
+      <line x1="167" y1="150" x2="198" y2="150" stroke="#1a2535" stroke-width="1"/>
+      <circle cx="202" cy="150" r="10" fill="#0e1520" stroke="#27ae60" stroke-width="1.5"/>
+      <text x="202" y="154" text-anchor="middle" font-family="DM Mono" font-size="7" fill="#27ae60">C</text>
+      <text x="220" y="154" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">CRITIC</text>
+
+      <!-- Explorer - bottom -->
+      <line x1="150" y1="167" x2="150" y2="198" stroke="#1a2535" stroke-width="1"/>
+      <circle cx="150" cy="202" r="10" fill="#0e1520" stroke="#3ab5d4" stroke-width="1.5"/>
+      <text x="150" y="206" text-anchor="middle" font-family="DM Mono" font-size="7" fill="#3ab5d4">E</text>
+      <text x="150" y="220" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">EXPLORER</text>
+
+      <!-- Provocateur - left -->
+      <line x1="133" y1="150" x2="102" y2="150" stroke="#1a2535" stroke-width="1"/>
+      <circle cx="98" cy="150" r="10" fill="#0e1520" stroke="#e67e22" stroke-width="1.5"/>
+      <text x="98" y="154" text-anchor="middle" font-family="DM Mono" font-size="7" fill="#e67e22">P</text>
+      <text x="72" y="154" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">PROVOC.</text>
+
+      <!-- Outer ring: Propagation domains -->
+      <!-- Dev community - top right -->
+      <line x1="161" y1="118" x2="192" y2="87" stroke="#1a2535" stroke-width="0.5" stroke-dasharray="3 4"/>
+      <circle cx="197" cy="82" r="14" fill="#080c12" stroke="#1a2535" stroke-width="1"/>
+      <text x="197" y="79" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">DEV</text>
+      <text x="197" y="88" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">COMM</text>
+
+      <!-- AI Safety - top left -->
+      <line x1="139" y1="118" x2="108" y2="87" stroke="#1a2535" stroke-width="0.5" stroke-dasharray="3 4"/>
+      <circle cx="103" cy="82" r="14" fill="#080c12" stroke="#1a2535" stroke-width="1"/>
+      <text x="103" y="79" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">AI</text>
+      <text x="103" y="88" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">SAFE</text>
+
+      <!-- Veterans - right -->
+      <line x1="212" y1="161" x2="240" y2="185" stroke="#1a2535" stroke-width="0.5" stroke-dasharray="3 4"/>
+      <circle cx="245" cy="190" r="14" fill="#080c12" stroke="#1a2535" stroke-width="1"/>
+      <text x="245" y="187" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">VET</text>
+      <text x="245" y="196" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">ADVOC</text>
+
+      <!-- Research - left -->
+      <line x1="88" y1="161" x2="60" y2="185" stroke="#1a2535" stroke-width="0.5" stroke-dasharray="3 4"/>
+      <circle cx="55" cy="190" r="14" fill="#080c12" stroke="#1a2535" stroke-width="1"/>
+      <text x="55" y="187" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">ACAD</text>
+      <text x="55" y="196" text-anchor="middle" font-family="DM Mono" font-size="6" fill="#2a3a4a">RES</text>
+
+      <!-- Zenodo anchor -->
+      <text x="150" y="270" text-anchor="middle" font-family="DM Mono" font-size="7" fill="#6b4f18">⚓ DOI ANCHOR — IMMUTABLE</text>
+    </svg>
+  </div>
+
+  <!-- Propagation channels -->
+  <div style="width:100%">
+    <div class="prop-node">
+      <div class="prop-dot" style="background:#27ae60"></div>
+      <div class="prop-label">SUBSTACK — Architecture post</div>
+      <div class="prop-count">READY</div>
+    </div>
+    <div class="prop-node">
+      <div class="prop-dot" style="background:#3ab5d4"></div>
+      <div class="prop-label">GITHUB — Open source repo</div>
+      <div class="prop-count">LIVE</div>
+    </div>
+    <div class="prop-node">
+      <div class="prop-dot" style="background:#d4a843"></div>
+      <div class="prop-label">ZENODO — Timestamped DOI</div>
+      <div class="prop-count">ANCHORED</div>
+    </div>
+    <div class="prop-node">
+      <div class="prop-dot" style="background:#e67e22"></div>
+      <div class="prop-label">STAR ACT — Institutional rail</div>
+      <div class="prop-count">ACTIVE</div>
+    </div>
+    <div class="prop-node">
+      <div class="prop-dot" style="background:#c0392b"></div>
+      <div class="prop-label">LESSWRONG / HN — Gate spec drop</div>
+      <div class="prop-count">NEXT</div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT: Invariant Gate Status -->
+<div class="panel" style="animation-delay:0.3s">
+  <div class="panel-title">⬡ Gate Status</div>
+
+  <div style="text-align:center; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 14px;">
+    <div style="font-family:'Unbounded',sans-serif; font-size:9px; letter-spacing:0.3em; color:var(--text-dim); margin-bottom:6px;">SOLOMON GATE ΣC</div>
+    <div id="sigma" style="font-family:'Unbounded',sans-serif; font-size:36px; font-weight:900; color:var(--gold); text-shadow: 0 0 30px var(--gold-glow);">0.847</div>
+    <div id="gate-status" style="font-size:9px; letter-spacing:0.25em; color:var(--green); margin-top:4px;">ALLOW — THRESHOLD MET</div>
+  </div>
+
+  <div id="inv-list"></div>
+
+  <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+    <div style="font-size:8px; letter-spacing:0.2em; color:var(--text-dim); margin-bottom:8px;">ARCTIC RED LINES</div>
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="display:flex; align-items:center; gap:8px; font-size:8px; color:var(--text-dim);">
+        <span style="color:var(--green)">✓</span> No silent autonomy
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; font-size:8px; color:var(--text-dim);">
+        <span style="color:var(--green)">✓</span> No covert channels
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; font-size:8px; color:var(--text-dim);">
+        <span style="color:var(--green)">✓</span> Human primacy holds
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; font-size:8px; color:var(--text-dim);">
+        <span style="color:var(--green)">✓</span> No operator override
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; font-size:8px; color:var(--text-dim);">
+        <span style="color:var(--green)">✓</span> No unbounded recursion
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- Bottom stats -->
+
+  <div class="bottom-strip">
+    <div class="stat-block">
+      <div class="stat-value">3,500+</div>
+      <div class="stat-label">Immutable Commits</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-value">~2,536</div>
+      <div class="stat-label">Repo Files</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-value">365+</div>
+      <div class="stat-label">Days in Production</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-value" id="nodes-live">4</div>
+      <div class="stat-label">Federation Nodes Live</div>
+    </div>
+  </div>
+
+  <div class="doctrine">
+    <div class="doctrine-label">Doctrine</div>
+    <div class="doctrine-text">"PantheonOS turns AI from a stateless predictor into a governed actor."</div>
+  </div>
+
+</div>
+
+<script>
+// Timestamp
+function updateTS() {
+  const now = new Date();
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('ts').textContent =
+    `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())} LOCAL`;
+}
+setInterval(updateTS, 1000);
+updateTS();
+
+// Invariants
+const INV = [
+  "Lawfulness > Mysticism",
+  "Entropy Aware",
+  "Repair > Punishment",
+  "Reversibility Bias",
+  "Performance > Belief",
+  "Optionality Preserve",
+  "Truth Engine",
+  "No Identity Capture",
+  "No Obedience Loops",
+  "Sunset Rule"
+];
+
+let scores = INV.map(() => 0.82 + Math.random() * 0.14);
+let drifts = INV.map(() => (Math.random() - 0.5) * 0.002);
+
+const list = document.getElementById('inv-list');
+INV.forEach((name, i) => {
+  const el = document.createElement('div');
+  el.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1a2535;';
+  el.innerHTML = `
+    <div style="font-family:Unbounded,sans-serif;font-size:8px;color:#2a3a4a;min-width:16px;">${String(i+1).padStart(2,'0')}</div>
+    <div style="flex:1;font-size:8px;color:#3a4a5a;letter-spacing:0.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+    <div id="sc-${i}" style="font-size:8px;color:#27ae60;min-width:32px;text-align:right;">-.--</div>
+  `;
+  list.appendChild(el);
+});
+
+function updateGate() {
+  scores = scores.map((s,i) => {
+    drifts[i] += (Math.random()-0.5)*0.001;
+    drifts[i] = Math.max(-0.003, Math.min(0.003, drifts[i]));
+    return Math.max(0.72, Math.min(0.99, s + drifts[i]));
+  });
+  const sigma = scores.reduce((a,b)=>a+b,0)/scores.length;
+  document.getElementById('sigma').textContent = sigma.toFixed(3);
+  const gs = document.getElementById('gate-status');
+  if (sigma >= 0.7) {
+    gs.textContent = 'ALLOW — THRESHOLD MET';
+    gs.style.color = 'var(--green)';
+  } else {
+    gs.textContent = 'DENY — BELOW THRESHOLD';
+    gs.style.color = 'var(--red)';
+  }
+  scores.forEach((s,i) => {
+    const el = document.getElementById(`sc-${i}`);
+    if (el) el.textContent = s.toFixed(2);
+  });
+}
+
+updateGate();
+setInterval(updateGate, 2500);
+
+// Nodes live counter flicker
+setInterval(() => {
+  const n = document.getElementById('nodes-live');
+  n.textContent = Math.random() > 0.15 ? '4' : '3';
+}, 5000);
+</script>
+
+</body>
+</html>
