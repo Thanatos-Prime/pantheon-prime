@@ -1,0 +1,466 @@
+
+#!/usr/bin/env python3
+"""
+Write-State Modulator (WSM)
+A minimal working CLI for deliberate modulation between:
+1) EXPLORE mode: reversible drafting, editing, deletion, branching
+2) COMMIT mode: irreversible writing, no deletion of committed lines
+
+Standard library only.
+
+Usage:
+    python write_state_modulator.py
+
+Core idea:
+- EXPLORE mode lets you think on the page.
+- COMMIT mode forces decision and commitment.
+- You can switch modes intentionally to train different cognitive regimes.
+"""
+
+from __future__ import annotations
+
+import cmd
+import copy
+import datetime as dt
+import json
+import shlex
+import textwrap
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+from typing import Dict, List, Optional
+
+
+HELP_BANNER = """
+Write-State Modulator (WSM)
+
+Mental model
+------------
+EXPLORE = reversible thought
+COMMIT  = irreversible thought
+
+Key commands
+------------
+:add <text>              Add a line to the current draft buffer
+:show                    Show current state
+:edit <index> <text>     Edit a draft line (EXPLORE only)
+:del <index>             Delete a draft line (EXPLORE only)
+:insert <index> <text>   Insert at draft position (EXPLORE only)
+:clear                   Clear the draft buffer (EXPLORE only)
+:commit                  Move all draft lines into permanent committed text
+:mode explore|commit     Switch modes
+:branch <name>           Save a named snapshot/branch
+:checkout <name>         Restore draft/mode from a saved branch
+:branches                List saved branches
+:export <filename>       Export current text to a file
+:save <filename>         Save full session as JSON
+:load <filename>         Load full session JSON
+:protocol                Show suggested modulation protocol
+:status                  Show concise mode/status line
+:help                    Show help
+:quit                    Exit
+
+Shortcuts
+---------
+Anything not starting with ':' is treated like ':add <that text>'.
+
+Important
+---------
+- Once text is committed, it cannot be deleted inside WSM.
+- Only the current draft buffer is reversible.
+"""
+
+
+def now_iso() -> str:
+    return dt.datetime.now().isoformat(timespec="seconds")
+
+
+@dataclass
+class BranchState:
+    name: str
+    mode: str
+    committed: List[str]
+    draft: List[str]
+    created_at: str = field(default_factory=now_iso)
+
+
+@dataclass
+class SessionState:
+    mode: str = "explore"
+    committed: List[str] = field(default_factory=list)
+    draft: List[str] = field(default_factory=list)
+    branches: Dict[str, BranchState] = field(default_factory=dict)
+    history: List[str] = field(default_factory=list)
+    created_at: str = field(default_factory=now_iso)
+
+    def snapshot(self, name: str) -> BranchState:
+        return BranchState(
+            name=name,
+            mode=self.mode,
+            committed=copy.deepcopy(self.committed),
+            draft=copy.deepcopy(self.draft),
+        )
+
+
+class WSM(cmd.Cmd):
+    intro = HELP_BANNER
+    prompt = "(EXPLORE) > "
+
+    def __init__(self):
+        super().__init__()
+        self.state = SessionState()
+        self._refresh_prompt()
+
+    def precmd(self, line: str) -> str:
+        line = line.strip()
+        if line.startswith(":"):
+            return line[1:]
+        return line
+
+    # ---------- utilities ----------
+
+    def _refresh_prompt(self) -> None:
+        self.prompt = f"({self.state.mode.upper()}) > "
+
+    def _log(self, message: str) -> None:
+        stamp = now_iso()
+        self.state.history.append(f"{stamp} | {message}")
+
+    def _parse_index(self, raw: str, current_len: int) -> int:
+        try:
+            idx = int(raw)
+        except ValueError as e:
+            raise ValueError("Index must be an integer.") from e
+
+        if idx < 1 or idx > current_len:
+            raise IndexError(f"Index out of range. Use 1..{current_len}.")
+        return idx - 1
+
+    def _require_explore(self) -> bool:
+        if self.state.mode != "explore":
+            print("That action is blocked in COMMIT mode.")
+            return False
+        return True
+
+    def _full_text(self) -> str:
+        blocks = []
+        if self.state.committed:
+            blocks.append("## COMMITTED\n" + "\n".join(self.state.committed))
+        if self.state.draft:
+            blocks.append("## DRAFT\n" + "\n".join(self.state.draft))
+        return "\n\n".join(blocks).strip() or "(empty)"
+
+    def _status_line(self) -> str:
+        return (
+            f"mode={self.state.mode.upper()} | "
+            f"committed={len(self.state.committed)} lines | "
+            f"draft={len(self.state.draft)} lines | "
+            f"branches={len(self.state.branches)}"
+        )
+
+    # ---------- default text handling ----------
+
+    def default(self, line: str) -> bool:
+        if not line.strip():
+            return False
+        self.do_add(line)
+        return False
+
+    # ---------- commands ----------
+
+    def do_add(self, arg: str) -> None:
+        "Add a line to the draft buffer: :add your text here"
+        text = arg.strip()
+        if not text:
+            print("Nothing added.")
+            return
+        self.state.draft.append(text)
+        self._log(f"ADD draft: {text}")
+        print(f"Added to draft [{len(self.state.draft)}].")
+
+    def do_show(self, arg: str) -> None:
+        "Show committed text and draft buffer."
+        print("\n" + "=" * 72)
+        print(self._status_line())
+        print("-" * 72)
+
+        print("COMMITTED")
+        if self.state.committed:
+            for i, line in enumerate(self.state.committed, 1):
+                print(f"  C{i:02d}. {line}")
+        else:
+            print("  (none)")
+
+        print("\nDRAFT")
+        if self.state.draft:
+            for i, line in enumerate(self.state.draft, 1):
+                print(f"  D{i:02d}. {line}")
+        else:
+            print("  (none)")
+        print("=" * 72 + "\n")
+
+    def do_status(self, arg: str) -> None:
+        "Show concise status."
+        print(self._status_line())
+
+    def do_mode(self, arg: str) -> None:
+        "Switch mode: :mode explore|commit"
+        target = arg.strip().lower()
+        if target not in {"explore", "commit"}:
+            print("Usage: :mode explore|commit")
+            return
+        self.state.mode = target
+        self._refresh_prompt()
+        self._log(f"MODE -> {target}")
+        print(f"Mode set to {target.upper()}.")
+
+    def do_edit(self, arg: str) -> None:
+        "Edit a draft line: :edit <index> <new text>   (EXPLORE only)"
+        if not self._require_explore():
+            return
+        try:
+            parts = shlex.split(arg)
+        except ValueError as e:
+            print(f"Parse error: {e}")
+            return
+        if len(parts) < 2:
+            print("Usage: :edit <index> <new text>")
+            return
+        try:
+            idx = self._parse_index(parts[0], len(self.state.draft))
+        except (ValueError, IndexError) as e:
+            print(e)
+            return
+        new_text = " ".join(parts[1:]).strip()
+        old = self.state.draft[idx]
+        self.state.draft[idx] = new_text
+        self._log(f"EDIT draft[{idx+1}] {old!r} -> {new_text!r}")
+        print(f"Edited draft line {idx+1}.")
+
+    def do_del(self, arg: str) -> None:
+        "Delete a draft line: :del <index>   (EXPLORE only)"
+        if not self._require_explore():
+            return
+        raw = arg.strip()
+        if not raw:
+            print("Usage: :del <index>")
+            return
+        try:
+            idx = self._parse_index(raw, len(self.state.draft))
+        except (ValueError, IndexError) as e:
+            print(e)
+            return
+        removed = self.state.draft.pop(idx)
+        self._log(f"DELETE draft[{idx+1}] {removed!r}")
+        print(f"Deleted draft line {idx+1}.")
+
+    def do_insert(self, arg: str) -> None:
+        "Insert a draft line at position: :insert <index> <text>   (EXPLORE only)"
+        if not self._require_explore():
+            return
+        try:
+            parts = shlex.split(arg)
+        except ValueError as e:
+            print(f"Parse error: {e}")
+            return
+        if len(parts) < 2:
+            print("Usage: :insert <index> <text>")
+            return
+        try:
+            idx_raw = int(parts[0])
+        except ValueError:
+            print("Index must be an integer.")
+            return
+        if idx_raw < 1 or idx_raw > len(self.state.draft) + 1:
+            print(f"Index out of range. Use 1..{len(self.state.draft) + 1}.")
+            return
+        text = " ".join(parts[1:]).strip()
+        self.state.draft.insert(idx_raw - 1, text)
+        self._log(f"INSERT draft[{idx_raw}] {text!r}")
+        print(f"Inserted at draft line {idx_raw}.")
+
+    def do_clear(self, arg: str) -> None:
+        "Clear the draft buffer. (EXPLORE only)"
+        if not self._require_explore():
+            return
+        count = len(self.state.draft)
+        self.state.draft.clear()
+        self._log(f"CLEAR draft ({count} lines)")
+        print(f"Cleared draft buffer ({count} lines removed).")
+
+    def do_commit(self, arg: str) -> None:
+        "Commit all current draft lines permanently into the committed text."
+        if not self.state.draft:
+            print("Draft is empty. Nothing to commit.")
+            return
+        moved = len(self.state.draft)
+        self.state.committed.extend(self.state.draft)
+        self.state.draft.clear()
+        self.state.mode = "commit"
+        self._refresh_prompt()
+        self._log(f"COMMIT {moved} lines")
+        print(f"Committed {moved} draft lines. You are now in COMMIT mode.")
+
+    def do_branch(self, arg: str) -> None:
+        "Create or overwrite a named branch/snapshot: :branch <name>"
+        name = arg.strip()
+        if not name:
+            print("Usage: :branch <name>")
+            return
+        self.state.branches[name] = self.state.snapshot(name)
+        self._log(f"BRANCH save {name!r}")
+        print(f"Saved branch '{name}'.")
+
+    def do_branches(self, arg: str) -> None:
+        "List branches."
+        if not self.state.branches:
+            print("No branches saved.")
+            return
+        print("Branches:")
+        for name, branch in sorted(self.state.branches.items()):
+            print(
+                f"  - {name} | mode={branch.mode} | "
+                f"committed={len(branch.committed)} | draft={len(branch.draft)} | "
+                f"created={branch.created_at}"
+            )
+
+    def do_checkout(self, arg: str) -> None:
+        "Restore a saved branch into the current state: :checkout <name>"
+        name = arg.strip()
+        if not name:
+            print("Usage: :checkout <name>")
+            return
+        branch = self.state.branches.get(name)
+        if branch is None:
+            print(f"No branch named '{name}'.")
+            return
+        self.state.mode = branch.mode
+        self.state.committed = copy.deepcopy(branch.committed)
+        self.state.draft = copy.deepcopy(branch.draft)
+        self._refresh_prompt()
+        self._log(f"CHECKOUT {name!r}")
+        print(f"Restored branch '{name}'.")
+
+    def do_export(self, arg: str) -> None:
+        "Export current text to a plain text file: :export filename.txt"
+        filename = arg.strip()
+        if not filename:
+            print("Usage: :export <filename>")
+            return
+        path = Path(filename).expanduser().resolve()
+        path.write_text(self._full_text() + "\n", encoding="utf-8")
+        self._log(f"EXPORT {str(path)!r}")
+        print(f"Exported to {path}")
+
+    def do_save(self, arg: str) -> None:
+        "Save full session as JSON: :save session.json"
+        filename = arg.strip()
+        if not filename:
+            print("Usage: :save <filename>")
+            return
+        path = Path(filename).expanduser().resolve()
+        payload = asdict(self.state)
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        self._log(f"SAVE session {str(path)!r}")
+        print(f"Session saved to {path}")
+
+    def do_load(self, arg: str) -> None:
+        "Load full session from JSON: :load session.json"
+        filename = arg.strip()
+        if not filename:
+            print("Usage: :load <filename>")
+            return
+        path = Path(filename).expanduser().resolve()
+        if not path.exists():
+            print(f"File not found: {path}")
+            return
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        state = SessionState(
+            mode=payload.get("mode", "explore"),
+            committed=payload.get("committed", []),
+            draft=payload.get("draft", []),
+            history=payload.get("history", []),
+            created_at=payload.get("created_at", now_iso()),
+        )
+        branches: Dict[str, BranchState] = {}
+        for name, branch in payload.get("branches", {}).items():
+            branches[name] = BranchState(
+                name=branch["name"],
+                mode=branch["mode"],
+                committed=branch["committed"],
+                draft=branch["draft"],
+                created_at=branch.get("created_at", now_iso()),
+            )
+        state.branches = branches
+        self.state = state
+        self._refresh_prompt()
+        self._log(f"LOAD session {str(path)!r}")
+        print(f"Loaded session from {path}")
+
+    def do_protocol(self, arg: str) -> None:
+        "Show a practical modulation protocol."
+        print(textwrap.dedent("""
+        Suggested modulation protocol
+        -----------------------------
+        1) EXPLORE (5-15 min)
+           - generate freely
+           - delete aggressively
+           - branch when a direction feels alive
+
+        2) PAUSE (1-2 min)
+           - ask: what survives deletion?
+           - circle the line or idea worth preserving
+
+        3) COMMIT
+           - commit only the lines that are stable enough to keep
+           - once committed, do not revise them inside this session
+
+        4) EXPLORE AGAIN
+           - use the committed text as a constraint surface
+           - build the next layer around what has already been chosen
+
+        5) FINAL EXPORT
+           - export text
+           - optionally start a fresh session for a second-pass revision
+             rather than mutating the original commitment trail
+
+        Good defaults
+        -------------
+        - Journaling / ideation: 80% explore, 20% commit
+        - Essays / strategy:     50% explore, 50% commit
+        - Decisions / principles:30% explore, 70% commit
+        """).strip())
+
+    def do_history(self, arg: str) -> None:
+        "Show session event history."
+        if not self.state.history:
+            print("(no history)")
+            return
+        print("History:")
+        for item in self.state.history:
+            print(f"  {item}")
+
+    def do_help(self, arg: str) -> None:
+        if arg:
+            super().do_help(arg)
+        else:
+            print(HELP_BANNER)
+
+    def do_quit(self, arg: str) -> bool:
+        "Quit the program."
+        print("Exiting WSM.")
+        return True
+
+    def do_exit(self, arg: str) -> bool:
+        "Quit the program."
+        return self.do_quit(arg)
+
+    def emptyline(self) -> bool:
+        return False
+
+
+def main() -> None:
+    WSM().cmdloop()
+
+
+if __name__ == "__main__":
+    main()
