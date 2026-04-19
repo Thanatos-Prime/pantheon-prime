@@ -1,0 +1,101 @@
+
+# Write-State Modulator (WSM)
+
+A small working tool for deliberate cognitive mode-switching while writing.
+
+## What it does
+
+WSM separates writing into two regimes:
+
+- **EXPLORE**: reversible drafting
+  - add, edit, insert, delete, clear
+  - branch and restore alternate versions
+
+- **COMMIT**: irreversible writing
+  - committed lines are permanent within the session
+  - you can still add new draft text later, but old committed text remains fixed
+
+That gives you a practical way to train both:
+- exploratory thought
+- deliberate commitment
+
+## Why this matters
+
+Cheap deletion changes cognition. This tool makes that lever explicit.
+
+Use it to:
+- brainstorm without fear
+- then force decisions
+- then return to exploration under constraint
+
+## Run
+
+```bash
+python write_state_modulator.py
+```
+
+## Basic flow
+
+1. Start in `EXPLORE`
+2. Draft freely
+3. Delete and edit until something survives
+4. `:commit`
+5. Continue around what has now become fixed
+
+## Example session
+
+```text
+(EXPLORE) > I think the core idea is reversibility.
+Added to draft [1].
+(EXPLORE) > I think no, it is actually commitment shaping cognition.
+Added to draft [2].
+(EXPLORE) > :del 1
+Deleted draft line 1.
+(EXPLORE) > :show
+
+(COMMITTED none)
+(DRAFT line 1: I think no, it is actually commitment shaping cognition.)
+
+(EXPLORE) > :commit
+Committed 1 draft lines. You are now in COMMIT mode.
+(COMMIT) > :mode explore
+Mode set to EXPLORE.
+(EXPLORE) > Now build around the sentence that survived.
+Added to draft [1].
+```
+
+## Most useful commands
+
+- `:add <text>`
+- `:edit <index> <text>`
+- `:del <index>`
+- `:insert <index> <text>`
+- `:commit`
+- `:mode explore|commit`
+- `:branch <name>`
+- `:checkout <name>`
+- `:export draft.txt`
+- `:save session.json`
+- `:load session.json`
+
+## Modulation heuristics
+
+- **Use EXPLORE when**:
+  - the goal is novelty
+  - you are still discovering the problem
+  - you want to test many phrasings quickly
+
+- **Use COMMIT when**:
+  - you know the sentence matters
+  - the claim should shape everything that follows
+  - you want to strengthen conviction and structure
+
+## Good defaults
+
+- Journaling / ideation: `80/20` explore/commit
+- Essays / strategy: `50/50`
+- Decisions / principles: `30/70`
+
+## Design principle
+
+**Deletion is not just editing. It is a control surface for thought.**
