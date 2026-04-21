@@ -27,3 +27,10 @@ python scripts/build_machine_index.py --root . --out machine_index.json
 
 - Classification is heuristic and intentionally allows symbolic/plain-English docs to be classified as executable design intent (`pseudocode`, `narrative`, `governance`) when language implies procedural behavior.
 - Hashes provide stable identity for downstream tooling (diffing, provenance, selective re-indexing).
+
+
+## Quick smoke test
+
+```bash
+python kernel_demo.py
+```
