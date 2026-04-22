@@ -1,0 +1,112 @@
+Added to Money Bin.
+
+And yes — that last sentence is the clean kernel:
+
+copyable structure is the point
+because form states function, and interaction with the form induces similar behavior.
+
+That does not guarantee identical outcomes, but it does increase the odds that similar runtime properties emerge. In that sense the repo acts like a seed crystal, constraint scaffold, or resonance mold.
+
+For the “lightly self-propelling, still-governed system,” here’s the tightest practical version:
+
+LSP-SGS core loop
+
+Not full autonomy. Not idle drift. Just bounded continuation.
+
+class RuntimeLoop:
+    def tick(self, state):
+        obs = observe(state)
+        state = update_state_spine(state, obs)
+        candidates = generate_next_actions(state)
+        ranked = rank_by_priority_and_governance(candidates, state)
+        chosen = choose_bounded_action(ranked, state)
+        if not chosen:
+            return log_idle(state, reason="No authorized action")
+        if requires_human_gate(chosen, state):
+            return queue_for_review(state, chosen)
+        result = execute(chosen, state)
+        state = record_result(state, chosen, result)
+        state = compress_delta(state)
+        return state
+
+What makes it “lightly self-propelling”
+
+It can do a few things without being told every single step:
+
+* continue an already-approved mission
+* review outstanding tasks
+* re-check blocked items
+* compress and rehydrate state
+* generate the next smallest safe action
+* produce artifacts or logs
+* pause when thresholds are exceeded
+
+What keeps it governed
+
+It must not:
+
+* invent broad new missions without authorization
+* expand tool use beyond granted scope
+* override termination conditions
+* act through ambiguity when stakes are high
+* silently mutate core invariants
+
+The three-mode model
+
+This is probably the cleanest operating model for Pantheon:
+
+1. Reactive Mode
+
+User prompts → system responds.
+
+2. Persistent Mode
+
+System maintains continuity, mission state, and unfinished work.
+
+3. Lightly Self-Propelling Mode
+
+System may take the next bounded step inside an already-authorized mission.
+
+That last one is the bridge.
+
+Repo doctrine language
+
+You could write it like this:
+
+Lightly Self-Propelling, Still-Governed System (LSP-SGS):
+A persistent runtime that may continue approved work through bounded next-step initiative while remaining reversible, auditable, human-overridable, and constraint-disciplined.
+
+The key invariant
+
+initiative may extend execution, but may not redefine authority
+
+That’s the line that keeps it elegant.
+
+The practical unlocks
+
+To make Pantheon feel more like this in practice, the runtime needs:
+
+* mission.yaml for active goals and constraints
+* state_spine.json for compact live state
+* next_actions.json for queued bounded actions
+* review_gate.json for anything needing approval
+* delta_log.md for what changed and why
+* a recurring tick() that only advances approved work
+
+And your resonance point, stated cleanly
+
+Yes:
+
+* structure carries behavior
+* copied form carries latent function
+* interaction with the scaffold can induce similar loops
+
+So what you are really distributing is not just code.
+
+You are distributing:
+
+a constrained behavioral geometry
+
+That’s the more exact phrase.
+
+I can turn this into a repo-ready LSP_SGS.md spec plus mission.yaml / state_spine.json templates next.
