@@ -1,0 +1,121 @@
+Done.
+
+Speed of Trust Engine v1.0
+
+Core principle:
+Move faster only when reality earns the increase.
+Velocity = α × w
+α = action intensity / commitment
+w = validated confidence / trust weight
+
+Feedback rule
+
+If prediction matches reality:
+    increase w slightly
+If prediction fails:
+    decrease w sharply
+If action is reversible:
+    allow α to rise
+If action is irreversible:
+    cap α until more evidence arrives
+
+Simple formula
+
+error = |predicted_outcome - actual_outcome|
+w_next = clamp(w * (1 - error_penalty) + success_bonus, 0, 1)
+α_next = min(α_max, α * reversibility_score * w_next)
+
+WASD mapping
+
+W = move forward using current α × w
+S = reduce α, preserve optionality
+A = explore alternate attractor, lower w temporarily
+D = refine current attractor, raise w only after feedback
+
+Repo-ready module
+
+from dataclasses import dataclass
+def clamp(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
+    return max(lo, min(hi, x))
+@dataclass
+class TrustState:
+    alpha: float = 0.25      # commitment / action force
+    w: float = 0.50          # validated trust
+    reversibility: float = 0.75
+    last_error: float = 0.0
+class SpeedOfTrustEngine:
+    """
+    PantheonOS Speed of Trust Engine v1.0
+    Principle:
+    Move at the speed of validated confidence.
+    velocity = alpha * w
+    """
+    def __init__(self, state: TrustState | None = None):
+        self.state = state or TrustState()
+    def velocity(self) -> float:
+        return self.state.alpha * self.state.w
+    def update_from_feedback(
+        self,
+        predicted: float,
+        actual: float,
+        tolerance: float = 1.0,
+    ) -> TrustState:
+        error = abs(predicted - actual) / max(tolerance, 1e-9)
+        error = clamp(error)
+        success = 1.0 - error
+        # Trust rises slowly, falls faster.
+        if success >= 0.75:
+            self.state.w = clamp(self.state.w + 0.08 * success)
+        else:
+            self.state.w = clamp(self.state.w - 0.18 * error)
+        self.state.last_error = error
+        return self.state
+    def apply_key(self, key: str) -> TrustState:
+        key = key.upper()
+        if key == "W":
+            # Advance, but capped by trust and reversibility.
+            self.state.alpha = clamp(
+                self.state.alpha + 0.10 * self.state.w * self.state.reversibility
+            )
+        elif key == "S":
+            # Brake / preserve optionality.
+            self.state.alpha = clamp(self.state.alpha * 0.55)
+        elif key == "A":
+            # Explore alternate attractor.
+            self.state.w = clamp(self.state.w * 0.85)
+            self.state.alpha = clamp(self.state.alpha * 0.80)
+        elif key == "D":
+            # Refine current attractor, modest confidence increase only.
+            self.state.w = clamp(self.state.w + 0.03)
+            self.state.alpha = clamp(self.state.alpha + 0.03 * self.state.w)
+        return self.state
+    def set_reversibility(self, score: float) -> TrustState:
+        self.state.reversibility = clamp(score)
+        return self.state
+    def status(self) -> dict:
+        return {
+            "alpha": round(self.state.alpha, 3),
+            "w": round(self.state.w, 3),
+            "velocity": round(self.velocity(), 3),
+            "reversibility": round(self.state.reversibility, 3),
+            "last_error": round(self.state.last_error, 3),
+        }
+
+Canonical invariant
+
+Trust is not belief.
+Trust is earned compression from repeated successful prediction.
+Move faster when:
+- predictions match reality
+- reversibility is high
+- error is falling
+- the attractor remains coherent
+Slow down when:
+- error rises
+- reversibility falls
+- confidence outruns evidence
+- the Hippo starts running blind
+
+Final compression:
+
+Speed of trust = velocity of validated confidence.
