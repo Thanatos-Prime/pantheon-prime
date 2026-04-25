@@ -1,7 +1,6 @@
-from pantheon.state_vector import StateVector
-from pantheon.invariants import InvariantAggregator
-from pantheon.daemons import MirrorDaemon, HoundDaemon
-from pantheon.kernel import PantheonKernel
+from invariants import InvariantAggregator
+from daemons import MirrorDaemon, HoundDaemon
+from kernel import PantheonKernel
 
 
 def make_kernel() -> PantheonKernel:
