@@ -1,0 +1,150 @@
+Vesica Control Mesh v1.0
+
+Circle-Halo Animation Layer
+
+One-line definition
+
+Triangles render the surface; circle-halos model relationships; vesicas encode interaction; animation expresses the relationship field.
+
+⸻
+
+1. Core Stack
+
+Render Layer:      triangle mesh
+Control Layer:     circle/sphere halos
+Interaction Layer: vesica overlap zones
+Behavior Layer:    deformation, smoothing, blending, texture flow
+Meaning Layer:     trust, tension, alignment, bonding, separation
+
+⸻
+
+2. Primitive
+
+Each triangle Tᵢ gets a halo:
+
+Hᵢ = {
+  center: cᵢ,
+  radius: rᵢ,
+  normal: nᵢ,
+  velocity: vᵢ,
+  stability: sᵢ,
+  semantic_tag: optional
+}
+
+The triangle remains the GPU/render primitive.
+The halo becomes the relationship primitive.
+
+⸻
+
+3. Vesica Interaction
+
+For two halos Hᵢ and Hⱼ:
+
+d = distance(cᵢ, cⱼ)
+
+If:
+
+d < rᵢ + rⱼ
+
+then an interaction zone exists.
+
+Vᵢⱼ = overlap(Hᵢ, Hⱼ)
+
+That overlap is the vesica.
+
+⸻
+
+4. Influence Score
+
+overlap_score(i,j) =
+overlap_area(Hᵢ,Hⱼ) / min(area(Hᵢ), area(Hⱼ))
+
+Then weight it by motion and orientation:
+
+alignment(i,j) =
+overlap_score
+× normal_similarity(nᵢ,nⱼ)
+× velocity_similarity(vᵢ,vⱼ)
+× stability_score(i,j)
+
+Final relationship weight:
+
+wᵢⱼ = clamp(alignment(i,j), 0, 1)
+
+⸻
+
+5. Animation Update
+
+Each triangle updates from its own motion plus neighbor influence:
+
+motionᵢ =
+own_motionᵢ + Σ wᵢⱼ · motionⱼ
+
+Position update:
+
+pᵢ(t+1) =
+pᵢ(t) + motionᵢ · dt
+
+Normal smoothing:
+
+nᵢ(t+1) =
+normalize(nᵢ + Σ wᵢⱼ · nⱼ)
+
+Texture flow:
+
+uvᵢ(t+1) =
+uvᵢ(t) + Σ wᵢⱼ · flowⱼ · dt
+
+⸻
+
+6. Meaning Mapping
+
+deep overlap     → harmony / bonding / compression
+shallow overlap  → tension / distance / weak relation
+no overlap       → separation / break
+unstable overlap → conflict / flicker / shear
+stable overlap   → trust / coherence / smooth flow
+
+⸻
+
+7. Pipeline
+
+1. Build triangle mesh
+2. Assign halo to each triangle or control cell
+3. Detect halo overlaps
+4. Compute vesica relationship weights
+5. Apply smoothing/deformation through weights
+6. Render final triangle mesh
+7. Repeat every frame
+
+⸻
+
+8. Design Principle
+
+Do not replace triangles. Elevate them.
+
+Triangles answer:
+
+What is the surface?
+
+Vesicas answer:
+
+What relationships are shaping the surface?
+
+⸻
+
+9. Canonical Pantheon Phrase
+
+The triangle is the body.
+The circle is the field.
+The vesica is the handshake.
+The animation is the relationship made visible.
+
+⸻
+
+10. Status
+
+Classification: experimental animation-control grammar
+Use case: organic deformation, symbolic motion, relationship-aware animation
+Not claimed as: new rendering primitive or triangle replacement
+Claimed as: higher-order control layer over triangle meshes
