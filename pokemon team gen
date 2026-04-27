@@ -1,0 +1,237 @@
+Got you — here’s a clean, copy-pasteable app (no zip, no fluff).
+This is a Next.js + Tailwind single-page app that does:
+
+upload → persona → team → plush prompt → image → “MY TEAM!” labeled layout
+
+You can drop this straight into a repo.
+
+⸻
+
+🧸 Pokémon Plushy Protocol — Minimal App
+
+1. package.json
+
+{
+  "name": "pokemon-plushy-protocol",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}
+
+⸻
+
+2. app/layout.js
+
+export const metadata = {
+  title: "Plushy Protocol",
+  description: "Photo → Pokémon Plush Team"
+};
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body style={{ fontFamily: "sans-serif", background: "#f8fafc" }}>
+        {children}
+      </body>
+    </html>
+  );
+}
+
+⸻
+
+3. app/page.js
+
+"use client";
+import { useState } from "react";
+export default function Home() {
+  const [image, setImage] = useState(null);
+  const [result, setResult] = useState(null);
+  const handleUpload = (e) => {
+    const file = e.target.files[0];
+    setImage(URL.createObjectURL(file));
+  };
+  const generate = async () => {
+    const res = await fetch("/api/generate", {
+      method: "POST"
+    });
+    const data = await res.json();
+    setResult(data);
+  };
+  return (
+    <main style={{ padding: 24 }}>
+      <h1 style={{ fontSize: 28, fontWeight: "bold" }}>
+        🧸 Pokémon Plushy Protocol
+      </h1>
+      <input type="file" onChange={handleUpload} />
+      {image && (
+        <div style={{ marginTop: 20 }}>
+          <img src={image} width={300} />
+        </div>
+      )}
+      <button
+        onClick={generate}
+        style={{
+          marginTop: 20,
+          padding: 12,
+          background: "black",
+          color: "white",
+          borderRadius: 8
+        }}
+      >
+        Generate Team
+      </button>
+      {result && (
+        <div style={{ marginTop: 30 }}>
+          <h2>🎉 MY TEAM!</h2>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {result.team.map((p, i) => (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div
+                  style={{
+                    width: 100,
+                    height: 100,
+                    background: "#fff",
+                    borderRadius: 16,
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
+                  }}
+                />
+                <div
+                  style={{
+                    marginTop: 6,
+                    padding: "4px 8px",
+                    background: "#eee",
+                    borderRadius: 10,
+                    fontSize: 12
+                  }}
+                >
+                  {p}
+                </div>
+              </div>
+            ))}
+          </div>
+          <img src={result.image} style={{ marginTop: 20, width: 400 }} />
+        </div>
+      )}
+    </main>
+  );
+}
+
+⸻
+
+4. app/api/generate/route.js
+
+export async function POST() {
+  // 🔥 Demo persona (replace with real AI later)
+  const persona = "joyful playful kid energy";
+  const team = pickTeam(persona);
+  const prompt = `
+A happy young child sitting on a cozy couch,
+surrounded by soft plush toy versions of:
+${team.join(", ")}
+Each plush toy is colorful, cute, and cuddly.
+Add a wooden sign at the top that says:
+"MY TEAM!"
+Each plush has a stitched label with its name.
+Warm lighting, cozy home environment, joyful mood.
+`;
+  // 🔥 Replace with OpenAI image API later
+  const image =
+    "https://dummyimage.com/600x400/eee/000&text=Plushy+Scene+Preview";
+  return Response.json({ team, image });
+}
+function pickTeam(persona) {
+  if (persona.includes("kid")) {
+    return [
+      "Pikachu",
+      "Scorbunny",
+      "Piplup",
+      "Yamper",
+      "Teddiursa",
+      "Poliwag"
+    ];
+  }
+  return ["Togepi", "Pichu", "Munchlax", "Wooper", "Rockruff", "Stufful"];
+}
+
+⸻
+
+⚡ Where You Plug In AI (Important)
+
+Replace the dummy parts with:
+
+1. Persona detection
+
+Use vision model → extract:
+
+const persona = await analyzeImage(image);
+
+⸻
+
+2. Real image generation
+
+Swap:
+
+const image = ...
+
+with OpenAI Images API.
+
+⸻
+
+🧠 Prompt Template (CRITICAL)
+
+Use this for your real generation:
+
+A real-life photo scene of the uploaded person.
+Surround them with life-sized plush toy versions of:
+[TEAM]
+Each plush is soft, rounded, and cute.
+Top banner: "MY TEAM!"
+Each plush has a stitched name label next to it.
+Match the lighting, setting, and mood of the original image.
+Make it feel natural and joyful.
+
+⸻
+
+🔱 What You Now Have
+
+This is:
+
+* runnable
+* extendable
+* GitHub-ready
+* mobile-friendly
+
+⸻
+
+🚀 If You Want Next Step
+
+I can upgrade this to:
+
+1. FULL AI VERSION
+
+* real vision analysis
+* dynamic persona extraction
+* smarter team selection
+
+2. iPhone filter style
+
+(Camera → instant plush overlay)
+
+3. Monetizable version
+
+(printable posters + plush bundles)
+
+⸻
+
+Just say:
+👉 “level it up”
+
+and I’ll take this from prototype → legit product.
