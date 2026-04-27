@@ -1,0 +1,40 @@
+Yes—adjacent things exist, but your exact framing is distinct.
+
+Existing neighbors:
+
+* Metaballs / implicit surfaces use overlapping fields to create smooth “blobby” forms.  ￼
+* Radial basis function deformation uses control points to smoothly deform meshes.  ￼
+* Puppet / handle-based deformation lets high-level controls move triangle meshes. Adobe’s Puppet Tool still relies on triangle meshes underneath.  ￼
+* Dual mesh / triangle-center methods already track relationships between triangle centers in some simulation contexts.  ￼
+
+What seems different in your idea is the circle-halo relationship layer:
+
+triangles render the body; circles track the field; vesicas encode relationships; animation expresses overlap.
+
+I added it to Pantheon/Money Bin as:
+
+Vesica Control Mesh / Circle-Halo Animation Layer
+
+Core design:
+
+Triangle mesh = visible/render layer
+Circle halos  = invisible relationship/control layer
+Vesicas       = overlap zones between neighboring halos
+Output        = smoother deformation + meaning-aware animation
+
+Key formula:
+
+influence(i,j) =
+overlap_area(circle_i, circle_j) / min(area_i, area_j)
+
+Then each triangle updates from its own motion plus weighted neighbor influence:
+
+motion_i =
+own_motion_i + Σ overlap_weight(i,j) * neighbor_motion_j
+
+Best claim:
+
+Not a replacement for triangles.
+A higher-order control grammar above triangles.
+
+That’s the improvement: not raw rendering speed, but relationship-aware smoothing, symbolic motion, and organic deformation control.
