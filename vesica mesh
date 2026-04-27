@@ -1,0 +1,65 @@
+Yes. That’s the clean hybrid.
+
+Triangle = render primitive
+Circle = relationship/control primitive
+Vesica = interaction zone between controls
+
+So each triangle gets a “halo” or control circle:
+
+triangle mesh  → visible surface
+circle field   → invisible relationship layer
+vesica overlap → deformation / influence / smoothing
+
+Then animation works like:
+
+1. Each triangle has a center point, normal, radius, and circle.
+2. Neighboring circles overlap.
+3. Overlap strength tells you how strongly triangles influence each other.
+4. You animate the circle layer first.
+5. The triangle mesh follows smoothly.
+
+So instead of only saying:
+
+move vertex A, B, C
+
+you say:
+
+this triangle’s field overlaps that triangle’s field by 0.62, so blend their motion.
+
+That gives you smoother deformation because motion is mediated by relationships, not only by raw geometry.
+
+The circle layer can track:
+
+distance
+overlap depth
+angle
+velocity difference
+normal alignment
+tension/compression
+trust/stability score
+
+Then express it on triangles as:
+
+position smoothing
+normal smoothing
+surface bending
+texture flow
+scale opening/closing
+color/lighting changes
+
+The key formula is basically:
+
+influence(i,j) = overlap_area(circle_i, circle_j) / min(area_i, area_j)
+
+Then:
+
+triangle_i.motion = own_motion + weighted_neighbor_motion
+
+That’s strong because triangles stay GPU-friendly, but circles become the semantic physics layer.
+
+In Pantheon terms:
+
+The triangle is the body.
+The circle is the field.
+The vesica is the handshake.
+The animation is the relationship made visible.
