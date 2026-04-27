@@ -1,0 +1,732 @@
+import { useState, useEffect, useRef } from “react”;
+
+const POKEMON_DB = {
+joy: [
+{ name: “Togepi”, type: “Fairy”, trait: “Pure Joy”, emoji: “🥚”, color: “#FFE5B4”, energy: “soft” },
+{ name: “Togekiss”, type: “Fairy/Flying”, trait: “Radiant Happiness”, emoji: “🕊️”, color: “#E8F4FD”, energy: “calm” },
+{ name: “Jigglypuff”, type: “Normal/Fairy”, trait: “Infectious Delight”, emoji: “🎵”, color: “#FFB6C1”, energy: “playful” },
+],
+chaos: [
+{ name: “Pichu”, type: “Electric”, trait: “Sparkling Chaos”, emoji: “⚡”, color: “#FFF176”, energy: “wild” },
+{ name: “Scorbunny”, type: “Fire”, trait: “Unstoppable Energy”, emoji: “🔥”, color: “#FF8C69”, energy: “wild” },
+{ name: “Mantyke”, type: “Water/Flying”, trait: “Carefree Tumbling”, emoji: “🌊”, color: “#87CEEB”, energy: “playful” },
+],
+food: [
+{ name: “Munchlax”, type: “Normal”, trait: “Comfort & Snacks”, emoji: “🍖”, color: “#98FB98”, energy: “calm” },
+{ name: “Snorlax”, type: “Normal”, trait: “Cozy Fullness”, emoji: “😴”, color: “#A8C8A8”, energy: “soft” },
+{ name: “Slurpuff”, type: “Fairy”, trait: “Sweet Cravings”, emoji: “🍰”, color: “#FFB6C1”, energy: “soft” },
+],
+calm: [
+{ name: “Primarina”, type: “Water/Fairy”, trait: “Graceful Calm”, emoji: “🌙”, color: “#B0C4DE”, energy: “calm” },
+{ name: “Florges”, type: “Fairy”, trait: “Serene Balance”, emoji: “🌸”, color: “#DDA0DD”, energy: “soft” },
+{ name: “Vaporeon”, type: “Water”, trait: “Fluid Stillness”, emoji: “💧”, color: “#6BB8E8”, energy: “calm” },
+],
+protect: [
+{ name: “Bewear”, type: “Normal/Fighting”, trait: “Fierce Protection”, emoji: “🐻”, color: “#D2691E”, energy: “strong” },
+{ name: “Arcanine”, type: “Fire”, trait: “Loyal Guardian”, emoji: “🦊”, color: “#FF6B35”, energy: “strong” },
+{ name: “Sylveon”, type: “Fairy”, trait: “Gentle Shield”, emoji: “🎀”, color: “#FFB7C5”, energy: “soft” },
+],
+curious: [
+{ name: “Rockruff”, type: “Rock”, trait: “Boundless Curiosity”, emoji: “🐕”, color: “#C4A882”, energy: “playful” },
+{ name: “Eevee”, type: “Normal”, trait: “Open Potential”, emoji: “✨”, color: “#C8A882”, energy: “playful” },
+{ name: “Dedenne”, type: “Electric/Fairy”, trait: “Eager Discovery”, emoji: “🔍”, color: “#FFD700”, energy: “wild” },
+],
+silly: [
+{ name: “Wooper”, type: “Water/Ground”, trait: “Goofy Vibes”, emoji: “😜”, color: “#7EC8E3”, energy: “playful” },
+{ name: “Quaxly”, type: “Water”, trait: “Cheerful Absurdity”, emoji: “🎩”, color: “#5BC8F5”, energy: “playful” },
+{ name: “Smoliv”, type: “Grass/Normal”, trait: “Tiny Chaos”, emoji: “🫒”, color: “#9DC183”, energy: “soft” },
+],
+leader: [
+{ name: “Lucario”, type: “Fighting/Steel”, trait: “Focused Leadership”, emoji: “⚔️”, color: “#4169E1”, energy: “strong” },
+{ name: “Gardevoir”, type: “Psychic/Fairy”, trait: “Wise Guidance”, emoji: “🌟”, color: “#E8C8E8”, energy: “calm” },
+{ name: “Umbreon”, type: “Dark”, trait: “Patient Authority”, emoji: “🌑”, color: “#2C2C54”, energy: “calm” },
+],
+};
+
+const VIBES = [
+{ id: “joyful”, label: “Joyful”, emoji: “😊”, desc: “Radiating happiness”, traits: [“joy”, “silly”] },
+{ id: “chaotic”, label: “Chaotic”, emoji: “⚡”, desc: “Pure unfiltered energy”, traits: [“chaos”, “silly”, “curious”] },
+{ id: “cozy”, label: “Cozy”, emoji: “🛋️”, desc: “Warmth and comfort”, traits: [“food”, “calm”, “protect”] },
+{ id: “curious”, label: “Curious”, emoji: “🔭”, desc: “Always exploring”, traits: [“curious”, “chaos”, “leader”] },
+{ id: “calm”, label: “Calm”, emoji: “🌿”, desc: “Grounded and still”, traits: [“calm”, “protect”, “food”] },
+{ id: “leader”, label: “Leader”, emoji: “👑”, desc: “Natural authority”, traits: [“leader”, “protect”, “calm”] },
+{ id: “playful”, label: “Playful”, emoji: “🎮”, desc: “Game face on”, traits: [“chaos”, “silly”, “curious”] },
+{ id: “nurturing”, label: “Nurturing”, emoji: “🤗”, desc: “Caregiver energy”, traits: [“protect”, “calm”, “food”] },
+];
+
+const AGE_GROUPS = [
+{ id: “baby”, label: “Baby”, emoji: “👶”, desc: “0–2 years”, scale: “baby” },
+{ id: “toddler”, label: “Toddler”, emoji: “🧒”, desc: “2–5 years”, scale: “toddler” },
+{ id: “kid”, label: “Kid”, emoji: “🧑”, desc: “6–12 years”, scale: “kid” },
+{ id: “teen”, label: “Teen”, emoji: “🧑‍🎤”, desc: “13–17 years”, scale: “teen” },
+{ id: “adult”, label: “Adult”, emoji: “🧑‍💼”, desc: “18+ years”, scale: “adult” },
+];
+
+const CONTEXTS = [
+{ id: “birthday”, label: “Birthday”, emoji: “🎂”, desc: “Celebration time” },
+{ id: “beach”, label: “Beach”, emoji: “🌊”, desc: “Sunny and free” },
+{ id: “couch”, label: “Couch”, emoji: “🛋️”, desc: “Lounge mode” },
+{ id: “adventure”, label: “Adventure”, emoji: “🏔️”, desc: “Out in the world” },
+{ id: “dinnertime”, label: “Dinner”, emoji: “🍽️”, desc: “Food chaos” },
+{ id: “morning”, label: “Morning”, emoji: “☀️”, desc: “Fresh start energy” },
+];
+
+const CONTEXT_SCENE = {
+birthday: “hats on, cake nearby, confetti everywhere 🎉 — the plushies are mid-celebration”,
+beach: “wind-blown and sun-warmed, some half-buried in sand, one definitely about to get splashed 🌊”,
+couch: “piled up, overlapping, completely at home — someone’s definitely using Munchlax as a pillow 🛋️”,
+adventure: “backpacks, wide eyes, positioned like a scouting party on a trail 🏔️”,
+dinnertime: “surrounding a full table, some eyeing the food dangerously 🍽️”,
+morning: “half-awake, sun coming through a window, soft and warm in early light ☀️”,
+};
+
+const AGE_SCENE = {
+baby: “oversized plushies — each one bigger than the baby, almost engulfing them in soft warmth”,
+toddler: “child-sized plushies standing at eye level, ready to be grabbed and dragged everywhere”,
+kid: “equal-size companions — a real crew, shoulder to shoulder”,
+teen: “slightly smaller, styled — more ‘collector shelf’ than ‘huggable pile’”,
+adult: “elegant companion guardians, slightly larger, with presence”,
+};
+
+function generateTeam(vibes, age) {
+const selectedVibe = VIBES.find(v => v.id === vibes[0]);
+if (!selectedVibe) return [];
+
+const traitPool = selectedVibe.traits;
+const team = [];
+const used = new Set();
+
+// Pull from trait pools, deduplicate
+for (const trait of traitPool) {
+if (team.length >= 6) break;
+const pool = POKEMON_DB[trait] || [];
+for (const mon of pool) {
+if (!used.has(mon.name) && team.length < 6) {
+// Age filter: babies/toddlers get simpler forms
+if ((age === “baby” || age === “toddler”) && mon.energy === “strong”) continue;
+if (age === “adult” && mon.energy === “wild” && team.length > 3) continue;
+used.add(mon.name);
+team.push({ …mon, role: trait });
+}
+}
+}
+
+// Fill to 6 if needed
+const allMons = Object.values(POKEMON_DB).flat();
+for (const mon of allMons) {
+if (team.length >= 6) break;
+if (!used.has(mon.name)) {
+used.add(mon.name);
+team.push({ …mon, role: “wildcard” });
+}
+}
+
+return team.slice(0, 6);
+}
+
+function buildPrompt(team, age, context, vibeLabel, persona) {
+const agePlushDesc = AGE_SCENE[age] || AGE_SCENE.adult;
+const contextDesc = CONTEXT_SCENE[context] || CONTEXT_SCENE.couch;
+const teamNames = team.map(t => t.name).join(”, “);
+
+return `Digital illustration, plush toy photography style. A collection of Pokémon plush dolls: ${teamNames}. ${agePlushDesc}. Scene: ${contextDesc}. All Pokémon rendered as soft plushies — rounded seams, button eyes, pastel-brightened colors, huggable proportions. Warm studio lighting with soft shadows. Vibrant, joyful, safe. --ar 4:3 --style raw --v 6`;
+}
+
+const STEP_LABELS = [“Vibe”, “Age”, “Context”, “Your Team”];
+
+export default function PlushyProtocol() {
+const [step, setStep] = useState(0);
+const [selectedVibes, setSelectedVibes] = useState([]);
+const [selectedAge, setSelectedAge] = useState(null);
+const [selectedContext, setSelectedContext] = useState(null);
+const [team, setTeam] = useState([]);
+const [persona, setPersona] = useState(””);
+const [prompt, setPrompt] = useState(””);
+const [copied, setCopied] = useState(false);
+const [revealed, setRevealed] = useState([]);
+const resultRef = useRef(null);
+
+const toggleVibe = (id) => {
+setSelectedVibes(prev =>
+prev.includes(id) ? prev.filter(v => v !== id) : prev.length < 3 ? […prev, id] : prev
+);
+};
+
+const canAdvance = () => {
+if (step === 0) return selectedVibes.length > 0;
+if (step === 1) return selectedAge !== null;
+if (step === 2) return selectedContext !== null;
+return false;
+};
+
+const advance = () => {
+if (step === 2) {
+const vibeData = VIBES.filter(v => selectedVibes.includes(v.id));
+const vibeLabel = vibeData.map(v => v.label).join(” + “);
+const personaStr = vibeData.map(v => v.desc).join(”, “);
+const generated = generateTeam(selectedVibes, selectedAge);
+const p = buildPrompt(generated, selectedAge, selectedContext, vibeLabel, personaStr);
+setTeam(generated);
+setPersona(personaStr);
+setPrompt(p);
+setStep(3);
+setRevealed([]);
+// Stagger reveal
+generated.forEach((_, i) => {
+setTimeout(() => setRevealed(prev => […prev, i]), 300 + i * 180);
+});
+setTimeout(() => resultRef.current?.scrollIntoView({ behavior: “smooth” }), 100);
+} else {
+setStep(s => s + 1);
+}
+};
+
+const reset = () => {
+setStep(0);
+setSelectedVibes([]);
+setSelectedAge(null);
+setSelectedContext(null);
+setTeam([]);
+setPersona(””);
+setPrompt(””);
+setRevealed([]);
+};
+
+const copyPrompt = () => {
+navigator.clipboard.writeText(prompt).then(() => {
+setCopied(true);
+setTimeout(() => setCopied(false), 2000);
+});
+};
+
+const vibeLabel = VIBES.filter(v => selectedVibes.includes(v.id)).map(v => v.label).join(” + “);
+const ageData = AGE_GROUPS.find(a => a.id === selectedAge);
+const contextData = CONTEXTS.find(c => c.id === selectedContext);
+
+return (
+<div style={{
+minHeight: “100vh”,
+background: “linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 40%, #0a1a2e 100%)”,
+fontFamily: “‘Georgia’, ‘Times New Roman’, serif”,
+color: “#f0e8d8”,
+position: “relative”,
+overflow: “hidden”,
+}}>
+{/* Background texture */}
+<div style={{
+position: “fixed”, inset: 0, pointerEvents: “none”, zIndex: 0,
+backgroundImage: `radial-gradient(circle at 20% 20%, rgba(120,80,200,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(80,160,220,0.08) 0%, transparent 50%), radial-gradient(circle at 50% 50%, rgba(255,180,100,0.04) 0%, transparent 70%)`,
+}} />
+
+```
+  {/* Floating orbs */}
+  {[...Array(6)].map((_, i) => (
+    <div key={i} style={{
+      position: "fixed",
+      width: `${40 + i * 20}px`,
+      height: `${40 + i * 20}px`,
+      borderRadius: "50%",
+      background: `radial-gradient(circle, ${["rgba(255,200,100,0.06)","rgba(180,120,255,0.05)","rgba(100,200,255,0.05)","rgba(255,150,180,0.05)","rgba(150,255,180,0.04)","rgba(255,220,80,0.04)"][i]} 0%, transparent 70%)`,
+      top: `${[10,60,30,80,20,70][i]}%`,
+      left: `${[5,85,45,15,70,35][i]}%`,
+      pointerEvents: "none",
+      animation: `float ${4 + i}s ease-in-out infinite`,
+      animationDelay: `${i * 0.8}s`,
+    }} />
+  ))}
+
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(5deg); }
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes cardPop {
+      0% { opacity: 0; transform: translateY(30px) rotate(-3deg) scale(0.8); }
+      60% { transform: translateY(-5px) rotate(1deg) scale(1.03); }
+      100% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    @keyframes scanline {
+      0% { top: -10%; }
+      100% { top: 110%; }
+    }
+    .step-card {
+      animation: fadeSlideIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    .pokemon-card {
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease;
+    }
+    .pokemon-card:hover {
+      transform: translateY(-6px) rotate(1deg) scale(1.04);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 20px rgba(255,200,100,0.2) !important;
+    }
+    .vibe-btn {
+      transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+      cursor: pointer;
+    }
+    .vibe-btn:hover {
+      transform: translateY(-3px) scale(1.03);
+    }
+    .vibe-btn.selected {
+      transform: translateY(-2px) scale(1.02);
+    }
+    .copy-btn {
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .copy-btn:hover {
+      transform: scale(1.02);
+      filter: brightness(1.1);
+    }
+    .advance-btn {
+      transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+      cursor: pointer;
+    }
+    .advance-btn:hover:not(:disabled) {
+      transform: translateY(-2px) scale(1.02);
+    }
+    .advance-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  `}</style>
+
+  <div style={{ position: "relative", zIndex: 1, maxWidth: "800px", margin: "0 auto", padding: "40px 20px 80px" }}>
+
+    {/* Header */}
+    <div style={{ textAlign: "center", marginBottom: "48px", animation: "fadeSlideIn 0.6s ease forwards" }}>
+      <div style={{ fontSize: "48px", marginBottom: "8px" }}>🧸</div>
+      <h1 style={{
+        fontFamily: "'Cinzel', serif",
+        fontSize: "clamp(22px, 5vw, 36px)",
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        background: "linear-gradient(135deg, #FFE5B4 0%, #FFB6C1 40%, #B0C4DE 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        marginBottom: "8px",
+        lineHeight: 1.2,
+      }}>
+        Plushy Protocol
+      </h1>
+      <p style={{
+        fontFamily: "'Crimson Text', serif",
+        fontSize: "16px",
+        color: "rgba(240,232,216,0.55)",
+        fontStyle: "italic",
+        letterSpacing: "0.05em",
+      }}>
+        Vibe → Persona → Team → Scene
+      </p>
+    </div>
+
+    {/* Progress bar */}
+    <div style={{ display: "flex", gap: "8px", marginBottom: "40px", alignItems: "center" }}>
+      {STEP_LABELS.map((label, i) => (
+        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+          <div style={{
+            height: "3px",
+            borderRadius: "2px",
+            background: i <= step
+              ? "linear-gradient(90deg, #FFE5B4, #FFB6C1)"
+              : "rgba(255,255,255,0.1)",
+            transition: "background 0.4s ease",
+            width: "100%",
+          }} />
+          <span style={{
+            fontFamily: "'Cinzel', serif",
+            fontSize: "10px",
+            letterSpacing: "0.1em",
+            color: i <= step ? "rgba(255,220,180,0.8)" : "rgba(255,255,255,0.25)",
+            textTransform: "uppercase",
+            transition: "color 0.4s ease",
+          }}>{label}</span>
+        </div>
+      ))}
+    </div>
+
+    {/* Step 0: Vibe selection */}
+    {step === 0 && (
+      <div className="step-card">
+        <SectionHeader
+          step="01"
+          title="What's the vibe?"
+          sub="Pick up to 3 — these map directly to your team"
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "12px", marginBottom: "32px" }}>
+          {VIBES.map(vibe => {
+            const sel = selectedVibes.includes(vibe.id);
+            return (
+              <button
+                key={vibe.id}
+                className={`vibe-btn ${sel ? "selected" : ""}`}
+                onClick={() => toggleVibe(vibe.id)}
+                style={{
+                  background: sel
+                    ? "linear-gradient(135deg, rgba(255,220,160,0.18), rgba(255,180,200,0.18))"
+                    : "rgba(255,255,255,0.04)",
+                  border: sel ? "1.5px solid rgba(255,210,150,0.6)" : "1.5px solid rgba(255,255,255,0.1)",
+                  borderRadius: "14px",
+                  padding: "16px 12px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  color: "#f0e8d8",
+                  boxShadow: sel ? "0 0 20px rgba(255,200,100,0.15), inset 0 1px 0 rgba(255,255,255,0.1)" : "none",
+                }}
+              >
+                <div style={{ fontSize: "24px", marginBottom: "6px" }}>{vibe.emoji}</div>
+                <div style={{ fontFamily: "'Cinzel', serif", fontSize: "13px", fontWeight: 600, letterSpacing: "0.05em", marginBottom: "3px" }}>
+                  {vibe.label}
+                </div>
+                <div style={{ fontFamily: "'Crimson Text', serif", fontSize: "12px", color: "rgba(240,232,216,0.5)", fontStyle: "italic" }}>
+                  {vibe.desc}
+                </div>
+                {sel && <div style={{ position: "absolute", top: "10px", right: "10px", fontSize: "10px", color: "rgba(255,210,150,0.8)" }}>✓</div>}
+              </button>
+            );
+          })}
+        </div>
+        <AdvanceButton onClick={advance} disabled={!canAdvance()} label="Choose Age →" />
+      </div>
+    )}
+
+    {/* Step 1: Age */}
+    {step === 1 && (
+      <div className="step-card">
+        <SectionHeader step="02" title="Who is this for?" sub="Age shapes the whole team — size, forms, energy" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "12px", marginBottom: "32px" }}>
+          {AGE_GROUPS.map(ag => {
+            const sel = selectedAge === ag.id;
+            return (
+              <button
+                key={ag.id}
+                className="vibe-btn"
+                onClick={() => setSelectedAge(ag.id)}
+                style={{
+                  background: sel ? "linear-gradient(135deg, rgba(160,200,255,0.18), rgba(180,150,255,0.18))" : "rgba(255,255,255,0.04)",
+                  border: sel ? "1.5px solid rgba(160,200,255,0.6)" : "1.5px solid rgba(255,255,255,0.1)",
+                  borderRadius: "14px",
+                  padding: "20px 12px",
+                  cursor: "pointer",
+                  textAlign: "center",
+                  color: "#f0e8d8",
+                  boxShadow: sel ? "0 0 20px rgba(160,200,255,0.15)" : "none",
+                }}
+              >
+                <div style={{ fontSize: "28px", marginBottom: "8px" }}>{ag.emoji}</div>
+                <div style={{ fontFamily: "'Cinzel', serif", fontSize: "13px", fontWeight: 600, letterSpacing: "0.05em", marginBottom: "3px" }}>{ag.label}</div>
+                <div style={{ fontFamily: "'Crimson Text', serif", fontSize: "11px", color: "rgba(240,232,216,0.5)", fontStyle: "italic" }}>{ag.desc}</div>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <BackButton onClick={() => setStep(0)} />
+          <AdvanceButton onClick={advance} disabled={!canAdvance()} label="Choose Scene →" flex />
+        </div>
+      </div>
+    )}
+
+    {/* Step 2: Context */}
+    {step === 2 && (
+      <div className="step-card">
+        <SectionHeader step="03" title="Set the scene" sub="This determines how the plushies are placed and posed" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "12px", marginBottom: "32px" }}>
+          {CONTEXTS.map(ctx => {
+            const sel = selectedContext === ctx.id;
+            return (
+              <button
+                key={ctx.id}
+                className="vibe-btn"
+                onClick={() => setSelectedContext(ctx.id)}
+                style={{
+                  background: sel ? "linear-gradient(135deg, rgba(255,180,120,0.18), rgba(255,150,180,0.18))" : "rgba(255,255,255,0.04)",
+                  border: sel ? "1.5px solid rgba(255,180,120,0.6)" : "1.5px solid rgba(255,255,255,0.1)",
+                  borderRadius: "14px",
+                  padding: "20px 12px",
+                  cursor: "pointer",
+                  textAlign: "center",
+                  color: "#f0e8d8",
+                  boxShadow: sel ? "0 0 20px rgba(255,180,120,0.15)" : "none",
+                }}
+              >
+                <div style={{ fontSize: "28px", marginBottom: "8px" }}>{ctx.emoji}</div>
+                <div style={{ fontFamily: "'Cinzel', serif", fontSize: "13px", fontWeight: 600, letterSpacing: "0.05em", marginBottom: "3px" }}>{ctx.label}</div>
+                <div style={{ fontFamily: "'Crimson Text', serif", fontSize: "11px", color: "rgba(240,232,216,0.5)", fontStyle: "italic" }}>{ctx.desc}</div>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <BackButton onClick={() => setStep(1)} />
+          <AdvanceButton onClick={advance} disabled={!canAdvance()} label="Generate My Team →" flex />
+        </div>
+      </div>
+    )}
+
+    {/* Step 3: Result */}
+    {step === 3 && (
+      <div ref={resultRef} className="step-card">
+        {/* Persona summary */}
+        <div style={{
+          background: "linear-gradient(135deg, rgba(255,220,160,0.08), rgba(255,180,200,0.08))",
+          border: "1px solid rgba(255,210,150,0.2)",
+          borderRadius: "16px",
+          padding: "20px 24px",
+          marginBottom: "28px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontFamily: "'Cinzel', serif", fontSize: "11px", letterSpacing: "0.15em", color: "rgba(255,210,150,0.6)", textTransform: "uppercase", marginBottom: "6px" }}>
+            Persona Detected
+          </div>
+          <div style={{ fontFamily: "'Crimson Text', serif", fontSize: "18px", fontStyle: "italic", color: "rgba(255,230,200,0.9)" }}>
+            "{vibeLabel}{ageData ? ` · ${ageData.label}` : ""}{contextData ? ` · ${contextData.label}` : ""}"
+          </div>
+          <div style={{ fontFamily: "'Crimson Text', serif", fontSize: "14px", color: "rgba(240,232,216,0.5)", marginTop: "4px", fontStyle: "italic" }}>
+            {persona}
+          </div>
+        </div>
+
+        <SectionHeader step="✦" title="Your Plushy Team" sub="6 companions matched to your vibe" />
+
+        {/* Team grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "14px", marginBottom: "32px" }}>
+          {team.map((mon, i) => (
+            <div
+              key={mon.name}
+              className="pokemon-card"
+              style={{
+                opacity: revealed.includes(i) ? 1 : 0,
+                animation: revealed.includes(i) ? "cardPop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards" : "none",
+                background: `linear-gradient(135deg, ${mon.color}18, ${mon.color}08)`,
+                border: `1px solid ${mon.color}40`,
+                borderRadius: "16px",
+                padding: "16px 12px",
+                textAlign: "center",
+                position: "relative",
+                boxShadow: `0 4px 20px rgba(0,0,0,0.3), 0 0 10px ${mon.color}15`,
+              }}
+            >
+              <div style={{
+                position: "absolute", top: "8px", right: "10px",
+                fontFamily: "'Cinzel', serif", fontSize: "9px",
+                color: `${mon.color}99`, letterSpacing: "0.1em", textTransform: "uppercase",
+              }}>
+                #{String(i + 1).padStart(2, "0")}
+              </div>
+              <div style={{ fontSize: "32px", marginBottom: "6px" }}>{mon.emoji}</div>
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: "13px", fontWeight: 600, letterSpacing: "0.04em", marginBottom: "3px", color: "#f0e8d8" }}>
+                {mon.name}
+              </div>
+              <div style={{
+                display: "inline-block",
+                background: `${mon.color}25`,
+                border: `1px solid ${mon.color}50`,
+                borderRadius: "20px",
+                padding: "2px 8px",
+                fontSize: "10px",
+                fontFamily: "'Crimson Text', serif",
+                color: `${mon.color}ee`,
+                marginBottom: "6px",
+                letterSpacing: "0.03em",
+              }}>
+                {mon.type}
+              </div>
+              <div style={{
+                fontFamily: "'Crimson Text', serif",
+                fontSize: "11px",
+                fontStyle: "italic",
+                color: "rgba(240,232,216,0.55)",
+                lineHeight: 1.3,
+              }}>
+                {mon.trait}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Scene description */}
+        {contextData && (
+          <div style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "14px",
+            padding: "16px 20px",
+            marginBottom: "24px",
+          }}>
+            <div style={{ fontFamily: "'Cinzel', serif", fontSize: "10px", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", marginBottom: "6px" }}>
+              Scene · {contextData.label}
+            </div>
+            <div style={{ fontFamily: "'Crimson Text', serif", fontSize: "15px", fontStyle: "italic", color: "rgba(240,232,216,0.75)", lineHeight: 1.5 }}>
+              {contextData.emoji} {CONTEXT_SCENE[selectedContext]}
+            </div>
+            {ageData && (
+              <div style={{ fontFamily: "'Crimson Text', serif", fontSize: "13px", color: "rgba(240,232,216,0.45)", marginTop: "6px", fontStyle: "italic" }}>
+                Scale: {AGE_SCENE[selectedAge]}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Generation prompt */}
+        <div style={{
+          background: "rgba(0,0,0,0.3)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: "14px",
+          padding: "16px 20px",
+          marginBottom: "28px",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+            <div style={{ fontFamily: "'Cinzel', serif", fontSize: "10px", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
+              Image Prompt · Midjourney / DALL·E 3
+            </div>
+            <button
+              className="copy-btn"
+              onClick={copyPrompt}
+              style={{
+                background: copied ? "rgba(100,200,120,0.2)" : "rgba(255,255,255,0.08)",
+                border: `1px solid ${copied ? "rgba(100,200,120,0.4)" : "rgba(255,255,255,0.15)"}`,
+                borderRadius: "8px",
+                padding: "4px 12px",
+                color: copied ? "rgba(150,255,170,0.9)" : "rgba(255,255,255,0.5)",
+                fontSize: "11px",
+                fontFamily: "'Cinzel', serif",
+                letterSpacing: "0.08em",
+                cursor: "pointer",
+              }}
+            >
+              {copied ? "✓ Copied" : "Copy"}
+            </button>
+          </div>
+          <div style={{
+            fontFamily: "monospace",
+            fontSize: "12px",
+            color: "rgba(240,232,216,0.55)",
+            lineHeight: 1.6,
+            wordBreak: "break-word",
+          }}>
+            {prompt}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button
+            className="advance-btn"
+            onClick={reset}
+            style={{
+              flex: 1,
+              background: "rgba(255,255,255,0.06)",
+              border: "1.5px solid rgba(255,255,255,0.15)",
+              borderRadius: "12px",
+              padding: "14px",
+              color: "rgba(240,232,216,0.7)",
+              fontFamily: "'Cinzel', serif",
+              fontSize: "13px",
+              letterSpacing: "0.08em",
+              cursor: "pointer",
+            }}
+          >
+            ↺ New Team
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+```
+
+);
+}
+
+function SectionHeader({ step, title, sub }) {
+return (
+<div style={{ marginBottom: “24px” }}>
+<div style={{ display: “flex”, alignItems: “baseline”, gap: “12px”, marginBottom: “4px” }}>
+<span style={{
+fontFamily: “‘Cinzel’, serif”,
+fontSize: “11px”,
+letterSpacing: “0.15em”,
+color: “rgba(255,210,150,0.5)”,
+textTransform: “uppercase”,
+}}>{step}</span>
+<h2 style={{
+fontFamily: “‘Cinzel’, serif”,
+fontSize: “20px”,
+fontWeight: 600,
+letterSpacing: “0.04em”,
+color: “#f0e8d8”,
+margin: 0,
+}}>{title}</h2>
+</div>
+<p style={{
+fontFamily: “‘Crimson Text’, serif”,
+fontSize: “14px”,
+fontStyle: “italic”,
+color: “rgba(240,232,216,0.45)”,
+margin: 0,
+}}>{sub}</p>
+</div>
+);
+}
+
+function AdvanceButton({ onClick, disabled, label, flex }) {
+return (
+<button
+className=“advance-btn”
+onClick={onClick}
+disabled={disabled}
+style={{
+flex: flex ? 1 : undefined,
+width: flex ? undefined : “100%”,
+background: disabled ? “rgba(255,255,255,0.04)” : “linear-gradient(135deg, rgba(255,210,140,0.2), rgba(255,180,200,0.2))”,
+border: `1.5px solid ${disabled ? "rgba(255,255,255,0.08)" : "rgba(255,210,150,0.4)"}`,
+borderRadius: “12px”,
+padding: “14px 24px”,
+color: disabled ? “rgba(255,255,255,0.2)” : “rgba(255,220,160,0.9)”,
+fontFamily: “‘Cinzel’, serif”,
+fontSize: “13px”,
+letterSpacing: “0.1em”,
+cursor: disabled ? “not-allowed” : “pointer”,
+boxShadow: disabled ? “none” : “0 0 20px rgba(255,200,100,0.1)”,
+}}
+>
+{label}
+</button>
+);
+}
+
+function BackButton({ onClick }) {
+return (
+<button
+className=“advance-btn”
+onClick={onClick}
+style={{
+background: “rgba(255,255,255,0.04)”,
+border: “1.5px solid rgba(255,255,255,0.1)”,
+borderRadius: “12px”,
+padding: “14px 18px”,
+color: “rgba(240,232,216,0.4)”,
+fontFamily: “‘Cinzel’, serif”,
+fontSize: “13px”,
+letterSpacing: “0.08em”,
+cursor: “pointer”,
+flexShrink: 0,
+}}
+>
+←
+</button>
+);
+}
