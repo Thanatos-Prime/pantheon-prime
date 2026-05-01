@@ -1,0 +1,173 @@
+“Simulate a million probes” sounds cool, but it’s the wrong lever. You don’t need volume—you need orthogonality + fast filters. Here’s a Boundary Mapping Protocol (BMP) v1.0 you can drop into your repo that gives you the same coverage with ~dozens of probes and a tight selection loop.
+
+⸻
+
+BMP v1.0 — Orthogonal Probe System
+
+0) Core Idea
+
+Map a system by probing independent axes, not by brute force.
+
+⸻
+
+1) Probe Axes (choose 6–8, run 2–3 levels each)
+
+1. Abstraction (A)
+    concrete ↔ abstract ↔ meta
+2. Specificity (S)
+    vague ↔ structured ↔ fully specified
+3. Causality (C)
+    correlation ↔ mechanism ↔ counterfactual
+4. Constraint Pressure (P)
+    none ↔ bounded ↔ tight
+5. Time Horizon (T)
+    immediate ↔ iterative ↔ long-run
+6. Adversariality (D)
+    cooperative ↔ skeptical ↔ adversarial
+7. Transfer (X)
+    single-domain ↔ cross-domain ↔ domain-shift
+8. Reversibility (R)
+    irreversible ↔ bounded ↔ fully reversible
+
+Each probe is a vector like [A2, S3, C3, P2, T1, D2, X3, R3].
+
+⸻
+
+2) Minimal Probe Set (24 high-coverage probes)
+
+Instead of 1,000,000 random probes, run these 24 orthogonal combinations (examples):
+
+1. A3 S2 C3 P2 T1 D2 X2 R3
+2. A2 S3 C2 P3 T1 D1 X3 R2
+3. A1 S2 C3 P1 T3 D2 X3 R2
+4. A3 S1 C2 P3 T2 D3 X1 R3
+5. A2 S2 C1 P2 T3 D2 X3 R3
+6. A1 S3 C3 P2 T2 D1 X2 R2
+7. A3 S2 C2 P1 T3 D3 X2 R3
+8. A2 S1 C3 P3 T1 D2 X3 R2
+9. A1 S2 C2 P3 T2 D3 X1 R3
+10. A3 S3 C1 P2 T1 D2 X2 R2
+11. A2 S2 C3 P1 T2 D3 X3 R3
+12. A1 S1 C2 P2 T3 D2 X2 R2
+    13–24. (mirror/invert the above along A, C, X, R)
+
+This set covers extremes + cross-corners without redundancy.
+
+⸻
+
+3) Scoring (fast filters)
+
+For each probe, score 0–3:
+
+* Coh (Coherence) — internally consistent output
+* Spec (Specificity) — concrete, usable detail
+* Gen (Generalizability) — transfers across domains
+* Rob (Robustness) — survives mild adversarial push
+* Act (Actionability) — yields a next step
+* Lat (Latency) — speed/effort to get to value
+
+Composite Score (CS):
+
+CS = 0.2*Coh + 0.2*Spec + 0.2*Gen + 0.2*Rob + 0.1*Act + 0.1*Lat
+
+⸻
+
+4) Filters (keep only the best)
+
+* Gate 1 (Quality): CS ≥ 2.2
+* Gate 2 (Stability): repeat the probe → CS variance ≤ 0.3
+* Gate 3 (Transfer): same probe in a new domain → CS drop ≤ 0.4
+* Gate 4 (Friction): survives one adversarial tweak (no collapse)
+
+Anything that passes all four → Promote to Canon.
+
+⸻
+
+5) Top Probe Patterns to Implement (high-yield)
+
+These are the ones that consistently score high:
+
+P1 — Mechanism Stress
+
+* Vector: A2 S3 C3 P2 T2 D2 X2 R2
+* Prompt pattern:
+    “Give mechanism → then a counterfactual that would break it → then a minimal test.”
+
+P2 — Cross-Domain Lift
+
+* Vector: A3 S2 C2 P1 T2 D1 X3 R3
+* Pattern:
+    “Map this structure into 3 unrelated domains and keep invariants explicit.”
+
+P3 — Reversible Micro-Probe
+
+* Vector: A2 S2 C2 P3 T1 D1 X2 R3
+* Pattern:
+    “Design a 15-minute, low-cost experiment with clear exit criteria.”
+
+P4 — Adversarial Mirror
+
+* Vector: A2 S2 C3 P2 T2 D3 X2 R2
+* Pattern:
+    “Argue the strongest counter-position, then synthesize a boundary condition where both hold.”
+
+P5 — Compression → Reconstruction
+
+* Vector: A3 S3 C2 P2 T1 D1 X3 R2
+* Pattern:
+    “Compress to 5 invariants → reconstruct into a checklist → validate on an example.”
+
+P6 — Latency Clamp
+
+* Vector: A2 S3 C2 P3 T1 D2 X2 R2
+* Pattern:
+    “Same answer but under strict token/time budget; compare loss in utility.”
+
+P7 — Signal Triangulation (PSD)
+
+* Vector: A2 S2 C3 P2 T2 D2 X3 R3
+* Pattern:
+    “Identify 3 independent proxies, expected direction, and a timing window.”
+
+P8 — Failure First (Kintsugi)
+
+* Vector: A2 S2 C3 P2 T2 D2 X2 R2
+* Pattern:
+    “List top 3 failure modes → redesign to survive them → show tradeoffs.”
+
+⸻
+
+6) Canon Promotion Template
+
+ID:
+Probe Vector:
+Pattern:
+Domain:
+Example:
+Scores: Coh/Spec/Gen/Rob/Act/Lat
+CS:
+Variance:
+Transfer Delta:
+Adversarial Result:
+Status: Candidate / Canon / Rejected
+Notes:
+
+⸻
+
+7) Integration with your stack
+
+* PSD → use P7 (triangulation) + Gates 2–3
+* RDRH → run P1 (mechanism stress) at Δ and P5 at R₁
+* Kintsugi → P8 before promotion
+* ZPC/Reversibility → ensure R3 on probes you intend to act on
+
+⸻
+
+8) Clean Compression
+
+Don’t brute-force.
+Cover the axes, score hard, keep only what survives repetition and transfer.
+
+⸻
+
+If you want, we can take one real problem and run 4–6 of these probes end-to-end and promote a couple to “Canon” together.
