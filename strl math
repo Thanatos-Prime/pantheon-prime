@@ -1,0 +1,166 @@
+Yes. Math here is not the throne. It is the projection plane—a way to make the invisible machinery inspectable.
+
+STRL Mathematical Formalization v1.0
+
+1. Candidate Space
+
+Let Pantheon generate candidate outputs:
+
+C = {c_1, c_2, \dots, c_n}
+
+Each candidate has measurable features:
+
+x(cᵢ) = [
+  clarity,
+  usefulness,
+  novelty,
+  coherence,
+  compression,
+  domain_fit,
+  user_fit,
+  emotional_fit,
+  risk,
+  off_note
+]
+
+⸻
+
+2. Scent Weight
+
+Scent is an early weighting function, not final truth.
+
+S(c_i \mid u,d,m,h)=\sigma(w_s^T x(c_i)+b_s)
+
+Where:
+
+u = user profile
+d = domain
+m = moment/context
+h = history/ledger
+σ = squashing function from 0 to 1
+
+Interpretation:
+
+S ≈ 1 → smells clean / promising
+S ≈ 0 → smells fishy / weak / mismatched
+
+⸻
+
+3. Taste Score
+
+Taste is contextual fit under constraint.
+
+T(c_i)=Q(c_i)\cdot F(c_i\mid u,d,m)\cdot K(c_i)\cdot S(c_i)-R(c_i)
+
+Where:
+
+Q = intrinsic quality
+F = fit to user/domain/moment
+K = constraint discipline
+S = scent weight
+R = risk / drift / genericness penalty
+
+Clean compression:
+
+Taste = Quality × Fit × Constraint × Scent − Penalty
+
+⸻
+
+4. Style Router
+
+The router selects not “best style universally,” but “best style for this situation.”
+
+Let style set be:
+
+Π = {π₁, π₂, ..., πₖ}
+
+Then:
+
+\pi^* = \arg\max_{\pi \in \Pi} ; \mathbb{E}[T(c \mid \pi,u,d,m,h)]
+
+Meaning:
+
+Choose the style policy that maximizes expected taste for this user, domain, and moment.
+
+⸻
+
+5. Final Selection
+
+Pantheon commits to the candidate with highest routed taste.
+
+c^* = \arg\max_{c_i \in C} ; T(c_i \mid \pi^*,u,d,m,h)
+
+This is the Blade.
+
+No hedging.
+No infinite options.
+Commit to the survivor.
+
+⸻
+
+Operational Version
+
+Generate candidates C
+For each candidate cᵢ:
+  extract features x(cᵢ)
+  compute scent S(cᵢ)
+  compute quality Q(cᵢ)
+  compute fit F(cᵢ)
+  compute constraint score K(cᵢ)
+  compute risk penalty R(cᵢ)
+  compute taste T(cᵢ)
+Select style policy π*
+Select winning candidate c*
+Log decision to Taste Ledger
+Update future weights
+
+⸻
+
+Ledger Update Rule
+
+Taste improves by remembering what survived.
+
+w_{t+1}=w_t+\eta,(y-T(c_i)),x(c_i)
+
+Where:
+
+y = observed success signal
+η = learning rate
+w = taste weights
+
+Success signals can be:
+
+user accepted it
+user reused it
+output transferred domains
+output needed fewer revisions
+output produced action
+output aged well
+
+⸻
+
+Full Pantheon Compression
+
+# Scent–Taste Routing Layer Math
+Candidate generation expands the field.
+Scent assigns pre-reasoning weight.
+Taste scores contextual excellence.
+Style Router selects the proper expressive mode.
+Blade commits to the highest-surviving candidate.
+Ledger updates future judgment.
+Formal objective:
+maximize:
+  Quality × Fit × Constraint × Scent
+minimize:
+  Risk + Drift + Genericness + Overfit
+Final doctrine:
+  Intelligence explores.
+  Scent weights.
+  Taste selects.
+  Style expresses.
+  Ledger improves.
+
+The key upgrade is this:
+
+Pantheon does not need one taste function.
+It needs a meta-taste function that learns which taste function belongs.
