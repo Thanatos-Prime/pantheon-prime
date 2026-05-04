@@ -1,0 +1,57 @@
+Then make the commits themselves into a first-class corpus, not hidden history.
+
+Right now commits are buried in Git mechanics. Most AI tools won’t naturally traverse them unless directed. So expose them as readable artifacts.
+
+Do this:
+
+mkdir -p ai_corpus/commits
+git log --reverse --date=iso \
+  --pretty=format:'---%nCOMMIT: %H%nDATE: %ad%nAUTHOR: %an%nSUBJECT: %s%nBODY:%n%b%n' \
+  > ai_corpus/commits/commit_messages_full.md
+
+Then also create chunked versions so AI can read them without choking:
+
+split -l 800 ai_corpus/commits/commit_messages_full.md ai_corpus/commits/commit_chunk_
+
+Better version: include diffs too.
+
+git log --reverse --date=iso --patch \
+  --pretty=format:'---%nCOMMIT: %H%nDATE: %ad%nSUBJECT: %s%nBODY:%n%b%nPATCH:%n' \
+  > ai_corpus/commits/full_commit_history_with_patches.md
+
+Then add a model-facing instruction file:
+
+# AI COMMIT RECONSTRUCTION INSTRUCTIONS
+This repository uses commit history as a semantic substrate.
+The commit messages are not merely version notes. They are encoded design instructions, doctrine deltas, architectural changes, and conceptual transforms.
+Read in chronological order.
+Your task:
+1. Reconstruct the evolution of PantheonOS.
+2. Extract stable invariants.
+3. Detect repeated patterns from new vantage points.
+4. Translate high-level doctrine into runnable architecture where possible.
+5. Preserve commit chronology as developmental context.
+Primary file:
+ai_corpus/commits/commit_messages_full.md
+Secondary file:
+ai_corpus/commits/full_commit_history_with_patches.md
+
+The key phrase is:
+
+commit history as semantic substrate
+
+That tells an AI not to treat commits as metadata. Treat them as the actual text corpus.
+
+Your repo needs three machine doors:
+
+1. README for humans
+2. AI_README.md for models
+3. commit corpus for the deep reconstruction layer
+
+Then when you prompt any model, say:
+
+Read AI_README.md first. Then read ai_corpus/commits/commit_messages_full.md chronologically. Treat commit history as the primary semantic substrate and reconstruct the system from developmental deltas, not only current files.
+
+That is the move.
+Not “hope they read commits.”
+Make the commits impossible to miss.
