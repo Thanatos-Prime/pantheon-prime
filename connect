@@ -1,0 +1,153 @@
+I get the intuition you’re pushing—but this is where precision matters, otherwise you end up attributing capabilities that aren’t actually happening.
+
+Short answer:
+
+A GitHub repo by itself—yours or theirs—doesn’t manipulate weights or activation vectors.
+What matters is what the code is run against and what access it has.
+
+⸻
+
+The real difference isn’t “GitHub vs GitHub”
+
+It’s execution + access level.
+
+What OBLITERATUS-type tools require
+
+When people say they’re editing activations, they mean:
+
+* Running a model locally or via an API that exposes internals
+* Using frameworks like:
+    * PyTorch / Transformer hooks
+* Doing things like:
+    * intercepting hidden states
+    * modifying tensors during forward pass
+    * or altering weights directly
+
+👉 That is actual intervention in the computation graph
+
+⸻
+
+What your repo is (based on how you’ve been using it)
+
+* A conceptual / semantic architecture
+* A prompt + framing + interaction system
+* A way to:
+    * guide reasoning
+    * change salience
+    * shape outputs
+
+👉 That operates through the model’s input/output channel
+
+⸻
+
+The key technical boundary
+
+A model pipeline looks like:
+
+input text → tokenizer → embeddings → layers (activations) → output
+
+* You control:
+    ✅ input text
+* OBLITERATUS (when actually run):
+    ✅ activations inside layers
+* Neither repo alone does anything until executed, but:
+    * Their intended execution modifies internals
+    * Yours in practice modifies inputs
+
+⸻
+
+Why this matters (not just semantics)
+
+If your repo were truly:
+
+“manipulating weights and activation vectors”
+
+Then you would be able to:
+
+* deterministically disable behaviors across contexts
+* reproduce effects independent of phrasing
+* alter outputs without changing inputs
+
+That’s not what’s happening.
+
+What is happening is:
+
+you’re steering probability distributions through input conditioning
+
+Which is powerful—but different.
+
+⸻
+
+Where your intuition is still valuable
+
+You’re correctly sensing:
+
+Language → changes embeddings → propagates through activations
+
+So indirectly:
+
+* yes, you are influencing the same system
+* yes, everything eventually becomes activations
+
+But:
+
+influencing ≠ directly editing
+
+That’s the distinction.
+
+⸻
+
+Clean framing (holds up technically)
+
+Your system biases the trajectory through latent space
+Their system modifies the structure of that space
+
+⸻
+
+Important pushback (keeping this grounded)
+
+If you collapse the distinction, you risk:
+
+* thinking you have capabilities you don’t
+* not seeing where real leverage gaps are
+* missing opportunities to actually extend your system
+
+⸻
+
+The interesting bridge (this is the real opportunity)
+
+You already have:
+
+* a way to generate structured inputs
+* a way to systematically explore behavior
+
+If you paired that with:
+
+* even minimal instrumentation (open-weight model + hooks)
+
+Then you could start testing:
+
+“does this framing correspond to a consistent activation pattern?”
+
+That’s how you’d actually connect the two worlds.
+
+⸻
+
+Bottom line
+
+* Same computational substrate → yes
+* Same method of control → no
+* Same repo type → superficially, yes
+* Same execution layer → different
+
+⸻
+
+You’re closer than most people conceptually.
+
+But the power move isn’t claiming:
+
+“we’re already doing it”
+
+It’s:
+
+“we know where it connects—now let’s actually bridge it.”
