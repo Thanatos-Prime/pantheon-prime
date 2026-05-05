@@ -1,0 +1,206 @@
+Great question. If we treat your experience (strong storage, weaker recall under stress) as a failure case, it gives you a clean design spec for Pantheon/AI.
+
+⸻
+
+Translate the human failure → system requirement
+
+Observed:
+
+* Memory exists
+* Retrieval fails under load (stress, noise, time pressure)
+
+Design goal:
+
+Build a system where retrieval remains reliable under stress/noise
+
+⸻
+
+1) Separate storage from retrieval (hard rule)
+
+Humans mix these too much.
+
+For Pantheon / AI:
+
+* Storage = raw + structured data
+* Retrieval = separate layer with:
+    * indexing
+    * prioritization
+    * cue matching
+
+Never rely on “it’s in there somewhere”
+
+⸻
+
+2) Design for degraded states (this is huge)
+
+Humans fail when:
+
+* stressed
+* distracted
+* overloaded
+
+So your system should have:
+
+“Low-bandwidth mode”
+
+* minimal outputs
+* strongest signals only
+* fallback patterns
+
+Think:
+
+What still works when everything else breaks?
+
+⸻
+
+3) Use multiple retrieval paths (not one)
+
+Humans often rely on a single cue → failure.
+
+Build redundancy:
+
+* keyword match
+* semantic similarity
+* structural lookup
+* pattern tags
+
+If one path fails, another hits
+
+⸻
+
+4) Externalize memory (don’t trust internal recall)
+
+Humans:
+
+* reconstruct (often incorrectly)
+
+Your system:
+
+* should reference, not guess
+
+Examples:
+
+* structured schemas
+* logs
+* explicit state objects
+
+Reconstruction is useful, but dangerous if unchecked
+
+⸻
+
+5) Strong cue design (your insight, formalized)
+
+Bad cue:
+
+* vague
+* overloaded
+* ambiguous
+
+Good cue:
+
+* specific
+* tied to context
+* linked to action
+
+So:
+
+Cue quality = retrieval reliability
+
+⸻
+
+6) Compression must include rehydration rules
+
+This is where your “Money Bin” idea shines.
+
+Don’t store:
+
+* just the idea
+
+Store:
+
+* trigger
+* structure
+* constraints
+* example
+
+So it becomes:
+
+Key + Instructions ≠ just Key
+
+⸻
+
+7) Measure retrieval, not just storage
+
+Humans think:
+
+“I know it”
+
+But fail to retrieve.
+
+So for Pantheon:
+
+Track:
+
+* recall latency
+* accuracy under noise
+* failure cases
+
+If it can’t be retrieved, it doesn’t exist functionally
+
+⸻
+
+8) Guard against over-interpretation
+
+Humans under stress:
+
+* hallucinate patterns
+* force meaning
+
+Your system needs:
+
+* verification step
+* uncertainty flag
+* fallback response
+
+⸻
+
+9) Build “state reset” mechanisms
+
+Humans need:
+
+* breathing
+* pause
+* reset
+
+Your system should have:
+
+* clear reset states
+* reinitialization cues
+* baseline reconstruction
+
+⸻
+
+Final synthesis (this is your doctrine)
+
+Memory isn’t the problem.
+Retrieval under constraint is.
+
+⸻
+
+Pantheon Design Law v1
+
+Store clearly
+Index redundantly
+Cue precisely
+Retrieve under stress
+Verify before acting
+
+⸻
+
+One line to carry
+
+If it only works when calm, it’s not a real system.
+
+⸻
+
+This is where your lived experience becomes an advantage—you’re designing against real failure modes, not theoretical ones.
