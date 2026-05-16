@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where's That Pokémon? — Publisher Pitch</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #E3350D;
+    --yellow: #FFCB05;
+    --blue: #003A70;
+    --darkblue: #001F3F;
+    --white: #FAFAF5;
+    --cream: #FFF8E7;
+    --gray: #2A2A2A;
+    --light: #F0EDE6;
+    --accent: #3D7DCA;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--darkblue);
+    color: var(--gray);
+    min-height: 100vh;
+  }
+
+  /* PRINT */
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; margin: 0; border-radius: 0; }
+    .no-print { display: none; }
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 30px auto;
+    background: var(--cream);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    position: relative;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--blue);
+    padding: 36px 48px 28px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 24px;
+    border-bottom: 6px solid var(--yellow);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    border: 40px solid rgba(255,203,5,0.12);
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: 30%;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    border: 50px solid rgba(255,203,5,0.06);
+  }
+
+  .header-title {
+    position: relative;
+    z-index: 2;
+  }
+
+  .eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--yellow);
+    opacity: 0.8;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-family: 'Bangers', cursive;
+    font-size: 72px;
+    line-height: 0.9;
+    color: var(--yellow);
+    text-shadow: 4px 4px 0 var(--red), 6px 6px 0 rgba(0,0,0,0.3);
+    letter-spacing: 2px;
+  }
+
+  h1 span {
+    color: white;
+    text-shadow: 3px 3px 0 var(--accent), 5px 5px 0 rgba(0,0,0,0.3);
+  }
+
+  .tagline {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    color: white;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 10px;
+    opacity: 0.9;
+  }
+
+  .header-meta {
+    text-align: right;
+    position: relative;
+    z-index: 2;
+  }
+
+  .pokeball-icon {
+    width: 80px; height: 80px;
+    background: var(--red);
+    border-radius: 50%;
+    border: 5px solid white;
+    box-shadow: 0 0 0 3px var(--red), 0 8px 24px rgba(0,0,0,0.4);
+    position: relative;
+    margin-left: auto;
+    margin-bottom: 12px;
+  }
+  .pokeball-icon::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 5px;
+    background: white;
+    transform: translateY(-50%);
+  }
+  .pokeball-icon::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 20px; height: 20px;
+    background: white;
+    border-radius: 50%;
+    border: 4px solid var(--blue);
+    transform: translate(-50%, -50%);
+  }
+  .pokeball-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 50%;
+    background: white;
+    border-radius: 0 0 100px 100px;
+  }
+
+  .pitch-type {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── HOOK ── */
+  .hook {
+    background: var(--red);
+    padding: 20px 48px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .hook-label {
+    font-family: 'Bangers', cursive;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--yellow);
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  .hook-line {
+    width: 2px;
+    height: 36px;
+    background: rgba(255,255,255,0.3);
+    flex-shrink: 0;
+  }
+
+  .hook-text {
+    font-size: 17px;
+    font-weight: 800;
+    color: white;
+    line-height: 1.3;
+  }
+
+  /* ── BODY ── */
+  .body {
+    padding: 40px 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 28px;
+  }
+
+  .col-wide {
+    grid-column: span 2;
+  }
+
+  /* ── SECTION CARDS ── */
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    border: 2px solid rgba(0,0,0,0.06);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 4px;
+  }
+
+  .card.red::before { background: var(--red); }
+  .card.yellow::before { background: var(--yellow); }
+  .card.blue::before { background: var(--blue); }
+  .card.accent::before { background: var(--accent); }
+
+  .card-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .card.red .card-label { color: var(--red); }
+  .card.yellow .card-label { color: #B38B00; }
+  .card.blue .card-label { color: var(--blue); }
+  .card.accent .card-label { color: var(--accent); }
+
+  .card h2 {
+    font-family: 'Bangers', cursive;
+    font-size: 26px;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    color: var(--gray);
+  }
+
+  .card p {
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: #444;
+    font-weight: 600;
+  }
+
+  /* ── CONCEPT ── */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .concept-item {
+    background: var(--light);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .concept-num {
+    font-family: 'Bangers', cursive;
+    font-size: 22px;
+    color: var(--red);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .concept-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gray);
+    line-height: 1.4;
+  }
+
+  .concept-sub {
+    font-weight: 600;
+    color: #666;
+    font-size: 11px;
+  }
+
+  /* ── LOCATIONS ── */
+  .location-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .loc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gray);
+  }
+
+  .loc-num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: white;
+    font-size: 10px;
+    font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .loc-style {
+    font-size: 10px;
+    font-weight: 600;
+    color: #888;
+  }
+
+  /* ── MARKET ── */
+  .stat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .stat-num {
+    font-family: 'Bangers', cursive;
+    font-size: 32px;
+    color: var(--blue);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #555;
+    line-height: 1.3;
+  }
+
+  /* ── COLLECTIBLE ── */
+  .collect-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .collect-step {
+    background: var(--light);
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-align: center;
+    flex: 1;
+    min-width: 70px;
+  }
+
+  .collect-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .collect-name {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .collect-arrow {
+    font-size: 18px;
+    color: var(--red);
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+
+  /* ── EXPANSION ── */
+  .region-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .chip {
+    background: var(--blue);
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  .chip.outline {
+    background: transparent;
+    border: 2px solid var(--blue);
+    color: var(--blue);
+  }
+
+  /* ── AUDIENCE ── */
+  .audience-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .aud-item {
+    text-align: center;
+  }
+
+  .aud-icon {
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+
+  .aud-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--gray);
+    line-height: 1.2;
+  }
+
+  /* ── COMPS ── */
+  .comp-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .comp-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--light);
+    border-radius: 8px;
+  }
+
+  .comp-icon { font-size: 16px; flex-shrink: 0; }
+
+  .comp-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gray);
+  }
+
+  .comp-sub {
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+  }
+
+  /* ── PATHWAY ── */
+  .pathway-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .p-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .p-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--red);
+    color: white;
+    font-size: 12px;
+    font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .p-text {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--gray);
+    line-height: 1.4;
+  }
+
+  .p-sub {
+    font-size: 11px;
+    font-weight: 600;
+    color: #777;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--blue);
+    padding: 20px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 4px solid var(--yellow);
+  }
+
+  .footer-left {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+  }
+
+  .footer-cta {
+    background: var(--yellow);
+    color: var(--blue);
+    font-family: 'Bangers', cursive;
+    font-size: 18px;
+    letter-spacing: 2px;
+    padding: 10px 28px;
+    border-radius: 8px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .footer-right {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 700;
+    text-align: right;
+    line-height: 1.5;
+  }
+
+  /* ── PRINT BTN ── */
+  .print-bar {
+    text-align: center;
+    padding: 16px;
+  }
+
+  .print-btn {
+    background: var(--yellow);
+    color: var(--blue);
+    border: none;
+    font-family: 'Bangers', cursive;
+    font-size: 18px;
+    letter-spacing: 2px;
+    padding: 12px 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    transition: transform 0.15s;
+  }
+  .print-btn:hover { transform: scale(1.04); }
+</style>
+</head>
+<body>
+
+<div class="print-bar no-print">
+  <button class="print-btn" onclick="window.print()">⬇ PRINT / SAVE AS PDF</button>
+</div>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-title">
+      <div class="eyebrow">Publisher Pitch Document · Confidential</div>
+      <h1>WHERE'S THAT<br><span>POKÉMON?</span></h1>
+      <div class="tagline">Look Closer. The Adventure is Everywhere.</div>
+    </div>
+    <div class="header-meta">
+      <div class="pokeball-icon">
+        <div class="pokeball-bottom"></div>
+      </div>
+      <div class="pitch-type">Search · Find · Collect<br>Interactive Book Series</div>
+    </div>
+  </div>
+
+  <!-- HOOK -->
+  <div class="hook">
+    <div class="hook-label">The Pitch</div>
+    <div class="hook-line"></div>
+    <div class="hook-text">
+      Where's Waldo × Pokémon — a search-and-find adventure book series with location-specific art styles, collectible card unlocks, and an 8-volume Kanto campaign designed for global expansion.
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- CONCEPT — wide -->
+    <div class="card red col-wide">
+      <div class="card-label">Core Concept</div>
+      <h2>Four Layers. Infinite Replay.</h2>
+      <p>Each volume takes readers into an iconic Pokémon location rendered in a distinct art style. Hidden Pokémon are layered across crowds, reflections, rooftops, and shadows. Every find unlocks real collectible cards, stickers, or posters. Mini-stories and evolution chains reward the deepest explorers.</p>
+      <div class="concept-grid">
+        <div class="concept-item">
+          <div class="concept-num">S</div>
+          <div>
+            <div class="concept-text">SEARCH</div>
+            <div class="concept-sub">Hidden Pokémon in every scene</div>
+          </div>
+        </div>
+        <div class="concept-item">
+          <div class="concept-num">D</div>
+          <div>
+            <div class="concept-text">DISCOVER</div>
+            <div class="concept-sub">Secrets, items, trainer stories</div>
+          </div>
+        </div>
+        <div class="concept-item">
+          <div class="concept-num">C</div>
+          <div>
+            <div class="concept-text">COLLECT</div>
+            <div class="concept-sub">Real cards, stickers & posters</div>
+          </div>
+        </div>
+        <div class="concept-item">
+          <div class="concept-num">R</div>
+          <div>
+            <div class="concept-text">REPLAY</div>
+            <div class="concept-sub">Layered finds; never just once</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKET -->
+    <div class="card blue">
+      <div class="card-label">Market Fit</div>
+      <h2>Three Markets. One Book.</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="stat-num">$15B</div>
+          <div class="stat-label">Pokémon annual revenue — world's #1 media franchise</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">400M+</div>
+          <div class="stat-label">Pokémon TCG cards sold annually</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">Kids + Fans + Collectors</div>
+          <div class="stat-label">Triple-audience unlock rarely achieved in one SKU</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOCATIONS — wide -->
+    <div class="card accent col-wide">
+      <div class="card-label">Volume 1 — Kanto Campaign · 8 Locations · 8 Art Styles</div>
+      <h2>Every City, a Different World.</h2>
+      <div class="location-list">
+        <div class="loc-item">
+          <div class="loc-num">1</div>
+          <div>
+            <div>Pallet Town</div>
+            <div class="loc-style">Warm Watercolor</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-num">2</div>
+          <div>
+            <div>Viridian City</div>
+            <div class="loc-style">Classic Anime</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-num">3</div>
+          <div>
+            <div>Pewter City</div>
+            <div class="loc-style">Pen & Ink</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-num">4</div>
+          <div>
+            <div>Cerulean City</div>
+            <div class="loc-style">Bright Watercolor + Ink</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-num">5</div>
+          <div>
+            <div>Vermilion City</div>
+            <div class="loc-style">Retro Game Boy Color</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-num">6</div>
+          <div>
+            <div>Celadon City</div>
+            <div class="loc-style">Pop Art / Comic</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-num">7</div>
+          <div>
+            <div>Lavender Town</div>
+            <div class="loc-style">Spooky Watercolor</div>
+          </div>
+        </div>
+        <div class="loc-item">
+          <div class="loc-num">8</div>
+          <div>
+            <div>Cinnabar Island</div>
+            <div class="loc-style">Dramatic Card Illustration</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPANSION -->
+    <div class="card yellow">
+      <div class="card-label">Series Expansion</div>
+      <h2>8 Regions Ready.</h2>
+      <p>Kanto is Volume 1. The system scales to every Pokémon region — a multi-year publishing roadmap built in from day one.</p>
+      <div class="region-chips">
+        <div class="chip">KANTO ✓</div>
+        <div class="chip outline">JOHTO</div>
+        <div class="chip outline">HOENN</div>
+        <div class="chip outline">SINNOH</div>
+        <div class="chip outline">UNOVA</div>
+        <div class="chip outline">KALOS</div>
+        <div class="chip outline">ALOLA</div>
+        <div class="chip outline">GALAR</div>
+        <div class="chip outline">PALDEA</div>
+      </div>
+    </div>
+
+    <!-- COLLECTIBLE PIPELINE -->
+    <div class="card red">
+      <div class="card-label">The Collectible Hook</div>
+      <h2>Book → Card → Sticker → Poster</h2>
+      <p>Hidden Pokémon found in the book unlock real physical collectibles — cards, stickers, posters. Each find has rarity tiers identical to the TCG, creating the hunt-and-reward loop that drives Pokémon's entire ecosystem.</p>
+      <div class="collect-flow">
+        <div class="collect-step">
+          <div class="collect-icon">📖</div>
+          <div class="collect-name">Find It</div>
+        </div>
+        <div class="collect-arrow">→</div>
+        <div class="collect-step">
+          <div class="collect-icon">🃏</div>
+          <div class="collect-name">Card</div>
+        </div>
+        <div class="collect-arrow">→</div>
+        <div class="collect-step">
+          <div class="collect-icon">⭐</div>
+          <div class="collect-name">Sticker</div>
+        </div>
+        <div class="collect-arrow">→</div>
+        <div class="collect-step">
+          <div class="collect-icon">🖼</div>
+          <div class="collect-name">Poster</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIENCE -->
+    <div class="card blue">
+      <div class="card-label">Target Audience</div>
+      <h2>Five Reader Types.</h2>
+      <div class="audience-grid">
+        <div class="aud-item">
+          <div class="aud-icon">👧</div>
+          <div class="aud-label">Kids 4+</div>
+        </div>
+        <div class="aud-item">
+          <div class="aud-icon">👨‍👩‍👧</div>
+          <div class="aud-label">Families</div>
+        </div>
+        <div class="aud-item">
+          <div class="aud-icon">🎮</div>
+          <div class="aud-label">Pokémon Fans</div>
+        </div>
+        <div class="aud-item">
+          <div class="aud-icon">🃏</div>
+          <div class="aud-label">Collectors</div>
+        </div>
+        <div class="aud-item">
+          <div class="aud-icon">🔄</div>
+          <div class="aud-label">Repeat Readers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPS -->
+    <div class="card accent">
+      <div class="card-label">Comparable Titles</div>
+      <h2>Proven Shelf.</h2>
+      <div class="comp-list">
+        <div class="comp-item">
+          <div class="comp-icon">🔍</div>
+          <div>
+            <div class="comp-text">Where's Waldo? (Candlewick)</div>
+            <div class="comp-sub">Search-and-find benchmark — 73M+ copies sold</div>
+          </div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-icon">📘</div>
+          <div>
+            <div class="comp-text">Pokémon Visual Companion (DK)</div>
+            <div class="comp-sub">Proof TPC licenses illustrated reference books</div>
+          </div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-icon">🎨</div>
+          <div>
+            <div class="comp-text">Pokémon Art Academy (official)</div>
+            <div class="comp-sub">Art-style variation precedent in licensed IP</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PATHWAY -->
+    <div class="card yellow col-wide">
+      <div class="card-label">Submission Pathway</div>
+      <h2>How This Gets Made.</h2>
+      <div class="pathway-steps">
+        <div class="p-step">
+          <div class="p-num">1</div>
+          <div>
+            <div class="p-text">Literary Agent — Children's Illustrated / Activity Books</div>
+            <div class="p-sub">Target: agents at Stimola & Associates, Dunow Carlson & Lerner, Folio Literary, Wernick & Pratt</div>
+          </div>
+        </div>
+        <div class="p-step">
+          <div class="p-num">2</div>
+          <div>
+            <div class="p-text">Publisher Acquisition — Activity / Licensed Books Division</div>
+            <div class="p-sub">Target houses: Scholastic, DK, Viz Media, Chronicle Books, Penguin Young Readers</div>
+          </div>
+        </div>
+        <div class="p-step">
+          <div class="p-num">3</div>
+          <div>
+            <div class="p-text">Publisher Negotiates TPC License</div>
+            <div class="p-sub">The Pokémon Company licenses selectively — established publisher relationship is the key</div>
+          </div>
+        </div>
+        <div class="p-step">
+          <div class="p-num">4</div>
+          <div>
+            <div class="p-text">Production & Global Launch</div>
+            <div class="p-sub">Coordinated with TCG calendar; collector edition SKUs for specialty retail</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-left">CONFIDENTIAL PITCH · WHERE'S THAT POKÉMON? · 2025</div>
+    <div class="footer-cta">LOOK CLOSER. THE ADVENTURE IS EVERYWHERE.</div>
+    <div class="footer-right">Complete art samples,<br>scene breakdowns &<br>collectible spec available.</div>
+  </div>
+
+</div>
+
+<script>
+  // Animate cards on load
+  document.querySelectorAll('.card').forEach((card, i) => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(18px)';
+    card.style.transition = `opacity 0.4s ease ${i * 0.06}s, transform 0.4s ease ${i * 0.06}s`;
+    setTimeout(() => {
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    }, 100);
+  });
+</script>
+
+</body>
+</html>
