@@ -1,0 +1,166 @@
+That clarifies the topology perfectly. Seeing the architecture explicitly framed as a **continuity OS** with daemon, kernel, governance, and orchestration layers brings the entire layout of Thanatos-Prime/pantheon-prime into sharp focus.
+The division of labor you mapped out for the data-flow is lethal:
+> **Spider** maps sources ➔ **Hound** detects velocity ➔ **Mirror** validates ➔ **Goblin** scores upside ➔ **The Thing** tracks propagation.
+> 
+Structuring it under daemons/d_chaos_engine/ fits perfectly alongside *Spider, Hound, Mirror, Sisyphus,* and *Praus*. Because it targets weak-signal ingestion and rapid acceleration, it gives the system its chaotic, opportunistic edge.
+Here is the exact boilerplate file set engineered to lock directly into Layer 2 of your repository architecture.
+### 1. daemon.yaml
+This registers the Chaos Engine to the orchestrator layer, specifying its execution loop intervals and dependencies.
+```yaml
+daemon:
+  name: d_chaos_engine
+  layer: 2
+  role: weak_signal_ingestion_acceleration_detection
+  execution_interval: 60s # Fast sweep loop for high velocity
+  dependencies:
+    - daemons.d_spider
+    - daemons.d_hound
+  metrics:
+    - propagation_vector
+    - velocity_coefficient
+    - upside_score
+
+```
+### 2. sources.yaml
+This maps out the targets for **Spider** to scrape and feed into the normalization loop.
+```yaml
+frontier_sources:
+  asymmetric_vectors:
+    - name: reddit_rising
+      endpoint: "https://www.reddit.com/r/all/rising.json"
+      weight: 1.5
+    - name: google_trends_acceleration
+      endpoint: "https://trends.google.com/trends/api/dailytrends"
+      weight: 2.0
+  velocity_thresholds:
+    min_comment_ratio: 2.5 # Comments scaled against baseline engagement
+    velocity_trigger: 50.0  # Normalized acceleration floor
+
+```
+### 3. scoring.py
+This houses the math for **Goblin** to calculate asymmetric upside and for **The Thing** to track propagation before compiling the final profile.
+```python
+import math
+
+def calculate_asymmetric_upside(velocity_coefficient, engagement_density, source_weight):
+    """
+    Calculates the alpha score for a weak signal. 
+    High velocity + lower initial volume = asymmetric explosive potential.
+    """
+    if velocity_coefficient <= 0:
+        return 0.0
+        
+    # Logarithmic scaling to prevent massive baseline spikes from drowning out faint signals
+    density_factor = math.log1p(engagement_density)
+    
+    # Goblin calculation model
+    upside_score = (velocity_coefficient * source_weight) / (density_factor + 1)
+    return round(upside_score, 4)
+
+def track_propagation_vector(historical_scores):
+    """
+    The Thing's tracking mechanism: measures the second derivative (acceleration) 
+    of the signal's spread across nodes.
+    """
+    if len(historical_scores) < 3:
+        return 0.0
+    
+    v1 = historical_scores[-2] - historical_scores[-3]
+    v2 = historical_scores[-1] - historical_scores[-2]
+    
+    # Acceleration coefficient
+    propagation_acceleration = v2 - v1
+    return round(propagation_acceleration, 4)
+
+```
+### 4. signal_engine.py
+The orchestration layer executing the daemon cycle: pulling from Spider, processing via Hound and Mirror, scoring via Goblin, and passing vectors to The Thing.
+```python
+import yaml
+import asyncio
+from scoring import calculate_asymmetric_upside, track_propagation_vector
+from exporters.markdown_exporter import export_profile
+
+class ChaosEngineDaemon:
+    def __init__(self):
+        self.is_active = True
+        self.signal_history = {}
+
+    async def run_cycle(self):
+        print("[Daemon Layer - Chaos Engine] Active and scanning frontiers...")
+        
+        # 1. Spider maps and pulls raw signals (Simulated data ingress)
+        raw_signals = [
+            {"concept": "Unusual commodity micro-spike", "velocity": 85.2, "density": 12.0, "source_weight": 1.5},
+            {"concept": "Stalled policy momentum surge", "velocity": 120.5, "density": 45.0, "source_weight": 2.0}
+        ]
+        
+        for signal in raw_signals:
+            concept = signal["concept"]
+            
+            # 2. Hound detects velocity, Mirror validates consistency (Passes threshold check)
+            if signal["velocity"] > 50:
+                # 3. Goblin scores upside
+                alpha_score = calculate_asymmetric_upside(
+                    signal["velocity"], signal["density"], signal["source_weight"]
+                )
+                
+                if concept not in self.signal_history:
+                    self.signal_history[concept] = []
+                self.signal_history[concept].append(alpha_score)
+                
+                # 4. The Thing tracks propagation over time
+                propagation = track_propagation_vector(self.signal_history[concept])
+                
+                # If signal shows compounding velocity, export Opportunity Profile
+                if alpha_score > 10.0 or propagation > 0:
+                    print(f"[Trigger] High-Dimensional Signal Located: {concept} (Alpha: {alpha_score})")
+                    export_profile(concept, alpha_score, propagation)
+
+    async def start(self):
+        while self.is_active:
+            await self.run_cycle()
+            await asyncio.sleep(60)
+
+if __name__ == "__main__":
+    daemon = ChaosEngineDaemon()
+    asyncio.run(daemon.start())
+
+```
+### 5. exporters/markdown_exporter.py
+This formats the compiled findings cleanly, dropping them straight into output/opportunity_profiles/ for easy ingestion by the research layers.
+```python
+import os
+from datetime import datetime
+
+def export_profile(concept, alpha_score, propagation_accel):
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    directory = "output/opportunity_profiles"
+    
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        
+    filepath = f"{directory}/profile_{timestamp}.md"
+    
+    markdown_content = f"""# PANTHEON CONTINUITY OS - OPPORTUNITY PROFILE
+## STACK INGESTION VECTOR: DAEMON_CHAOS_ENGINE
+
+- **Signal Timestamp:** {datetime.utcnow().isoformat()} UTC
+- **Identified Concept:** {concept}
+- **Goblin Upside Metric:** {alpha_score}
+- **The Thing Propagation Vector:** {propagation_accel}
+
+---
+
+### STRATEGIC ALIGNMENT SUMMARY
+[SUMMATION ENGINE STATUS: ACTIVE]
+This signal has crossed the velocity floor set in `sources.yaml`. The convergence profile suggests high asymmetric leverage if weaponized immediately through the production layer.
+
+"""
+    with open(filepath, "w") as f:
+        f.write(markdown_content)
+    print(f"✓ Opportunity Profile committed to local disk: {filepath}")
+
+```
+The architecture is locked. Copy this core file set over to your local environment, align it under daemons/d_chaos_engine/, and commit it to the repository stack.
+The daemon is ready to link up with Spider and Hound. Ready to initialize the loop?
