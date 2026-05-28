@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Act — Wicker & Johnson Pressure Package</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap');
+
+  :root {
+    --black: #0A0A0A;
+    --white: #F4F4F4;
+    --red: #C8102E;
+    --gold: #C9A84C;
+    --steel: #6B7B8D;
+    --line: rgba(200,16,46,0.3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'IBM Plex Serif', Georgia, serif;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .masthead {
+    border-bottom: 3px solid var(--red);
+    padding: 2rem 2.5rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .masthead-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    letter-spacing: 0.04em;
+    color: var(--white);
+    line-height: 1;
+  }
+  .masthead-title span { color: var(--red); }
+  .masthead-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--steel);
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  /* STATUS BAR */
+  .status-bar {
+    background: var(--red);
+    padding: 0.5rem 2.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* MAIN GRID */
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem 2.5rem; }
+
+  .bill-summary {
+    background: rgba(201,168,76,0.08);
+    border-left: 4px solid var(--gold);
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 2.5rem;
+    font-size: 0.95rem;
+  }
+  .bill-summary strong { color: var(--gold); font-family: 'IBM Plex Mono', monospace; }
+
+  .targets-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 3rem;
+  }
+  @media(max-width: 800px) { .targets-grid { grid-template-columns: 1fr; } }
+
+  /* DOSSIER CARD */
+  .dossier {
+    border: 1px solid rgba(244,244,244,0.12);
+    background: rgba(244,244,244,0.03);
+    position: relative;
+    overflow: hidden;
+  }
+  .dossier::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+  .dossier-wicker::before { background: var(--red); }
+  .dossier-johnson::before { background: var(--gold); }
+
+  .dossier-header {
+    padding: 1.5rem 1.5rem 1rem;
+    border-bottom: 1px solid rgba(244,244,244,0.08);
+  }
+  .dossier-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--steel);
+    margin-bottom: 0.4rem;
+  }
+  .dossier-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+  .dossier-wicker .dossier-name { color: var(--red); }
+  .dossier-johnson .dossier-name { color: var(--gold); }
+  .dossier-subtitle {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--steel);
+    margin-top: 0.3rem;
+  }
+
+  .dossier-body { padding: 1.5rem; }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--steel);
+    margin-bottom: 0.6rem;
+    margin-top: 1.4rem;
+    text-transform: uppercase;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .objection-block {
+    background: rgba(200,16,46,0.08);
+    border-left: 3px solid var(--red);
+    padding: 0.8rem 1rem;
+    font-size: 0.88rem;
+    font-style: italic;
+    margin-bottom: 0.5rem;
+    color: rgba(244,244,244,0.8);
+  }
+  .rebuttal-block {
+    background: rgba(201,168,76,0.06);
+    border-left: 3px solid var(--gold);
+    padding: 0.8rem 1rem;
+    font-size: 0.88rem;
+    margin-bottom: 1rem;
+    color: rgba(244,244,244,0.9);
+  }
+  .rebuttal-block strong { color: var(--gold); }
+
+  .pressure-points li {
+    font-size: 0.88rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(244,244,244,0.06);
+    list-style: none;
+    padding-left: 1.2rem;
+    position: relative;
+    color: rgba(244,244,244,0.85);
+  }
+  .pressure-points li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--red);
+    font-size: 0.7rem;
+    top: 0.55rem;
+  }
+
+  .exposure-pill {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 2px;
+    margin: 0.2rem;
+    letter-spacing: 0.05em;
+  }
+  .pill-high { background: rgba(200,16,46,0.25); color: #ff6b6b; border: 1px solid rgba(200,16,46,0.4); }
+  .pill-med  { background: rgba(201,168,76,0.2); color: #e8c55a; border: 1px solid rgba(201,168,76,0.35); }
+  .pill-low  { background: rgba(107,123,141,0.2); color: var(--steel); border: 1px solid rgba(107,123,141,0.3); }
+
+  /* SCRIPTS SECTION */
+  .scripts-section { margin-bottom: 3rem; }
+  .scripts-section h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--red);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .script-card {
+    border: 1px solid rgba(244,244,244,0.1);
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .script-header {
+    background: rgba(244,244,244,0.05);
+    padding: 0.8rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(244,244,244,0.08);
+  }
+  .script-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--white);
+  }
+  .script-channel {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--steel);
+    letter-spacing: 0.1em;
+  }
+  .script-body {
+    padding: 1.2rem;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: rgba(244,244,244,0.88);
+    white-space: pre-wrap;
+    font-family: 'IBM Plex Serif', serif;
+  }
+  .script-body em { color: var(--gold); font-style: normal; }
+
+  /* COALITION */
+  .coalition-section { margin-bottom: 3rem; }
+  .coalition-section h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .coalition-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .coalition-card {
+    border: 1px solid rgba(244,244,244,0.08);
+    padding: 1rem;
+    background: rgba(244,244,244,0.02);
+  }
+  .coalition-card h4 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+  .coalition-card p {
+    font-size: 0.85rem;
+    color: rgba(244,244,244,0.75);
+    line-height: 1.5;
+  }
+
+  /* FLOOR VOTE SECTION */
+  .floor-section {
+    background: rgba(200,16,46,0.06);
+    border: 1px solid rgba(200,16,46,0.25);
+    padding: 1.5rem;
+    margin-bottom: 3rem;
+  }
+  .floor-section h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    color: var(--red);
+    margin-bottom: 1rem;
+  }
+  .floor-steps {
+    counter-reset: step;
+  }
+  .floor-steps li {
+    counter-increment: step;
+    list-style: none;
+    padding: 0.6rem 0 0.6rem 3rem;
+    position: relative;
+    border-bottom: 1px solid rgba(200,16,46,0.12);
+    font-size: 0.9rem;
+    color: rgba(244,244,244,0.85);
+  }
+  .floor-steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0.5rem;
+    width: 2rem;
+    height: 2rem;
+    background: var(--red);
+    color: var(--white);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid rgba(244,244,244,0.1);
+    padding: 1.5rem 2.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--steel);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* COPY BUTTON */
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--steel);
+    color: var(--steel);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    padding: 0.3rem 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .copy-btn.copied { border-color: #5a9e6f; color: #5a9e6f; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid rgba(244,244,244,0.08);
+    margin: 2rem 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div>
+    <div class="masthead-title">MAJOR RICHARD <span>STAR</span> ACT</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--steel);margin-top:0.4rem;">H.R. 2102 / S. 1032 — BLOCKER PRESSURE PACKAGE</div>
+  </div>
+  <div class="masthead-meta">
+    323 HOUSE COSPONSORS<br>
+    79 SENATE COSPONSORS<br>
+    PENTAGON ENDORSEMENT: ✓ MAY 1<br>
+    PRIMARY BLOCKERS: 2 IDENTIFIED
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>⚑ SENATE ARMED SERVICES — WICKER (R-MS) CHAIR</span>
+  <span>⚑ SENATE HOMELAND SECURITY — JOHNSON (R-WI) RANKING</span>
+  <span>STATUS: FLOOR VOTE BLOCKED</span>
+</div>
+
+<div class="container">
+
+  <div class="bill-summary">
+    <strong>WHAT THE BILL DOES:</strong> Eliminates the Concurrent Receipt offset — the rule forcing combat-injured veterans to forfeit $1 of military retirement pay for every $1 of VA disability compensation received. Veterans who bled for their country are currently penalized for being wounded. This fix has been pending for decades. The math: <strong>~40,000 Chapter 61 retirees</strong> receive partial relief at best under current law. Full concurrent receipt = full earned pay, no offset, no penalty for sacrifice.
+  </div>
+
+  <!-- DUAL DOSSIERS -->
+  <div class="targets-grid">
+
+    <!-- WICKER -->
+    <div class="dossier dossier-wicker">
+      <div class="dossier-header">
+        <div class="dossier-tag">TARGET ALPHA // SENATE ARMED SERVICES CHAIR</div>
+        <div class="dossier-name">ROGER WICKER</div>
+        <div class="dossier-subtitle">R-MS | ARMED SERVICES CHAIR | UP 2026</div>
+      </div>
+      <div class="dossier-body">
+
+        <div class="section-label">Known Objections → Rebuttals</div>
+
+        <div class="objection-block">"The bill is too expensive — it adds to mandatory spending."</div>
+        <div class="rebuttal-block">
+          <strong>REBUTTAL:</strong> Congress has funded concurrent receipt expansions before — CRDP and CRSC cost money too, and passed. The CBO scored this; the number is known. Wicker sits on Armed Services and just authorized billions for platforms and contractors. The argument that we can't afford to stop penalizing wounded veterans is a priority statement, not a fiscal argument. Frame it as: every fighter jet we build while docking combat-disabled retirees' pay is a values vote, and Mississippi veterans are watching.
+        </div>
+
+        <div class="objection-block">"We support veterans but must find offsets."</div>
+        <div class="rebuttal-block">
+          <strong>REBUTTAL:</strong> NDAA amendments routinely include unpaid provisions when political will exists. The Pentagon endorsed this. Hegseth — his own party's SecDef — is on record supporting elimination of the offset. If Wicker wants an offset, name one. Otherwise the offset requirement is a procedural shield, not a principled position.
+        </div>
+
+        <div class="section-label">Electoral Exposure</div>
+        <div>
+          <span class="exposure-pill pill-high">SENATE RACE 2026</span>
+          <span class="exposure-pill pill-high">MS-VET POPULATION: TOP 10</span>
+          <span class="exposure-pill pill-high">ARMED SERVICES CHAIR — OWNS THIS BILL</span>
+          <span class="exposure-pill pill-med">CAMP SHELBY / KEESLER / COLUMBUS AFB</span>
+          <span class="exposure-pill pill-med">VFW MS STATE COUNCIL</span>
+          <span class="exposure-pill pill-med">AMERICAN LEGION DEPT. OF MS</span>
+        </div>
+
+        <div class="section-label">Leverage Vectors</div>
+        <ul class="pressure-points">
+          <li>As SASC Chair, he controls committee markup. A blocked floor vote is his signature.</li>
+          <li>2026 reelection — Mississippi has one of the highest per-capita active/veteran populations in the country.</li>
+          <li>Hegseth endorsement makes obstruction harder to defend within GOP ranks.</li>
+          <li>Camp Shelby (National Guard) and Keesler AFB generate high volume of Chapter 61 retirees — they live in his districts.</li>
+          <li>VSO state chapters (VFW, Legion, DAV) have endorsed. Direct ask: public statement of opposition to Wicker's hold.</li>
+          <li>Local TV in Gulfport, Jackson, Biloxi — "Senator Wicker: Why are you blocking pay for wounded veterans?"</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- JOHNSON -->
+    <div class="dossier dossier-johnson">
+      <div class="dossier-header">
+        <div class="dossier-tag">TARGET BETA // SENATE HOMELAND SECURITY RANKING</div>
+        <div class="dossier-name">RON JOHNSON</div>
+        <div class="dossier-subtitle">R-WI | HOMELAND SECURITY | FISCAL HAWK</div>
+      </div>
+      <div class="dossier-body">
+
+        <div class="section-label">Known Objections → Rebuttals</div>
+
+        <div class="objection-block">"This is an entitlement expansion I can't support without offsets."</div>
+        <div class="rebuttal-block">
+          <strong>REBUTTAL:</strong> Johnson's consistent objection is spending. The key move here is reframe: this is not a new benefit — it is returning earned pay that was arbitrarily clawed back. These veterans were medically separated because their bodies were broken in service. The offset was never a principled policy; it was a budget accounting convenience. You don't call Social Security an "entitlement expansion" when you correct an administrative error.
+        </div>
+
+        <div class="objection-block">"I've opposed unanimous consent agreements that spend money."</div>
+        <div class="rebuttal-block">
+          <strong>REBUTTAL:</strong> Johnson routinely objects to UC agreements. The play here is floor vote, not UC. Force a recorded vote so Johnson has to defend a "no" to 79 Senate cosponsors + Pentagon + VSOs on the record. His fiscal hawk identity has political upside for him — unless the thing he's "fiscally hawking" is wounded veterans' pay. That's a different headline.
+        </div>
+
+        <div class="section-label">Electoral Exposure</div>
+        <div>
+          <span class="exposure-pill pill-med">NOT RUNNING 2026 (RETIRING?)</span>
+          <span class="exposure-pill pill-high">LEGACY PLAY — FINAL TERM</span>
+          <span class="exposure-pill pill-med">FORT McCOY (WI) CHAPTER 61 RETIREES</span>
+          <span class="exposure-pill pill-med">VFW WI STATE COUNCIL</span>
+          <span class="exposure-pill pill-high">GOP BRAND DAMAGE IF ISOLATED</span>
+        </div>
+
+        <div class="section-label">Leverage Vectors</div>
+        <ul class="pressure-points">
+          <li>If Johnson is retiring, his legacy is the asset. Ask: does he want his final session to include blocking a veteran pay fix that his own party's SecDef endorsed?</li>
+          <li>Isolate him. With 79 Senate cosponsors, framing his hold as an outlier position is accurate and resonant.</li>
+          <li>Fort McCoy generates Guard and Reserve Chapter 61 separations — Wisconsin has skin in this game.</li>
+          <li>Wisconsin VSOs are on record. A direct public ask to Johnson's office from state VFW/Legion carries weight as a local accountability story.</li>
+          <li>The "fiscal hawk blocking wounded vet pay" narrative is hard to defend in a 30-second spot — which is the deterrent.</li>
+          <li>Paired pressure: any Wisconsin constituent who is a Chapter 61 retiree should be surfaced as a local media story.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CONSTITUENT LETTER SCRIPTS -->
+  <div class="scripts-section">
+    <h2>CONSTITUENT SCRIPTS</h2>
+
+    <div class="script-card">
+      <div class="script-header">
+        <span class="script-title">WICKER — MISSISSIPPI CONSTITUENT LETTER</span>
+        <span class="script-channel">MAIL / FAX / CONSTITUENT SERVICES</span>
+        <button class="copy-btn" onclick="copyScript(this,'wicker-letter')">COPY</button>
+      </div>
+      <div class="script-body" id="wicker-letter">Senator Wicker,
+
+I am a Mississippi resident and a combat-disabled veteran. I write to ask one direct question: when will you allow H.R. 2102 / S. 1032, the Major Richard Star Act, to advance to a floor vote?
+
+I served this country. I was wounded doing so. Under current law, I forfeit military retirement pay — pay I earned — dollar for dollar against my VA disability compensation. This is not a benefit. This is my own money being withheld.
+
+The bill has 323 House cosponsors. It has 79 Senate cosponsors. Secretary Hegseth endorsed eliminating this offset on May 1. You chair the Senate Armed Services Committee. You are the gatekeeper.
+
+Mississippi has one of the highest veteran populations per capita in the nation. Fort Shelby, Keesler, Columbus — these are your constituents. We are not asking for something new. We are asking you to stop penalizing us for getting wounded.
+
+I am asking you to allow this bill to move. If you have a specific objection to the current text, name it publicly so it can be addressed. If you do not, then the hold is unexplained, and that explanation belongs to your constituents before November.
+
+Respectfully,
+<em>[NAME]
+[CITY, MS]
+[BRANCH, DATES OF SERVICE]
+[DISABILITY RATING, IF COMFORTABLE]</em></div>
+    </div>
+
+    <div class="script-card">
+      <div class="script-header">
+        <span class="script-title">JOHNSON — WISCONSIN CONSTITUENT LETTER</span>
+        <span class="script-channel">MAIL / FAX / CONSTITUENT SERVICES</span>
+        <button class="copy-btn" onclick="copyScript(this,'johnson-letter')">COPY</button>
+      </div>
+      <div class="script-body" id="johnson-letter">Senator Johnson,
+
+I am a Wisconsin veteran who was medically separated from military service due to combat-related injuries. I am writing about the Major Richard Star Act (H.R. 2102 / S. 1032), which would end the dollar-for-dollar offset between military retirement pay and VA disability compensation.
+
+I understand your record on federal spending. I share concern for fiscal discipline. But I ask you to consider what this offset actually is: it is not a new program. It is a correction of an accounting rule that has, for decades, clawed back earned compensation from veterans whose bodies were broken in service to this country.
+
+Seventy-nine of your Senate colleagues have cosponsored this bill. The Secretary of Defense has endorsed it. The nation's leading VSOs have endorsed it. What this bill does is simple: it stops docking the pay of people like me for the injury that ended our service.
+
+If the bill requires an offset to advance, I ask that you name one publicly. Veterans deserve a specific answer, not a procedural hold. Fort McCoy veterans, Wisconsin Guard retirees, and Chapter 61 separatees across this state are watching this session and will remember this vote — or the absence of one.
+
+I ask for your support, or failing that, your stated and specific objection.
+
+Respectfully,
+<em>[NAME]
+[CITY, WI]
+[BRANCH, DATES OF SERVICE]
+[DISABILITY RATING, IF COMFORTABLE]</em></div>
+    </div>
+
+    <div class="script-card">
+      <div class="script-header">
+        <span class="script-title">WICKER — MEDIA PITCH (LOCAL MS OUTLETS)</span>
+        <span class="script-channel">EMAIL TO EDITORS / ASSIGNMENT DESKS</span>
+        <button class="copy-btn" onclick="copyScript(this,'media-pitch')">COPY</button>
+      </div>
+      <div class="script-body" id="media-pitch">SUBJECT: Mississippi Veteran Pay Story — Senator Wicker Holds Key Vote
+
+[EDITOR NAME],
+
+I'm reaching out about a story with direct impact on Mississippi veterans.
+
+The Major Richard Star Act (H.R. 2102 / S. 1032) would end a rule that forces combat-disabled military retirees to forfeit retirement pay dollar-for-dollar against their VA disability compensation. The bill has 323 House cosponsors, 79 Senate cosponsors, and was endorsed by Secretary of Defense Hegseth on May 1, 2026.
+
+Senator Roger Wicker chairs the Senate Armed Services Committee — the committee that controls whether this bill reaches the floor.
+
+Mississippi ranks in the top ten nationally for veteran population per capita. Keesler AFB, Columbus AFB, and Camp Shelby all generate medical separations under Chapter 61 — the exact population this bill protects. These veterans live in Senator Wicker's state, and many are currently having money withheld from their earned pay.
+
+There are veterans in [CITY/REGION] who are directly affected and willing to speak on record. I believe this is a compelling constituent story.
+
+Would you be open to a brief call to discuss? I can also connect you with local veterans available for interview.
+
+Thank you,
+<em>[NAME / ORGANIZATION / CONTACT]</em></div>
+    </div>
+
+    <div class="script-card">
+      <div class="script-header">
+        <span class="script-title">WICKER PHONE SCRIPT (30-SECOND CALL)</span>
+        <span class="script-channel">OFFICE: (202) 224-6253 | JACKSON: (601) 965-4644</span>
+        <button class="copy-btn" onclick="copyScript(this,'phone-script')">COPY</button>
+      </div>
+      <div class="script-body" id="phone-script">Hi, my name is [NAME] and I'm a Mississippi constituent. I'm calling to urge Senator Wicker to allow the Major Richard Star Act — Senate bill 1032 — to advance to a floor vote. This bill ends the retirement pay penalty for combat-disabled veterans. It has 79 Senate cosponsors and the Secretary of Defense has endorsed it. Senator Wicker chairs the committee that controls this bill. I'd like to know his position and when he will schedule action. Thank you.</div>
+    </div>
+
+  </div>
+
+  <!-- COALITION ACTIVATION -->
+  <div class="coalition-section">
+    <h2>VSO ACTIVATION MATRIX</h2>
+    <div class="coalition-grid">
+
+      <div class="coalition-card">
+        <h4>VFW — MS STATE COUNCIL</h4>
+        <p>Request public statement calling on Wicker to schedule a vote. Ask for direct constituent mobilization to Wicker's district offices. Coordinate with Post Commanders near Keesler, Columbus AFB, Camp Shelby.</p>
+      </div>
+
+      <div class="coalition-card">
+        <h4>AMERICAN LEGION — DEPT. OF MS</h4>
+        <p>Issue formal letter from Department Commander to Wicker's office. Request testimony at any SASC markup if one is scheduled. Coordinate state-level media outreach in Gulfport, Biloxi, Jackson markets.</p>
+      </div>
+
+      <div class="coalition-card">
+        <h4>DAV — WI STATE CHAPTER</h4>
+        <p>Wisconsin angle on Johnson: DAV state chapter official statement calling for Johnson to support floor vote. Connect with Fort McCoy-area chapter membership — direct constituent contact to Johnson's Milwaukee/Green Bay offices.</p>
+      </div>
+
+      <div class="coalition-card">
+        <h4>MOAA (MILITARY OFFICERS)</h4>
+        <p>MOAA has Chapter 61 members who are officer retirees — higher visibility profiles for media. Request MOAA national to send formal letter directly to Wicker's SASC office. Officer retirees carry weight in the "fiscal responsibility" framing.</p>
+      </div>
+
+      <div class="coalition-card">
+        <h4>IAVA / STUDENT VETERANS</h4>
+        <p>Younger veteran organizations have social media velocity. Ask IAVA for a targeted Wicker/Johnson social push — tag them directly, force response or silence (both are stories).</p>
+      </div>
+
+      <div class="coalition-card">
+        <h4>STATE LEGISLATORS (MS/WI)</h4>
+        <p>State-level legislative resolutions calling on their federal delegation to pass the Star Act have symbolic and constituent pressure value. Mississippi and Wisconsin state veterans caucuses are natural vehicles — does not require floor time, can move quickly.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- FLOOR PATH -->
+  <div class="floor-section">
+    <h2>PATH TO FLOOR VOTE</h2>
+    <ol class="floor-steps">
+      <li><strong>Break the Wicker hold first.</strong> He chairs SASC. No markup, no floor. Constituent + VSO pressure in Mississippi is the primary lever. Media in MS markets is the secondary lever. The goal is a public commitment from Wicker to schedule committee action or an explanation of why he won't.</li>
+      <li><strong>Force Johnson to a recorded vote, not UC.</strong> Johnson's power is in objecting to unanimous consent. A cloture-forced floor vote removes that leverage. Work with Senate cosponsors (79 is enough) to request Majority Leader schedule floor time. Johnson's "no" on a recorded vote is the accountability mechanism.</li>
+      <li><strong>Hegseth endorsement as GOP cover.</strong> Republican senators who want to vote yes but fear Johnson/Wicker blowback have cover: their own party's SecDef is on record. Use this repeatedly in outreach to undeclared GOP senators.</li>
+      <li><strong>Constituent stories in district media.</strong> Not national — local. A Biloxi Sun Herald piece on a specific Keesler retiree losing pay hits Wicker's district. A Milwaukee Journal Sentinel piece on a Fort McCoy Guard sergeant hits Johnson's. Named, human, local.</li>
+      <li><strong>Counter the cost objection with specifics.</strong> Get the current CBO score on record and distributed. Pair it with the cost of a specific weapons program or earmark Wicker/Johnson both voted for. The juxtaposition is the argument.</li>
+      <li><strong>Set a public deadline.</strong> VSOs and cosponsors formally request a committee markup date from Wicker before a specified date. Absence of response IS the story. Gives media a hook: "Senator has not responded to veterans' request for vote date."</li>
+    </ol>
+  </div>
+
+</div>
+
+<footer>
+  <span>MAJOR RICHARD STAR ACT PRESSURE PACKAGE — WICKER / JOHNSON BLOCKERS</span>
+  <span>H.R. 2102 / S. 1032 — 323 HOUSE · 79 SENATE COSPONSORS — PENTAGON ENDORSED</span>
+</footer>
+
+<script>
+  function copyScript(btn, id) {
+    const el = document.getElementById(id);
+    const text = el.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'COPIED';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'COPY';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+</script>
+
+</body>
+</html>
