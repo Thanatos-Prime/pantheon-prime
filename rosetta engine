@@ -1,0 +1,175 @@
+            {"left": left, "right": right, "files": count}
+            for (left, right), count in co_occurrence.most_common(40)
+        ]
+        journeys = self._journeys(concepts, relationships)
+        unknowns = [
+            {"term": term, "count": count}
+            for term, count in untranslated.most_common(top_terms)
+            if term.lower() not in self.alias_to_concept
+        ]
+        return RosettaReport(
+            root=str(self.root),
+            files_scanned=files_scanned,
+            concepts=concepts,
+            relationships=relationships,
+            journeys=journeys,
+            untranslated_terms=unknowns,
+        )
+
+    def render_markdown(self, report: RosettaReport) -> str:
+        lines = [
+            "# Pantheon Rosetta Engine Report",
+            "",
+            "This report treats the repository as natural-language source code.",
+            "It preserves redundancy as alternate semantic journeys while translating recurring symbols into operational contracts.",
+            "",
+            f"- Root: `{report.root}`",
+            f"- Files scanned: `{report.files_scanned}`",
+            f"- Canonical concepts detected: `{len(report.concepts)}`",
+            "",
+            "## Canonical Concepts",
+            "",
+        ]
+
+        for concept in report.concepts:
+            lines.extend(
+                [
+                    f"### {concept.key}",
+                    "",
+                    f"- Count: `{concept.count}`",
+                    f"- Function: {concept.function}",
+                    f"- Operational contract: {concept.contract}",
+                    f"- Aliases seen: {self._format_counts(concept.aliases_seen)}",
+                    f"- Partners: {', '.join(concept.partners) if concept.partners else 'none'}",
+                    f"- Failure modes: {', '.join(concept.risks) if concept.risks else 'none'}",
+                    "",
+                    "Evidence:",
+                ]
+            )
+            for item in concept.evidence:
+                line_ref = f":{item.line}" if item.line else ""
+                lines.append(f"- `{item.path}{line_ref}` via `{item.alias}`: {item.snippet}")
+            lines.append("")
+
+        lines.extend(["## Strong Relationship Routes", ""])
+        for rel in report.relationships[:20]:
+            lines.append(f"- `{rel['left']}` <-> `{rel['right']}` across `{rel['files']}` files")
+        lines.append("")
+
+        lines.extend(["## Journey / Flank Routes", ""])
+        for journey in report.journeys:
+            lines.append(f"### {journey['name']}")
+            lines.append("")
+            lines.append(journey["purpose"])
+            lines.append("")
+            lines.append("Route: " + " -> ".join(f"`{step}`" for step in journey["route"]))
+            lines.append("")
+
+        lines.extend(["## Candidate Terms To Canonize Later", ""])
+        for item in report.untranslated_terms[:25]:
+            lines.append(f"- `{item['term']}` ({item['count']})")
+        lines.append("")
+        return "\n".join(lines)
+
+    def _journeys(
+        self, concepts: list[ConceptReport], relationships: list[dict[str, object]]
+    ) -> list[dict[str, object]]:
+        present = {concept.key for concept in concepts}
+        candidates = [
+            {
+                "name": "Compiler Route",
+                "purpose": "Turn symbolic prose into runnable contracts.",
+                "route": ["rosetta_magpie", "invariant", "kernel", "thought_object", "mother_duck"],
+            },
+            {
+                "name": "Safety Route",
+                "purpose": "Keep agency simulation bounded, reversible, and auditable.",
+                "route": ["hound", "mirror", "checksum", "invariant", "bombadil"],
+            },
+            {
+                "name": "Evolution Route",
+                "purpose": "Use failures as mutations that strengthen the canon.",
+                "route": ["hound", "kintsugi", "invariant", "mother_duck", "continuity"],
+            },
+            {
+                "name": "Flank Route",
+                "purpose": "Approach a hard problem sideways through frame rotation and relation mapping.",
+                "route": ["dragonfly", "spider", "mirror", "praus", "kernel"],
+            },
+            {
+                "name": "Institution Route",
+                "purpose": "Convert local shared imagination into repeatable social protocol.",
+                "route": ["continuity", "mother_duck", "invariant", "checksum", "rosetta_magpie"],
+            },
+        ]
+        return [item for item in candidates if any(step in present for step in item["route"])]
+
+    def _collect_untranslated_handles(self, text: str, counter: Counter[str]) -> None:
+        # Catch recurring title-case handles that may become future concepts.
+        for match in re.finditer(r"\b[A-Z][A-Za-z0-9]*(?:[- ][A-Z][A-Za-z0-9]*){0,3}\b", text):
+            term = match.group(0).strip()
+            if len(term) < 4:
+                continue
+            if term in STOP_TERMS:
+                continue
+            if " " not in term and "-" not in term and not term.isupper() and not re.search(r"[A-Z].*[A-Z]", term[1:]):
+                continue
+            if term.endswith(("s", "ed", "ing")) and " " not in term and "-" not in term:
+                continue
+            if term.lower() in self.alias_to_concept:
+                continue
+            counter[term] += 1
+
+    def _snippet(self, line: str, alias: str, radius: int = 120) -> str:
+        lowered = line.lower()
+        pos = lowered.find(alias.lower())
+        if pos < 0:
+            return line[: radius * 2]
+        start = max(0, pos - radius)
+        end = min(len(line), pos + len(alias) + radius)
+        prefix = "..." if start > 0 else ""
+        suffix = "..." if end < len(line) else ""
+        return prefix + line[start:end] + suffix
+
+    def _format_counts(self, counts: dict[str, int]) -> str:
+        return ", ".join(f"`{alias}`={count}" for alias, count in sorted(counts.items(), key=lambda x: -x[1]))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Translate Pantheon prose into canonical operational concepts.")
+    parser.add_argument("--root", default=".", help="Repository root to scan.")
+    parser.add_argument("--file", help="Translate a single file instead of the whole corpus.")
+    parser.add_argument("--text", help="Translate an inline text fragment.")
+    parser.add_argument("--output", help="Write a Markdown corpus report.")
+    parser.add_argument("--json", dest="json_path", help="Write a JSON corpus report.")
+    parser.add_argument("--evidence-limit", type=int, default=3, help="Evidence snippets per concept.")
+    args = parser.parse_args()
+
+    engine = RosettaEngine(Path(args.root))
+
+    if args.text:
+        reports = engine.translate_text(args.text, evidence_limit=args.evidence_limit)
+        print(json.dumps({key: asdict(value) for key, value in reports.items()}, indent=2))
+        return 0
+
+    if args.file:
+        path = Path(args.file)
+        if not path.is_absolute():
+            path = Path(args.root) / path
+        text = engine.read_text(path)
+        reports = engine.translate_text(text, path=str(path), evidence_limit=args.evidence_limit)
+        print(json.dumps({key: asdict(value) for key, value in reports.items()}, indent=2))
+        return 0
+
+    report = engine.build_report(evidence_limit=args.evidence_limit)
+    if args.output:
+        Path(args.output).write_text(engine.render_markdown(report), encoding="utf-8")
+    if args.json_path:
+        Path(args.json_path).write_text(json.dumps(asdict(report), indent=2), encoding="utf-8")
+    if not args.output and not args.json_path:
+        print(engine.render_markdown(report))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
