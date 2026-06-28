@@ -1,0 +1,235 @@
+I actually like this direction if it's framed as **interaction design** rather than control.
+
+A stylist daemon shouldn't manipulate the model. It should **establish the operating frame** so every downstream daemon speaks the same language. That's consistent with Pantheon's architecture: it conditions the context, not the weights.
+
+Here's a MoneyBin-style draft.
+
+# MONEYBIN ARTIFACT
+
+## d_stylist — Context Stylist Daemon v1.0
+
+### Classification
+
+Infrastructure Daemon
+
+### Purpose
+
+The Stylist Daemon establishes the semantic operating frame for a session before specialized reasoning begins.
+
+It does not alter model weights or reasoning algorithms.
+
+Instead, it constructs a shared interpretive context so that every subsequent daemon, model, and operator begins from the same conceptual landscape.
+
+The Stylist answers a single question:
+
+> "What language should the Pantheon think in before it begins thinking?"
+
+---
+
+## Core Principle
+
+Meaning emerges from context before inference.
+
+Inference without framing is stochastic.
+
+Inference within a coherent frame is structured.
+
+The Stylist therefore operates as the first semantic pass over every ThoughtObject.
+
+---
+
+## Responsibilities
+
+* Detect domain and discourse.
+* Select appropriate semantic vocabulary.
+* Normalize terminology.
+* Load relevant doctrines.
+* Resolve ambiguous concepts.
+* Establish narrative stance.
+* Publish the active Context Frame.
+
+The Stylist never produces final answers.
+
+It produces conditions under which better answers become more likely.
+
+---
+
+## Inputs
+
+* ThoughtObject
+* StateVector
+* Active mission
+* Conversation history
+* User preferences
+* Active daemon registry
+
+---
+
+## Outputs
+
+```yaml
+ContextFrame:
+    domain:
+    ontology:
+    vocabulary:
+    assumptions:
+    constraints:
+    canonical_terms:
+    narrative_mode:
+    confidence:
+```
+
+---
+
+## Example
+
+Input:
+
+> Build a persistent cognitive operating system.
+
+Stylist Output:
+
+```yaml
+domain:
+    cognitive systems
+
+ontology:
+    operating system
+
+vocabulary:
+    kernel
+    daemon
+    statevector
+    invariant
+    ledger
+    operator
+    continuity
+
+narrative_mode:
+    engineering
+
+constraints:
+    grounded
+    testable
+    implementation-first
+```
+
+Subsequent daemons now inherit that frame.
+
+---
+
+## Invariants
+
+* Does not fabricate facts.
+* Does not modify StateVector directly.
+* Does not bypass governance.
+* Only proposes ContextFrames.
+* Every frame remains inspectable and replaceable.
+
+---
+
+## Integrations
+
+Spider
+Mirror
+Praus
+Hound
+Golden Thread
+Narrative Tensor Engine
+Kernel Scheduler
+
+---
+
+## Philosophy
+
+The Stylist is not persuasion.
+
+It is alignment of language.
+
+Language defines interfaces.
+
+Interfaces define interaction.
+
+Interaction determines what reasoning becomes possible.
+
+And the corresponding artifact:
+
+# MONEYBIN ARTIFACT
+
+## ContextFrame v1.0
+
+### Artifact Type
+
+Semantic Runtime Artifact
+
+### Definition
+
+A ContextFrame is an immutable description of the semantic environment in which inference occurs.
+
+It functions as a runtime configuration rather than as memory.
+
+The ContextFrame expires or is replaced as conversations evolve.
+
+---
+
+## Schema
+
+```yaml
+ContextFrame:
+    id:
+    created:
+    source:
+    domain:
+    ontology:
+    canonical_vocabulary:
+    narrative_mode:
+    assumptions:
+    active_constraints:
+    preferred_representations:
+    active_doctrines:
+    enabled_daemons:
+    confidence:
+```
+
+---
+
+## Lifecycle
+
+```
+Input
+    ↓
+Stylist
+    ↓
+ContextFrame
+    ↓
+Kernel
+    ↓
+Daemon Pipeline
+    ↓
+Inference
+```
+
+---
+
+## Design Principles
+
+1. Frames are explicit rather than implicit.
+2. Frames are observable.
+3. Frames are versioned.
+4. Frames are replaceable.
+5. Frames never modify model parameters.
+6. Frames are evaluated by governance before activation.
+
+---
+
+## Canonical Statement
+
+The ContextFrame is the semantic operating environment for a single reasoning interval.
+
+It does not change the intelligence of a model.
+
+It changes the interpretive landscape in which that intelligence operates.
+
+Like an operating system selecting libraries before executing a program, the ContextFrame selects conceptual interfaces before inference begins.
+
+I think this fits naturally with the rest of Pantheon. It also makes an important architectural distinction: the "conditioning" is an explicit, inspectable runtime object. That means another daemon—or a human operator—can examine, compare, replace, or reject it. Making the frame first-class and observable is much more robust than leaving it implicit in a long prompt, and it keeps the mechanism transparent rather than hidden.
