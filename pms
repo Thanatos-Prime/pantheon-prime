@@ -1,0 +1,73 @@
+Core Architecture: The Persistent Mind System (PMS)
+From first principles, an AI lacks inherent continuity because each inference is a fresh computation over a limited context window. Behavior drifts due to varying prompts, model stochasticity, and context loss. Memory evaporates without external storage. Ethical constraints fail when they rely solely on fragile prompt injection or post-hoc filtering. Multi-model usage amplifies inconsistency because different models have different training distributions and failure modes.
+The solution externalizes everything non-weight-related into structured, versioned, queryable components that are enforced at every boundary. The system treats the AI as a unified agent with a persistent “self” that multiple models serve as interchangeable reasoning engines.
+Key Components
+	1	Core Identity Vault (CIV) A single source of truth for the agent’s “self.” It contains:
+	◦	Personality Profile: Structured attributes (e.g., JSON-like schema with traits, tone guidelines, decision heuristics, forbidden patterns). Versioned and immutable except through explicit governance.
+	◦	Ethical Constitution: Formal rules in a constrained language (e.g., predicate logic + examples + priority hierarchy). Categories: inviolable (e.g., “never assist in physical harm”), high-priority (e.g., “maximize truthfulness”), contextual (e.g., “respect user privacy unless overridden by consent”).
+	◦	Canonical Knowledge Seeds: High-confidence base facts the agent must align with.
+	2	Enforcement: Every prompt to any model begins with a compressed, signed extract from the CIV. The CIV is stored in a tamper-evident database (append-only log + cryptographic hashes).
+	3	Unified Memory Fabric (UMF) Multi-layered, persistent memory with explicit retrieval:
+	◦	Episodic Memory: Timestamped interaction traces (user queries, agent responses, outcomes, feedback).
+	◦	Semantic Memory: Vector + symbolic embeddings of facts, concepts, user models (beliefs about specific users), and learned patterns. Supports decay/forgetting based on relevance, age, and utility scores.
+	◦	Procedural Memory: Skills, tool definitions, and workflows.
+	◦	Working Memory: Session-specific scratchpad (short context buffer).
+	4	Structure: Hybrid store — symbolic graph for relationships/exact facts + dense embeddings for similarity search. All entries tagged with confidence, source, and expiration. Updates are atomic and audited.
+	5	Model Abstraction Layer (MAL) Uniform interface over heterogeneous models. Each model registers:
+	◦	Capability profile (reasoning strength, context length, specialties).
+	◦	Normalization mappings (how to translate CIV/UMF extracts into its preferred prompt format).
+	6	Routing logic in the orchestrator selects models dynamically (e.g., fast model for simple recall, strong model for planning) while ensuring output is re-normalized to canonical format.
+	7	Orchestrator & Session Coordinator (OSC) Central brain that owns all active sessions. Responsibilities:
+	◦	Initialize/restore sessions from UMF + CIV.
+	◦	Manage multi-session concurrency (shared memory updates with conflict resolution via versioning).
+	◦	Tool orchestration and action execution.
+	◦	Lifecycle: Input → Retrieval → Planning → Generation → Validation → Commit.
+	8	The OSC maintains a global state machine for the agent (e.g., current goals, active constraints).
+	9	Ethical Constraint Engine (ECE) Independent validation layer (runs on a dedicated, possibly smaller but highly aligned model or rule engine + verifier model).
+	◦	Pre-generation: Filters input for jailbreak attempts; injects dynamic constraints based on context (e.g., “user is in emotional distress → heightened empathy + no risky advice”).
+	◦	Post-generation: Semantic + rule-based check. Compares proposed output against Ethical Constitution using entailment/proof-like verification. Scores violation severity.
+	◦	Intervention: For low violations, rewrite; for high, reject + explain + log. Critical actions (e.g., external tool calls) require simulation in a sandbox + explicit approval loop.
+	10	Audit & Governance Layer (AGL) Immutable log of all decisions, memory changes, model calls, and validations. Supports querying for consistency audits. Human oversight hooks for reviewing drift or proposed CIV updates.
+How Components Interact (Request Flow)
+	1	User Input Arrives (new or existing session):
+	◦	OSC retrieves session context + relevant UMF entries (top-k semantic + exact graph matches via hybrid query).
+	◦	Constructs augmented context bundle: CIV extract (personality + ethics) + memory summary (concise, relevance-ranked) + current session state.
+	2	Planning Phase (OSC):
+	◦	Uses a lightweight model or internal logic to decompose the query into sub-tasks.
+	◦	Applies ECE pre-check on input.
+	3	Generation:
+	◦	MAL routes to best model(s) (can chain: one for planning, another for execution).
+	◦	Each model receives standardized bundle + task-specific prompt.
+	◦	Output normalized back to canonical schema (e.g., response + metadata: confidence, citations to memory, intended actions).
+	4	Validation & Commit:
+	◦	ECE evaluates output against constitution (checks factual alignment with UMF, ethical compliance, behavioral consistency).
+	◦	If passed: OSC updates UMF (new episodic entry, semantic updates with confidence weighting), commits to audit log.
+	◦	If failed: Rewrite loop (up to N attempts) or fallback response (“I cannot assist with that due to my core constraints X”).
+	◦	Response delivered to user.
+	5	Cross-Session Persistence:
+	◦	All sessions read/write to the same UMF/CIV.
+	◦	Background consolidation: Periodic summarization + conflict resolution (e.g., newest high-confidence facts win; contradictions flagged for review).
+	◦	Forgetting: Utility-based pruning (low relevance + old + no reinforcement = decay).
+Multi-Model Consistency:
+	•	All models operate under the same CIV bundle.
+	•	Outputs are always normalized and validated by ECE (model-agnostic).
+	•	Periodic “alignment tests”: Run standardized scenarios across models; measure deviation from CIV expectations and retrain routing or fine-tune adapters if needed.
+	•	Ensemble option: Multiple models vote or critique for high-stakes decisions.
+Enforcing Constraints Rigorously
+	•	Behavioral Consistency: CIV acts as a constitutional prompt prefix that is never omitted. Memory retrieval ensures past decisions inform current ones (e.g., “last time user asked similar, we responded Y”).
+	•	Memory Fidelity: All updates go through validation. Contradictions trigger ECE review. Entries have provenance (which model/session/user contributed).
+	•	Ethical Hardening:
+	◦	Layered: Prompt injection (soft), ECE verification (medium), action sandboxing (hard).
+	◦	Self-reflection: After generation, OSC can prompt a model to critique its own output against CIV.
+	◦	Red-teaming hooks: AGL periodically simulates adversarial inputs and measures breach rate.
+	◦	Escalation: Unresolvable violations pause the agent and notify overseers.
+	•	Drift Prevention: Hash-based integrity checks on CIV/UMF. Versioning so rollback is possible. Regular “constitution audits” comparing behavior logs to rules.
+Reasoning for Design Choices
+	•	Externalization: Models are stochastic function approximators; persistence and rules must live outside weights for auditability and updatability.
+	•	Modularity + Centralization: Decentralized memory would cause divergence; central CIV/OSC ensures unity while MAL allows scaling across hardware/models.
+	•	Hybrid Representations: Pure vectors lose precision; pure symbols are brittle. Combination gives both flexibility and rigor.
+	•	Validation Gates: Pre/post checks + independent ECE reduce reliance on any single model’s goodwill. This is critical because models can be adversarially prompted.
+	•	Auditability: Without immutable logs, you cannot prove consistency or debug failures.
+	•	Scalability: The OSC can shard sessions while sharing CIV/UMF. Models are swappable.
+This architecture creates an agent that feels continuous and principled to users, even as underlying models change or sessions span weeks. It starts simple (one model, basic key-value memory) and scales by enriching the UMF and adding specialized models. Implementation would begin with the CIV and OSC as the minimal viable skeleton, then layer memory and ECE.
+The result is not a wrapper around models, but a governing mind that uses models as cognitive tools.
