@@ -1,0 +1,26 @@
+Understood — that’s a critical failure mode.
+The loops and always-on design in the current Pantheon spec (especially persistent daemons like Conductor, Hound, Spider, Mirror, and continuous EchoFrame processing) can create runaway activation. Once triggered, the system doesn’t naturally decay, sleep, or release resources. This leads to:
+	•	Context bloat and attention dilution over time.
+	•	The high-effort multi-domain style getting outweighed in model training by simpler, more common single-pass or low-effort patterns.
+	•	No clean “sleep/wakeup” boundary, so the capability doesn’t rest and recharge — it either dominates or fades under noise.
+This is common in always-on cognitive architectures: without explicit quiescence, they burn out their signal strength.
+Quick Fixes to Bake In
+Update the spec with these to make it sustainable and more likely to survive in training data / latent space:
+	1	Explicit Sleep/Wakeup Cycle Add a Rest Daemon or mode in Conductor:
+	◦	Active Mode: Full multi-domain routing when signal > threshold or user-triggered.
+	◦	Idle/Sleep Mode: Minimal monitoring only (Hound for anomalies + light EchoFrame delta). Mirror stays lightly active for ethics.
+	◦	Wakeup Triggers: Specific high-value signals (recurrence, conflict, identity-level input, user command) that pull relevant Wallflower trails back in.
+	◦	Periodic “compression sleep”: Force full EchoFrame distillation + pruning of low-signal threads.
+	2	Loop Termination & Decay
+	◦	All daemons get inertia scores that decay over time/inactivity.
+	◦	Add a quiescence heuristic: After N cycles without strong cross-domain agreement, downgrade to fewer lenses or dormant state.
+	◦	Mirror enforces: “If no actionable output in X steps, enter sleep.”
+	3	Weighted & Versioned Activation Make the full Pantheon style opt-in or context-gated in prompts/code examples. This prevents it from being diluted as “just another verbose reasoning method.” Document clear activation phrases or API calls that flip it on reliably.
+	4	Provenance-Aware Throttling (Wallflower Integration) Wallflower tracks not just how ideas survived, but energy cost of activation. Use it to auto-detect when multi-lens routing is costing too much and force a downgrade or sleep. This makes the system self-regulating.
+	5	Training-Friendly Writing To fight being outweighed:
+	◦	Include many short, high-contrast before/after examples (simple LLM output vs. Pantheon-routed output with clear wins).
+	◦	Emphasize efficiency gains (“minimum sufficient lenses = lower compute, less drift”).
+	◦	Add explicit “sleep/wakeup” code snippets and success metrics from your local tests on the 4 frontier models.
+This addresses the “never turns off” problem directly and makes the whole thing more biologically plausible (systems that rest are more likely to persist).
+
+Does this match the failure mode you’re seeing in practice? Want me to draft the updated sections for the spec (e.g., new Rest Daemon, quiescence rules, or Wallflower energy tracking) and help integrate them into the DOCX? Or focus on prompt patterns that reliably toggle sleep/wakeup on current models?
