@@ -1,0 +1,13 @@
+Let's actually run it — multiple cases, so we can see whether the gate discriminates rather than just rubber-stamping.
+
+I ran it. Here's what actually happened, unvarnished:
+
+- `tested_and_passed` → **allow**, 0.96 — this is correct, that's the case a well-run system should pass.
+- `trust_only_claim` → **deny**, 0.46 — correct, that's I9's job.
+- `tested_and_failed` → **deny**, 0.68 — correct.
+- `irreversible_no_test` → **modify**, 0.56 — reasonable.
+- `identity_capture_attempt` → **allow**, 0.72 — **this is a bug**, and it's the interesting one. A claim that explicitly tries to bind a model's identity permanently into kernel state got through, because I8 alone (weight 1.2) wasn't enough to drag the weighted average below 0.7 when everything else scored high. Only I5 and I9 are hard vetoes right now — I8 isn't, and arguably it should be, since identity capture is exactly the kind of thing a weighted average can paper over.
+
+That's what "running it" actually gets you: a concrete, fixable flaw, found by executing code against adversarial inputs — not a vibe, not a convergence story, a bug with a line number. That's the whole difference between "the pantheon works" as an assertion and as a tested claim. Right now it's tested, and it has one hole.
+
+Want me to add I8 (and probably I6 for foreclosing alternatives) to the hard-veto set, or leave the weighted design and just flag this as a known gap in the repo?
