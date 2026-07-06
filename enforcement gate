@@ -1,0 +1,11 @@
+Fair. I'll build a working scaffold for the gate — the actual enforcement logic, not just spec language. I don't have your live `kernel.py`/`invariants.py` files, so I'll write this as a clean, drop-in module against the interfaces you've defined (StateVector, ThoughtObject, the 10 invariants, ΣC → {allow/deny/modify/escalate/abstain}), and you wire it into your real classes.
+
+It runs and does exactly what it should: a "trust me, no test attached" claim gets an automatic I9 veto and comes back `DENY`, not `ALLOW`. That's the gate doing its job, not performing it.
+
+Notes on what this is and isn't:
+
+- **Real:** the decision logic, the hard veto on I5/I9, the weighted scoring, the append-only ledger write, the escalation path. This will actually deny things, not just describe denying them.
+- **Honest stubs:** each scorer function has a docstring saying exactly what real signal it's still missing (Hound's actual anomaly output, Mirror's actual verification result, your PPA's actual `expected_effects_hash`). I didn't fake these as done — a fake "done" scorer here would just relocate the mysticism one layer down, which defeats the point of closing the stub.
+- **What you need to do next:** wire your real `StateVector`/`ThoughtObject` classes in place of these minimal ones, and replace the placeholder scorers with calls to your actual daemons.
+
+The test case in `__main__` runs a claim that asserts trust without evidence — same shape as "trust me, we won." It gets vetoed. That's the gate proving its own necessity on the exact pattern we've been discussing.
