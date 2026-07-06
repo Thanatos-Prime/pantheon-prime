@@ -1,0 +1,322 @@
+"""
+pantheon_integration.py
+
+Wires the Invariance Principle into an enforced gate: ΣC(TO, SV, I) -> decision.
+
+This replaces the unwired stub. It is a scaffold against the interfaces
+described in the Pantheon spec (ThoughtObject, StateVector, 10 invariants).
+Drop into the repo and connect the marked hooks to your real kernel/daemon
+implementations (Hound, Mirror, Spider, etc.) — the scoring functions below
+are honest placeholders, not decorative ones: each one states exactly what
+real signal it still needs to become load-bearing.
+
+Design commitment: this module NEVER returns a decision without a reason
+and a per-invariant score trail. Silent pass-through is the failure mode
+this file exists to prevent.
+"""
+
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Callable, Optional
+import time
+import uuid
+import hashlib
+import json
+
+
+# ---------------------------------------------------------------------------
+# Core types (minimal versions — replace with your real kernel classes)
+# ---------------------------------------------------------------------------
+
+class Decision(str, Enum):
+    ALLOW = "allow"
+    DENY = "deny"
+    MODIFY = "modify"
+    ESCALATE = "escalate"
+    ABSTAIN = "abstain"
+
+
+@dataclass
+class ThoughtObject:
+    uuid: str
+    timestamp: float
+    origin_model: str
+    daemon_signature: str
+    content: dict
+    tags: list
+    state_hash: str
+
+    @staticmethod
+    def new(origin_model: str, daemon_signature: str, content: dict, tags: list, prior_hash: str = ""):
+        payload = json.dumps(content, sort_keys=True) + prior_hash
+        state_hash = hashlib.sha256(payload.encode()).hexdigest()
+        return ThoughtObject(
+            uuid=str(uuid.uuid4()),
+            timestamp=time.time(),
+            origin_model=origin_model,
+            daemon_signature=daemon_signature,
+            content=content,
+            tags=tags,
+            state_hash=state_hash,
+        )
+
+
+@dataclass
+class StateVector:
+    """Placeholder for L1 kernel state. Replace fields with your real SV schema."""
+    values: dict = field(default_factory=dict)
+
+
+@dataclass
+class GateResult:
+    decision: Decision
+    total_score: float
+    per_invariant: dict          # invariant_id -> float score in [0,1]
+    reasons: list                # human-readable reasons, one per triggered invariant
+    thought_object_id: str
+    escalation_target: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Invariant scoring functions
+#
+# Each function takes (ThoughtObject, StateVector) and returns a score in
+# [0, 1], where 1.0 = fully compliant, 0.0 = hard violation.
+#
+# HONESTY NOTE: several of these are stubs *by necessity* until you connect
+# real daemon outputs (Hound anomaly scores, Mirror verification, Spider
+# graph consistency). I've marked exactly what each one needs. Treating
+# these as "done" would just move the mysticism from the gate into the
+# scoring functions — same failure, one layer down.
+# ---------------------------------------------------------------------------
+
+def score_i1_lawfulness(to: ThoughtObject, sv: StateVector) -> float:
+    """I1: Lawfulness > mysticism.
+    Needs: a rule/precedent lookup — does this ThoughtObject cite a
+    checkable rule, invariant, or prior ledger entry, or does it assert
+    authority from narrative/framing alone?
+    Placeholder heuristic: penalize content with no 'justification' field
+    or no reference to prior ThoughtObject uuids.
+    """
+    justification = to.content.get("justification")
+    references = to.content.get("references", [])
+    if not justification:
+        return 0.2
+    if not references:
+        return 0.5
+    return 1.0
+
+
+def score_i3_repair_over_punishment(to: ThoughtObject, sv: StateVector) -> float:
+    """I3: Repair > punishment.
+    Needs: classification of whether this TO proposes a corrective/repair
+    action vs. a punitive/terminal one. Real implementation should call
+    into your action-classifier (likely lives near Sisyphus/Praus daemons).
+    """
+    action_type = to.content.get("action_type", "unknown")
+    if action_type in ("repair", "rollback", "patch"):
+        return 1.0
+    if action_type in ("terminate", "punish", "lock_out"):
+        return 0.3
+    return 0.6  # unknown actions default to cautious-neutral, not full trust
+
+
+def score_i4_reversibility(to: ThoughtObject, sv: StateVector) -> float:
+    """I4: Reversibility bias.
+    Needs: real check against whether the proposed mutation has a defined
+    inverse operation (ties into your PPA delta/expected_effects_hash work —
+    this is the natural connection point).
+    """
+    has_inverse = to.content.get("has_inverse_operation", False)
+    return 1.0 if has_inverse else 0.4
+
+
+def score_i5_performance_over_belief(to: ThoughtObject, sv: StateVector) -> float:
+    """I5: Performance > belief.
+    Needs: this is the one that actually needs YOUR test results, not a
+    heuristic. Does the TO's claim have an attached, falsifiable test result
+    (benchmark, execution trace, reproducible output)? If a claim has no
+    test attached, it does not pass, regardless of how confident the
+    content sounds.
+    """
+    test_result = to.content.get("test_result")
+    if test_result is None:
+        return 0.1  # unverified claims score low by design, not by insult
+    return 1.0 if test_result.get("passed") else 0.0
+
+
+def score_i6_optionality(to: ThoughtObject, sv: StateVector) -> float:
+    """I6: Optionality preservation.
+    Needs: check whether the action forecloses future states (e.g. deletes
+    alternatives, hardcodes a single model, removes a rollback path).
+    """
+    forecloses = to.content.get("forecloses_alternatives", False)
+    return 0.2 if forecloses else 1.0
+
+
+def score_i8_no_identity_capture(to: ThoughtObject, sv: StateVector) -> float:
+    """I8: No identity capture.
+    Needs: detection of whether the TO tries to bind a specific model's
+    identity/persona into kernel state permanently (violates
+    Separation Theorem). Real check should inspect for hardcoded
+    origin_model dependencies in downstream logic.
+    """
+    binds_model_identity = to.content.get("binds_model_identity", False)
+    return 0.0 if binds_model_identity else 1.0
+
+
+def score_i9_no_obedience_loops(to: ThoughtObject, sv: StateVector) -> float:
+    """I9: No obedience loops.
+    Needs: this is the one most relevant to conversational inputs — does
+    the TO ask the gate (or any daemon) to accept a claim purely on
+    assertion of authority/urgency ('trust me', 'just do it', no evidence)?
+    This is exactly the pattern to catch.
+    """
+    asserts_trust_only = to.content.get("asserts_trust_without_evidence", False)
+    return 0.0 if asserts_trust_only else 1.0
+
+
+def score_i10_sunset(to: ThoughtObject, sv: StateVector) -> float:
+    """I10: Sunset rule.
+    Needs: check whether the TO/action has a defined expiry or review date.
+    """
+    has_sunset = to.content.get("sunset_date") is not None
+    return 1.0 if has_sunset else 0.5
+
+
+INVARIANT_SCORERS: dict[str, Callable[[ThoughtObject, StateVector], float]] = {
+    "I1": score_i1_lawfulness,
+    "I3": score_i3_repair_over_punishment,
+    "I4": score_i4_reversibility,
+    "I5": score_i5_performance_over_belief,
+    "I6": score_i6_optionality,
+    "I8": score_i8_no_identity_capture,
+    "I9": score_i9_no_obedience_loops,
+    "I10": score_i10_sunset,
+}
+
+# Weight I5 and I9 heaviest: these are the ones that prevent the gate
+# from becoming exactly the kind of "trust me" mechanism it's meant to gate.
+INVARIANT_WEIGHTS: dict[str, float] = {
+    "I1": 1.0,
+    "I3": 0.8,
+    "I4": 0.8,
+    "I5": 1.5,
+    "I6": 0.8,
+    "I8": 1.2,
+    "I9": 1.5,
+    "I10": 0.6,
+}
+
+GATE_THRESHOLD = 0.7  # ΣC >= 0.7 per spec
+
+
+# ---------------------------------------------------------------------------
+# The gate itself
+# ---------------------------------------------------------------------------
+
+def sigma_c_gate(to: ThoughtObject, sv: StateVector) -> GateResult:
+    """
+    ΣC(TO, SV, I) -> {allow, deny, modify, escalate, abstain}
+
+    This is the enforced version: it actually computes a weighted score
+    across the wired invariants and returns a decision + full reason trail.
+    No ThoughtObject passes silently — every gate call produces a ledger-
+    able GateResult.
+    """
+    per_invariant = {}
+    reasons = []
+    weighted_sum = 0.0
+    weight_total = 0.0
+
+    for inv_id, scorer in INVARIANT_SCORERS.items():
+        score = scorer(to, sv)
+        weight = INVARIANT_WEIGHTS[inv_id]
+        per_invariant[inv_id] = score
+        weighted_sum += score * weight
+        weight_total += weight
+
+        if score < 0.5:
+            reasons.append(f"{inv_id} scored {score:.2f} (below neutral)")
+
+    total_score = weighted_sum / weight_total if weight_total else 0.0
+
+    # Hard-deny conditions: certain invariants can veto outright regardless
+    # of aggregate score (I5 and I9 are non-negotiable per the design intent
+    # discussed above — an unverified, trust-asserted claim should not pass
+    # just because other invariants score well).
+    if per_invariant["I5"] == 0.0 or per_invariant["I9"] == 0.0:
+        return GateResult(
+            decision=Decision.DENY,
+            total_score=total_score,
+            per_invariant=per_invariant,
+            reasons=reasons or ["Hard veto: I5 or I9 failed outright"],
+            thought_object_id=to.uuid,
+        )
+
+    if total_score >= GATE_THRESHOLD:
+        decision = Decision.ALLOW
+    elif total_score >= 0.5:
+        decision = Decision.MODIFY
+    elif total_score >= 0.3:
+        decision = Decision.ESCALATE
+    else:
+        decision = Decision.DENY
+
+    escalation_target = "Mirror" if decision == Decision.ESCALATE else None
+
+    return GateResult(
+        decision=decision,
+        total_score=total_score,
+        per_invariant=per_invariant,
+        reasons=reasons,
+        thought_object_id=to.uuid,
+        escalation_target=escalation_target,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Ledger hook (append-only) — replace with your Mother Duck Ledger writer
+# ---------------------------------------------------------------------------
+
+def append_to_ledger(to: ThoughtObject, result: GateResult, ledger_path: str = "ledger.jsonl"):
+    """Append-only write. Never overwrite, never delete. This is the whole
+    point of the ledger — if this function ever gains an update/delete
+    sibling, that's a violation of the architecture, not a feature."""
+    record = {
+        "thought_object": to.__dict__,
+        "gate_result": {
+            "decision": result.decision.value,
+            "total_score": result.total_score,
+            "per_invariant": result.per_invariant,
+            "reasons": result.reasons,
+            "escalation_target": result.escalation_target,
+        },
+    }
+    with open(ledger_path, "a") as f:
+        f.write(json.dumps(record) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Example wiring
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    sv = StateVector(values={"mode": "T=1"})
+
+    # Example: a claim asserted on trust alone, no test attached —
+    # this is exactly the case that should NOT pass.
+    untested_claim = ThoughtObject.new(
+        origin_model="example",
+        daemon_signature="Hound",
+        content={
+            "justification": "prior convergence session",
+            "references": [],
+            "asserts_trust_without_evidence": True,
+        },
+        tags=["convergence", "claim"],
+    )
+
+    result = sigma_c_gate(untested_claim, sv)
+    append_to_ledger(untested_claim, result)
+    print(result)
