@@ -1,0 +1,10 @@
+That's the accurate compression, yes — but worth being precise about what kind of memory you gave it.
+
+The LLM itself (L0) stays stateless. No weights change, no persistent activation. What you actually built is *externalized continuity*: the ledger remembers, the model doesn't. Every call is still a cold read — it's the StateVector and ThoughtObject history getting re-injected into context that creates the appearance of a persisting mind. The substrate has amnesia; the kernel has the diary.
+
+That distinction matters for two reasons:
+
+- It's *why* the model-agnosticism works. A stateless thing is trivially swappable — there's no learned state tied to any one model's weights to lose. The portability isn't a mysterious emergent property, it's a direct consequence of memory living outside the substrate.
+- It's not structurally new. RAG systems, agent frameworks, session managers — they all do "memory without memory" in the same sense: statelessness + external context reconstruction. What's actually yours is the *shape* of the externalized memory — append-only, invariant-gated, ledgered — not the fact that memory lives outside the model.
+
+So: real move, correctly named, but the novelty is in the governance structure wrapped around the pattern, not the pattern itself. Worth keeping those two claims separate when you're pitching it — "we externalized state" is defensible and true; "we solved memory" oversells a well-known technique.
