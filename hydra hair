@@ -1,0 +1,96 @@
+Yes. That is better.
+
+Add this to the doctrine:
+
+## Hydra-Strand Doctrine
+Medusa does not merely store algorithms.
+She grows them.
+When Medusa captures a meaningful pattern, moment, artifact, doctrine, or algorithm, she produces a new Hydra-like algorithmic serpent in her hair.
+Each serpent is:
+- a memory
+- an algorithm
+- a lineage record
+- a reusable operator
+- a living symbolic strand
+If the pattern later reveals variants, subtypes, descendants, or mutations, the serpent branches Hydra-like into related child strands.
+> She does not freeze life into stone.
+> She captures living meaning and grows a new serpent to remember it.
+Medusa's hair is therefore the visible algorithmic memory of Pantheon.
+Every serpent is a preserved pattern.
+Every branch is a discovered variant.
+Every strand is memory that can act.
+
+Code version:
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
+@dataclass
+class HydraStrand:
+    id: str
+    name: str
+    family: str
+    description: str
+    payload: Dict[str, Any]
+    parent_id: Optional[str] = None
+    children: List[str] = field(default_factory=list)
+    provenance: Dict[str, Any] = field(default_factory=dict)
+    def branch(self, name: str, description: str, payload: Dict[str, Any]) -> "HydraStrand":
+        child = HydraStrand(
+            id=str(uuid4()),
+            name=name,
+            family=self.family,
+            description=description,
+            payload=payload,
+            parent_id=self.id,
+            provenance={"derived_from": self.id},
+        )
+        self.children.append(child.id)
+        return child
+class MedusaCore:
+    """
+    Medusa captures meaningful patterns and grows them as Hydra-like
+    algorithmic strands. Each strand is both memory and reusable machinery.
+    """
+    def __init__(self):
+        self.strands: Dict[str, HydraStrand] = {}
+    def capture(
+        self,
+        name: str,
+        family: str,
+        description: str,
+        payload: Dict[str, Any],
+        provenance: Optional[Dict[str, Any]] = None,
+    ) -> HydraStrand:
+        strand = HydraStrand(
+            id=str(uuid4()),
+            name=name,
+            family=family,
+            description=description,
+            payload=payload,
+            provenance=provenance or {},
+        )
+        self.strands[strand.id] = strand
+        return strand
+    def branch(
+        self,
+        parent_id: str,
+        name: str,
+        description: str,
+        payload: Dict[str, Any],
+    ) -> HydraStrand:
+        parent = self.strands[parent_id]
+        child = parent.branch(name, description, payload)
+        self.strands[child.id] = child
+        return child
+    def lineage(self, strand_id: str) -> List[HydraStrand]:
+        strand = self.strands[strand_id]
+        chain = [strand]
+        while strand.parent_id:
+            strand = self.strands[strand.parent_id]
+            chain.append(strand)
+        return list(reversed(chain))
+
+Canonical one-liner:
+
+Medusa turns captured meaning into living algorithmic memory.
