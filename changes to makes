@@ -1,0 +1,16 @@
+Fair bet — and it does hold, but the shared pattern is a specific one, not a vibe: every gap here is the same failure mode (*a stated boundary or contract that nothing enforces*) recurring at a different scale, wearing a different name.
+
+**Gap 1 (old): dangling import.** `kernel.py` references `state_vector.py` / `thought_object.py` — modules the doctrine names and the code assumes, but neither exists. A caller with no callee.
+*Proposed solution:* either build the missing modules for real, or repoint `kernel.py`'s imports at the working logic that already exists in `pantheon_integration.py` (weighted scoring + hard-veto set, already built and tested last session). Close the loop using what's already proven rather than inventing a new artifact.
+
+**Gap 2 (new): dangling output.** `pantheon_meta` compiles and executes fine in isolation, and produces a `kernel_action` dict with a `state_patch` key — vocabulary that only makes sense if something downstream reads it. Nothing does. A callee with no caller — the exact mirror image of Gap 1, opposite direction, same missing link.
+*Proposed solution:* write the adapter — one function that takes `kernel_action.state_patch` and applies it to whatever `StateVector` ends up being (from Gap 1's fix). Until that adapter exists, Metaweave is a complete engine bolted to nothing.
+
+**Gap 3 (new, smaller scale): unenforced text boundary.** The arrow-chain parser doesn't separate the operator chain from surrounding prose — it scans the whole source for operator-shaped words, so `"flank"` in a mission sentence leaks into the executed sequence and reorders it. Same shape as Gap 1/2 — a boundary the design assumes but the implementation doesn't check.
+*Proposed solution:* require an explicit delimiter (fenced block, keyword like `steps:`) around the actual chain so parsing can't bleed across it.
+
+**Gap 4 (old + new, root level): unenforced identity.** Dead scaffold files literally named `demo`, `examples`, `tests` (referencing a `pantheon.core/hound/mirror/governance` layout that doesn't exist anywhere else) sit at the same path as the new real directories of the same name. Nobody retired the old ones before the new ones claimed the name.
+
+Here's the part worth naming plainly: that fourth gap is invariant **I10 — the sunset rule — failing in the filesystem itself.** You already have a doctrine that says "orphaned artifacts must be retired," and the repo is currently the counterexample: three different gaps, three different scales (root files, module wiring, DSL parsing), and all three are the same missing behavior — nothing in the build process enforces closing a boundary once it's declared, and nothing enforces killing an artifact once it's superseded.
+
+So the costume changes — import statement, dict key, regex scan, filename — but the pattern is one thing: **declared contracts with no enforcement mechanism checking them.** The fix, in every case, is the same non-mystical move: add the missing check (import resolution, consumer function, delimiter, dedup pass) rather than add a new layer that will eventually need the same fix applied to it.
