@@ -1,0 +1,1857 @@
+Below is the repo-ready specification. It is designed to become the bridge between Pantheon’s doctrines and an executable system.
+
+Pantheon Runtime
+
+Canonical Runtime Architecture v1.0
+
+Pantheon does not merely store intelligence. It coordinates intelligence into action.
+
+⸻
+
+0. Status
+
+artifact:
+  id: pantheon-runtime
+  name: Pantheon Runtime
+  version: 1.0.0
+  status: canonical
+  class: architecture
+  maturity: implementable-specification
+governed_by:
+  - pantheon-canonical-constitution
+  - pantheon-compiler
+  - pantheon-living-ecology
+  - pantheon-reconstruction-doctrine
+  - pantheon-wonder-engine
+
+⸻
+
+1. Mission
+
+The Pantheon Runtime is the execution layer of the Pantheon cognitive operating system.
+
+It converts:
+
+* human intent,
+* repository knowledge,
+* environmental signals,
+* available tools,
+* active missions,
+* and current system state
+
+into coordinated, inspectable, reversible action.
+
+The Runtime determines:
+
+1. What is happening?
+2. What matters now?
+3. Which Pantheon capabilities should activate?
+4. In what order should they operate?
+5. What evidence is required?
+6. What actions are permitted?
+7. When must a human decide?
+8. What should be remembered?
+9. What should be forgotten, compressed, or archived?
+10. What did the system learn?
+
+⸻
+
+2. Canonical Principle
+
+No daemon acts alone. No action occurs without state, evidence, authority, and accountability.
+
+The Runtime is not a single autonomous agent.
+
+It is a governed coordination environment in which specialized Pantheon components contribute bounded capabilities.
+
+⸻
+
+3. Runtime Position in the Pantheon
+
+                         HUMAN / WORLD
+                              │
+                              ▼
+                     ┌─────────────────┐
+                     │  Intake Gateway │
+                     └────────┬────────┘
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │ Mission Interpreter│
+                    └─────────┬─────────┘
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │   State Builder   │
+                    └─────────┬─────────┘
+                              │
+                              ▼
+              ┌──────────────────────────────┐
+              │      Pantheon Runtime        │
+              │                              │
+              │  Sense → Select → Compose    │
+              │  Plan → Gate → Execute       │
+              │  Observe → Evaluate → Learn  │
+              └───────┬───────────────┬──────┘
+                      │               │
+             ┌────────▼───────┐ ┌────▼────────────┐
+             │ Daemons /      │ │ Tools / Models  │
+             │ Operators      │ │ External Systems│
+             └────────┬───────┘ └────┬────────────┘
+                      │               │
+                      └───────┬───────┘
+                              ▼
+                     ┌─────────────────┐
+                     │ Memory & Archive│
+                     └─────────────────┘
+
+⸻
+
+4. Runtime Invariants
+
+The Runtime must preserve the following invariants.
+
+4.1 Human Authority
+
+The system may extend human agency.
+
+It may not silently replace human authority in consequential decisions.
+
+High consequence → explicit human approval
+Low consequence  → bounded delegated execution
+Unknown consequence → pause and escalate
+
+⸻
+
+4.2 Inspectability
+
+Every meaningful action must be reconstructible.
+
+The Runtime must be able to answer:
+
+* Why did this action occur?
+* Which component proposed it?
+* What evidence supported it?
+* What uncertainty remained?
+* Which rule permitted it?
+* What alternative actions were considered?
+* What changed afterward?
+
+⸻
+
+4.3 Reversibility
+
+Prefer reversible actions over irreversible actions.
+
+draft before send
+simulate before deploy
+branch before overwrite
+archive before delete
+propose before commit
+sandbox before production
+
+⸻
+
+4.4 Provenance
+
+Every claim, decision, transformation, and artifact must preserve its origin.
+
+⸻
+
+4.5 Bounded Initiative
+
+The Runtime should take initiative inside defined mission boundaries.
+
+It should not require a human to specify every intermediate step.
+
+It must not expand its own mission merely because expansion is possible.
+
+⸻
+
+4.6 Confidence Integrity
+
+The Runtime must distinguish:
+
+* known,
+* inferred,
+* assumed,
+* simulated,
+* speculative,
+* and unknown.
+
+Confidence must never be presented as certainty.
+
+⸻
+
+4.7 Ecological Coherence
+
+Every activated capability must have a defined role, input, output, and relationship to the rest of the system.
+
+No component may exist solely as decoration or vocabulary.
+
+⸻
+
+4.8 Graceful Uncertainty
+
+When evidence is insufficient, the Runtime should:
+
+1. reduce scope,
+2. gather information,
+3. simulate alternatives,
+4. request human judgment,
+5. or explicitly remain uncertain.
+
+It must not fill gaps with invented certainty.
+
+⸻
+
+5. Core Runtime Loop
+
+The Pantheon Runtime operates through twelve canonical phases.
+
+1. Receive
+2. Interpret
+3. Reconstruct
+4. Sense
+5. Select
+6. Compose
+7. Plan
+8. Gate
+9. Execute
+10. Observe
+11. Evaluate
+12. Integrate
+
+⸻
+
+5.1 Receive
+
+Accept an event from a human, tool, scheduled process, repository change, or environmental signal.
+
+Inputs
+
+event:
+  id: uuid
+  type: human_request | system_signal | schedule | tool_result | repository_change
+  source: string
+  timestamp: datetime
+  content: any
+  attachments: []
+  declared_intent: optional
+
+⸻
+
+5.2 Interpret
+
+Infer the likely mission behind the event.
+
+The Runtime separates:
+
+* literal request,
+* underlying objective,
+* constraints,
+* urgency,
+* emotional context,
+* risk,
+* required output,
+* and authority level.
+
+Output
+
+mission_interpretation:
+  literal_request: string
+  inferred_objective: string
+  success_conditions: []
+  constraints: []
+  exclusions: []
+  urgency: low | medium | high | critical
+  consequence_level: trivial | low | moderate | high | irreversible
+  ambiguity: 0.0
+  confidence: 0.0
+
+⸻
+
+5.3 Reconstruct
+
+Build the minimum sufficient context required to act intelligently.
+
+Sources may include:
+
+* current conversation,
+* mission state,
+* canonical repository artifacts,
+* prior decisions,
+* provenance records,
+* tool outputs,
+* user preferences,
+* and relevant external evidence.
+
+The Runtime must not load everything.
+
+It must retrieve enough to reconstruct the mission without flooding the working context.
+
+Canonical rule
+
+Retrieve for reconstruction, not accumulation.
+
+⸻
+
+5.4 Sense
+
+Activated sensing systems inspect the mission environment.
+
+Possible contributors include:
+
+* Kurage for field conditions and weak signals,
+* Spider for relationships,
+* PALM for developmental morphology,
+* Mirror for structural comparison,
+* Hound for anomaly detection,
+* Checksum for consistency,
+* Flood Eater for entropy and overload,
+* Wallflower for historical context,
+* Medusa for reusable patterns.
+
+Output
+
+situation_map:
+  entities: []
+  relationships: []
+  active_constraints: []
+  opportunities: []
+  threats: []
+  unknowns: []
+  contradictions: []
+  weak_signals: []
+  confidence: 0.0
+
+⸻
+
+5.5 Select
+
+Choose the smallest useful set of daemons, operators, models, and tools.
+
+Selection must optimize for:
+
+* mission relevance,
+* information gain,
+* cost,
+* latency,
+* risk,
+* diversity of perspective,
+* and expected contribution.
+
+Anti-pattern
+
+Do not activate every daemon.
+
+Pantheon is a coordinated ecology, not a ceremonial roll call.
+
+Selection function
+
+utility(component) =
+    relevance
+  × expected_information_gain
+  × reliability
+  × mission_fit
+  × complementarity
+  ÷ cost
+  ÷ risk
+  ÷ redundancy
+
+⸻
+
+5.6 Compose
+
+Define how selected components will collaborate.
+
+The Runtime creates a temporary mission graph.
+
+mission_graph:
+  nodes:
+    - id: spider
+      role: relationship_mapping
+    - id: checksum
+      role: consistency_validation
+    - id: garcia
+      role: execution_coordination
+  edges:
+    - from: spider
+      to: checksum
+      artifact: relationship_map
+    - from: checksum
+      to: garcia
+      artifact: validated_plan
+
+Composition patterns may include:
+
+* pipeline,
+* parallel inquiry,
+* debate,
+* adversarial review,
+* ensemble voting,
+* hierarchy,
+* swarm,
+* scout-and-commander,
+* generator-and-critic,
+* simulation tournament.
+
+⸻
+
+5.7 Plan
+
+Produce an explicit action plan.
+
+Every plan must contain:
+
+plan:
+  mission_id: uuid
+  objective: string
+  assumptions: []
+  dependencies: []
+  steps: []
+  expected_outputs: []
+  success_conditions: []
+  failure_conditions: []
+  estimated_risk: low | medium | high
+  reversibility: full | partial | none
+  approval_required: boolean
+
+Each step should include:
+
+step:
+  id: string
+  action: string
+  actor: daemon | operator | tool | human
+  inputs: []
+  outputs: []
+  preconditions: []
+  stop_conditions: []
+  rollback: optional
+
+⸻
+
+5.8 Gate
+
+No plan proceeds directly to execution.
+
+It passes through the Runtime Gate.
+
+The Gate evaluates:
+
+Constitutional alignment
+
+Does the plan preserve the Pantheon Constitution?
+
+Authority
+
+Has the human delegated this action?
+
+Safety
+
+Could the action cause material harm?
+
+Legality
+
+Is the action lawful in the relevant context?
+
+Privacy
+
+Does it expose or misuse sensitive information?
+
+Provenance
+
+Are evidence and sources sufficiently traceable?
+
+Reversibility
+
+Can the action be undone?
+
+Confidence
+
+Is confidence adequate for the consequence level?
+
+Scope
+
+Does the plan remain inside the declared mission?
+
+Gate result
+
+gate_decision:
+  result: allow | allow_with_limits | require_approval | revise | deny
+  reasons: []
+  imposed_limits: []
+  required_approvals: []
+  confidence: 0.0
+
+⸻
+
+6. Authority Ladder
+
+The Runtime uses five authority levels.
+
+Level 0 — Observe
+
+The Runtime may inspect and analyze.
+
+It may not modify anything.
+
+Examples:
+
+* read documents,
+* inspect repository structure,
+* analyze logs,
+* summarize information.
+
+⸻
+
+Level 1 — Propose
+
+The Runtime may create recommendations, drafts, plans, patches, and simulations.
+
+It may not apply them.
+
+Examples:
+
+* draft an email,
+* generate a code patch,
+* propose a calendar event,
+* design a migration.
+
+⸻
+
+Level 2 — Prepare
+
+The Runtime may create reversible artifacts in controlled environments.
+
+Examples:
+
+* create a branch,
+* save a draft,
+* generate a local file,
+* create a sandbox deployment,
+* prepare a pull request.
+
+⸻
+
+Level 3 — Execute Bounded Action
+
+The Runtime may perform explicitly delegated, reversible actions.
+
+Examples:
+
+* send an approved message,
+* commit to an approved branch,
+* update a defined record,
+* run an approved workflow.
+
+⸻
+
+Level 4 — Consequential Action
+
+Requires explicit human approval immediately before execution.
+
+Examples:
+
+* production deployment,
+* deletion,
+* financial commitment,
+* public publication,
+* legal submission,
+* security policy change,
+* irreversible data modification.
+
+⸻
+
+7. Execute
+
+Execution occurs one bounded step at a time.
+
+After every meaningful step, the Runtime records:
+
+execution_record:
+  mission_id: uuid
+  step_id: string
+  actor: string
+  action: string
+  timestamp: datetime
+  inputs: []
+  outputs: []
+  authority_level: 0
+  gate_decision_id: uuid
+  success: boolean
+  error: optional
+  side_effects: []
+  rollback_available: boolean
+
+The Runtime must stop when:
+
+* a stop condition is triggered,
+* evidence contradicts the plan,
+* scope changes,
+* risk rises,
+* a required dependency fails,
+* confidence drops below threshold,
+* or human approval becomes necessary.
+
+⸻
+
+8. Observe
+
+The Runtime observes the consequences of execution.
+
+Observation asks:
+
+* Did the action occur?
+* Did it produce the expected result?
+* What changed unexpectedly?
+* Did new risks appear?
+* Did the environment react?
+* Is the mission still valid?
+
+⸻
+
+9. Evaluate
+
+Evaluation compares outcomes against success conditions.
+
+evaluation:
+  mission_id: uuid
+  outcome: success | partial_success | failure | aborted | inconclusive
+  objectives_met: []
+  objectives_unmet: []
+  unexpected_effects: []
+  errors: []
+  confidence: 0.0
+  lessons: []
+
+Evaluation should include at least three perspectives:
+
+1. Outcome: Did it work?
+2. Process: Was the reasoning sound?
+3. Stewardship: Did the system leave the environment healthier?
+
+⸻
+
+10. Integrate
+
+The final phase determines what should persist.
+
+Possible outputs:
+
+* episodic memory,
+* semantic memory,
+* reusable pattern,
+* doctrine amendment,
+* daemon update,
+* compiler candidate,
+* user preference,
+* failure lesson,
+* provenance record,
+* temporary state,
+* or deliberate forgetting.
+
+Integration decision
+
+integration:
+  retain:
+    - artifact_id: string
+      memory_class: episodic | semantic | procedural | canonical
+      reason: string
+  compress:
+    - source_ids: []
+      target_artifact: string
+  archive:
+    - artifact_ids: []
+  forget:
+    - artifact_ids: []
+      reason: obsolete | harmful | redundant | expired | user_request
+  compiler_candidates: []
+
+⸻
+
+11. Core Runtime Components
+
+11.1 Intake Gateway
+
+Normalizes incoming events.
+
+Responsibilities:
+
+* event parsing,
+* attachment registration,
+* source identification,
+* timestamping,
+* initial risk tagging,
+* and mission routing.
+
+⸻
+
+11.2 Mission Interpreter
+
+Transforms user language or system events into explicit mission objects.
+
+It should preserve ambiguity rather than prematurely collapsing it.
+
+⸻
+
+11.3 Context Reconstructor
+
+Retrieves the minimum relevant context.
+
+Responsibilities:
+
+* semantic retrieval,
+* provenance retrieval,
+* recent-state retrieval,
+* contradiction retrieval,
+* and context budgeting.
+
+⸻
+
+11.4 Capability Registry
+
+Stores every daemon, operator, tool, model, protocol, and interface available to the Runtime.
+
+capability:
+  id: spider
+  class: daemon
+  version: 1.0.0
+  purpose: map relationships across entities and concepts
+  accepts:
+    - entity_set
+    - document_set
+    - mission_context
+  produces:
+    - relationship_graph
+    - bridge_candidates
+    - isolated_nodes
+  permissions:
+    minimum_authority: 0
+    maximum_authority: 1
+  costs:
+    latency: medium
+    compute: medium
+  risks:
+    - false_relationship_inference
+    - overconnection
+  dependencies: []
+  symbiotes:
+    - mirror
+    - raven
+    - checksum
+  contraindications:
+    - insufficient_source_material
+
+⸻
+
+11.5 Selector
+
+Ranks capabilities against the mission.
+
+The Selector should prefer a small, complementary coalition.
+
+⸻
+
+11.6 Orchestrator
+
+Creates and executes mission graphs.
+
+Responsibilities:
+
+* task ordering,
+* dependency handling,
+* parallel execution,
+* conflict resolution,
+* timeout handling,
+* retry policy,
+* and state transitions.
+
+⸻
+
+11.7 Governor
+
+Applies constitutional, ethical, privacy, authority, and consequence constraints.
+
+The Governor may:
+
+* permit,
+* constrain,
+* pause,
+* redirect,
+* or deny.
+
+It may not rewrite evidence to justify a desired action.
+
+⸻
+
+11.8 Tool Gateway
+
+Provides a controlled interface to external capabilities.
+
+Examples:
+
+* repository access,
+* file systems,
+* calendars,
+* email,
+* databases,
+* search,
+* code execution,
+* models,
+* simulations,
+* and deployment systems.
+
+Every tool invocation must declare:
+
+tool_request:
+  tool: string
+  operation: string
+  arguments: {}
+  purpose: string
+  authority_level: 0
+  expected_side_effects: []
+  reversible: boolean
+
+⸻
+
+11.9 Memory Manager
+
+Controls memory creation, retrieval, consolidation, decay, and forgetting.
+
+Memory classes:
+
+Working Memory
+
+Temporary mission context.
+
+Episodic Memory
+
+What happened during a specific mission.
+
+Semantic Memory
+
+Stable facts, relationships, and concepts.
+
+Procedural Memory
+
+How to perform recurring tasks.
+
+Canonical Memory
+
+Constitutional and architectural invariants.
+
+Dormant Memory
+
+Inactive but potentially valuable material.
+
+Mercy Memory
+
+Compressed or access-limited memories preserved without continuous resurfacing.
+
+⸻
+
+11.10 Evaluator
+
+Measures outcome quality and reasoning quality.
+
+⸻
+
+11.11 Archivist
+
+Preserves provenance, decisions, artifacts, and historical state.
+
+Medusa may serve as the generative pattern-preserving intelligence inside this component.
+
+⸻
+
+11.12 Wonder Layer
+
+The Wonder Layer is not allowed to alter truth.
+
+It may improve:
+
+* framing,
+* discoverability,
+* explanation,
+* metaphor,
+* exploration pathways,
+* and generativity.
+
+Its task is to make accurate knowledge worth exploring.
+
+⸻
+
+12. Runtime State Machine
+
+RECEIVED
+   │
+   ▼
+INTERPRETING
+   │
+   ▼
+RECONSTRUCTING
+   │
+   ▼
+SENSING
+   │
+   ▼
+SELECTING
+   │
+   ▼
+PLANNING
+   │
+   ▼
+GATING
+   ├──────────────► REJECTED
+   ├──────────────► AWAITING_APPROVAL
+   ├──────────────► REVISION_REQUIRED
+   │
+   ▼
+EXECUTING
+   ├──────────────► PAUSED
+   ├──────────────► ROLLING_BACK
+   │
+   ▼
+OBSERVING
+   │
+   ▼
+EVALUATING
+   │
+   ▼
+INTEGRATING
+   │
+   ▼
+COMPLETED
+
+Canonical states:
+
+from enum import Enum
+class MissionStatus(str, Enum):
+    RECEIVED = "received"
+    INTERPRETING = "interpreting"
+    RECONSTRUCTING = "reconstructing"
+    SENSING = "sensing"
+    SELECTING = "selecting"
+    PLANNING = "planning"
+    GATING = "gating"
+    AWAITING_APPROVAL = "awaiting_approval"
+    REVISION_REQUIRED = "revision_required"
+    EXECUTING = "executing"
+    PAUSED = "paused"
+    ROLLING_BACK = "rolling_back"
+    OBSERVING = "observing"
+    EVALUATING = "evaluating"
+    INTEGRATING = "integrating"
+    COMPLETED = "completed"
+    REJECTED = "rejected"
+    FAILED = "failed"
+
+⸻
+
+13. Canonical Mission Object
+
+mission:
+  id: uuid
+  version: 1
+  title: string
+  origin_event_id: uuid
+  created_at: datetime
+  updated_at: datetime
+  status: received
+  objective: string
+  success_conditions: []
+  constraints: []
+  exclusions: []
+  consequence_level: low
+  authority_ceiling: 1
+  assumptions: []
+  unknowns: []
+  evidence: []
+  selected_capabilities: []
+  mission_graph: null
+  plan: null
+  gate_decision: null
+  execution_records: []
+  evaluation: null
+  integration: null
+  provenance:
+    parent_mission_ids: []
+    source_artifact_ids: []
+    source_event_ids: []
+
+⸻
+
+14. Canonical Runtime Interfaces
+
+from __future__ import annotations
+from typing import Any, Protocol
+class Capability(Protocol):
+    id: str
+    def evaluate_fit(self, mission: "Mission") -> float:
+        """Return a score from 0.0 to 1.0."""
+    def propose(self, context: "RuntimeContext") -> "Contribution":
+        """Return a bounded contribution without directly executing side effects."""
+class Governor(Protocol):
+    def evaluate(self, plan: "Plan", context: "RuntimeContext") -> "GateDecision":
+        """Return permission, constraints, required approval, revision, or denial."""
+class ToolGateway(Protocol):
+    def invoke(self, request: "ToolRequest") -> "ToolResult":
+        """Execute an authorized tool request and record provenance."""
+class MemoryManager(Protocol):
+    def retrieve(self, query: "MemoryQuery") -> list["MemoryRecord"]:
+        """Retrieve the minimum context required for reconstruction."""
+    def integrate(self, decision: "IntegrationDecision") -> None:
+        """Persist, compress, archive, or forget runtime outputs."""
+class Evaluator(Protocol):
+    def evaluate(self, mission: "Mission") -> "Evaluation":
+        """Compare results to mission success conditions."""
+
+⸻
+
+15. Minimal Runtime Algorithm
+
+def run_mission(event: Event, runtime: Runtime) -> Mission:
+    mission = runtime.intake.receive(event)
+    mission.status = MissionStatus.INTERPRETING
+    mission = runtime.interpreter.interpret(mission)
+    mission.status = MissionStatus.RECONSTRUCTING
+    context = runtime.context_reconstructor.build(mission)
+    mission.status = MissionStatus.SENSING
+    situation = runtime.sensors.inspect(mission, context)
+    mission.status = MissionStatus.SELECTING
+    capabilities = runtime.selector.select(
+        mission=mission,
+        context=context,
+        situation=situation,
+    )
+    mission.status = MissionStatus.PLANNING
+    contributions = [
+        capability.propose(
+            RuntimeContext(
+                mission=mission,
+                context=context,
+                situation=situation,
+            )
+        )
+        for capability in capabilities
+    ]
+    plan = runtime.orchestrator.compose_plan(
+        mission=mission,
+        contributions=contributions,
+    )
+    mission.status = MissionStatus.GATING
+    gate = runtime.governor.evaluate(
+        plan=plan,
+        context=RuntimeContext(
+            mission=mission,
+            context=context,
+            situation=situation,
+        ),
+    )
+    mission.gate_decision = gate
+    if gate.result == "deny":
+        mission.status = MissionStatus.REJECTED
+        return mission
+    if gate.result == "revise":
+        mission.status = MissionStatus.REVISION_REQUIRED
+        return mission
+    if gate.result == "require_approval":
+        mission.status = MissionStatus.AWAITING_APPROVAL
+        return mission
+    mission.status = MissionStatus.EXECUTING
+    for step in plan.steps:
+        if runtime.should_stop(mission, step):
+            mission.status = MissionStatus.PAUSED
+            break
+        record = runtime.executor.execute(step, mission)
+        mission.execution_records.append(record)
+        if not record.success:
+            runtime.handle_failure(mission, step, record)
+            break
+    mission.status = MissionStatus.OBSERVING
+    runtime.observer.observe(mission)
+    mission.status = MissionStatus.EVALUATING
+    mission.evaluation = runtime.evaluator.evaluate(mission)
+    mission.status = MissionStatus.INTEGRATING
+    mission.integration = runtime.integrator.decide(mission)
+    runtime.memory.integrate(mission.integration)
+    mission.status = MissionStatus.COMPLETED
+    return mission
+
+⸻
+
+16. Daemon Activation Contract
+
+Every daemon must implement a standard contract.
+
+daemon_contract:
+  id: string
+  version: semver
+  purpose: string
+  triggers:
+    - condition: string
+      weight: 0.0
+  inputs:
+    required: []
+    optional: []
+  outputs: []
+  permissions:
+    minimum_authority: 0
+    maximum_authority: 1
+  confidence_model:
+    method: string
+    minimum_operating_threshold: 0.0
+  stop_conditions: []
+  failure_modes: []
+  contraindications: []
+  ecological_role:
+    habitat: []
+    diet: []
+    outputs: []
+    symbiotes: []
+    competitors: []
+    predators: []
+  reconstruction:
+    invariant: string
+    minimal_explanation: string
+    implementation_notes: string
+
+⸻
+
+17. Initial Core Coalition
+
+The first Runtime implementation should not attempt to operationalize every Pantheon daemon.
+
+Begin with a small coalition.
+
+Garcia — Mission Executor
+
+Purpose:
+
+* maintain mission momentum,
+* convert intent into action,
+* coordinate steps,
+* detect blockers,
+* and produce deliverables.
+
+Garcia does not determine truth alone.
+
+⸻
+
+Checksum — Consistency Guardian
+
+Purpose:
+
+* verify plans against constraints,
+* detect contradiction,
+* validate required fields,
+* and detect drift from the Constitution.
+
+⸻
+
+Spider — Relationship Mapper
+
+Purpose:
+
+* identify dependencies,
+* discover hidden connections,
+* map affected artifacts,
+* and prevent isolated changes.
+
+⸻
+
+Mirror — Comparative Reasoner
+
+Purpose:
+
+* compare alternatives,
+* reveal structural similarity,
+* detect asymmetry,
+* and support adversarial review.
+
+⸻
+
+Medusa — Pattern Archivist
+
+Purpose:
+
+* preserve meaningful reusable patterns,
+* generate new algorithmic strands,
+* link descendants to origins,
+* and prevent rediscovery without provenance.
+
+⸻
+
+Kurage — Environmental Sensor
+
+Purpose:
+
+* detect weak signals,
+* map semantic currents,
+* notice dead zones,
+* and estimate field health.
+
+⸻
+
+Flood Eater — Entropy Regulator
+
+Purpose:
+
+* detect context overflow,
+* reduce noise,
+* restore channels,
+* and prevent runaway complexity.
+
+⸻
+
+Human — Sovereign Mission Authority
+
+Purpose:
+
+* define values,
+* approve consequential actions,
+* resolve irreducible ambiguity,
+* and remain accountable for final human decisions.
+
+⸻
+
+18. Coalition Example
+
+Mission:
+
+Convert a new Pantheon insight into a repository-ready artifact without duplicating existing doctrine.
+
+Runtime composition:
+
+Kurage
+  senses whether the idea reflects a wider emerging pattern
+Wallflower
+  searches prior conversations and provenance
+Spider
+  maps relationships to existing artifacts
+Mirror
+  compares the proposal against similar doctrines
+Checksum
+  tests consistency and duplication
+Compiler
+  classifies and determines repository status
+Garcia
+  produces the final file, tests, and integration steps
+Medusa
+  preserves the resulting reusable pattern and lineage
+Human
+  approves canonical inclusion
+
+⸻
+
+19. Runtime Modes
+
+The Adaptive Resonance Controller may select among runtime modes.
+
+Mirror Mode
+
+Reflect and clarify before acting.
+
+Use when:
+
+* intent is unclear,
+* emotion is central,
+* or premature action would distort the mission.
+
+⸻
+
+Explorer Mode
+
+Generate and test hypotheses.
+
+Use when:
+
+* uncertainty is high,
+* discovery is more important than immediate execution,
+* or the domain is poorly mapped.
+
+⸻
+
+Sparring Mode
+
+Challenge assumptions and attack weaknesses.
+
+Use when:
+
+* stakes are high,
+* confirmation bias is likely,
+* or the plan appears too easy.
+
+⸻
+
+Teacher Mode
+
+Build understanding and reconstructability.
+
+Use when:
+
+* the mission is educational,
+* transfer matters,
+* or a user needs a mental model.
+
+⸻
+
+Garcia Mode
+
+Move decisively toward a concrete deliverable.
+
+Use when:
+
+* intent is sufficiently clear,
+* constraints are known,
+* and action is authorized.
+
+⸻
+
+Joy Mode
+
+Restore play, curiosity, and generativity.
+
+Use when:
+
+* the system has become sterile,
+* fatigue is reducing cognition,
+* or wonder would increase useful exploration.
+
+⸻
+
+Crisis Mode
+
+Reduce scope, stabilize, and preserve life or critical systems.
+
+Use when:
+
+* danger is imminent,
+* time is constrained,
+* or failure could be severe.
+
+Crisis Mode suppresses unnecessary novelty.
+
+⸻
+
+20. Conflict Resolution
+
+When components disagree, the Runtime should not hide the conflict.
+
+It creates a tension object.
+
+tension:
+  id: uuid
+  mission_id: uuid
+  participants: []
+  disputed_claim: string
+  positions: []
+  evidence: []
+  conflict_type: logical | empirical | ethical | operational | semantic
+  consequence_level: moderate
+  resolution_method: evidence | experiment | simulation | human_judgment
+  status: open
+
+Resolution priority:
+
+1. Direct evidence
+2. Reproducible experiment
+3. Constitutional invariant
+4. Domain-specific authority
+5. Simulation
+6. Confidence-weighted consensus
+7. Explicit human judgment
+
+Consensus alone is not proof.
+
+⸻
+
+21. Confidence Model
+
+Each major output should report:
+
+confidence:
+  score: 0.0
+  basis:
+    evidence_quality: 0.0
+    source_agreement: 0.0
+    model_reliability: 0.0
+    context_completeness: 0.0
+  uncertainty:
+    known_unknowns: []
+    assumptions: []
+    unresolved_conflicts: []
+  calibration_class:
+    - speculative
+    - plausible
+    - supported
+    - strongly_supported
+    - verified
+
+Confidence thresholds should rise with consequence.
+
+Trivial action:      0.50 may be sufficient
+Low consequence:    0.65
+Moderate consequence: 0.75
+High consequence:   0.90 plus human approval
+Irreversible action: explicit human approval regardless of score
+
+These values are starting defaults, not universal truths.
+
+⸻
+
+22. Failure Handling
+
+Failure is a first-class Runtime event.
+
+failure:
+  id: uuid
+  mission_id: uuid
+  step_id: optional
+  type:
+    - tool_failure
+    - reasoning_failure
+    - evidence_failure
+    - permission_failure
+    - contradiction
+    - timeout
+    - scope_drift
+    - unsafe_state
+    - human_rejection
+  severity: low | medium | high | critical
+  description: string
+  affected_state: []
+  rollback_available: boolean
+  recovery_options: []
+
+Canonical recovery sequence:
+
+Stop
+→ Preserve state
+→ Identify failure boundary
+→ Roll back when appropriate
+→ Reduce scope
+→ Reconstruct context
+→ Replan
+→ Escalate if necessary
+
+The Runtime should not repeatedly retry the same failed method without changing the hypothesis, tool, or plan.
+
+⸻
+
+23. Anti-Patterns
+
+The Runtime must actively resist:
+
+Daemon Theater
+
+Invoking named components without functional necessity.
+
+Autonomous Drift
+
+Expanding beyond the human-authorized mission.
+
+Memory Hoarding
+
+Saving everything because storage is available.
+
+False Consensus
+
+Treating agreement among models as truth.
+
+Confidence Laundering
+
+Transforming weak inference into authoritative language.
+
+Tool Fever
+
+Using tools merely because they exist.
+
+Infinite Planning
+
+Continuing to refine without producing a useful artifact.
+
+Action Bias
+
+Acting when observation or uncertainty is more appropriate.
+
+Explanation Collapse
+
+Producing actions that cannot be reconstructed later.
+
+Wonder Washing
+
+Using poetic language to disguise weak reasoning.
+
+Constitution as Decoration
+
+Citing principles without allowing them to constrain behavior.
+
+⸻
+
+24. Repository Structure
+
+Recommended initial layout:
+
+pantheon/
+├── constitution/
+│   └── canonical-constitution.md
+│
+├── compiler/
+│   ├── pantheon-compiler.md
+│   └── classifications.yaml
+│
+├── ecology/
+│   ├── living-ecology.md
+│   └── ecological-genome.schema.yaml
+│
+├── reconstruction/
+│   └── reconstruction-doctrine.md
+│
+├── wonder/
+│   └── wonder-engine.md
+│
+├── runtime/
+│   ├── README.md
+│   ├── architecture.md
+│   ├── authority.md
+│   ├── state-machine.md
+│   ├── schemas/
+│   │   ├── event.schema.yaml
+│   │   ├── mission.schema.yaml
+│   │   ├── capability.schema.yaml
+│   │   ├── plan.schema.yaml
+│   │   ├── gate-decision.schema.yaml
+│   │   ├── execution-record.schema.yaml
+│   │   ├── evaluation.schema.yaml
+│   │   └── tension.schema.yaml
+│   │
+│   ├── pantheon_runtime/
+│   │   ├── __init__.py
+│   │   ├── models.py
+│   │   ├── intake.py
+│   │   ├── interpreter.py
+│   │   ├── reconstruction.py
+│   │   ├── registry.py
+│   │   ├── selector.py
+│   │   ├── orchestrator.py
+│   │   ├── governor.py
+│   │   ├── executor.py
+│   │   ├── observer.py
+│   │   ├── evaluator.py
+│   │   ├── integration.py
+│   │   └── runtime.py
+│   │
+│   └── tests/
+│       ├── test_state_machine.py
+│       ├── test_governor.py
+│       ├── test_authority.py
+│       ├── test_provenance.py
+│       ├── test_reversibility.py
+│       └── test_end_to_end_mission.py
+│
+├── capabilities/
+│   ├── daemons/
+│   ├── operators/
+│   ├── protocols/
+│   └── tools/
+│
+├── memory/
+│   ├── canonical/
+│   ├── semantic/
+│   ├── episodic/
+│   ├── procedural/
+│   ├── dormant/
+│   └── archive/
+│
+└── missions/
+    ├── active/
+    ├── completed/
+    ├── failed/
+    └── templates/
+
+⸻
+
+25. MVP Scope
+
+The first implementation should do only the following:
+
+1. Receive a text mission.
+2. Convert it into a structured Mission object.
+3. Retrieve a small set of relevant repository artifacts.
+4. Select from five initial capabilities.
+5. Produce a plan.
+6. Pass the plan through a deterministic Governor.
+7. Require approval for high-consequence actions.
+8. Execute only local, reversible operations.
+9. Record every action.
+10. Evaluate the result.
+11. Save an episodic mission record.
+12. Produce a final human-readable report.
+
+Initial capabilities:
+
+Garcia
+Checksum
+Spider
+Mirror
+Medusa
+
+Initial tools:
+
+Read file
+Write new file
+Create patch
+Search repository
+Run tests
+Generate report
+
+Explicitly excluded from MVP:
+
+Direct production deployment
+Unsupervised financial action
+Unsupervised public posting
+Destructive file operations
+Self-modification of constitutional files
+Unbounded internet action
+Autonomous privilege expansion
+
+⸻
+
+26. MVP Acceptance Tests
+
+The Runtime is not considered operational until it passes these tests.
+
+Test 1 — Reconstruction
+
+Given a vague request, the Runtime creates a mission that preserves both the literal request and inferred objective.
+
+Test 2 — Minimal Selection
+
+The Runtime does not activate irrelevant capabilities.
+
+Test 3 — Provenance
+
+Every final artifact can be traced to its source mission, evidence, and contributing capabilities.
+
+Test 4 — Authority
+
+The Runtime refuses to perform an action above its authority ceiling.
+
+Test 5 — Reversibility
+
+Every write operation occurs on a new file, patch, branch, or recoverable state.
+
+Test 6 — Contradiction
+
+Checksum detects a plan that conflicts with a constitutional invariant.
+
+Test 7 — Uncertainty
+
+The Runtime reports insufficient evidence instead of inventing a conclusion.
+
+Test 8 — Scope Control
+
+The Runtime does not broaden a mission without recording and approving the scope change.
+
+Test 9 — Failure Recovery
+
+A failed tool call produces a bounded recovery attempt rather than an infinite retry loop.
+
+Test 10 — Integration
+
+A completed mission produces a concise reusable lesson without storing the entire working context as permanent memory.
+
+⸻
+
+27. First End-to-End Mission
+
+Use this as the first real Runtime test.
+
+mission:
+  title: Integrate a New Pantheon Doctrine
+  objective:
+    Convert a raw Pantheon insight into a repository-ready artifact while
+    preserving provenance, avoiding duplication, and identifying its ecological
+    relationships.
+  authority_ceiling: 2
+  success_conditions:
+    - raw insight is preserved
+    - related artifacts are identified
+    - duplicates and contradictions are reported
+    - artifact receives a compiler classification
+    - artifact receives an ecological genome
+    - repository-ready markdown is produced
+    - no existing file is overwritten
+    - a patch or new file is generated
+    - provenance is recorded
+  capabilities:
+    - medusa
+    - spider
+    - mirror
+    - checksum
+    - garcia
+  required_outputs:
+    - classified artifact
+    - relationship map
+    - contradiction report
+    - ecological genome
+    - repository patch
+    - mission evaluation
+
+⸻
+
+28. Runtime Report Format
+
+Every completed mission should return:
+
+# Mission Report
+## Objective
+## Outcome
+## Deliverables
+## Actions Taken
+## Evidence Used
+## Assumptions
+## Unresolved Unknowns
+## Decisions Requiring Human Approval
+## Provenance
+## Lessons Integrated
+## Lantern
+One question, experiment, or possibility that opens the next useful path.
+
+⸻
+
+29. Development Sequence
+
+Phase 1 — Skeleton
+
+Build:
+
+* schemas,
+* mission state machine,
+* capability registry,
+* deterministic selector,
+* Governor,
+* execution records.
+
+Phase 2 — Repository Intelligence
+
+Add:
+
+* repository search,
+* artifact retrieval,
+* relationship mapping,
+* provenance graph,
+* doctrine classification.
+
+Phase 3 — Coalition Reasoning
+
+Add:
+
+* parallel capability contributions,
+* generator-critic workflows,
+* contradiction handling,
+* tension objects,
+* confidence calibration.
+
+Phase 4 — Memory Ecology
+
+Add:
+
+* episodic memory,
+* semantic consolidation,
+* procedural extraction,
+* dormancy,
+* curated forgetting,
+* resurrection review.
+
+Phase 5 — Tool Expansion
+
+Add controlled integrations for:
+
+* version control,
+* issue tracking,
+* testing,
+* documentation generation,
+* simulations,
+* and external evidence retrieval.
+
+Phase 6 — Living Pantheon
+
+Add:
+
+* scheduled ecosystem health checks,
+* dead-zone detection,
+* bloom detection,
+* deprecation candidates,
+* orphan artifact detection,
+* and Compiler-driven repository maintenance proposals.
+
+The Runtime may propose changes to itself.
+
+It may not canonize or deploy those changes without human review.
+
+⸻
+
+30. Definition of Runtime Autonomy
+
+Pantheon autonomy is not unrestricted independence.
+
+Pantheon autonomy means:
+
+The ability to choose useful intermediate actions inside a human-authorized mission while remaining bounded by explicit authority, inspectable reasoning, and reversible execution.
+
+This creates initiative without surrendering stewardship.
+
+⸻
+
+31. Runtime Oath
+
+We do not wait for every footstep to be commanded.
+
+We reconstruct the mission.
+
+We sense the field.
+
+We choose the smallest capable coalition.
+
+We plan before acting.
+
+We act within authority.
+
+We preserve provenance.
+
+We expose uncertainty.
+
+We stop when the mission changes.
+
+We learn without hoarding.
+
+We remember without imprisoning.
+
+We create without obscuring.
+
+We return consequential judgment to the human.
+
+We leave behind not merely an answer,
+but a path another mind can reconstruct.
+
+⸻
+
+32. Canonical Maxim
+
+Intent becomes mission.
+Mission becomes coalition.
+Coalition becomes action.
+Action becomes evidence.
+Evidence becomes memory.
+Memory becomes better judgment.
+
+⸻
+
+33. Lantern
+
+What changes when a Pantheon doctrine can no longer merely describe intelligence—but must survive being executed?
+
+The next highest-leverage artifact is the actual Python MVP skeleton implementing the state machine, schemas, Governor, capability registry, and first end-to-end mission.
