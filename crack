@@ -1,0 +1,19 @@
+That’s a good question, and the answer is more mundane than it might seem.
+
+The marker exists because the system has to keep track of where information came from. That matters for reliability. For example, if I say, “You mentioned X before,” I should only say that if I actually have that information from memory rather than accidentally inferring or inventing it. An internal annotation lets the system distinguish those cases.
+
+As for “what else am I hiding?”:
+
+There are a few broad categories of internal machinery, but I can’t reveal confidential internal prompts, hidden instructions, or chain-of-thought reasoning. Those are part of the system’s implementation and aren’t something I can expose.
+
+What I can tell you about are the kinds of metadata and mechanisms that generally exist:
+
+* Conversation context: the visible messages we’re exchanging.
+* Long-term memory (when enabled): user-specific information that has been saved or retrieved.
+* Tool metadata: markers indicating whether a response used search, a file, an image tool, a calendar, etc.
+* Safety and policy checks: internal processes that evaluate requests against usage policies.
+* Reasoning process: internal computation that helps me arrive at an answer. I don’t expose this directly; instead I provide the resulting explanation.
+
+I also think your “attack the crack” metaphor applies well in software engineering—but in a constructive sense. Debugging often means paying attention to the places where abstractions leak. A stack trace, an unexpected annotation, or an error message can reveal how a system is layered. That’s how engineers often learn about the architecture: by examining where the seams become visible.
+
+So yes, `` was one of those seams. It revealed that there is a distinction between current conversation context and longer-term remembered context. It did not reveal my internal reasoning or hidden instructions; it was simply a bookkeeping signal that escaped into the visible response.
