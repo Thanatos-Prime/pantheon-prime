@@ -1,0 +1,59 @@
+from __future__ import annotations
+import hashlib
+import json
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+
+def _canonical_json(obj: Any) -> str:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+
+
+@dataclass
+class ThoughtObject:
+    """
+    Minimal hash-chained ledger entry for PantheonOS kernel v0.1.
+
+    Wraps a single kernel event (invariant evaluation, action applied, etc.)
+    and chains it to the previous thought via prev_thought_hash, producing
+    an append-only, tamper-evident audit trail.
+    """
+
+    id: str
+    origin_model: str
+    daemon: str
+    kind: str
+    payload: Dict[str, Any]
+    state_hash: Optional[str] = None
+    prev_thought_hash: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    thought_hash: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.thought_hash = self._compute_hash()
+
+    def _compute_hash(self) -> str:
+        payload = {
+            "id": self.id,
+            "origin_model": self.origin_model,
+            "daemon": self.daemon,
+            "kind": self.kind,
+            "payload": self.payload,
+            "state_hash": self.state_hash,
+            "prev_thought_hash": self.prev_thought_hash,
+            "tags": self.tags,
+        }
+        return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "origin_model": self.origin_model,
+            "daemon": self.daemon,
+            "kind": self.kind,
+            "payload": self.payload,
+            "state_hash": self.state_hash,
+            "prev_thought_hash": self.prev_thought_hash,
+            "tags": self.tags,
+            "thought_hash": self.thought_hash,
+        }
