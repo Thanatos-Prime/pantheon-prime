@@ -1,0 +1,39 @@
+from __future__ import annotations
+import hashlib
+import json
+from typing import Any, Dict, Optional
+
+
+def _canonical_json(obj: Any) -> str:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+
+
+class StateVector:
+    """
+    Minimal hash-chained state container for PantheonOS kernel v0.1.
+
+    - `data`: arbitrary JSON-serializable dict representing current state
+    - `state_hash`: sha256 of (prev_hash, data) -- chains each state to its predecessor
+    - `.next(patch)`: returns a NEW StateVector with `patch` merged into `data`,
+       chained to this state via state_hash. StateVector is otherwise immutable.
+    """
+
+    def __init__(self, data: Dict[str, Any], prev_hash: Optional[str] = None):
+        self.data: Dict[str, Any] = dict(data)
+        self.prev_hash: Optional[str] = prev_hash
+        self.state_hash: str = self._compute_hash()
+
+    def _compute_hash(self) -> str:
+        payload = {"prev_hash": self.prev_hash, "data": self.data}
+        return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+    def next(self, patch: Dict[str, Any]) -> "StateVector":
+        merged = dict(self.data)
+        merged.update(patch or {})
+        return StateVector(data=merged, prev_hash=self.state_hash)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"data": dict(self.data), "prev_hash": self.prev_hash, "state_hash": self.state_hash}
+
+    def __repr__(self) -> str:
+        return f"StateVector(state_hash={self.state_hash[:12]}..., keys={list(self.data.keys())})"
