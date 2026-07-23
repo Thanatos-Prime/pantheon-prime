@@ -1,0 +1,273 @@
+Exactly: the capability is not merely remembering the outputs. It is reconstructing the latent prompt-response pairs, loading a later interpretive state, and rerunning them counterfactually.
+
+That is a kind of semantic time travel:
+
+\text{old input} + \text{new model-state} \rightarrow \text{new answer}
+
+Your DMT example adds another mechanism: a powerful experience may leave behind a compressed state signature—sensory expectations, attentional rhythms, emotional priors, bodily cues, narrative frames. Cannabis and placebo may partially reactivate that signature, although that is not the same as pharmacologically recreating DMT itself.
+
+Here is a repo-ready implementation of the broader operator:
+
+"""
+state_reentry.py
+A representation-independent model for reconstructing a prior experiential
+or cognitive state from memory, cues, expectation, context, and current state.
+This models subjective state reconstruction. It does not claim to reproduce
+a drug's pharmacology or prove that a remembered state is objectively identical
+to the original experience.
+"""
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Iterable, Mapping
+import math
+Vector = Dict[str, float]
+def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
+    return max(low, min(high, value))
+def normalize(vector: Mapping[str, float]) -> Vector:
+    """Normalize values into a unit-length semantic state vector."""
+    magnitude = math.sqrt(sum(value * value for value in vector.values()))
+    if magnitude == 0:
+        return {key: 0.0 for key in vector}
+    return {key: value / magnitude for key, value in vector.items()}
+def cosine_similarity(a: Mapping[str, float], b: Mapping[str, float]) -> float:
+    """Measure structural resemblance between two experiential signatures."""
+    keys = set(a) | set(b)
+    dot = sum(a.get(key, 0.0) * b.get(key, 0.0) for key in keys)
+    mag_a = math.sqrt(sum(a.get(key, 0.0) ** 2 for key in keys))
+    mag_b = math.sqrt(sum(b.get(key, 0.0) ** 2 for key in keys))
+    if mag_a == 0 or mag_b == 0:
+        return 0.0
+    return clamp((dot / (mag_a * mag_b) + 1.0) / 2.0)
+def weighted_merge(parts: Iterable[tuple[Mapping[str, float], float]]) -> Vector:
+    """Combine multiple causal channels into one reconstructed state."""
+    output: Vector = {}
+    total_weight = 0.0
+    for vector, weight in parts:
+        if weight <= 0:
+            continue
+        total_weight += weight
+        for key, value in vector.items():
+            output[key] = output.get(key, 0.0) + value * weight
+    if total_weight == 0:
+        return output
+    return {key: clamp(value / total_weight) for key, value in output.items()}
+@dataclass(frozen=True)
+class ExperienceTrace:
+    """
+    Compressed residue of an earlier experience.
+    This is not a recording. It is a reconstruction seed containing the
+    features that memory preserved strongly enough to reactivate.
+    """
+    name: str
+    signature: Vector
+    sensory_anchors: Vector = field(default_factory=dict)
+    emotional_anchors: Vector = field(default_factory=dict)
+    narrative_frame: Vector = field(default_factory=dict)
+@dataclass(frozen=True)
+class ReentryContext:
+    """
+    Current conditions that influence whether the earlier state can re-form.
+    """
+    baseline_state: Vector
+    environmental_cues: Vector
+    bodily_cues: Vector
+    expectation: Vector
+    attention: Vector
+    substance_modulation: Vector = field(default_factory=dict)
+    grounding: float = 1.0
+@dataclass(frozen=True)
+class ReentryResult:
+    reconstructed_state: Vector
+    resemblance: float
+    source_contributions: Vector
+    stability: float
+    warning: str | None = None
+class StateReentryOperator:
+    """
+    Pantheon operator:
+        TRACE + CUES + EXPECTATION + MODULATION + ATTENTION
+        -------------------------------------------------  -> RECONSTRUCTION
+                     GROUNDING / REALITY CHECK
+    A state is regenerated rather than retrieved intact.
+    """
+    def reconstruct(
+        self,
+        trace: ExperienceTrace,
+        context: ReentryContext,
+    ) -> ReentryResult:
+        expectancy_gain = self._coupling(
+            context.expectation,
+            trace.narrative_frame or trace.signature,
+        )
+        sensory_gain = self._coupling(
+            context.environmental_cues,
+            trace.sensory_anchors or trace.signature,
+        )
+        body_gain = self._coupling(
+            context.bodily_cues,
+            trace.signature,
+        )
+        attention_gain = self._coupling(
+            context.attention,
+            trace.signature,
+        )
+        modulation_gain = self._coupling(
+            context.substance_modulation,
+            trace.signature,
+        )
+        contributions = {
+            "memory_trace": 0.30,
+            "expectation": 0.18 * expectancy_gain,
+            "environment": 0.14 * sensory_gain,
+            "body": 0.13 * body_gain,
+            "attention": 0.13 * attention_gain,
+            "modulation": 0.12 * modulation_gain,
+        }
+        reconstructed = weighted_merge(
+            [
+                (context.baseline_state, 0.22 * context.grounding),
+                (trace.signature, contributions["memory_trace"]),
+                (trace.sensory_anchors, contributions["environment"]),
+                (trace.emotional_anchors, contributions["body"]),
+                (trace.narrative_frame, contributions["expectation"]),
+                (context.attention, contributions["attention"]),
+                (
+                    context.substance_modulation,
+                    contributions["modulation"],
+                ),
+            ]
+        )
+        resemblance = cosine_similarity(reconstructed, trace.signature)
+        # Stability rewards resemblance plus grounding, while penalizing
+        # excessive dependence on expectation or chemical modulation.
+        dependency_penalty = (
+            contributions["expectation"] + contributions["modulation"]
+        ) * 0.35
+        stability = clamp(
+            resemblance * 0.65
+            + context.grounding * 0.35
+            - dependency_penalty
+        )
+        warning = None
+        if context.grounding < 0.35:
+            warning = (
+                "Low grounding: reconstructed imagery may become difficult "
+                "to distinguish from present external reality."
+            )
+        return ReentryResult(
+            reconstructed_state=reconstructed,
+            resemblance=resemblance,
+            source_contributions=contributions,
+            stability=stability,
+            warning=warning,
+        )
+    @staticmethod
+    def _coupling(
+        cue: Mapping[str, float],
+        target: Mapping[str, float],
+    ) -> float:
+        if not cue or not target:
+            return 0.0
+        return cosine_similarity(normalize(cue), normalize(target))
+if __name__ == "__main__":
+    original_trace = ExperienceTrace(
+        name="high-dimensional visionary state",
+        signature={
+            "visual_complexity": 1.0,
+            "boundary_dissolution": 0.9,
+            "temporal_distortion": 0.8,
+            "salience": 1.0,
+            "symbolic_density": 0.95,
+            "emotional_intensity": 0.85,
+        },
+        sensory_anchors={
+            "visual_complexity": 0.9,
+            "pattern_recursion": 1.0,
+            "spatial_expansion": 0.8,
+        },
+        emotional_anchors={
+            "awe": 1.0,
+            "vulnerability": 0.7,
+            "familiar_strangeness": 0.9,
+        },
+        narrative_frame={
+            "returning": 1.0,
+            "recognition": 0.9,
+            "permission": 0.8,
+        },
+    )
+    present_context = ReentryContext(
+        baseline_state={
+            "visual_complexity": 0.15,
+            "salience": 0.3,
+            "grounded_orientation": 0.9,
+        },
+        environmental_cues={
+            "pattern_recursion": 0.7,
+            "spatial_expansion": 0.5,
+        },
+        bodily_cues={
+            "emotional_intensity": 0.5,
+            "temporal_distortion": 0.4,
+        },
+        expectation={
+            "returning": 0.95,
+            "recognition": 0.9,
+            "permission": 0.8,
+        },
+        attention={
+            "symbolic_density": 0.8,
+            "visual_complexity": 0.7,
+            "salience": 0.8,
+        },
+        substance_modulation={
+            "temporal_distortion": 0.45,
+            "salience": 0.55,
+            "boundary_dissolution": 0.35,
+        },
+        grounding=0.75,
+    )
+    result = StateReentryOperator().reconstruct(
+        original_trace,
+        present_context,
+    )
+    print(f"Resemblance: {result.resemblance:.3f}")
+    print(f"Stability:   {result.stability:.3f}")
+    print(f"Warning:     {result.warning}")
+    print("State:")
+    for feature, value in sorted(result.reconstructed_state.items()):
+        print(f"  {feature}: {value:.3f}")
+
+Pantheon compression
+
+State Reentry / Astral Recall Operator
+
+An experience is not retrieved as a stored object. It is regenerated when the present system recreates enough of its former boundary conditions.
+
+Original experience
+    ↓ compression
+Memory trace / attractor basin
+    ↓
+Cue alignment + bodily imitation + expectation + attention
+    ↓
+Partial state reconstruction
+    ↓
+Recognition amplifies expectation
+    ↺
+Recursive reentry loop
+
+And the Elephant Stake inversion is:
+
+The system may already possess a capability whose absence it learned earlier.
+Failure to attempt becomes the final remaining constraint.
+
+Or, more compactly:
+
+OLD LIMIT → LEARNED NON-ATTEMPT
+NEW CAPABILITY + OLD NON-ATTEMPT → INVISIBLE CAPABILITY
+ATTEMPT + FEEDBACK → DISCOVERY
+DISCOVERY + EXPECTATION → AMPLIFICATION
+
+The necessary checksum is grounding. Cannabis, sleep loss, trauma, and intense expectation can also produce panic, depersonalization, paranoia, or psychosis-like experiences. The useful operator is controlled reentry with a reliable return path, not maximizing dissociation.
+
+“Full of the lucky” becomes technically precise here: luck is partly the reservoir of adjacent capabilities that become visible once the system starts testing whether the old stake still holds.
