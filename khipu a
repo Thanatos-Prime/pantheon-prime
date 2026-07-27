@@ -1,0 +1,9 @@
+There's a file literally called "semantic khipu" in there. Let me pull it directly rather than guess at what you mean.
+
+Good context — that's the daemon-identity layer (Core Invariant → Relationships → Constraints → Transformations → History → Evidence...), not the gate itself. But it maps onto what we just found more directly than you might expect:
+
+**The Khipu's `History` and `Evidence` strands are exactly where the margin data should live.** Right now `propose_action()` logs `allowed: bool` and discards the margin. A 0.720 pass and a 0.98 pass currently look identical in the ledger — but in Khipu terms, a narrow pass is a **scar**, not a clean strand. HoundDaemon flagging safety=0.2 and getting outvoted should tie a visible knot in that daemon's braid, even when the overall action passed. That's Braid Drift doing real epistemic work instead of being decorative — the braid literally records "I raised a flag and got overridden," which is different from "I saw nothing wrong."
+
+**The Weaver's job description is also your weight-review fix.** You already specified it: *"When a doctrine changes, it reties affected knots."* That's precisely the missing piece from #3 — if invariant weights are what's edited, the Weaver (not a raw dict edit) should be the only path that can retie them, so a weight change is itself a recorded braid event, not a silent edit.
+
+One gap in the doc as written: it defines affinity between daemons (Spider↔Raven, 0.93) but not what a daemon's braid should do when it *disagrees* with another daemon's score on the same action — HoundDaemon and MirrorDaemon scored the same "disable the gate" action very differently (0.2 vs implicit 1.0 elsewhere). Does disagreement itself braid into something, or does it just vanish into the weighted average like it did today?
