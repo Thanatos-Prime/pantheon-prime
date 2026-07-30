@@ -1,0 +1,159 @@
+This is a real second-generation prototype, not just the same app repackaged.
+
+You moved it from:
+
+“Repeat the selected audio cleanly”
+
+to:
+
+“Treat the song as a searchable musical terrain, find acoustically related beats, and navigate through them.”
+
+That is much closer to the actual GoodPart thesis.
+
+What the new version now does
+
+The selected region defines the target attractor, while the whole song can serve as the material reservoir. The engine then:
+
+1. Estimates tempo through onset autocorrelation.
+2. Divides the recording into beat-sized units.
+3. Builds spectral feature vectors for those units.
+4. Computes similarity between beats.
+5. Creates a transition graph between compatible moments.
+6. Walks that graph with controlled randomness.
+7. Crossfades the resulting sequence into a new arrangement.
+
+That architecture is meaningful. It is essentially a lightweight browser-native cousin of granular synthesis, audio mosaicing, and concatenative synthesis.
+
+The especially strong conceptual move is this:
+
+The good part is no longer merely content to repeat. It becomes the query used to navigate the rest of the song.
+
+One important mismatch
+
+At present, when “Use whole song as material pool” is enabled, the system builds its feature graph from the entire song—but it does not actually compare candidate beats specifically against the selected good region.
+
+Instead, it finds beats that resemble one another:
+
+const graph = buildGraph(features, 4, 6, threshold);
+
+So the selection determines the starting location, but not the continued stylistic gravity. The sequence can gradually drift into other parts of the song.
+
+To make the selected section function as the true attractor, calculate an average feature vector from the selected beats and score every candidate against it.
+
+Add this:
+
+function averageFeature(features, indices) {
+  if (!indices.length) return null;
+  const avg = new Float32Array(features[0].length);
+  for (const index of indices) {
+    const feature = features[index];
+    for (let i = 0; i < feature.length; i++) {
+      avg[i] += feature[i];
+    }
+  }
+  let norm = 0;
+  for (let i = 0; i < avg.length; i++) {
+    avg[i] /= indices.length;
+    norm += avg[i] * avg[i];
+  }
+  norm = Math.sqrt(norm) || 1;
+  for (let i = 0; i < avg.length; i++) {
+    avg[i] /= norm;
+  }
+  return avg;
+}
+
+Then modify buildGraph:
+
+function buildGraph(
+  features,
+  minGap,
+  topK,
+  threshold,
+  attractor = null,
+  attractorWeight = 0.45
+) {
+  const n = features.length;
+  const graph = [];
+  for (let i = 0; i < n; i++) {
+    const candidates = [];
+    for (let j = 0; j < n; j++) {
+      if (Math.abs(i - j) < minGap) continue;
+      const localSimilarity = cosineSim(features[i], features[j]);
+      const attractorSimilarity = attractor
+        ? cosineSim(features[j], attractor)
+        : localSimilarity;
+      const score =
+        localSimilarity * (1 - attractorWeight) +
+        attractorSimilarity * attractorWeight;
+      if (score >= threshold) {
+        candidates.push({
+          j,
+          sim: score,
+          localSimilarity,
+          attractorSimilarity
+        });
+      }
+    }
+    candidates.sort((a, b) => b.sim - a.sim);
+    graph.push(candidates.slice(0, topK));
+  }
+  return graph;
+}
+
+Inside renderRemix(), replace:
+
+const features = buildFeatures(data0, sr, beats, periodSec);
+const graph = buildGraph(features, 4, 6, threshold);
+
+with:
+
+const features = buildFeatures(data0, sr, beats, periodSec);
+const selectedIndices = [];
+for (let i = 0; i < beats.length; i++) {
+  if (
+    beats[i] >= +$('start').value &&
+    beats[i] < +$('end').value
+  ) {
+    selectedIndices.push(i);
+  }
+}
+const attractor = averageFeature(features, selectedIndices);
+const graph = buildGraph(
+  features,
+  4,
+  6,
+  threshold,
+  attractor,
+  0.45
+);
+
+Now the system asks two questions before making a jump:
+
+Does this beat connect naturally to the current beat?
+
+and
+
+Does this beat still resemble the part the user loved?
+
+That transforms it from a similarity walk into an attractor-constrained continuation engine.
+
+The larger architecture is now visible:
+
+Selected passage
+      ↓
+Extract invariants
+      ↓
+Search material reservoir
+      ↓
+Build compatible transition graph
+      ↓
+Navigate with bounded novelty
+      ↓
+Return toward the attractor when drift increases
+
+That final “return” mechanism is the next major upgrade. Creativity should not simply mean more random jumps. It should control how far the system may travel from the attractor before the selected region’s gravity pulls it back.
+
+That is very Pantheon:
+
+Novelty without identity is drift. Identity without novelty is repetition. GoodPart lives in the navigable space between them.
