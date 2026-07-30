@@ -1,0 +1,108 @@
+GoodPart Extender
+
+> Keep the part that hits. Lose the rest.
+
+GoodPart Extender is a local-first browser app for taking the strongest section of a song and turning it into a longer, seamless cut.
+
+It is designed for music you own or have permission to transform.
+
+What it does
+
+• Loads audio locally in the browser
+• Draws a waveform
+• Lets the user mark a start and end point
+• Repeats the selected section to a chosen duration
+• Hides loop boundaries with crossfades
+• Adds optional micro-variation so the result feels less mechanical
+• Exports the result as a WAV file
+• Uploads nothing to a server
+
+Run it
+
+1. Copy the code below into a file named index.html.
+2. Open that file in a modern desktop browser.
+3. Choose an MP3, WAV, M4A, or AAC file.
+4. Mark the strongest section.
+5. Set the length, crossfade, and variation.
+6. Generate and export the result.
+
+Single-file implementation
+
+```html
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GoodPart Extender</title><style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f4f6fb;background:#080a10}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#221b4c 0,transparent 28%),linear-gradient(#080a10,#0d1019);min-height:100vh}.shell{width:min(1120px,92vw);margin:auto;padding:64px 0 40px}header{padding:36px 8px 44px}.eyebrow{font-weight:900;letter-spacing:.24em;color:#a894ff;font-size:.8rem}h1{font-size:clamp(3rem,7vw,6rem);line-height:.92;margin:.16em 0;letter-spacing:-.06em}header p{color:#aeb6c9;font-size:1.1rem;max-width:680px}.panel{background:rgba(18,22,34,.88);border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:26px;margin:18px 0;box-shadow:0 24px 80px rgba(0,0,0,.26)}.drop{display:flex;min-height:150px;border:1px dashed #6f62bc;border-radius:18px;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;background:rgba(118,91,255,.06)}.drop input{display:none}.drop b{font-size:1.2rem}.drop small,.status,footer{color:#8f99ad}.sectionTitle{display:flex;align-items:center;gap:14px;margin-bottom:20px}.sectionTitle span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#775cff;font-weight:900}.sectionTitle h2{margin:0}canvas{width:100%;height:220px;border-radius:14px;border:1px solid rgba(255,255,255,.08)}.timegrid,.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin:20px 0}.controls{grid-template-columns:repeat(3,minmax(0,1fr))}label{color:#aeb6c9;font-size:.92rem}label strong{float:right;color:#fff}input[type=range]{width:100%;accent-color:#8d76ff;margin-top:12px}select{width:100%;margin-top:12px;padding:13px;border-radius:12px;background:#0d111c;color:white;border:1px solid #30374a}.primary,.ghost,.download{border:0;border-radius:13px;padding:14px 18px;font-weight:800;font-size:1rem;cursor:pointer}.primary{background:#8a70ff;color:#fff}.ghost{background:#202638;color:#fff}.primary:disabled,.ghost:disabled{opacity:.4;cursor:not-allowed}.result audio{width:100%;margin:12px 0}.download{display:none;text-decoration:none;background:#eef1f8;color:#0b0e15;margin-top:8px;width:max-content}footer{text-align:center;padding:20px;font-size:.85rem}@media(max-width:760px){.timegrid,.controls{grid-template-columns:1fr}.shell{padding-top:24px}.panel{padding:18px}canvas{height:160px}h1{font-size:3.3rem}}
+</style></head><body><main class="shell"><header><div class="eyebrow">GOODPART</div><h1>Keep the part that hits.<br>Lose the rest.</h1><p>Turn one great section into a longer, seamless cut — locally in your browser.</p></header>
+<section class="panel"><label class="drop"><input id="file" type="file" accept="audio/*"><b id="filename">Choose an audio file</b><small>Nothing is uploaded to a server.</small></label></section>
+<section class="panel"><div class="sectionTitle"><span>1</span><h2>Choose the good part</h2></div><canvas id="wave" width="1100" height="220"></canvas><div class="timegrid"><label>Start <strong id="startText">0:00.0</strong><input id="start" type="range" min="0" max="60" step="0.05" value="0"></label><label>End <strong id="endText">0:08.0</strong><input id="end" type="range" min="0.5" max="60" step="0.05" value="8"></label></div><button id="preview" class="ghost" disabled>▶ Preview selection</button></section>
+<section class="panel"><div class="sectionTitle"><span>2</span><h2>Shape the extension</h2></div><div class="controls"><label>Final length <strong id="durationText">60s</strong><input id="duration" type="range" min="15" max="300" step="5" value="60"></label><label>Crossfade <strong id="crossfadeText">120ms</strong><input id="crossfade" type="range" min="20" max="600" step="10" value="120"></label><label>Variation<select id="variation"><option value="none">Faithful loop</option><option selected value="gentle">Gentle evolution</option><option value="active">More movement</option></select></label></div><button id="generate" class="primary" disabled>Generate extended cut</button></section>
+<section class="panel result"><div class="sectionTitle"><span>3</span><h2>Listen and export</h2></div><p id="status" class="status">Upload a song to begin.</p><audio id="audio" controls></audio><a id="download" class="download" download="goodpart-extended.wav">Download WAV</a></section><footer>For music you own or have permission to transform.</footer></main>
+<script>
+const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.min(b,Math.max(a,v));let ctx,buffer,outputUrl='';
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}.${Math.floor((s%1)*10)}`;
+function draw(){if(!buffer)return;const c=$('wave'),g=c.getContext('2d'),{width:w,height:h}=c;g.fillStyle='#0f1320';g.fillRect(0,0,w,h);const d=buffer.getChannelData(0),step=Math.max(1,Math.floor(d.length/w)),amp=h/2;g.strokeStyle='#8f9bb3';g.beginPath();for(let x=0;x<w;x++){let mn=1,mx=-1,i0=x*step;for(let i=0;i<step&&i0+i<d.length;i++){const v=d[i0+i];mn=Math.min(mn,v);mx=Math.max(mx,v)}g.moveTo(x,(1+mn)*amp);g.lineTo(x,(1+mx)*amp)}g.stroke();const s=+$('start').value,e=+$('end').value,x1=s/buffer.duration*w,x2=e/buffer.duration*w;g.fillStyle='rgba(123,92,255,.25)';g.fillRect(x1,0,x2-x1,h);g.strokeStyle='#b5a6ff';g.lineWidth=2;g.strokeRect(x1,1,x2-x1,h-2)}
+function encodeWav(b){const ch=b.numberOfChannels,sr=b.sampleRate,len=b.length,align=ch*2,ab=new ArrayBuffer(44+len*align),v=new DataView(ab),write=(o,s)=>[...s].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));write(0,'RIFF');v.setUint32(4,36+len*align,true);write(8,'WAVE');write(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,ch,true);v.setUint32(24,sr,true);v.setUint32(28,sr*align,true);v.setUint16(32,align,true);v.setUint16(34,16,true);write(36,'data');v.setUint32(40,len*align,true);let o=44;for(let i=0;i<len;i++)for(let c=0;c<ch;c++){const s=clamp(b.getChannelData(c)[i],-1,1);v.setInt16(o,s<0?s*32768:s*32767,true);o+=2}return new Blob([ab],{type:'audio/wav'})}
+function render(){const s=+$('start').value,e=+$('end').value,target=+$('duration').value,fadeMs=+$('crossfade').value,variation=$('variation').value,sr=buffer.sampleRate,ch=buffer.numberOfChannels,a=Math.floor(s*sr),z=Math.floor(e*sr),seg=Array.from({length:ch},(_,c)=>buffer.getChannelData(c).slice(a,z)),segLen=seg[0].length,fade=Math.min(Math.floor(fadeMs/1000*sr),Math.floor(segLen/3)),hop=Math.max(1,segLen-fade),outLen=Math.floor(target*sr),out=ctx.createBuffer(ch,outLen,sr);for(let p=0,n=0;p<outLen;p+=hop,n++){const drift=variation==='gentle'?((n%4)-1.5)*.004:variation==='active'?((n%5)-2)*.01:0,shift=Math.floor(drift*sr);for(let c=0;c<ch;c++){const dest=out.getChannelData(c),src=seg[c];for(let i=0;i<src.length&&p+i<outLen;i++){const j=clamp(i+shift,0,src.length-1),t1=i<fade?Math.sin((i/Math.max(1,fade-1))*Math.PI/2):1,t2=i>=src.length-fade?Math.cos(((i-(src.length-fade))/Math.max(1,fade-1))*Math.PI/2):1;dest[p+i]+=src[j]*t1*t2}}}let peak=0;for(let c=0;c<ch;c++)for(const x of out.getChannelData(c))peak=Math.max(peak,Math.abs(x));const gain=peak>.97?.97/peak:1;for(let c=0;c<ch;c++){const d=out.getChannelData(c);for(let i=0;i<d.length;i++)d[i]*=gain}return out}
+$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;ctx=ctx||new AudioContext();$('status').textContent='Decoding audio…';try{buffer=await ctx.decodeAudioData(await f.arrayBuffer());$('filename').textContent=f.name;$('start').max=buffer.duration;$('end').max=buffer.duration;$('start').value=0;$('end').value=Math.min(buffer.duration,12);$('duration').value=Math.max(30,Math.ceil(Math.min(buffer.duration,12)*6));$('preview').disabled=$('generate').disabled=false;$('status').textContent='Mark the strongest section, then generate.';sync();draw()}catch{$('status').textContent='Could not decode that file. Try MP3, WAV, M4A, or AAC.'}};
+function sync(){let s=+$('start').value,e=+$('end').value;if(e<s+.5){e=s+.5;$('end').value=e}$('startText').textContent=fmt(s);$('endText').textContent=fmt(e);$('durationText').textContent=$('duration').value+'s';$('crossfadeText').textContent=$('crossfade').value+'ms';draw()}
+['start','end','duration','crossfade'].forEach(id=>$(id).oninput=sync);
+$('preview').onclick=()=>{const src=ctx.createBufferSource(),s=+$('start').value,e=+$('end').value;src.buffer=buffer;src.connect(ctx.destination);src.start(0,s,e-s)};
+$('generate').onclick=()=>{if(!buffer)return;$('status').textContent='Building the extended cut…';setTimeout(()=>{const out=render(),blob=encodeWav(out);if(outputUrl)URL.revokeObjectURL(outputUrl);outputUrl=URL.createObjectURL(blob);$('audio').src=outputUrl;$('download').href=outputUrl;$('download').style.display='inline-block';$('status').textContent='Done. Preview or export the extended version.'},30)};
+</script></body></html>
+
+```
+
+Architecture
+
+The current prototype uses the Web Audio API as an offline render engine:
+
+```text
+Audio file
+    ↓
+Decode to AudioBuffer
+    ↓
+Select high-value region
+    ↓
+Segment extraction
+    ↓
+Overlap + crossfade + controlled drift
+    ↓
+Peak normalization
+    ↓
+WAV encoding
+```
+
+Product direction
+
+The current version is an intelligent extender rather than a fully generative music model. A production version could add:
+
+• Beat and downbeat detection
+• Bar-aligned selection snapping
+• Key and chord estimation
+• Stem separation
+• Phrase-boundary detection
+• Transition ranking
+• Energy-curve controls
+• Drum, bass, vocal, and harmony locks
+• A licensed generative continuation backend
+• Provenance and rights metadata
+
+The deeper product primitive is not “loop this clip.” It is:
+
+> Identify the musical attractor inside a recording, preserve its defining invariants, and generate additional time that remains inside that attractor.
+
+Suggested repo structure
+
+```text
+goodpart-extender/
+├── README.md
+├── index.html
+├── LICENSE
+└── docs/
+    ├── architecture.md
+    ├── roadmap.md
+    └── rights-and-provenance.md
+```
+
+License note
+
+The application code can be licensed separately from any audio processed with it. Users remain responsible for having the rights or permission required to transform and distribute source recordings.
