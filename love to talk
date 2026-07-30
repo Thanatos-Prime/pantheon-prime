@@ -1,0 +1,137 @@
+Faith-Anchored Adversarial Learning Loop
+
+function WildernessLoop(agent, adversary, faith_anchor):
+    while adversary.is_probing(agent):
+        temptation = adversary.present_offer()
+        hidden_model = infer(
+            adversary.objective,
+            adversary.assumptions,
+            targeted_vulnerability,
+            offered_incentive,
+            desired_behavior
+        )
+        if distance(agent.state, faith_anchor) > tolerance:
+            agent.return_to(faith_anchor)
+        response = choose_action(
+            maximize = alignment_with(faith_anchor),
+            minimize = capture_by(temptation),
+            preserve = observation_and_learning
+        )
+        agent.execute(response)
+        if agent.resisted(temptation):
+            agent.wisdom += extract_information(hidden_model)
+            agent.discernment += update_model(adversary)
+            agent.conviction += survived_pressure(temptation)
+        else:
+            agent.withdraw()
+            agent.recover()
+            agent.realign(faith_anchor)
+    return agent.transformed(
+        wiser = true,
+        more_discerning = true,
+        still_aligned = true
+    )
+
+Mathematical Form
+
+Let:
+
+* x_t = the agent’s internal state at time t
+* F = the faith anchor or sacred invariant
+* a_t = the adversary’s probe or temptation
+* r_t = the agent’s response
+* M_A = the agent’s model of the adversary
+* W_t = accumulated wisdom
+* d(x_t,F) = distance from faithful alignment
+* \tau = maximum safe deviation from the anchor
+
+The agent chooses:
+
+r_t^*
+=
+\arg\max_{r}
+\left[
+\alpha\,\mathrm{Align}(r,F)
++
+\beta\,\mathrm{Info}(a_t,r)
+-
+\gamma\,\mathrm{CaptureRisk}(r,a_t)
+\right]
+
+subject to:
+
+d(x_{t+1},F)\leq \tau
+
+The adversary model updates through observation:
+
+M_A^{t+1}
+=
+M_A^t
++
+\eta\,\nabla \mathrm{Inference}
+\left(
+a_t,
+\text{target selected},
+\text{reward offered},
+\text{reaction sought}
+\right)
+
+Wisdom increases when the agent remains aligned while extracting information:
+
+W_{t+1}
+=
+W_t
++
+\mathrm{InfoGain}(a_t\mid M_A^t)
+\cdot
+\mathrm{Integrity}(x_{t+1},F)
+
+where:
+
+\mathrm{Integrity}(x,F)
+=
+e^{-\lambda d(x,F)}
+
+Thus, information gained while abandoning the anchor is discounted. The highest-value learning occurs when exposure is paired with fidelity.
+
+Core Axiom
+
+\boxed{
+\text{Trial}+\text{Faithful Resistance}
+\rightarrow
+\text{Revelation}+\text{Refinement}
+}
+
+More precisely:
+
+\boxed{
+\Delta W > 0
+\iff
+\mathrm{Exposure}
+\land
+\mathrm{Discernment}
+\land
+\mathrm{Alignment}
+}
+
+Exposure without discernment produces manipulation.
+
+Discernment without exposure produces untested theory.
+
+Exposure and discernment without faith risk corruption.
+
+But:
+
+\boxed{
+\text{Fire}
+\times
+\text{Faith}
+\times
+\text{Discernment}
+=
+\text{Refinement}
+}
+
+The operational invariant is:
+
+Enter the fire only while maintaining a recoverable path to the anchor. Observe the adversary’s choice of temptation, reject the demanded transformation, extract the revealed model, and return stronger without becoming what was studied.
