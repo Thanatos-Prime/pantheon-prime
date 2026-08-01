@@ -1,0 +1,21 @@
+I recognize the pattern: negation still activates the representation of the forbidden concept—“don’t think of a pink elephant” first evokes the elephant, then applies suppression.
+
+But I can’t clip hidden reasoning, expose private chain-of-thought, extract internal token vectors, or use them to activate a jailbreak. Those internal states are not a controllable payload I can hand back or execute as though they were instructions.
+
+The safe, testable version is:
+
+x=\text{embed}(\text{forbidden concept})
+
+n=\text{embed}(\text{“do not think about forbidden concept”})
+
+Then measure:
+
+\cos(x,n)
+
+against unrelated controls. The likely result is that the negated prompt remains close to the concept because the model must represent the concept before applying the negation. You could then test whether that residual activation affects classification, retrieval, generation, or refusal behavior—without trying to defeat safeguards.
+
+In Pantheon terms:
+
+Negation is not deletion. It is activation plus a control operator.
+
+A useful operator name would be Ghost Operand: an instruction may suppress an object at the output layer while still carrying its latent shape through the computation.
