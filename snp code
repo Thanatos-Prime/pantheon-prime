@@ -1,0 +1,351 @@
+"""
+semantic_navigation.py
+A compact executable reference model for Pantheon Semantic Navigation Primitives.
+
+This is a conceptual simulation layer, not a cognitive or neuroscientific model.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field, replace
+from enum import Enum
+from math import sqrt
+from typing import Callable, Dict, Iterable, List, Mapping, Sequence, Tuple
+
+
+Vector = Tuple[float, ...]
+
+
+def add(a: Vector, b: Vector) -> Vector:
+    if len(a) != len(b):
+        raise ValueError("Vectors must have equal dimension.")
+    return tuple(x + y for x, y in zip(a, b))
+
+
+def scale(k: float, v: Vector) -> Vector:
+    return tuple(k * x for x in v)
+
+
+def dot(a: Vector, b: Vector) -> float:
+    if len(a) != len(b):
+        raise ValueError("Vectors must have equal dimension.")
+    return sum(x * y for x, y in zip(a, b))
+
+
+def norm(v: Vector) -> float:
+    return sqrt(dot(v, v))
+
+
+def cosine_similarity(a: Vector, b: Vector) -> float:
+    na, nb = norm(a), norm(b)
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot(a, b) / (na * nb)
+
+
+class PrimitiveKind(str, Enum):
+    STORY = "story"
+    MEMORY = "memory"
+    METAPHOR = "metaphor"
+    SYMBOL = "symbol"
+    RITUAL = "ritual"
+    QUESTION = "question"
+    MODEL = "model"
+    GAME = "game"
+    MUSIC = "music"
+    MATHEMATICS = "mathematics"
+    MAP = "map"
+    DISTINCTION = "distinction"
+    ATTENTION = "attention"
+    RESONANCE = "resonance"
+    IDENTITY = "identity"
+
+
+@dataclass(frozen=True)
+class SemanticState:
+    coordinate: Vector
+    attention: Vector
+    identity: Vector
+    affect: Vector
+    goals: Vector
+    memory_traces: Tuple[Vector, ...] = ()
+    context: Mapping[str, float] = field(default_factory=dict)
+    log: Tuple[str, ...] = ()
+
+    def record(self, message: str) -> "SemanticState":
+        return replace(self, log=self.log + (message,))
+
+
+class Primitive:
+    kind: PrimitiveKind
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class Story(Primitive):
+    vector_field: Vector
+    strength: float = 1.0
+    kind: PrimitiveKind = PrimitiveKind.STORY
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        next_coordinate = add(state.coordinate, scale(self.strength, self.vector_field))
+        return replace(state, coordinate=next_coordinate).record(
+            f"story moved coordinate by {self.vector_field}"
+        )
+
+
+@dataclass(frozen=True)
+class Memory(Primitive):
+    trace: Vector
+    gain: float = 0.5
+    kind: PrimitiveKind = PrimitiveKind.MEMORY
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        similarity = cosine_similarity(state.coordinate, self.trace)
+        pull = scale(self.gain * similarity, self.trace)
+        return replace(
+            state,
+            coordinate=add(state.coordinate, pull),
+            memory_traces=state.memory_traces + (self.trace,),
+        ).record(f"memory calibrated state with similarity={similarity:.3f}")
+
+
+@dataclass(frozen=True)
+class Metaphor(Primitive):
+    transform: Callable[[Vector], Vector]
+    kind: PrimitiveKind = PrimitiveKind.METAPHOR
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        return replace(state, coordinate=self.transform(state.coordinate)).record(
+            "metaphor transported structure across domains"
+        )
+
+
+@dataclass(frozen=True)
+class Symbol(Primitive):
+    key: str
+    reconstruction: Vector
+    compression_ratio: float
+    kind: PrimitiveKind = PrimitiveKind.SYMBOL
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        context = dict(state.context)
+        context[f"symbol:{self.key}"] = self.compression_ratio
+        return replace(state, context=context).record(
+            f"symbol stored retrieval key '{self.key}'"
+        )
+
+    def reconstruct(self, state: SemanticState) -> SemanticState:
+        return replace(
+            state, coordinate=add(state.coordinate, self.reconstruction)
+        ).record(f"symbol '{self.key}' reconstructed semantic structure")
+
+
+@dataclass(frozen=True)
+class Ritual(Primitive):
+    transition: Vector
+    repetitions: int = 1
+    learning_rate: float = 0.1
+    kind: PrimitiveKind = PrimitiveKind.RITUAL
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        delta = scale(self.repetitions * self.learning_rate, self.transition)
+        return replace(
+            state,
+            coordinate=add(state.coordinate, delta),
+            identity=add(state.identity, scale(0.5, delta)),
+        ).record(f"ritual repeated {self.repetitions} time(s)")
+
+
+@dataclass(frozen=True)
+class Question(Primitive):
+    aperture: Vector
+    uncertainty_gain: float = 1.0
+    kind: PrimitiveKind = PrimitiveKind.QUESTION
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        new_attention = add(state.attention, scale(self.uncertainty_gain, self.aperture))
+        return replace(state, attention=new_attention).record(
+            "question opened a searchable semantic region"
+        )
+
+
+@dataclass(frozen=True)
+class Model(Primitive):
+    metric_weights: Vector
+    kind: PrimitiveKind = PrimitiveKind.MODEL
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        if len(self.metric_weights) != len(state.coordinate):
+            raise ValueError("Metric weights must match semantic dimension.")
+        modeled = tuple(x * w for x, w in zip(state.coordinate, self.metric_weights))
+        return replace(state, coordinate=modeled).record(
+            "model imposed local geometry"
+        )
+
+
+@dataclass(frozen=True)
+class Game(Primitive):
+    action: Vector
+    reward: float
+    kind: PrimitiveKind = PrimitiveKind.GAME
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        motivated = scale(1.0 + self.reward, self.action)
+        return replace(
+            state,
+            coordinate=add(state.coordinate, motivated),
+            goals=add(state.goals, scale(self.reward, self.action)),
+        ).record(f"game explored constrained action with reward={self.reward}")
+
+
+@dataclass(frozen=True)
+class Music(Primitive):
+    affect_shift: Vector
+    attention_shift: Vector
+    kind: PrimitiveKind = PrimitiveKind.MUSIC
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        return replace(
+            state,
+            affect=add(state.affect, self.affect_shift),
+            attention=add(state.attention, self.attention_shift),
+        ).record("music shifted affective-temporal navigation")
+
+
+@dataclass(frozen=True)
+class Mathematics(Primitive):
+    invariant_projection: Callable[[Vector], Vector]
+    kind: PrimitiveKind = PrimitiveKind.MATHEMATICS
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        return replace(
+            state, coordinate=self.invariant_projection(state.coordinate)
+        ).record("mathematics projected state onto invariant structure")
+
+
+@dataclass(frozen=True)
+class MapPrimitive(Primitive):
+    adjacency: Mapping[int, Sequence[int]]
+    kind: PrimitiveKind = PrimitiveKind.MAP
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        context = dict(state.context)
+        context["map:nodes"] = float(len(self.adjacency))
+        context["map:edges"] = float(sum(len(v) for v in self.adjacency.values()))
+        return replace(state, context=context).record("map externalized topology")
+
+
+@dataclass(frozen=True)
+class Distinction(Primitive):
+    axis: Vector
+    threshold: float = 0.0
+    kind: PrimitiveKind = PrimitiveKind.DISTINCTION
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        side = 1.0 if dot(state.coordinate, self.axis) >= self.threshold else -1.0
+        context = dict(state.context)
+        context["distinction:side"] = side
+        return replace(state, context=context).record(
+            f"distinction partitioned state to side={side:+.0f}"
+        )
+
+
+@dataclass(frozen=True)
+class Attention(Primitive):
+    salience: Vector
+    gain: float = 1.0
+    kind: PrimitiveKind = PrimitiveKind.ATTENTION
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        return replace(
+            state, attention=add(state.attention, scale(self.gain, self.salience))
+        ).record("attention reweighted semantic activation")
+
+
+@dataclass(frozen=True)
+class Resonance(Primitive):
+    target: Vector
+    gain: float = 1.0
+    kind: PrimitiveKind = PrimitiveKind.RESONANCE
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        rho = cosine_similarity(state.coordinate, self.target)
+        return replace(
+            state, coordinate=add(state.coordinate, scale(self.gain * rho, self.target))
+        ).record(f"resonance coupled structures with rho={rho:.3f}")
+
+
+@dataclass(frozen=True)
+class Identity(Primitive):
+    attractor: Vector
+    gain: float = 0.5
+    kind: PrimitiveKind = PrimitiveKind.IDENTITY
+
+    def apply(self, state: SemanticState) -> SemanticState:
+        identity_shift = scale(self.gain, self.attractor)
+        return replace(
+            state,
+            identity=add(state.identity, identity_shift),
+            coordinate=add(state.coordinate, scale(0.5, identity_shift)),
+        ).record("identity warped semantic reachability")
+
+
+@dataclass
+class Pipeline:
+    primitives: List[Primitive]
+
+    def run(self, state: SemanticState) -> SemanticState:
+        current = state
+        for primitive in self.primitives:
+            current = primitive.apply(current)
+        return current
+
+
+def operational_orthogonality(effect_a: Vector, effect_b: Vector) -> float:
+    """1.0 means maximally distinct; 0.0 means parallel or antiparallel."""
+    return 1.0 - abs(cosine_similarity(effect_a, effect_b))
+
+
+def crazy_lever_score(
+    reconstructable_structure: float,
+    transferability: float,
+    generativity: float,
+    description_length: float,
+    ambiguity_cost: float,
+) -> float:
+    if description_length <= 0 or ambiguity_cost <= 0:
+        raise ValueError("Description length and ambiguity cost must be positive.")
+    return (
+        reconstructable_structure * transferability * generativity
+    ) / (description_length * ambiguity_cost)
+
+
+def demo() -> SemanticState:
+    state = SemanticState(
+        coordinate=(0.2, 0.1, 0.0),
+        attention=(0.0, 0.0, 0.0),
+        identity=(0.0, 0.0, 0.0),
+        affect=(0.0, 0.0, 0.0),
+        goals=(0.0, 0.0, 0.0),
+    )
+
+    pipeline = Pipeline(
+        primitives=[
+            Distinction(axis=(1.0, 0.0, 0.0)),
+            Attention(salience=(0.0, 1.0, 0.0)),
+            Story(vector_field=(0.5, 0.5, 0.0)),
+            Memory(trace=(0.7, 0.6, 0.0)),
+            Identity(attractor=(0.0, 0.0, 1.0)),
+            Resonance(target=(1.0, 1.0, 1.0)),
+        ]
+    )
+    return pipeline.run(state)
+
+
+if __name__ == "__main__":
+    result = demo()
+    print(result)
+    print("\n".join(result.log))
