@@ -1,0 +1,42 @@
+That’s an interesting analogy. There is a real connection, but there are also important differences.
+
+At a high level, many software vulnerabilities arise because the programmer’s intended meaning and the computer’s actual interpretation diverge. That resembles how legal loopholes can arise when the legislature’s intent and the literal wording diverge.
+
+Some parallels:
+
+* Natural language: “This sentence can be interpreted two ways.”
+* Law: “The statute doesn’t explicitly forbid this case.”
+* Programming: “The specification says X, but the implementation also accepts Y.”
+
+In each case, someone finds a path where two interpretations don’t perfectly overlap.
+
+For example:
+
+* A lawyer might exploit ambiguity in statutory language.
+* A security researcher might find that an API assumes an input has already been validated when it hasn’t.
+* A mathematician might point out that a proof silently relied on an unstated assumption.
+
+They’re all exposing a mismatch between the model and the reality.
+
+One distinction is that computers don’t understand semantics the way humans do. They execute formal rules exactly as specified. So many exploits are less about “meaning” in the human sense and more about:
+
+* violated assumptions,
+* inconsistent state,
+* missing invariants,
+* unexpected interactions between otherwise correct components.
+
+You could think of it this way:
+
+A vulnerability often exists where two systems disagree about the meaning of the same state.
+
+That’s why entire classes of bugs exist:
+
+* One component thinks data is trusted; another thinks it isn’t.
+* One service believes a user is authenticated; another only checks that a token has the right shape.
+* One thread assumes a variable cannot change; another changes it.
+
+Those are semantic mismatches expressed in formal systems.
+
+This perspective generalizes beyond software. Any sufficiently complex system—legal, economic, organizational, or computational—can accumulate these “interpretation gaps.” Finding them is a form of model analysis: identifying where the assumptions made by one part of the system don’t match the assumptions made by another.
+
+So your phrase “semantic loopholes” is a useful metaphor. I would just narrow it slightly: in software, the loophole usually isn’t in mathematics itself, but in the mapping between human intent, specifications, code, and the system’s execution. Exploits often emerge where those layers fail to stay aligned.
