@@ -1,0 +1,1108 @@
+Below is a compact mathematical formalization and a runnable reference implementation. The six fossils become composable operators inside one semantic reconstruction system.
+
+1. Compression Fossil
+
+The principle is:
+
+Preserve the smallest representation that can reconstruct the important structure.
+
+Let an artifact be x \in \mathcal{X}.
+
+Define:
+
+C : \mathcal{X} \rightarrow \mathcal{Z}
+
+as a compression operator, and:
+
+R : \mathcal{Z} \rightarrow \hat{\mathcal{X}}
+
+as a reconstruction operator.
+
+Successful compression minimizes representation size while preserving reconstruction fidelity:
+
+z^*
+=
+\arg\min_{z}
+\left[
+L(z)
++
+\lambda D(x,R(z))
+\right]
+
+where:
+
+* L(z) is the encoded length of the seed.
+* D(x,R(z)) is reconstruction loss.
+* \lambda determines how much fidelity matters relative to compactness.
+
+Define semantic leverage:
+
+\Lambda(x)
+=
+\frac{I(R(C(x)))}{L(C(x))}
+
+where I(\cdot) is the amount of recoverable useful structure.
+
+High leverage means:
+
+\text{small seed}
+\quad\rightarrow\quad
+\text{large faithful reconstruction}
+
+Pseudocode
+
+FUNCTION COMPRESS(artifact):
+    concepts ← extract_repeated_concepts(artifact)
+    relations ← extract_high_value_relations(artifact)
+    invariants ← find_features_stable_under_transformation(artifact)
+    seed ← {
+        concepts,
+        relations,
+        invariants,
+        reconstruction_instructions
+    }
+    WHILE reconstruction_fidelity(seed, artifact) ≥ threshold:
+        attempt_to_remove_low_value_component(seed)
+    RETURN seed
+
+⸻
+
+2. Translation Fossil
+
+A single latent operator may have many representations:
+
+\phi_i : \mathcal{S} \rightarrow \mathcal{R}_i
+
+where:
+
+* \mathcal{S} is latent semantic structure.
+* \mathcal{R}_i may be prose, mathematics, code, story, diagram, or ritual.
+
+Translation between representations is:
+
+T_{i \rightarrow j}
+=
+\phi_j \circ \phi_i^{-1}
+
+The central requirement is invariant preservation:
+
+\mathcal{I}(r_i)
+=
+\mathcal{I}(T_{i \rightarrow j}(r_i))
+
+A translation delta measures loss or distortion:
+
+\Delta_{i,j}
+=
+D_{\mathcal I}
+\left(
+\mathcal I(r_i),
+\mathcal I(T_{i \rightarrow j}(r_i))
+\right)
+
+Ideal translation minimizes:
+
+\Delta_{i,j} \rightarrow 0
+
+Pseudocode
+
+FUNCTION TRANSLATE(rendering, source_medium, target_medium):
+    latent_structure ← parse_into_semantic_structure(rendering)
+    source_invariants ← extract_invariants(latent_structure)
+    translated ← render(
+        latent_structure,
+        medium = target_medium
+    )
+    target_invariants ← extract_invariants(
+        parse_into_semantic_structure(translated)
+    )
+    delta ← compare(source_invariants, target_invariants)
+    RETURN translated, delta
+
+⸻
+
+3. Navigation Fossil
+
+Treat knowledge as a weighted semantic graph:
+
+G = (V,E,W)
+
+where:
+
+* V is the set of concepts.
+* E is the set of typed relationships.
+* W(e) is the traversal cost of an edge.
+
+A query is a starting state q. A goal is a target semantic state g.
+
+Semantic navigation finds the path:
+
+P^*
+=
+\arg\min_{P:q\leadsto g}
+\sum_{e \in P} W(e)
+
+Edge cost can combine semantic distance, uncertainty, and translation loss:
+
+W(e)
+=
+\alpha d_{\text{semantic}}(e)
++
+\beta u(e)
++
+\gamma \Delta(e)
+
+The best route is not necessarily the shortest textual route. It is the route with the lowest cost of recovered understanding.
+
+Pseudocode
+
+FUNCTION SEMANTIC_ROUTE(graph, start, goal):
+    frontier ← priority_queue()
+    frontier.push(start, cost = 0)
+    best_cost[start] ← 0
+    parent[start] ← null
+    WHILE frontier is not empty:
+        current ← frontier.pop_lowest_cost()
+        IF current = goal:
+            RETURN reconstruct_path(parent, goal)
+        FOR edge IN graph.outgoing_edges(current):
+            cost ← semantic_distance(edge)
+                   + uncertainty(edge)
+                   + translation_loss(edge)
+            candidate ← best_cost[current] + cost
+            IF candidate < best_cost[edge.target]:
+                best_cost[edge.target] ← candidate
+                parent[edge.target] ← current
+                frontier.push(edge.target, candidate)
+    RETURN no_path
+
+⸻
+
+4. Interface Fossil
+
+A word is not the full meaning. It is a pointer into a context-dependent model.
+
+Let:
+
+w \in \mathcal{W}
+
+be a word, and:
+
+c \in \mathcal{C}
+
+be the listener’s context.
+
+Meaning is produced by:
+
+M(w,c)
+
+not merely by M(w).
+
+Two listeners may reconstruct different meanings:
+
+M(w,c_1) \neq M(w,c_2)
+
+Communication succeeds when the reconstructed meaning approaches the sender’s intended state s:
+
+D(M(w,c_r),s) < \epsilon
+
+A more complete model is:
+
+\hat{s}
+=
+\operatorname{Decode}
+\left(
+\operatorname{Signal}(s),
+c_r
+\right)
+
+The signal can remain small because the receiver supplies missing structure from context.
+
+Pseudocode
+
+FUNCTION RESOLVE_SIGNAL(signal, receiver_context):
+    candidates ← retrieve_meanings(signal)
+    FOR candidate IN candidates:
+        score[candidate] ← compatibility(
+            candidate,
+            receiver_context
+        )
+    meaning ← candidate_with_highest_score()
+    RETURN meaning
+
+⸻
+
+5. Compiler Fossil
+
+The recurring pipeline is:
+
+x
+\xrightarrow{O}
+o
+\xrightarrow{D}
+d
+\xrightarrow{C}
+z
+\xrightarrow{T}
+r
+\xrightarrow{R}
+\hat{x}
+\xrightarrow{V}
+s
+
+where:
+
+* O: observe.
+* D: distill.
+* C: compress.
+* T: translate.
+* R: reconstruct.
+* V: validate.
+* s: fidelity score.
+
+The entire compiler is:
+
+\mathcal{P}
+=
+V \circ R \circ T \circ C \circ D \circ O
+
+The system should update itself when validation fails:
+
+\theta_{t+1}
+=
+\theta_t
+-
+\eta
+\nabla_\theta
+D(x,\hat{x})
+
+Here, \theta represents extraction rules, weights, mappings, or reconstruction procedures.
+
+Pseudocode
+
+FUNCTION PANTHEON_COMPILE(raw_input, target_medium):
+    observation ← observe(raw_input)
+    distilled ← distill(observation)
+    seed ← compress(distilled)
+    translated ← translate(seed, target_medium)
+    reconstruction ← reconstruct(translated)
+    score ← validate(raw_input, reconstruction)
+    IF score < minimum_fidelity:
+        seed ← repair_seed(
+            seed,
+            validation_errors
+        )
+    RETURN {
+        observation,
+        distilled,
+        seed,
+        translated,
+        reconstruction,
+        score
+    }
+
+⸻
+
+6. Shared-Context Fossil
+
+Let:
+
+* B be raw channel bandwidth.
+* C_s be shared context.
+* A be ambiguity.
+* L be latency.
+* F be fidelity.
+
+Effective communication capacity can be approximated as:
+
+K_{\text{effective}}
+=
+\frac{
+B(1+C_s)F
+}{
+L(1+A)
+}
+
+Communication time for meaning payload m becomes:
+
+T(m)
+\approx
+\frac{
+H(m \mid C_s)
+}{
+B F
+}
++
+L
+
+where H(m \mid C_s) is the information still necessary after accounting for shared context.
+
+As shared context increases:
+
+H(m \mid C_s) \downarrow
+
+Therefore:
+
+T(m) \downarrow
+
+This formalizes why a gesture, symbol, phrase, or single token can carry enormous meaning inside a sufficiently developed culture.
+
+Pseudocode
+
+FUNCTION COMMUNICATION_COST(message, shared_context, channel):
+    unresolved_information ← conditional_entropy(
+        message,
+        shared_context
+    )
+    transmission_time ← unresolved_information
+                        / channel.effective_bandwidth
+    ambiguity_penalty ← estimate_ambiguity(
+        message,
+        shared_context
+    )
+    RETURN channel.latency
+           + transmission_time
+           + ambiguity_penalty
+
+Runnable Python implementation
+
+Save this as pantheon_fossils.py.
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from enum import Enum
+from heapq import heappop, heappush
+from math import log2
+from typing import Callable, Iterable, Mapping, Sequence
+import re
+WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
+def tokenize(text: str) -> list[str]:
+    """Normalize text into lowercase tokens."""
+    return WORD_PATTERN.findall(text.lower())
+def unique_in_order(values: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+def jaccard_similarity(left: Iterable[str], right: Iterable[str]) -> float:
+    a = set(left)
+    b = set(right)
+    if not a and not b:
+        return 1.0
+    union = a | b
+    return len(a & b) / len(union) if union else 0.0
+class RelationType(str, Enum):
+    SUPPORTS = "supports"
+    CONTRADICTS = "contradicts"
+    GENERALIZES = "generalizes"
+    SPECIALIZES = "specializes"
+    TRANSLATES_TO = "translates_to"
+    SHARES_INVARIANT = "shares_invariant"
+    DERIVED_FROM = "derived_from"
+@dataclass(frozen=True)
+class SemanticSeed:
+    """
+    Minimal reconstructable representation of an artifact.
+    concepts:
+        High-value semantic tokens.
+    invariants:
+        Structures that should survive translation.
+    relations:
+        Compact subject-relation-object triples.
+    reconstruction_template:
+        Human-readable procedure for expanding the seed.
+    """
+    concepts: tuple[str, ...]
+    invariants: tuple[str, ...]
+    relations: tuple[tuple[str, str, str], ...] = ()
+    reconstruction_template: str = (
+        "Reconstruct an explanation using every invariant and relation."
+    )
+    @property
+    def encoded_length(self) -> int:
+        relation_tokens = sum(
+            len(tokenize(" ".join(relation)))
+            for relation in self.relations
+        )
+        return (
+            len(self.concepts)
+            + len(self.invariants)
+            + relation_tokens
+        )
+@dataclass
+class CompressionResult:
+    original: str
+    seed: SemanticSeed
+    reconstruction: str
+    fidelity: float
+    compression_ratio: float
+    semantic_leverage: float
+class SemanticCompressor:
+    """
+    Lightweight reference compressor.
+    This is deliberately interpretable rather than statistically optimal.
+    A production system could replace the extraction functions with an
+    embedding model, parser, graph extractor, or language model.
+    """
+    def __init__(
+        self,
+        stopwords: Iterable[str] | None = None,
+        maximum_concepts: int = 12,
+    ) -> None:
+        self.stopwords = set(
+            stopwords
+            or {
+                "a",
+                "an",
+                "and",
+                "are",
+                "as",
+                "at",
+                "be",
+                "by",
+                "for",
+                "from",
+                "in",
+                "is",
+                "it",
+                "of",
+                "on",
+                "or",
+                "that",
+                "the",
+                "this",
+                "to",
+                "with",
+            }
+        )
+        self.maximum_concepts = maximum_concepts
+    def compress(
+        self,
+        text: str,
+        invariants: Sequence[str] = (),
+        relations: Sequence[tuple[str, str, str]] = (),
+    ) -> SemanticSeed:
+        tokens = [
+            token
+            for token in tokenize(text)
+            if token not in self.stopwords
+        ]
+        frequencies: dict[str, int] = {}
+        first_position: dict[str, int] = {}
+        for index, token in enumerate(tokens):
+            frequencies[token] = frequencies.get(token, 0) + 1
+            first_position.setdefault(token, index)
+        ranked = sorted(
+            frequencies,
+            key=lambda token: (
+                -frequencies[token],
+                first_position[token],
+            ),
+        )
+        concepts = tuple(ranked[: self.maximum_concepts])
+        inferred_invariants = list(invariants)
+        if not inferred_invariants:
+            inferred_invariants = self._infer_invariants(text, concepts)
+        return SemanticSeed(
+            concepts=concepts,
+            invariants=tuple(unique_in_order(inferred_invariants)),
+            relations=tuple(relations),
+        )
+    def reconstruct(self, seed: SemanticSeed) -> str:
+        concept_text = ", ".join(seed.concepts) or "no extracted concepts"
+        invariant_text = "; ".join(seed.invariants) or "no explicit invariants"
+        relation_lines = [
+            f"{subject} {relation} {object_}"
+            for subject, relation, object_ in seed.relations
+        ]
+        relation_text = (
+            "; ".join(relation_lines)
+            if relation_lines
+            else "no explicit relations"
+        )
+        return (
+            f"Core concepts: {concept_text}. "
+            f"Preserved invariants: {invariant_text}. "
+            f"Semantic relations: {relation_text}. "
+            f"Instruction: {seed.reconstruction_template}"
+        )
+    def evaluate(self, text: str, seed: SemanticSeed) -> CompressionResult:
+        reconstruction = self.reconstruct(seed)
+        original_tokens = tokenize(text)
+        reconstructed_tokens = (
+            list(seed.concepts)
+            + tokenize(" ".join(seed.invariants))
+            + [
+                token
+                for relation in seed.relations
+                for token in tokenize(" ".join(relation))
+            ]
+        )
+        fidelity = jaccard_similarity(
+            original_tokens,
+            reconstructed_tokens,
+        )
+        original_length = max(len(original_tokens), 1)
+        seed_length = max(seed.encoded_length, 1)
+        compression_ratio = original_length / seed_length
+        semantic_leverage = (
+            fidelity * original_length / seed_length
+        )
+        return CompressionResult(
+            original=text,
+            seed=seed,
+            reconstruction=reconstruction,
+            fidelity=fidelity,
+            compression_ratio=compression_ratio,
+            semantic_leverage=semantic_leverage,
+        )
+    @staticmethod
+    def _infer_invariants(
+        text: str,
+        concepts: Sequence[str],
+    ) -> list[str]:
+        invariants: list[str] = []
+        lowered = text.lower()
+        if "compress" in lowered or "compression" in lowered:
+            invariants.append(
+                "A smaller seed should preserve reconstructable structure."
+            )
+        if "translate" in lowered or "representation" in lowered:
+            invariants.append(
+                "Meaning should survive representation change."
+            )
+        if "context" in lowered:
+            invariants.append(
+                "Interpretation depends on receiver context."
+            )
+        if not invariants and concepts:
+            invariants.append(
+                "The extracted core concepts must remain recoverable."
+            )
+        return invariants
+@dataclass(frozen=True)
+class Rendering:
+    medium: str
+    content: str
+    invariants: frozenset[str]
+@dataclass(frozen=True)
+class TranslationResult:
+    source: Rendering
+    target: Rendering
+    invariant_fidelity: float
+    translation_delta: float
+class TranslationEngine:
+    """Invariant-aware translation between representation types."""
+    def __init__(self) -> None:
+        self._renderers: dict[
+            str,
+            Callable[[SemanticSeed], str],
+        ] = {
+            "prose": self._render_prose,
+            "math": self._render_math,
+            "pseudocode": self._render_pseudocode,
+            "code_comment": self._render_code_comment,
+        }
+    def register_renderer(
+        self,
+        medium: str,
+        renderer: Callable[[SemanticSeed], str],
+    ) -> None:
+        self._renderers[medium] = renderer
+    def translate(
+        self,
+        seed: SemanticSeed,
+        source_medium: str,
+        target_medium: str,
+    ) -> TranslationResult:
+        if source_medium not in self._renderers:
+            raise ValueError(f"Unknown source medium: {source_medium}")
+        if target_medium not in self._renderers:
+            raise ValueError(f"Unknown target medium: {target_medium}")
+        source = Rendering(
+            medium=source_medium,
+            content=self._renderers[source_medium](seed),
+            invariants=frozenset(seed.invariants),
+        )
+        target = Rendering(
+            medium=target_medium,
+            content=self._renderers[target_medium](seed),
+            invariants=frozenset(seed.invariants),
+        )
+        fidelity = jaccard_similarity(
+            source.invariants,
+            target.invariants,
+        )
+        return TranslationResult(
+            source=source,
+            target=target,
+            invariant_fidelity=fidelity,
+            translation_delta=1.0 - fidelity,
+        )
+    @staticmethod
+    def _render_prose(seed: SemanticSeed) -> str:
+        return (
+            "The system connects "
+            + ", ".join(seed.concepts)
+            + ". It preserves "
+            + "; ".join(seed.invariants)
+        )
+    @staticmethod
+    def _render_math(seed: SemanticSeed) -> str:
+        invariant_symbols = [
+            f"I_{index + 1}"
+            for index in range(len(seed.invariants))
+        ]
+        symbols = ", ".join(invariant_symbols) or "I"
+        return (
+            f"Let z = C(x). Require {symbols} to remain conserved "
+            f"under reconstruction R(z) and translation T(z)."
+        )
+    @staticmethod
+    def _render_pseudocode(seed: SemanticSeed) -> str:
+        lines = [
+            "SEED ← EXTRACT(INPUT)",
+            "FOR EACH INVARIANT IN SEED:",
+            "    PRESERVE(INVARIANT)",
+            "OUTPUT ← RECONSTRUCT(SEED)",
+            "RETURN OUTPUT",
+        ]
+        return "\n".join(lines)
+    @staticmethod
+    def _render_code_comment(seed: SemanticSeed) -> str:
+        invariant_text = " | ".join(seed.invariants)
+        return (
+            "# Concepts: "
+            + ", ".join(seed.concepts)
+            + "\n# Invariants: "
+            + invariant_text
+        )
+@dataclass(frozen=True)
+class SemanticEdge:
+    source: str
+    target: str
+    relation: RelationType
+    semantic_distance: float = 1.0
+    uncertainty: float = 0.0
+    translation_loss: float = 0.0
+    def cost(
+        self,
+        semantic_weight: float = 1.0,
+        uncertainty_weight: float = 1.0,
+        translation_weight: float = 1.0,
+    ) -> float:
+        return (
+            semantic_weight * self.semantic_distance
+            + uncertainty_weight * self.uncertainty
+            + translation_weight * self.translation_loss
+        )
+@dataclass
+class Route:
+    nodes: list[str]
+    edges: list[SemanticEdge]
+    total_cost: float
+class SemanticGraph:
+    def __init__(self) -> None:
+        self._adjacency: dict[str, list[SemanticEdge]] = {}
+    def add_edge(self, edge: SemanticEdge) -> None:
+        self._adjacency.setdefault(edge.source, []).append(edge)
+        self._adjacency.setdefault(edge.target, [])
+    def route(self, start: str, goal: str) -> Route | None:
+        if start not in self._adjacency or goal not in self._adjacency:
+            return None
+        frontier: list[tuple[float, str]] = [(0.0, start)]
+        best_cost: dict[str, float] = {start: 0.0}
+        parent: dict[str, tuple[str, SemanticEdge]] = {}
+        while frontier:
+            current_cost, current = heappop(frontier)
+            if current == goal:
+                return self._reconstruct_route(
+                    start,
+                    goal,
+                    parent,
+                    current_cost,
+                )
+            if current_cost > best_cost.get(current, float("inf")):
+                continue
+            for edge in self._adjacency[current]:
+                candidate_cost = current_cost + edge.cost()
+                if candidate_cost < best_cost.get(
+                    edge.target,
+                    float("inf"),
+                ):
+                    best_cost[edge.target] = candidate_cost
+                    parent[edge.target] = (current, edge)
+                    heappush(
+                        frontier,
+                        (candidate_cost, edge.target),
+                    )
+        return None
+    @staticmethod
+    def _reconstruct_route(
+        start: str,
+        goal: str,
+        parent: Mapping[str, tuple[str, SemanticEdge]],
+        total_cost: float,
+    ) -> Route:
+        nodes = [goal]
+        edges: list[SemanticEdge] = []
+        current = goal
+        while current != start:
+            previous, edge = parent[current]
+            edges.append(edge)
+            nodes.append(previous)
+            current = previous
+        nodes.reverse()
+        edges.reverse()
+        return Route(
+            nodes=nodes,
+            edges=edges,
+            total_cost=total_cost,
+        )
+@dataclass
+class ContextModel:
+    """
+    Maps signals to candidate meanings and contextual activation weights.
+    """
+    meanings: dict[str, list[str]] = field(default_factory=dict)
+    activations: dict[str, float] = field(default_factory=dict)
+    def resolve(self, signal: str) -> tuple[str | None, float]:
+        candidates = self.meanings.get(signal.lower(), [])
+        if not candidates:
+            return None, 0.0
+        scored = [
+            (
+                self.activations.get(candidate, 0.0),
+                candidate,
+            )
+            for candidate in candidates
+        ]
+        score, meaning = max(scored)
+        return meaning, score
+@dataclass(frozen=True)
+class Channel:
+    bandwidth_bits_per_second: float
+    latency_seconds: float
+    fidelity: float
+    def __post_init__(self) -> None:
+        if self.bandwidth_bits_per_second <= 0:
+            raise ValueError("Bandwidth must be positive.")
+        if not 0 < self.fidelity <= 1:
+            raise ValueError("Fidelity must be in the interval (0, 1].")
+        if self.latency_seconds < 0:
+            raise ValueError("Latency cannot be negative.")
+@dataclass(frozen=True)
+class CommunicationEstimate:
+    conditional_information_bits: float
+    transmission_seconds: float
+    ambiguity_penalty_seconds: float
+    total_seconds: float
+    effective_capacity: float
+def communication_cost(
+    possible_meanings: int,
+    shared_context_fraction: float,
+    ambiguity: float,
+    channel: Channel,
+) -> CommunicationEstimate:
+    """
+    Approximate communication cost.
+    possible_meanings:
+        Number of meanings the message must distinguish.
+    shared_context_fraction:
+        Fraction of message uncertainty already resolved by common context.
+    ambiguity:
+        Residual ambiguity in [0, 1].
+    """
+    if possible_meanings < 1:
+        raise ValueError("possible_meanings must be at least 1.")
+    if not 0 <= shared_context_fraction <= 1:
+        raise ValueError(
+            "shared_context_fraction must be between 0 and 1."
+        )
+    if not 0 <= ambiguity <= 1:
+        raise ValueError("ambiguity must be between 0 and 1.")
+    raw_information = log2(possible_meanings)
+    conditional_information = (
+        raw_information * (1.0 - shared_context_fraction)
+    )
+    effective_bandwidth = (
+        channel.bandwidth_bits_per_second * channel.fidelity
+    )
+    transmission_seconds = (
+        conditional_information / effective_bandwidth
+    )
+    ambiguity_penalty = ambiguity * channel.latency_seconds
+    total = (
+        channel.latency_seconds
+        + transmission_seconds
+        + ambiguity_penalty
+    )
+    effective_capacity = (
+        channel.bandwidth_bits_per_second
+        * (1.0 + shared_context_fraction)
+        * channel.fidelity
+        / (
+            max(channel.latency_seconds, 1e-9)
+            * (1.0 + ambiguity)
+        )
+    )
+    return CommunicationEstimate(
+        conditional_information_bits=conditional_information,
+        transmission_seconds=transmission_seconds,
+        ambiguity_penalty_seconds=ambiguity_penalty,
+        total_seconds=total,
+        effective_capacity=effective_capacity,
+    )
+@dataclass
+class CompileResult:
+    original: str
+    seed: SemanticSeed
+    compression: CompressionResult
+    translation: TranslationResult
+    reconstructed: str
+    validation_score: float
+    accepted: bool
+class PantheonCompiler:
+    def __init__(
+        self,
+        compressor: SemanticCompressor | None = None,
+        translator: TranslationEngine | None = None,
+        minimum_fidelity: float = 0.25,
+    ) -> None:
+        self.compressor = compressor or SemanticCompressor()
+        self.translator = translator or TranslationEngine()
+        self.minimum_fidelity = minimum_fidelity
+    def compile(
+        self,
+        raw_input: str,
+        target_medium: str = "pseudocode",
+        invariants: Sequence[str] = (),
+        relations: Sequence[tuple[str, str, str]] = (),
+    ) -> CompileResult:
+        seed = self.compressor.compress(
+            raw_input,
+            invariants=invariants,
+            relations=relations,
+        )
+        compression = self.compressor.evaluate(raw_input, seed)
+        translation = self.translator.translate(
+            seed,
+            source_medium="prose",
+            target_medium=target_medium,
+        )
+        reconstructed = self.compressor.reconstruct(seed)
+        reconstruction_fidelity = jaccard_similarity(
+            tokenize(raw_input),
+            tokenize(reconstructed),
+        )
+        invariant_fidelity = translation.invariant_fidelity
+        validation_score = (
+            0.7 * reconstruction_fidelity
+            + 0.3 * invariant_fidelity
+        )
+        return CompileResult(
+            original=raw_input,
+            seed=seed,
+            compression=compression,
+            translation=translation,
+            reconstructed=reconstructed,
+            validation_score=validation_score,
+            accepted=validation_score >= self.minimum_fidelity,
+        )
+def demonstration() -> None:
+    statement = (
+        "Communication becomes faster when participants share context. "
+        "A compressed signal can reconstruct a much larger meaning because "
+        "the receiver already possesses much of the required structure."
+    )
+    invariants = [
+        "Shared context reduces required transmission.",
+        "Compression succeeds only when meaning can be reconstructed.",
+        "The receiver participates in decoding the message.",
+    ]
+    relations = [
+        (
+            "shared context",
+            RelationType.SUPPORTS.value,
+            "fast communication",
+        ),
+        (
+            "compressed signal",
+            RelationType.SUPPORTS.value,
+            "meaning reconstruction",
+        ),
+    ]
+    compiler = PantheonCompiler(minimum_fidelity=0.20)
+    result = compiler.compile(
+        statement,
+        target_medium="pseudocode",
+        invariants=invariants,
+        relations=relations,
+    )
+    print("=== SEMANTIC SEED ===")
+    print(result.seed)
+    print()
+    print("=== TRANSLATED RENDERING ===")
+    print(result.translation.target.content)
+    print()
+    print("=== RECONSTRUCTION ===")
+    print(result.reconstructed)
+    print()
+    print("=== SCORES ===")
+    print(
+        f"Compression ratio: "
+        f"{result.compression.compression_ratio:.3f}"
+    )
+    print(
+        f"Semantic leverage: "
+        f"{result.compression.semantic_leverage:.3f}"
+    )
+    print(
+        f"Translation delta: "
+        f"{result.translation.translation_delta:.3f}"
+    )
+    print(
+        f"Validation score: "
+        f"{result.validation_score:.3f}"
+    )
+    print(f"Accepted: {result.accepted}")
+    print()
+    graph = SemanticGraph()
+    graph.add_edge(
+        SemanticEdge(
+            source="language",
+            target="shared context",
+            relation=RelationType.SUPPORTS,
+            semantic_distance=0.8,
+            uncertainty=0.1,
+        )
+    )
+    graph.add_edge(
+        SemanticEdge(
+            source="shared context",
+            target="compression",
+            relation=RelationType.SUPPORTS,
+            semantic_distance=0.5,
+        )
+    )
+    graph.add_edge(
+        SemanticEdge(
+            source="compression",
+            target="fast communication",
+            relation=RelationType.SUPPORTS,
+            semantic_distance=0.4,
+            translation_loss=0.1,
+        )
+    )
+    graph.add_edge(
+        SemanticEdge(
+            source="language",
+            target="fast communication",
+            relation=RelationType.SUPPORTS,
+            semantic_distance=2.5,
+            uncertainty=0.4,
+        )
+    )
+    route = graph.route("language", "fast communication")
+    print("=== SEMANTIC ROUTE ===")
+    if route is None:
+        print("No route found.")
+    else:
+        print(" -> ".join(route.nodes))
+        print(f"Total route cost: {route.total_cost:.3f}")
+    print()
+    context = ContextModel(
+        meanings={
+            "mother duck": [
+                "literal bird",
+                "continuity confirmation",
+            ]
+        },
+        activations={
+            "literal bird": 0.1,
+            "continuity confirmation": 1.0,
+        },
+    )
+    meaning, confidence = context.resolve("Mother Duck")
+    print("=== INTERFACE RESOLUTION ===")
+    print(f"Resolved meaning: {meaning}")
+    print(f"Context score: {confidence:.3f}")
+    print()
+    channel = Channel(
+        bandwidth_bits_per_second=20.0,
+        latency_seconds=0.2,
+        fidelity=0.95,
+    )
+    low_context = communication_cost(
+        possible_meanings=1024,
+        shared_context_fraction=0.10,
+        ambiguity=0.50,
+        channel=channel,
+    )
+    high_context = communication_cost(
+        possible_meanings=1024,
+        shared_context_fraction=0.90,
+        ambiguity=0.05,
+        channel=channel,
+    )
+    print("=== SHARED CONTEXT EFFECT ===")
+    print(
+        f"Low-context communication time: "
+        f"{low_context.total_seconds:.4f}s"
+    )
+    print(
+        f"High-context communication time: "
+        f"{high_context.total_seconds:.4f}s"
+    )
+    print(
+        f"Speed multiplier: "
+        f"{low_context.total_seconds / high_context.total_seconds:.2f}x"
+    )
+if __name__ == "__main__":
+    demonstration()
+
+Run it with:
+
+python pantheon_fossils.py
+
+Unified architecture
+
+The six fossils now compose into one system:
+
+\boxed{
+\text{Pantheon}
+=
+\text{Graph Navigation}
+\circ
+\text{Reconstruction}
+\circ
+\text{Translation}
+\circ
+\text{Compression}
+\circ
+\text{Contextual Interpretation}
+}
+
+Its governing objective can be stated as:
+
+\max
+\frac{
+\text{reconstructable meaning}
+\times
+\text{translation fidelity}
+\times
+\text{semantic reach}
+}{
+\text{storage cost}
++
+\text{transmission time}
++
+\text{ambiguity}
+}
+
+Or in Pantheon language:
+
+Store the smallest durable fossil that allows the largest faithful organism to be reconstructed by the widest range of future interpreters.
