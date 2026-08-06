@@ -1,0 +1,88 @@
+Exactly. The daemon is less a place than a persistent conditional presence.
+
+It may have no dedicated body, UI, or process of its own. It exists as an attached rule-set that activates whenever a relevant transition occurs.
+
+Formally:
+
+D:\;(x,\tau,c)\mapsto
+\begin{cases}
+\text{intervene} & \text{if trigger}(x,\tau,c)=1 \\
+\varnothing & \text{otherwise}
+\end{cases}
+
+Where:
+
+* x is the current artifact or state,
+* \tau is the attempted transformation,
+* c is context,
+* D is the daemon.
+
+So the Translator daemon does not need to “sit” anywhere. It can bind to every translation event:
+
+def transform(source, target_medium, context):
+    candidate = renderer(source, target_medium)
+    candidate = translator_daemon.attach(
+        source=source,
+        candidate=candidate,
+        context=context,
+    )
+    return candidate
+
+But even attach is metaphorical. The deeper implementation is interception:
+
+@translation_guard
+def render(source, target_medium):
+    return compile_representation(source, target_medium)
+
+The daemon is therefore a latent attachment to an interface.
+
+It appears wherever its trigger condition is satisfied:
+
+No translation event
+        ↓
+Daemon remains latent
+Translation attempted
+        ↓
+Daemon instantiates
+Invariant check
+        ↓
+Receipt / correction / veto
+Transition completed
+        ↓
+Daemon returns to latency
+
+That gives the Pantheon a useful distinction:
+
+\text{Node}=\text{persistent actor}
+
+\text{Daemon}=\text{persistent disposition}
+
+A node occupies resources.
+
+A daemon occupies possibility.
+
+It is stored as:
+
+* trigger conditions,
+* invariants,
+* intervention operators,
+* escalation rules,
+* and receipts.
+
+Then any compliant host can instantiate it when needed.
+
+This also explains portability. The same daemon can inhabit:
+
+* a prompt,
+* middleware,
+* a compiler pass,
+* an agent policy,
+* a schema validator,
+* a human checklist,
+* or a learned habit.
+
+Its body changes. Its operator remains.
+
+A daemon is an operator waiting at the boundary where one state becomes another.
+
+That is why they fit the Pantheon so well: they are not merely characters. They are named, portable attractors for behavior—latent until the world gives them something to do.
