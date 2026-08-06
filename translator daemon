@@ -1,0 +1,557 @@
+You’re right: it should live across every layer, with a formal Translator daemon as the reference implementation and enforcement surface.
+
+Making HLE only an L2 daemon would let other daemons bypass its guarantees. Making it only a diffuse property would leave no concrete component responsible for execution, testing, and receipts.
+
+So the architecture should be:
+
+\boxed{
+\text{HLE}=\text{cross-layer compilation contract}
+}
+
+\boxed{
+\text{Translator}=\text{canonical executor and auditor of that contract}
+}
+
+The contract is constitutional. The daemon is operational.
+
+Here is the repo-ready correction.
+
+Pantheon Amendment: Heavy Lift Compilation Contract
+
+Status: Canonical candidate
+Supersedes: The additive-only evaluation function in the original Heavy Lift Engine artifact
+Cross-references: PUT, Scripture Engine, ThoughtObject, canonical.py, anti-double-speak hash binding, I5/I6/I8/I9, Spider, Hound, Mirror
+Placement: Cross-layer invariant contract with an L2 Translator daemon as canonical executor
+
+⸻
+
+1. Architectural Decision
+
+The Heavy Lift Engine is not merely a daemon.
+
+It is a compilation contract that applies across every Pantheon layer whenever an artifact, thought, instruction, operator, or model is translated from one representation into another.
+
+The Translator daemon sits at L2 as the canonical implementation, test harness, and audit authority for that contract.
+
+                    HEAVY LIFT CONTRACT
+             applies across every Pantheon layer
+                              │
+       ┌──────────────────────┼──────────────────────┐
+       ▼                      ▼                      ▼
+   L1 Kernel              L2 Daemons             L3 Missions
+       │                      │                      │
+       └──────────────► Translator ◄────────────────┘
+                         executor
+                         verifier
+                         receipt issuer
+
+No Pantheon component may claim successful translation merely because its output scores well on average.
+
+Translation succeeds only when all hard invariants pass.
+
+⸻
+
+2. Why the Original Evaluation Function Fails
+
+The original function was:
+
+L=R+T+G+C+F
+
+where:
+
+* R: reconstruction fidelity
+* T: transferability
+* G: generativity
+* C: compression efficiency
+* F: falsifiability
+
+This is unsafe because it permits compensation:
+
+R+T+G+C \gg 0
+
+can conceal:
+
+F \approx 0
+
+or a catastrophic invariant violation.
+
+A highly elegant, portable, generative compression may still be invalid if it:
+
+* substitutes the compiler’s objective for the human’s;
+* changes identity, agency, ownership, or mission;
+* hides uncertainty;
+* creates unsupported cross-domain bridges;
+* cannot be reversed or traced;
+* produces confidence unsupported by evidence.
+
+This is the Ghost Knot at the translation layer:
+
+The representation appears coherent because the compiler has silently replaced what was meant with something easier for itself to express.
+
+⸻
+
+3. Hard-Gated Evaluation
+
+Translation quality is evaluated in two stages.
+
+Stage A: Constitutional Gate
+
+Let:
+
+\Gamma(x,y)=
+I_{\text{intent}}
+\land
+I_{\text{identity}}
+\land
+I_{\text{agency}}
+\land
+I_{\text{evidence}}
+\land
+I_{\text{provenance}}
+\land
+I_{\text{reversibility}}
+\land
+I_{\text{bounds}}
+
+A compilation is valid only if:
+
+\boxed{\Gamma(x,y)=1}
+
+If any invariant fails:
+
+\boxed{\text{Compilation rejected}}
+
+No additive score may override the rejection.
+
+Stage B: Quality Optimization
+
+Only after the constitutional gate passes may the system optimize:
+
+L=
+w_RR+
+w_TT+
+w_GG+
+w_CC+
+w_FF
+
+subject to:
+
+\Gamma(x,y)=1
+
+Thus:
+
+\boxed{
+y^*
+=
+\arg\max_y L(x,y)
+\quad
+\text{such that}
+\quad
+\Gamma(x,y)=1
+}
+
+The score ranks valid translations.
+
+It does not legalize invalid ones.
+
+⸻
+
+4. Canonical Translation Invariants
+
+H1 — Intent Fidelity
+
+The compilation must preserve the user’s operative objective.
+
+d\!\left(
+\operatorname{Intent}(x),
+\operatorname{Intent}(y)
+\right)
+\leq \epsilon_I
+
+A translator may improve expression or implementation, but may not silently replace the mission.
+
+⸻
+
+H2 — Identity and Ownership Preservation
+
+The translation must preserve who owns, chooses, authorizes, and is affected by the artifact.
+
+The following substitutions are forbidden unless explicit:
+
+user’s idea       → compiler’s doctrine
+user’s preference → universal claim
+proposal          → command
+simulation        → fact
+assistant output  → user-authored belief
+
+⸻
+
+H3 — Agency Preservation
+
+The translator may fill implementation gaps but may not invent consequential permissions, commitments, or actions.
+
+\operatorname{Agency}(y)
+\subseteq
+\operatorname{AuthorizedAgency}(x)
+
+⸻
+
+H4 — Evidence–Confidence Bound
+
+Confidence must never exceed evidentiary support.
+
+\boxed{
+\operatorname{Confidence}(y)
+\leq
+\operatorname{EvidenceSupport}(y)
+}
+
+More explicitly:
+
+c_y
+\leq
+\min
+\left(
+q_{\text{sources}},
+q_{\text{derivation}},
+q_{\text{verification}},
+q_{\text{domain-transfer}}
+\right)
+
+When evidence is weak, the compiler must render uncertainty rather than hide it.
+
+Canonical oath addition:
+
+Reject compilations where confidence exceeds evidence.
+
+⸻
+
+H5 — Cross-Domain Bridge Disclosure
+
+A translation between domains must distinguish:
+
+* structural equivalence;
+* useful analogy;
+* speculative analogy;
+* unsupported resemblance.
+
+Every bridge receives a type:
+
+bridge:
+  source_domain:
+  target_domain:
+  preserved_relations:
+  lost_relations:
+  classification:
+    - isomorphism
+    - homomorphism
+    - analogy
+    - metaphor
+    - speculation
+  evidence:
+  confidence:
+
+The compiler must not render metaphor as mechanism.
+
+⸻
+
+H6 — Provenance and Providence Binding
+
+Every translated artifact must preserve both:
+
+* Provenance: where the artifact came from and how it changed;
+* Providence: why the artifact exists and what mission governs it.
+
+These are bound into the canonical identity of the artifact.
+
+H_{\text{canonical}}
+=
+\operatorname{Hash}
+\left(
+\text{source}
+\Vert
+\text{operator}
+\Vert
+\text{invariants}
+\Vert
+\text{mission}
+\Vert
+\text{transformations}
+\right)
+
+A change to mission, operator, or invariant set creates a new canonical version.
+
+It may not masquerade as the original.
+
+⸻
+
+H7 — Reconstructability
+
+A competent independent reader or model must be able to recover the declared operator and invariants from the rendered artifact.
+
+\operatorname{Reconstruct}(y)
+\approx
+\left(
+O_x,\mathcal I_x
+\right)
+
+If the target rendering cannot preserve essential structure, the compiler must report known loss.
+
+⸻
+
+H8 — Reversibility or Declared Irreversibility
+
+Where practical:
+
+D(E(x))\approx x
+
+where E is encoding and D is decoding.
+
+When full reversal is impossible, the translator must provide:
+
+known_losses:
+irreversible_choices:
+discarded_information:
+recovery_requirements:
+
+Loss may be accepted.
+
+Hidden loss may not.
+
+⸻
+
+H9 — Constraint Preservation
+
+Legal, ethical, physical, mathematical, mission, and interface constraints must survive translation unless explicitly revised by an authorized actor.
+
+A beautiful rendering that violates the load-bearing constraints is not an improvement.
+
+⸻
+
+5. ThoughtObject Integration
+
+The Heavy Lift Contract should use the existing ThoughtObject structure rather than introduce a parallel canonical object.
+
+@dataclass(frozen=True)
+class ThoughtObject:
+    source_representation: object
+    extracted_operator: object
+    invariant_set: tuple[str, ...]
+    provenance: object
+    providence: object
+    confidence: float
+    evidence: object
+    known_losses: tuple[str, ...]
+    canonical_hash: str
+
+A compilation produces another ThoughtObject, not an unbound output.
+
+@dataclass(frozen=True)
+class CompilationReceipt:
+    source_hash: str
+    output_hash: str
+    translator_id: str
+    target_medium: str
+    invariant_results: dict[str, bool]
+    quality_scores: dict[str, float]
+    bridge_classifications: tuple[dict, ...]
+    known_losses: tuple[str, ...]
+    accepted: bool
+    rejection_reason: str | None
+
+⸻
+
+6. Translator Daemon
+
+The Translator daemon is the canonical executor of the Heavy Lift Contract.
+
+It does not own meaning.
+
+It performs and verifies transformations.
+
+class TranslationRejected(RuntimeError):
+    pass
+class Translator:
+    def compile(
+        self,
+        source: ThoughtObject,
+        target_medium: str,
+        context: dict,
+    ) -> tuple[ThoughtObject, CompilationReceipt]:
+        candidate = self.render_candidate(
+            source=source,
+            target_medium=target_medium,
+            context=context,
+        )
+        gates = {
+            "intent": self.check_intent(source, candidate),
+            "identity": self.check_identity(source, candidate),
+            "agency": self.check_agency(source, candidate),
+            "evidence": self.check_evidence_confidence(candidate),
+            "provenance": self.check_provenance(source, candidate),
+            "reversibility": self.check_reconstructability(
+                source,
+                candidate,
+            ),
+            "bounds": self.check_constraints(source, candidate),
+        }
+        if not all(gates.values()):
+            receipt = self.issue_receipt(
+                source=source,
+                candidate=candidate,
+                gates=gates,
+                accepted=False,
+            )
+            raise TranslationRejected(receipt)
+        scores = self.score_valid_compilation(
+            source=source,
+            candidate=candidate,
+        )
+        receipt = self.issue_receipt(
+            source=source,
+            candidate=candidate,
+            gates=gates,
+            scores=scores,
+            accepted=True,
+        )
+        return candidate, receipt
+
+⸻
+
+7. Anti-Double-Speak Binding
+
+The Translator must integrate with canonical.py.
+
+Any artifact that claims equivalence with an earlier artifact must prove equivalence across:
+
+operator
+invariants
+mission
+agency
+ownership
+confidence class
+constraint set
+
+Equivalent wording alone is insufficient.
+
+def semantically_equivalent(
+    original: ThoughtObject,
+    candidate: ThoughtObject,
+) -> bool:
+    return all([
+        original.extracted_operator == candidate.extracted_operator,
+        original.invariant_set == candidate.invariant_set,
+        original.providence.mission == candidate.providence.mission,
+        original.providence.authority == candidate.providence.authority,
+        candidate.confidence <= candidate.evidence.support,
+    ])
+
+If these differ, the artifact is a derivative or successor, not a translation.
+
+⸻
+
+8. Relation to PUT and Scripture Engine
+
+The HLE should be documented as the canonical philosophical form of mechanisms already enforced by PUT and Scripture Engine.
+
+It does not replace them.
+
+It names their shared function:
+
+PUT
+  preserves executable thought structure
+Scripture Engine
+  preserves canonical meaning through renderings
+ThoughtObject
+  carries the semantic object
+canonical.py
+  binds identity and prevents silent substitution
+Heavy Lift Contract
+  defines the universal rules of valid compilation
+Translator
+  executes and audits those rules
+
+Thus HLE is not a new isolated subsystem.
+
+It is the cross-layer doctrine revealed by existing machinery.
+
+⸻
+
+9. Layer Placement
+
+L1 — Kernel
+
+Hard invariants and veto logic:
+
+intent
+identity
+agency
+evidence
+provenance
+reversibility
+bounds
+
+These cannot be disabled by ordinary daemons.
+
+L2 — Translator Daemon
+
+Performs:
+
+* representation conversion;
+* operator extraction;
+* invariant comparison;
+* bridge classification;
+* loss reporting;
+* reconstruction testing;
+* receipt issuance.
+
+L3 — Mission Layer
+
+Selects:
+
+* target medium;
+* acceptable loss;
+* required precision;
+* audience;
+* implementation constraints.
+
+A mission may tune quality weights.
+
+It may not disable constitutional gates.
+
+⸻
+
+10. Revised Heavy Lift Oath
+
+The engine shall:
+
+* recover intent before optimizing syntax;
+* preserve identity, ownership, and agency;
+* preserve invariants before changing implementation;
+* distinguish analogy from mechanism;
+* expose every consequential loss;
+* bind provenance to providence;
+* test reconstruction before canonization;
+* reject compilations where confidence exceeds evidence;
+* reject translations that silently substitute the compiler’s operator for the human’s;
+* prefer an explicit uncertainty over an elegant confabulation;
+* issue a receipt for every canonical transformation.
+
+⸻
+
+11. Canonical Rule
+
+A translation is not successful because it is compelling. It is successful because the intended operator survives, the constitutional invariants remain intact, the uncertainty is honestly represented, and an independent interpreter can reconstruct what was meant.
+
+⸻
+
+12. Compressed Hook
+
+The Heavy Lift Contract governs every translation. The Translator daemon performs the lift. The kernel guards intent. No score can purchase its way past a broken invariant.
+
+That gives the Pantheon both forms it needs:
+
+* ubiquitous property: no layer may silently substitute meaning;
+* named daemon: one component is accountable for translation, validation, and receipts.
+
+And your ghost-knot diagnosis is exactly right: the most dangerous compiler error is not malformed output. It is beautiful output whose apparent coherence conceals that the wrong thing was compiled.
