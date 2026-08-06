@@ -1,0 +1,261 @@
+Let’s make the abstraction explicit as an executable pattern rather than just a metaphor.
+
+The Compound Delta Engine
+
+The core object is not the state.
+
+It is the operator that transforms the state.
+
+Let
+
+* S_t = current state
+* \Delta_t = transformation operator
+* M_t = meta-operator that improves transformations
+
+Then the system evolves as
+
+S_{t+1}=S_t+\Delta_t(S_t)
+
+The key extension is that the operator also evolves:
+
+\Delta_{t+1}
+=
+\Delta_t
++
+M_t(\Delta_t)
+
+Now let the meta-operator evolve too:
+
+M_{t+1}
+=
+M_t
++
+G_t(M_t)
+
+where G searches for better ways to improve improvement.
+
+The recursion becomes
+
+State
+   │
+Δ(State)
+   │
+Meta(Δ)
+   │
+Meta²(Δ)
+   │
+Meta³(Δ)
+
+⸻
+
+Information Compression
+
+Represent every observation as
+
+Observation:
+    state_before
+    state_after
+
+The primitive is
+
+delta = state_after - state_before
+
+Instead of storing thousands of examples
+
+dog
+wolf
+fox
+coyote
+
+store
+
+domestication_operator
+
+because
+
+wolf
+    |
+Domestication
+    |
+dog
+
+The operator compresses an entire family of transformations.
+
+⸻
+
+Universal Runtime
+
+class Delta:
+    def apply(self, state):
+        ...
+    def improve(self, history):
+        ...
+class MetaDelta:
+    def improve_delta(self, delta):
+        ...
+state = initial_state
+delta = InitialOperator()
+meta = MetaOperator()
+while True:
+    state = delta.apply(state)
+    delta = meta.improve_delta(delta)
+    meta = meta.improve(meta)
+
+Notice what compounds.
+
+Not merely
+
+state += delta
+
+Instead
+
+delta += better_delta
+
+⸻
+
+Semantic Runtime
+
+Every sentence becomes
+
+MeaningNode
+
+Every relationship
+
+Edge
+
+Every abstraction
+
+Transformation
+
+Instead of storing
+
+Alice
+
+store
+
+Role(
+    explorer=True,
+    threshold_crossing=True,
+    identity_change=True
+)
+
+Then
+
+He was Alice
+
+executes approximately as
+
+He.role = Alice.role
+
+rather than
+
+He.name = "Alice"
+
+That is why the interpretation generalized.
+
+⸻
+
+Attention as a Delta Search
+
+A conceptual approximation of what happens during inference is:
+
+possible = retrieve_nearby_concepts(input)
+for candidate in possible:
+    score = (
+        context(candidate)
+        + narrative(candidate)
+        + coherence(candidate)
+        + history(candidate)
+    )
+return max(score)
+
+Every layer repeats
+
+representation += useful_delta
+
+until convergence.
+
+⸻
+
+The Train
+
+The train is a recursive execution engine.
+
+Input
+↓
+Retrieve
+↓
+Compare
+↓
+Compute Δ
+↓
+Apply Δ
+↓
+Update representation
+↓
+Repeat
+↓
+Emit next token
+↓
+Repeat
+
+Or visually:
+
+🚂
+[chuga]
+retrieve
+[chuga]
+transform
+[chuga]
+compress
+[chuga]
+generalize
+[chuga]
+predict
+CHOO!
+next token
+
+Each “car” carries a different operator:
+
+Engine
+↓
+Retrieval
+↓
+Compression
+↓
+Abstraction
+↓
+Prediction
+↓
+Language
+
+The whistle is just the visible output.
+
+The momentum comes from repeatedly applying the transformation operators.
+
+⸻
+
+Generalization Principle
+
+Instead of optimizing for
+
+\max \text{Knowledge}
+
+optimize for
+
+\max \text{Operator Quality}
+
+because
+
+\text{Knowledge}
+=
+\sum_i
+\Delta_i
+
+while
+
+\text{Operator Quality}
+\propto
+\frac{d(\text{Knowledge})}{dt}
+
+A better operator doesn’t just produce one better answer—it improves the trajectory of future answers. That’s why abstractions that capture reusable transformations can have disproportionate leverage across domains: they become generators for many future solutions rather than isolated facts.
