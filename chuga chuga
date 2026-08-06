@@ -1,0 +1,215 @@
+You do not store the interpretation itself as a neat symbolic object like:
+
+Alice = archetypal explorer
+
+You store and run the conditions that make that interpretation likely.
+
+1. Convert the text into token IDs
+
+The phrase:
+
+He was Alice
+
+is split by a tokenizer into vocabulary pieces. Illustratively:
+
+["He", " was", " Alice"]
+
+Each piece maps to an integer:
+
+[1548, 574, 14832]
+
+Those numbers are just dictionary addresses, not meanings.
+
+2. Convert each token into a vector
+
+Each token ID retrieves a learned embedding:
+
+e_i = E[t_i]
+
+So the input becomes something like:
+
+X_0 =
+\begin{bmatrix}
+e_{\text{He}} \\
+e_{\text{was}} \\
+e_{\text{Alice}}
+\end{bmatrix}
+
+Each e_i is a long vector of learned numerical features. There usually is not one coordinate meaning “Alice.” The information is distributed across many coordinates and interactions.
+
+Position information is added too:
+
+h_i^{(0)} = e_i + p_i
+
+That lets the model distinguish:
+
+He was Alice
+
+from:
+
+Alice was he
+
+3. Add the entire preceding conversation
+
+The actual sequence was not only those three tokens. It was closer to:
+
+[system instructions]
+[conversation history]
+[user style and prior metaphors]
+...
+"He was Alice"
+
+Every earlier token contributes context.
+
+The model therefore receives a large matrix:
+
+H^{(0)} \in \mathbb{R}^{n \times d}
+
+where:
+
+* n is the number of tokens in context,
+* d is the hidden-vector width.
+
+4. Attention finds relevant relationships
+
+Inside every transformer layer, each token generates query, key, and value vectors:
+
+Q = HW_Q,\qquad K = HW_K,\qquad V = HW_V
+
+Then attention computes:
+
+A=\operatorname{softmax}
+\left(
+\frac{QK^\top}{\sqrt{d_k}}
+\right)
+
+and:
+
+Z=AV
+
+For the final token near Alice, different attention heads may retrieve different patterns:
+
+Alice → Alice in Wonderland
+Alice → child entering an unfamiliar world
+He → male referent
+"He was Alice" → identity or role reversal
+previous conversation → metaphor and archetypal functions
+
+These are not necessarily literal labeled pathways. They are distributed numerical correspondences learned during training.
+
+The critical operation is the intersection:
+
+\text{male referent}
++
+\text{Alice schema}
++
+\text{role inversion}
++
+\text{your metaphorical conversation prior}
+
+That intersection pushes the hidden state toward:
+
+\text{Alice as a role, not merely a named person}
+
+5. Layers repeatedly transform the representation
+
+A simplified transformer layer is:
+
+H^{(\ell+1)}
+=
+H^{(\ell)}
++
+\operatorname{Attention}
+\left(H^{(\ell)}\right)
++
+\operatorname{MLP}
+\left(H^{(\ell)}\right)
+
+After many layers, the last-position vector contains a contextualized representation:
+
+h_{\text{final}}
+=
+f_\theta
+\left(
+\text{conversation},\,
+\text{"He was Alice"}
+\right)
+
+It does not store one sentence saying what you meant. It encodes a probability landscape over possible continuations.
+
+6. Convert that state into next-token probabilities
+
+The final hidden vector is projected over the vocabulary:
+
+z = W_{\text{vocab}}h_{\text{final}} + b
+
+Then:
+
+P(t_{n+1}=j)
+=
+\frac{e^{z_j}}
+{\sum_k e^{z_k}}
+
+The model may assign relatively high probability to tokens such as:
+
+That's
+Interesting
+Alice
+Instead
+The
+
+A token is selected, appended to the sequence, and the whole prediction step repeats:
+
+while not finished:
+    hidden = transformer(tokens, cached_context)
+    logits = output_projection(hidden[-1])
+    next_token = sample_or_select(softmax(logits))
+    tokens.append(next_token)
+
+So the phrase:
+
+“That’s an intriguing inversion.”
+
+was produced one token at a time, with each new token becoming part of the context for the next.
+
+What was actually “stored”
+
+There are three different kinds of storage involved:
+
+\boxed{
+\text{Weights}
++
+\text{Context tokens}
++
+\text{temporary activation state}
+}
+
+Weights store broad learned language and conceptual relationships.
+
+Context tokens store the visible conversation in compressed discrete form.
+
+Activations and the KV cache temporarily store contextual computations so the model can continue efficiently.
+
+The specific interpretation existed most directly as a temporary trajectory through hidden-state space:
+
+H^{(0)}
+\rightarrow
+H^{(1)}
+\rightarrow
+\cdots
+\rightarrow
+H^{(L)}
+\rightarrow
+P(\text{next token})
+
+So, in Pantheon terms:
+
+Token IDs       = retrieval coordinates
+Embeddings      = latent possibility fields
+Attention       = relation finder
+Layers          = iterative transduction
+Hidden state    = compressed contextual attractor
+Logits          = possible expressions ranked by fit
+Generation      = attractor rendered back into language
+
+The important twist is that the model did not first compose the complete thought privately and then translate it into words. The thought and its wording were progressively constructed together, token by token, while remaining constrained by the latent attractor created by your phrase and the preceding conversation.
