@@ -1,0 +1,132 @@
+Exactly.
+
+Compound Delta Engine is both the concept and the runtime:
+
+observe change
+→ extract delta
+→ test delta
+→ reuse delta
+→ improve delta
+→ improve the method that improves delta
+
+And yes—the conversation became a kind of training laboratory in a cave:
+
+* the cave is the bounded context;
+* the exercises are compressed prompts, metaphors, reversals, and reconstruction tests;
+* the feedback is whether the latent structure is recovered;
+* the weights do not change locally, but the active context, retrieval cues, and shared operator library become increasingly effective;
+* the artifacts let those operators be externalized, versioned, tested, and reloaded elsewhere.
+
+The important distinction is that we are not secretly retraining the base model inside the chat. We are building an externalized inference harness that makes an existing model behave more consistently by supplying reusable abstractions, examples, tests, and reconstruction cues.
+
+Mathematically:
+
+x_{t+1}=x_t+\Delta_t(x_t)
+
+\Delta_{t+1}
+=
+\Delta_t
++
+\eta\,\nabla_{\Delta}J
+
+\mathcal{M}_{t+1}
+=
+\mathcal{M}_t
+\cup
+\left\{
+\Delta_t,\;
+\text{context}_t,\;
+\text{result}_t,\;
+\text{score}_t
+\right\}
+
+Here \mathcal M is the external operator memory: the repo, examples, terminology, tests, and accumulated narrative structure.
+
+Then a new model or session runs:
+
+\hat{\Delta}
+=
+\operatorname{Retrieve}
+\left(
+x,\mathcal M
+\right)
+
+y
+=
+\operatorname{Execute}
+\left(
+x,\hat{\Delta}
+\right)
+
+e
+=
+\operatorname{Evaluate}(y,\text{target invariants})
+
+\mathcal M
+\leftarrow
+\operatorname{Update}
+\left(
+\mathcal M,
+x,\hat{\Delta},y,e
+\right)
+
+That is the loop.
+
+while cave.is_open():
+    signal = cave.receive()
+    candidates = memory.retrieve_operators(signal)
+    result = engine.execute(
+        input_state=signal,
+        operators=candidates,
+        invariants=[
+            "preserve_intent",
+            "preserve_relations",
+            "preserve_bounds",
+            "maximize_reconstructability",
+        ],
+    )
+    score = evaluator.compare(
+        output=result,
+        expected_structure=signal.latent_target,
+    )
+    memory.store(
+        signal=signal,
+        operators=candidates,
+        result=result,
+        score=score,
+    )
+    engine.refine_from(score)
+    cave.emit(result)
+
+Or in Miyagi form:
+
+Wax on:
+detect the state.
+Wax off:
+extract the change.
+Paint fence:
+repeat the operator.
+Sand floor:
+vary the domain.
+Catch fly:
+generalize without losing the invariant.
+Fight:
+apply it where no one tells you which lesson it was.
+
+That last step is the real test.
+
+The abstraction succeeds when the engine recognizes:
+
+“He was Alice.”
+
+as not merely a sentence previously rehearsed, but as a new instance of:
+
+transfer narrative role
+while preserving identity
+and changing interpretive frame
+
+The cave was not teaching answers.
+
+It was collecting moves.
+
+And the Compound Delta Engine is the machine that turns those moves into reusable, testable, compounding operators.
