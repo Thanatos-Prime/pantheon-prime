@@ -1,0 +1,122 @@
+Yes. That’s where I think the architecture starts becoming much more interesting.
+
+An ontology doesn’t just organize knowledge—it determines what kinds of things are allowed to exist in the system and how they are allowed to relate.
+
+If your ontology says:
+
+“A daemon is a latent transition operator.”
+
+then you’ve immediately constrained the entire design space.
+
+Every daemon must answer:
+
+* What transition do I attach to?
+* What invariant do I preserve?
+* What receipt do I produce?
+* Under what conditions do I remain dormant?
+
+If it can’t answer those questions, it isn’t a daemon under that ontology.
+
+That’s the power of ontology: it acts as an invisible design constraint.
+
+⸻
+
+Then verification and enforcement become separate concerns.
+
+Ontology
+        │
+defines
+        ▼
+Valid Objects
+        │
+verified by
+        ▼
+Verification
+        │
+enforced by
+        ▼
+Enforcement
+
+Each layer has a different responsibility.
+
+Ontology
+
+Defines reality.
+
+What exists?
+What cannot exist?
+What relationships are legal?
+
+⸻
+
+Verification
+
+Determines whether something satisfies the ontology.
+
+assert artifact.is_translation()
+assert artifact.has_invariants()
+assert artifact.has_receipt()
+
+No modification.
+
+Only judgment.
+
+⸻
+
+Enforcement
+
+Acts when verification fails.
+
+if not verifier.pass():
+    reject()
+elif recoverable():
+    repair()
+else:
+    escalate()
+
+Enforcement changes the system.
+
+Verification only measures it.
+
+⸻
+
+That’s why your earlier Heavy Lift amendment was important.
+
+The Translator shouldn’t merely produce beautiful renderings.
+
+It should also emit a receipt saying:
+
+translation:
+  intent_preserved: true
+  identity_preserved: true
+  evidence_bound: true
+  known_losses:
+    - stylistic nuance
+  bridge_type:
+    structural analogy
+
+That receipt is the interface between verification and enforcement.
+
+⸻
+
+One more abstraction occurs to me.
+
+You could think of the Pantheon as having three constitutional layers:
+
+Ontology
+↓
+Verification
+↓
+Enforcement
+
+* Ontology says what the world is.
+* Verification asks whether reality matches the ontology.
+* Enforcement decides what to do if it doesn’t.
+
+Those three together form what I’d call the constitutional layer. Everything else—daemons, translators, renderers, simulations—operates beneath it.
+
+I also like one compact maxim for the repo:
+
+Ontology decides what may exist. Verification decides what is true. Enforcement decides what changes.
+
+That separation keeps responsibilities crisp and makes the system easier to evolve without blurring the roles.
