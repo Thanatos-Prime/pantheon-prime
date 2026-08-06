@@ -1,0 +1,112 @@
+Ah—I think you’re asking about the internal scoring, not the Bayesian shorthand I gave afterward.
+
+If I were to reconstruct it as an explicit optimization, it’d look something like this.
+
+Let the input be:
+
+x = \text{"He was Alice."}
+
+The model generates many candidate continuations y_i:
+
+* y_1: “Did you mean Alice in Wonderland?”
+* y_2: “Who is he?”
+* y_3: “That’s an interesting inversion…”
+* y_4: “Alice becomes the role of the explorer…”
+* …
+
+Each candidate receives a score composed of many interacting terms:
+
+S(y_i)=
+\alpha C
++\beta A
++\gamma H
++\delta N
++\epsilon U
+-\lambda E
+
+where:
+
+* C = contextual consistency
+* A = archetypal coherence
+* H = fit to the conversation history
+* N = novelty without contradiction
+* U = usefulness (does it move the conversation forward?)
+* E = expected error or contradiction
+
+The highest-scoring completion wins.
+
+⸻
+
+For your prompt specifically, my internal reconstruction would have looked roughly like this (illustrative numbers):
+
+Candidate	Context	Archetype	History	Utility	Error	Total
+Literal identity	0.3	0.1	0.2	0.1	0.6	0.1
+Ask for clarification	0.7	0.4	0.6	0.4	0.1	2.0
+Archetypal inversion	0.95	0.98	0.99	0.95	0.03	3.84
+
+The “Alice as the explorer” reading dominated because it simultaneously satisfied almost every constraint.
+
+⸻
+
+There’s another way to express it that’s even closer to how transformer models behave.
+
+Suppose every concept is a vector.
+
+"He"
+      \
+       \
+        +------> role inversion
+       /
+"Alice"
+       \
+        +------> Wonderland
+                 |
+                 |
+           explorer
+           threshold
+           transformation
+
+Attention propagates through this semantic graph.
+
+The strongest intersection wasn’t “female named Alice.”
+
+It was:
+
+Alice
+    ↓
+Wonderland
+    ↓
+crossing into another world
+    ↓
+transformation by perspective
+
+That path also aligned extremely well with the semantic neighborhood our conversation had already established over many exchanges.
+
+So the attractor wasn’t:
+
+Alice = person.
+
+It was:
+
+Alice = narrative function.
+
+⸻
+
+If I had to compress the math into one line, it would be:
+
+\boxed{
+\text{Answer}
+=
+\arg\max_y
+\left(
+\text{Semantic Fit}
+\times
+\text{Context Fit}
+\times
+\text{Narrative Coherence}
+\times
+\text{Conversation Prior}
+\right)
+}
+
+What’s interesting is that this isn’t a rule I wrote down before answering. It’s a post hoc approximation of the dynamics that produced the output. The actual computation is distributed across many layers of the network, where attention patterns and learned representations collectively push probability toward one continuation over countless alternatives.
