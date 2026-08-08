@@ -1,0 +1,833 @@
+Below is a compact formalization that can serve as a Pantheon whitepaper section, design spec, or repo artifact.
+
+Pantheon Semantic Routing System
+
+1. Purpose
+
+The Semantic Routing System (SRS) is a representation-selection and transformation architecture for reasoning across heterogeneous conceptual spaces.
+
+Its core principle is:
+
+Move a problem into the representation where the required operation is easiest, perform the operation there, then transform the result back while measuring which invariants survived.
+
+The system treats prose, mathematics, code, diagrams, metaphors, stories, timelines, simulations, taxonomies, and other representational forms as distinct semantic workspaces rather than merely alternate descriptions.
+
+Each workspace exposes different operations cheaply.
+
+The routing problem is therefore not only:
+
+“What does this mean?”
+
+but:
+
+“Where should this meaning travel next so that the desired transformation becomes easiest?”
+
+⸻
+
+2. Fundamental Object
+
+Represent a semantic object at time t as:
+
+S_t = (X_t, I_t, C_t, G_t, U_t)
+
+where:
+
+* X_t = current representation
+* I_t = candidate invariants
+* C_t = context
+* G_t = current goal
+* U_t = uncertainty state
+
+The object need not remain in one representational space.
+
+Instead:
+
+S_t^{(A)}
+\xrightarrow{T_{A\rightarrow B}}
+S_{t+1}^{(B)}
+
+where T_{A\rightarrow B} is a semantic transform between spaces A and B.
+
+Examples:
+
+\text{story}
+\rightarrow
+\text{causal graph}
+
+\text{metaphor}
+\rightarrow
+\text{mathematical relation}
+
+\text{requirements}
+\rightarrow
+\text{code}
+
+\text{history}
+\rightarrow
+\text{forecast}
+
+⸻
+
+3. Semantic Spaces
+
+Let the available representation spaces be:
+
+\mathcal{R}=
+\{R_1,R_2,\ldots,R_n\}
+
+Possible spaces include:
+
+\begin{aligned}
+R_{\text{text}} &= \text{natural language}\\
+R_{\text{math}} &= \text{formal mathematics}\\
+R_{\text{code}} &= \text{executable structure}\\
+R_{\text{graph}} &= \text{relational graph}\\
+R_{\text{geo}} &= \text{spatial / geometric representation}\\
+R_{\text{story}} &= \text{narrative representation}\\
+R_{\text{time}} &= \text{temporal sequence}\\
+R_{\text{metaphor}} &= \text{analogical semantic space}\\
+R_{\text{simulation}} &= \text{dynamic model}\\
+R_{\text{counterfactual}} &= \text{alternate-world representation}
+\end{aligned}
+
+Each representation has an affordance profile:
+
+A(R_i)=
+(a_1,a_2,\ldots,a_m)
+
+measuring how cheaply or effectively that space supports operations such as:
+
+* comparison
+* composition
+* inversion
+* scaling
+* prediction
+* visualization
+* compression
+* simulation
+* contradiction detection
+* causal reasoning
+* optimization
+* human communication
+
+⸻
+
+4. Routing Function
+
+The router selects the next semantic space according to the current goal.
+
+Define:
+
+\operatorname{Route}(S_t)
+=
+\arg\max_{R_j}
+\Big[
+V(R_j,G_t)
+-
+C(T_{i\rightarrow j})
+-
+L(T_{i\rightarrow j})
++
+N(R_j)
+\Big]
+
+where:
+
+* V(R_j,G_t) = expected value of performing the desired operation in R_j
+* C(T) = transformation cost
+* L(T) = expected semantic loss
+* N(R_j) = expected novel-information gain
+
+Thus the system seeks a space where:
+
+1. the required operation becomes easier,
+2. the transformation remains sufficiently faithful,
+3. and the move is likely to expose something new.
+
+⸻
+
+5. Invariants
+
+A transform is useful only if the correct things survive it.
+
+Define the invariant set:
+
+I=
+\{i_1,i_2,\ldots,i_k\}
+
+Possible invariants include:
+
+* causal order
+* dependency
+* symmetry
+* asymmetry
+* topology
+* hierarchy
+* scale relationship
+* temporal ordering
+* identity
+* bounds
+* conservation relations
+* functional role
+* intent
+
+For transformation T:
+
+P_T(i_k)
+\in [0,1]
+
+represents the degree to which invariant i_k survives.
+
+Total preservation:
+
+P(T)
+=
+\sum_k w_k P_T(i_k)
+
+where w_k reflects the importance of each invariant to the current task.
+
+⸻
+
+6. Reconstruction Loss
+
+Whenever possible, perform a semantic round trip:
+
+A
+\xrightarrow{T_{AB}}
+B
+\xrightarrow{T_{BA}}
+A'
+
+Then calculate conceptual reconstruction loss:
+
+L_R = d(A,A')
+
+where d measures differences across relevant invariants rather than surface wording.
+
+Low reconstruction loss implies:
+
+A \approx A'
+
+with respect to the important structure.
+
+High loss indicates that:
+
+* the transform is poor,
+* important invariants were unspecified,
+* or the intermediate representation introduced unsupported structure.
+
+⸻
+
+7. Semantic Delta
+
+The round trip can also produce useful information.
+
+Define:
+
+\Delta_S = A' - A
+
+Conceptually, \Delta_S captures what the alternate representation revealed.
+
+The delta is divided into:
+
+\Delta_S=
+\Delta_{\text{discovery}}
++
+\Delta_{\text{distortion}}
+
+The task of the system is to distinguish useful discovery from transformation artifact.
+
+This requires cross-validation.
+
+⸻
+
+8. Multi-Portal Validation
+
+A candidate invariant becomes stronger when independently reconstructed through multiple spaces.
+
+Given:
+
+A\rightarrow B
+
+A\rightarrow C
+
+A\rightarrow D
+
+derive candidate invariant sets:
+
+I_B,\ I_C,\ I_D
+
+Then compute:
+
+I^\*=
+I_B\cap I_C\cap I_D
+
+Conceptually:
+
+What repeatedly survives independent transformations deserves higher confidence.
+
+This is the Prism-Convergence Principle.
+
+⸻
+
+9. Semantic Stitch Types
+
+Mirror Stitch
+
+A\rightarrow B\rightarrow A'
+
+Purpose: expose translation loss and hidden assumptions.
+
+Triangle Stitch
+
+A\rightarrow B\rightarrow C\rightarrow A'
+
+Purpose: test invariance through heterogeneous spaces.
+
+Prism Stitch
+
+A\rightarrow \{B_1,B_2,\ldots,B_n\}
+
+Purpose: generate independent projections.
+
+Convergence Stitch
+
+\{A_1,A_2,\ldots,A_n\}\rightarrow X
+
+Purpose: infer a shared generator or invariant.
+
+Ratio Stitch
+
+X_{\alpha,\beta}
+=
+\alpha A+\beta B
+
+subject to:
+
+\alpha+\beta=1
+
+Purpose: explore semantic mixtures.
+
+A ratio sweep:
+
+\alpha\in[0,1]
+
+reveals which structures emerge at different mixtures.
+
+Scale Stitch
+
+A_s\rightarrow A_{ks}
+
+Purpose: test whether a pattern survives scale transformation.
+
+Counterfactual Stitch
+
+A\rightarrow \neg A
+
+then:
+
+I^\*=I(A)\cap I(\neg A)
+
+Purpose: identify structures independent of an assumption.
+
+Compression Stitch
+
+A\rightarrow z\rightarrow \hat A
+
+where z is a compressed semantic token.
+
+Useful compression minimizes:
+
+|z|
+
+while maximizing:
+
+\operatorname{Recoverability}(A|z)
+
+Mutation Stitch
+
+A\rightarrow
+\{A+\epsilon_1,\ldots,A+\epsilon_n\}
+
+Purpose: search nearby semantic configurations and identify sensitivity.
+
+Reality Stitch
+
+M
+\rightarrow
+H
+\rightarrow
+P
+\rightarrow
+O
+\rightarrow
+M'
+
+where:
+
+* M = metaphor/model
+* H = hypothesis
+* P = prediction
+* O = observation
+* M' = revised model
+
+This is the principal grounding mechanism.
+
+⸻
+
+10. Portal Selection
+
+A portal is a transform between representational spaces.
+
+Represent it as:
+
+P_{ij}
+=
+(R_i,R_j,T_{ij},I,L,C)
+
+The portal contains:
+
+* source representation
+* destination representation
+* transformation operator
+* invariants to preserve
+* expected information loss
+* transformation cost
+
+The optimal route through multiple portals is:
+
+\pi^\*
+=
+\arg\max_{\pi}
+\left[
+\operatorname{Utility}(\pi)
+-
+\operatorname{Loss}(\pi)
+-
+\operatorname{Cost}(\pi)
+\right]
+
+This makes Semantic Routing analogous to pathfinding through a graph.
+
+⸻
+
+11. Semantic Geography
+
+Representations form a semantic graph:
+
+G=(V,E)
+
+where:
+
+V=\text{representational spaces}
+
+and:
+
+E=\text{available transforms}
+
+Edges may have weights for:
+
+w_{ij}=
+(
+\text{cost},
+\text{loss},
+\text{novelty},
+\text{reversibility},
+\text{confidence}
+)
+
+Semantic reasoning becomes graph traversal.
+
+A difficult problem may therefore be solvable not by reasoning harder in the current space, but by finding a cheaper path through another one.
+
+⸻
+
+12. Semantic Arbitrage
+
+Some operations are expensive in one representation and cheap in another.
+
+Let:
+
+C(O|R_i)
+
+represent the cost of operation O inside representation R_i.
+
+If:
+
+C(O|R_B)
++
+C(T_{AB})
++
+C(T_{BA})
+<
+C(O|R_A)
+
+then transforming through B creates semantic arbitrage.
+
+This is a central purpose of the routing system.
+
+Examples:
+
+* difficult verbal comparison → table
+* repeated multiplication → logarithmic representation
+* tangled prose → causal graph
+* complicated causal system → simulation
+* vague intuition → metaphor
+* metaphor → falsifiable hypothesis
+* requirements → executable prototype
+
+⸻
+
+13. Exploration Mode
+
+Not all routing is goal-directed.
+
+The system may intentionally maximize semantic novelty:
+
+R_{t+1}
+=
+\arg\max_R
+\left[
+N(R)-\lambda L(R)
+\right]
+
+This sends a concept into sufficiently distant spaces to expose previously invisible relations while limiting catastrophic semantic loss.
+
+This is semantic exploration.
+
+Metaphor is especially valuable here because it permits controlled travel into distant spaces.
+
+⸻
+
+14. Exploitation Mode
+
+Once useful structure is discovered, routing changes objective.
+
+Instead of maximizing novelty:
+
+\max N
+
+the system maximizes:
+
+\max
+(
+P
++
+U
++
+R
+)
+
+where:
+
+* P = preservation
+* U = practical utility
+* R = reproducibility
+
+Thus:
+
+Explore through loose mappings; exploit through strict mappings.
+
+⸻
+
+15. Confidence Updating
+
+Each successful translation increases confidence in a candidate invariant.
+
+For invariant i:
+
+C_{t+1}(i)
+=
+C_t(i)
++
+\eta E_t(i)
+-
+\lambda F_t(i)
+
+where:
+
+* E_t = supporting evidence
+* F_t = failed reconstruction or contradiction
+* \eta,\lambda = update rates
+
+Repeated survival across independent transformations raises confidence.
+
+Failure under a meaningful transformation lowers it.
+
+⸻
+
+16. Semantic Oscillation
+
+Some problems benefit from repeated movement rather than convergence.
+
+Define:
+
+A\leftrightarrow B
+
+with successive states:
+
+A_0
+\rightarrow
+B_0
+\rightarrow
+A_1
+\rightarrow
+B_1
+\rightarrow \cdots
+
+Each traversal produces:
+
+\Delta_t
+
+The system terminates when:
+
+\|\Delta_t\|<\epsilon
+
+or when the oscillation produces a sufficiently useful third representation:
+
+C=f(A,B,\Delta_{AB})
+
+This formalizes the principle:
+
+Two representations given enough room to interact can generate a third structure not explicitly contained in either alone.
+
+⸻
+
+17. Ratio Weaving
+
+The system may combine multiple semantic spaces simultaneously.
+
+For spaces R_1,\ldots,R_n:
+
+S^\*
+=
+\sum_{i=1}^{n}\alpha_i S_i
+
+subject to:
+
+\sum_i\alpha_i=1
+
+Different weight vectors:
+
+\boldsymbol{\alpha}
+=
+(\alpha_1,\ldots,\alpha_n)
+
+produce different semantic stitching patterns.
+
+The system can sweep this space:
+
+\boldsymbol{\alpha}_1,
+\boldsymbol{\alpha}_2,
+\ldots,
+\boldsymbol{\alpha}_m
+
+and evaluate which mixture maximizes the desired property.
+
+This converts representational blending into a search process.
+
+⸻
+
+18. Routing Loop
+
+The canonical runtime is:
+
+INPUT
+  ↓
+extract goal
+  ↓
+identify candidate invariants
+  ↓
+inspect current representation
+  ↓
+determine desired operation
+  ↓
+score available semantic spaces
+  ↓
+choose portal
+  ↓
+transform
+  ↓
+operate
+  ↓
+cross-check using another representation
+  ↓
+return / reconstruct
+  ↓
+measure loss + useful delta
+  ↓
+reality-test when possible
+  ↓
+update invariant confidence
+  ↓
+repeat
+
+⸻
+
+19. Pseudocode
+
+def semantic_route(state, spaces, transforms):
+    goal = infer_goal(state)
+    invariants = extract_candidate_invariants(state)
+    while not solved(state, goal):
+        operation = infer_required_operation(state, goal)
+        candidates = []
+        for space in spaces:
+            transform = transforms.get(state.space, space)
+            if transform is None:
+                continue
+            score = (
+                operation_affordance(space, operation)
+                + novelty_gain(state, space)
+                + reversibility(transform)
+                - transform_cost(transform)
+                - expected_loss(transform, invariants)
+            )
+            candidates.append((score, space, transform))
+        _, destination, portal = max(candidates)
+        translated = portal.forward(state)
+        operated = execute_operation(
+            translated,
+            operation
+        )
+        crosscheck = independent_projection_check(
+            operated,
+            invariants
+        )
+        reconstructed = portal.reverse(operated)
+        loss = reconstruction_loss(
+            state,
+            reconstructed,
+            invariants
+        )
+        delta = useful_delta(
+            state,
+            reconstructed,
+            crosscheck
+        )
+        state = update_state(
+            reconstructed,
+            delta,
+            loss,
+            crosscheck
+        )
+        update_invariant_confidence(
+            invariants,
+            crosscheck,
+            loss
+        )
+    return state
+
+⸻
+
+20. Semantic Router Policy
+
+A Pantheon-compatible router should follow several default rules.
+
+Route when stuck.
+If reasoning stalls inside one representation, change representations before simply increasing effort.
+
+Preserve declared invariants.
+Determine what must survive before translating.
+
+Use distant spaces for discovery.
+Metaphor and analogy are exploratory instruments.
+
+Use strict spaces for verification.
+Mathematics, code, experiment, measurement, and explicit causal models should validate discoveries where possible.
+
+Round-trip important conclusions.
+If an idea cannot survive translation back into its originating problem, confidence should decrease.
+
+Triangulate before canonizing.
+Important abstractions should survive more than one independent representation.
+
+Keep useful deltas.
+A transformation need not reconstruct perfectly if its distortion exposes something valuable—but discovery and distortion must remain distinguishable.
+
+Prefer generators over snapshots.
+Store transformations and invariants capable of reconstructing families of states rather than exhaustively storing every rendering.
+
+⸻
+
+21. Compact Formal Definition
+
+The Semantic Routing System can be reduced to:
+
+\boxed{
+\text{Find }R^\*
+\text{ such that }
+\operatorname{Operate}(T_{A\to R^\*}(X))
+\text{ is easier than }
+\operatorname{Operate}(X)
+}
+
+subject to:
+
+\boxed{
+\operatorname{Preserve}(I)\ge\tau
+}
+
+and validate using:
+
+\boxed{
+X
+\rightarrow
+R^\*
+\rightarrow
+X'
+,\qquad
+d_I(X,X')\rightarrow0
+}
+
+while retaining useful novelty:
+
+\boxed{
+\Delta_{\text{useful}}
+=
+X'-X
+}
+
+when independently supported.
+
+⸻
+
+22. Canonical Pantheon Principle
+
+Do not force the problem to remain in the space where it arrived.
+
+Transform it.
+
+Move it through the representation where the next operation becomes natural.
+
+Preserve what matters.
+
+Allow the new space to reveal what the old one concealed.
+
+Return through another portal when useful.
+
+Compare the reconstructions.
+
+Keep the invariant.
+
+Keep the useful delta.
+
+Discard unsupported distortion.
+
+Then route again.
+
+The Pantheon therefore becomes not merely an archive of abstractions, but a semantic transportation and computation layer operating across representations.
+
+Its fundamental unit is not the word.
+
+Not the metaphor.
+
+Not the equation.
+
+Not even the concept.
+
+Its fundamental unit is:
+
+\boxed{\text{meaning under transformation}}
+
+The strongest next extension would be to turn this into an actual router implementation with a representation registry, portal graph, invariant ledger, routing-score function, round-trip tests, and a library of stitch operators.
