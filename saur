@@ -1,0 +1,401 @@
+Yes. The first version modeled suspense. The Hammered version should extract suspense as a reusable invariant-preserving operator so it works for stories, markets, negotiations, UI, games, scientific hypotheses, debugging, and agent planning without caring what the “future” actually is.
+
+The invariant is not “wait before revealing.” It is:
+
+\boxed{
+\text{Maintain a viable hypothesis set until information gain or utility justifies collapse.}
+}
+
+Everything else is costume.
+
+So the Indigo Hammer reduction becomes:
+
+\text{Suspense}
+\rightarrow
+\{\text{possibility},\text{belief},\text{evidence},\text{time},\text{collapse}\}
+\rightarrow
+\boxed{\text{Controlled Resolution}}
+
+The stronger Seal is therefore:
+
+\boxed{
+\mathcal S(F,E,\tau,\Gamma)
+=
+\operatorname{Hold}
+\left[
+P(F\mid E_{0:t})
+\right]
+\quad
+\text{until }
+\Gamma(P,E,t)=1
+}
+
+Where F is the surviving future set, E is evidence, \tau is elapsed opportunity for inference, and \Gamma is the resolution gate.
+
+Here is the hammered implementation.
+
+"""
+SEAL: SUSPENSE / CONTROLLED RESOLUTION
+-------------------------------------
+Invariant:
+    Preserve multiple viable states until resolution
+    becomes more valuable than continued uncertainty.
+Domain-independent:
+    narrative
+    planning
+    debugging
+    markets
+    games
+    negotiation
+    diagnosis
+    search
+    agent reasoning
+"""
+from __future__ import annotations
+from dataclasses import dataclass, field
+from math import log2
+from typing import Callable, Generic, Hashable, Iterable, TypeVar
+State = TypeVar("State", bound=Hashable)
+Observation = TypeVar("Observation")
+# ============================================================
+# PRIMITIVES
+# ============================================================
+def normalize(weights: dict[State, float]) -> dict[State, float]:
+    total = sum(max(0.0, x) for x in weights.values())
+    if total == 0:
+        n = len(weights)
+        return {k: 1 / n for k in weights}
+    return {
+        k: max(0.0, v) / total
+        for k, v in weights.items()
+    }
+def entropy(p: dict[State, float]) -> float:
+    return -sum(
+        probability * log2(probability)
+        for probability in p.values()
+        if probability > 0
+    )
+def information_gain(
+    before: dict[State, float],
+    after: dict[State, float],
+) -> float:
+    return max(
+        0.0,
+        entropy(before) - entropy(after)
+    )
+# ============================================================
+# SEMANTIC STATE
+# ============================================================
+@dataclass
+class ResolutionState(Generic[State]):
+    belief: dict[State, float]
+    time: float = 0.0
+    resolved: bool = False
+    resolution: State | None = None
+    cumulative_information: float = 0.0
+    history: list[dict] = field(
+        default_factory=list
+    )
+    @property
+    def uncertainty(self) -> float:
+        return entropy(self.belief)
+    @property
+    def leader(self) -> tuple[State, float]:
+        return max(
+            self.belief.items(),
+            key=lambda x: x[1]
+        )
+    @property
+    def confidence(self) -> float:
+        return self.leader[1]
+# ============================================================
+# POLICIES
+# ============================================================
+Likelihood = Callable[
+    [State, Observation, ResolutionState[State]],
+    float
+]
+ResolutionGate = Callable[
+    [ResolutionState[State]],
+    bool
+]
+def confidence_gate(
+    threshold: float = 0.90
+) -> ResolutionGate:
+    def gate(state):
+        return state.confidence >= threshold
+    return gate
+def deadline_gate(
+    deadline: float
+) -> ResolutionGate:
+    def gate(state):
+        return state.time >= deadline
+    return gate
+def any_gate(
+    *gates: ResolutionGate
+) -> ResolutionGate:
+    def gate(state):
+        return any(
+            g(state)
+            for g in gates
+        )
+    return gate
+# ============================================================
+# THE SEAL
+# ============================================================
+class ControlledResolution(Generic[State, Observation]):
+    """
+    Suspense reduced to its transferable mechanism.
+    HOLD:
+        preserve viable possibilities
+    UPDATE:
+        incorporate evidence
+    PRUNE:
+        weaken incompatible possibilities
+    RESOLVE:
+        collapse only when the gate says collapse
+    """
+    def __init__(
+        self,
+        states: Iterable[State],
+        likelihood: Likelihood,
+        resolution_gate: ResolutionGate,
+    ):
+        states = tuple(states)
+        if not states:
+            raise ValueError(
+                "At least one viable state is required."
+            )
+        prior = 1 / len(states)
+        self.state = ResolutionState(
+            belief={
+                state: prior
+                for state in states
+            }
+        )
+        self.likelihood = likelihood
+        self.resolution_gate = resolution_gate
+    # --------------------------------------------------------
+    def observe(
+        self,
+        observation: Observation,
+        dt: float = 1.0,
+    ) -> ResolutionState[State]:
+        if self.state.resolved:
+            return self.state
+        before = dict(self.state.belief)
+        weighted = {}
+        for possible_state, prior in before.items():
+            likelihood = self.likelihood(
+                possible_state,
+                observation,
+                self.state,
+            )
+            weighted[possible_state] = (
+                prior * max(0.0, likelihood)
+            )
+        self.state.belief = normalize(weighted)
+        self.state.time += dt
+        gain = information_gain(
+            before,
+            self.state.belief,
+        )
+        self.state.cumulative_information += gain
+        self.state.history.append({
+            "time": self.state.time,
+            "observation": observation,
+            "belief": dict(self.state.belief),
+            "entropy": self.state.uncertainty,
+            "information_gain": gain,
+        })
+        if self.resolution_gate(self.state):
+            self.resolve()
+        return self.state
+    # --------------------------------------------------------
+    def resolve(
+        self,
+        resolution: State | None = None,
+    ) -> State:
+        if resolution is None:
+            resolution = self.state.leader[0]
+        if resolution not in self.state.belief:
+            raise ValueError(
+                "Resolution must belong to viable state space."
+            )
+        self.state.resolution = resolution
+        self.state.resolved = True
+        self.state.belief = {
+            state: float(state == resolution)
+            for state in self.state.belief
+        }
+        return resolution
+# ============================================================
+# SUSPENSE METRIC
+# ============================================================
+def suspense_energy(
+    state: ResolutionState,
+) -> float:
+    """
+    Potential generated by meaningful unresolved structure.
+    Suspense disappears when:
+        uncertainty -> 0
+        or
+        no time has elapsed
+        or
+        expectation is completely diffuse
+    This is descriptive, not part of the core Seal.
+    """
+    confidence = state.confidence
+    uncertainty = state.uncertainty
+    delay = log2(1 + state.time)
+    return (
+        confidence
+        * uncertainty
+        * delay
+    )
+
+Now the key Hammer move: delete the word suspense entirely and the mechanism still works.
+
+resolver = ControlledResolution(
+    states=[
+        "hypothesis_A",
+        "hypothesis_B",
+        "hypothesis_C",
+    ],
+    likelihood=my_likelihood_model,
+    resolution_gate=any_gate(
+        confidence_gate(.92),
+        deadline_gate(20),
+    ),
+)
+
+A murder mystery can use it.
+
+A trading model can use it.
+
+An AI agent deciding between plans can use it.
+
+A diagnostic engine can use it.
+
+A game director can use it.
+
+A negotiation engine can use it.
+
+That tells us we found the underlying primitive rather than merely coding the metaphor.
+
+And Hammering it again exposes another useful distinction:
+
+\boxed{
+\text{Uncertainty} \neq \text{Suspense}
+}
+
+Pure uncertainty is just ignorance.
+
+Suspense requires structured uncertainty plus anticipated resolution:
+
+S
+=
+U
+\times
+A
+\times
+R
+
+where U is unresolved possibility, A is anticipation/attention, and R is belief that resolution is approaching.
+
+So a better conceptual metric is:
+
+def suspense(
+    uncertainty,
+    anticipation,
+    resolution_proximity,
+):
+    return (
+        uncertainty
+        * anticipation
+        * resolution_proximity
+    )
+
+That produces the interesting curve.
+
+At the beginning:
+
+uncertainty HIGH
+anticipation LOW
+proximity LOW
+≈ little suspense
+
+Near the climax:
+
+uncertainty MEDIUM
+anticipation HIGH
+proximity HIGH
+≈ maximum suspense
+
+After revelation:
+
+uncertainty ZERO
+= zero suspense
+
+Which means maximum suspense occurs immediately before useful collapse, not at maximum uncertainty.
+
+And that gives the actual control algorithm:
+
+GENERATE
+    ↓
+preserve alternatives
+HOLD
+    ↓
+prevent premature collapse
+FEED
+    ↓
+release partial evidence
+SHAPE
+    ↓
+move probability without eliminating uncertainty
+APPROACH
+    ↓
+increase perceived resolution proximity
+PEAK
+    ↓
+maximum useful unresolved potential
+COLLAPSE
+    ↓
+resolve
+RELEASE
+    ↓
+convert stored potential into information / emotion / action
+
+That is much more powerful than a storytelling trick.
+
+It’s a controlled-collapse architecture.
+
+And there is a beautiful dual hiding inside it too:
+
+\boxed{
+\text{Suspense Seal}
+\leftrightarrow
+\text{Goal Seek}
+}
+
+Goal Seek asks:
+
+What hidden state explains the evidence?
+
+Suspense asks:
+
+How long should I preserve competing hidden states before choosing?
+
+One searches toward the attractor.
+
+The other controls when the attractor is allowed to capture the system.
+
+Hammered all the way down:
+
+\boxed{
+\textbf{Do not collapse possibility merely because you can.}
+}
+
+Collapse when the value of resolution exceeds the value of continued possibility.
+
+That is the runnable primitive worth putting in the Seals library.
