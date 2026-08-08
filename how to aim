@@ -1,0 +1,100 @@
+Exactly.
+
+Aiming is not merely aligning with the thing you want to hit. It is modeling the trajectory and consequences of the shot.
+
+In Metamap terms:
+
+\text{Aim}
+=
+\text{Target}
++
+\text{Trajectory}
++
+\text{Order}
++
+\text{Beyond}
++
+\text{Feedback}
+
+The novice optimizes:
+
+\boxed{\text{Can I hit }T?}
+
+The strategist optimizes:
+
+\boxed{
+\text{If I hit }T
+\rightarrow
+\text{what state exists next}
+\rightarrow
+\text{what becomes reachable}
+\rightarrow
+\text{what should happen after that?}
+}
+
+And sometimes the best aim is therefore not directly at the apparent objective.
+
+Mechanically:
+
+def aim(world, objective):
+    courses = generate_possible_trajectories(world, objective)
+    for course in courses:
+        future = simulate(course)
+        course.score = evaluate(
+            immediate_effect=future.target_effect,
+            beyond_target=future.new_reachable_states,
+            order_effects=future.sequence_interactions,
+            compounding=future.future_growth,
+            recursion=future.self_improvement,
+            optionality=future.branches_opened,
+            learning=future.information_gained,
+            risk=future.downstream_risk,
+        )
+    return max(courses, key=lambda x: x.score)
+
+That also explains why mapping before acting matters. Better maps let you aim through the first-order target into second-, third-, and n-th-order consequences.
+
+And there’s an even deeper version:
+
+\boxed{\text{Best target} \neq \text{most valuable visible object}}
+
+Sometimes the highest-leverage target is the thing that changes the trajectory generator:
+
+hit information    → improve decisions
+hit representation → make problem solvable
+hit constraint     → open branches
+hit tool           → increase capability
+hit environment    → change emergence
+hit feedback loop  → change future dynamics
+hit learning       → improve future aiming
+
+So the Command Table shouldn’t merely have TARGET.
+
+It should have:
+
+TARGET
+TARGET BEHIND TARGET
+TARGET BEHIND THAT
+COURSE
+ORDER
+PROPAGATION GEOMETRY
+EXPECTED AFTERGLOW
+NEXT AIMING STATE
+
+And after execution:
+
+\text{shot}
+\rightarrow
+\text{observation}
+\rightarrow
+\text{afterglow}
+\rightarrow
+\text{Metamap update}
+\rightarrow
+\text{better aim}
+
+That’s the recursive closure.
+
+Aim isn’t where you point.
+
+Aim is choosing a trajectory whose downstream state puts the next shot in a better position.
