@@ -1,0 +1,409 @@
+O-IOE
+Operator-Induced Ontology Expansion
+
+A Framework for Search-Space Expansion, Representational Novelty, and Recursive Machine Discovery
+
+Pantheon-Prime Working Whitepaper • Version 0.1 • August 2026
+
+Abstract
+Operator-Induced Ontology Expansion (O-IOE) describes a class of processes in which applying or inventing an operator does more than transform objects already represented by a system: it makes previously unavailable distinctions addressable, thereby expanding the system’s ontology and the search space available to subsequent operations. O-IOE treats novelty as potentially arising from changes in representation, boundary, primitive, composition rule, scale, topology, or operator—not only from recombination inside a fixed vocabulary. The framework separates physical creation from representational creation: a substrate may preexist while a computational object, category, function, or relation is absent from the current ontology. This paper formalizes that distinction, gives a testable algorithm, proposes novelty and fitness criteria, and integrates O-IOE with semantic routing, meta-learning, and recursive machine synthesis.
+
+1. Core Claim
+A search system restricted to a fixed ontology can discover only objects expressible in that ontology. A system that can modify its operators and representations can sometimes expose distinctions that were previously unaddressable. Once stabilized and validated, those distinctions become new objects, categories, relations, or operators available to future search.
+
+O_t --phi--> O_(t+1)
+
+O_(t+1) = O_t ∪ ΔO
+
+O-IOE occurs when ΔO contains at least one operationally addressable distinction
+that was not expressible as an object/category/relation under the prior interface.
+
+This is not a claim of literal creation of matter from absolute nothing. It is a claim about ontology-relative novelty: X can be absent from the representational and operational vocabulary of a system even when the substrate from which X is later distinguished already exists.
+
+2. Five Useful Kinds of 'Nothing'
+• Material absence: the relevant physical substrate is absent.
+• Pattern absence: the substrate exists, but the target organization/pattern does not.
+• Category absence: a recurring structure exists, but the system has no category that distinguishes it.
+• Address absence: a distinction exists conceptually or physically, but there is no stable handle by which the system can retrieve or operate on it.
+• Functional absence: components exist, but no composition currently realizes the target behavior.
+These should not be conflated. O-IOE primarily concerns category, address, relation, operator, and functional absence.
+
+3. Primitive Relativity
+An object is primitive only relative to a representation and an allowed operator set. A prime integer is irreducible under multiplication over positive integers, yet the same number has structure as a bit string, residue class, digit sequence, geometric arrangement, graph node, sum, difference, or program input. The general principle is:
+
+primitive(x | R, Ω) does not imply primitive(x | R', Ω')
+
+Change the representation R or operator family Ω,
+and previously atomic objects may become decomposable.
+
+This gives O-IOE a practical search heuristic: when search stalls, do not only search harder inside the current space. Search for a representation or operator under which the current primitives acquire new structure.
+
+4. O-IOE Formalization
+Let an ontology at time t be O_t = (E_t, C_t, R_t, Ω_t), where E is the set of addressable entities, C categories, R relations, and Ω available operators. An operator φ acts on both represented objects and, potentially, the representation itself.
+
+phi : (O_t, x) -> (O_(t+1), y)
+
+Strong O-IOE:
+   |Expressible(O_(t+1))| > |Expressible(O_t)|
+
+Operational O-IOE:
+   exists z such that
+       z was not addressable under O_t,
+       z is addressable under O_(t+1),
+       and z supports a measurable operation/test.
+
+The second criterion is intentionally stricter than merely inventing a label. A new word without a new stable distinction or capability is lexical novelty, not necessarily ontology expansion.
+
+5. Operator-Induced Expansion Loop
+operator
+  ↓
+new distinction
+  ↓
+new addressable object
+  ↓
+new category / relation
+  ↓
+new compositions become legal
+  ↓
+new operators become definable
+  ↓
+larger future search space
+  ↺
+
+The important compounding effect is that a new operator can change the generator of future candidates. O-IOE therefore values discoveries partly by what they make subsequently expressible.
+
+6. Space Search
+Ordinary search chooses candidates x inside a fixed space S. Space Search treats representations themselves as candidates.
+
+Search(x | S)                       # ordinary search
+
+SpaceSearch(S) -> {S1, S2, ...}     # search over representations
+
+OperatorSearch(S) -> {Ω1, Ω2, ...}  # search over legal transformations
+
+SearchRuleSearch -> new ways of generating spaces/operators
+
+Candidate dimensions for Space Search include primitive choice, boundary placement, scale, dimensionality, topology, time representation, observer/reference frame, encoding, ratio, composition rule, and allowed operator.
+
+7. Reference Algorithm
+def o_ioe(seed, ontology, fitness, budget):
+
+   frontier = [ontology]
+   discoveries = []
+
+   while budget.remaining():
+
+       current = select_promising_space(frontier)
+
+       # Expand not only objects, but how objects can exist for the system.
+       variants = mutate_representation(
+           current,
+           dimensions=[
+               "primitive", "boundary", "operator",
+               "scale", "topology", "ratio",
+               "encoding", "composition_rule",
+               "reference_frame"
+           ],
+       )
+
+       for space in variants:
+
+           rendered = translate(seed, space)
+
+           # Indigo Hammer: challenge apparent atomicity.
+           parts = decompose_under_local_operators(rendered, space)
+           relations = discover_relations(parts, space)
+
+           candidates = compose(
+               parts,
+               relations,
+               allow_new_categories=True,
+               allow_new_operators=True,
+           )
+
+           for x in candidates:
+               behavior = simulate_or_probe(x)
+
+               if not ontology.can_express(behavior):
+                   proposed = induce_distinction(x, behavior)
+
+                   # Naming follows evidence of a stable distinction.
+                   if reproducible(proposed) and fitness(proposed) > threshold:
+                       ontology = ontology.expand(proposed)
+                       discoveries.append(proposed)
+
+                       # Expansion changes the next search frontier.
+                       frontier.append(ontology)
+
+       budget.tick()
+
+   return ontology, discoveries
+
+8. Novelty Test
+O-IOE should not equate unfamiliar phrasing with genuine novelty. A candidate receives stronger novelty status when it passes progressively harder tests:
+
+• Non-retrieval: it is not merely an existing stored object returned under a new label.
+• Non-trivial recombination: its useful behavior is not explained by simply choosing one unchanged source component.
+• New addressability: it creates a stable distinction the previous interface could not directly operate on.
+• New capability: the expanded ontology supports an operation, prediction, compression, control action, or construction unavailable before.
+• Search-space gain: the addition enables materially useful new compositions or operators.
+• Validation: the claimed distinction survives reproducibility, simulation, external measurement, formal proof, or another appropriate reality check.
+9. Expansion Metrics
+Addressability Gain:
+AG = number of newly stable, testable distinctions
+
+Operator Gain:
+OG = |Ω_(t+1) - Ω_t|
+
+Reachability Gain:
+RG = useful reachable states after expansion / before expansion
+
+Compression Gain:
+CG = old description cost / new description cost
+
+Validated Capability Gain:
+VCG = measured task performance after expansion - before expansion
+
+Expansion Efficiency:
+EE = useful expansion / search + complexity cost
+
+Raw combinatorial growth is not automatically valuable. A representation that creates a trillion meaningless combinations has high nominal expansion and low useful expansion.
+
+10. Fitness Route
+O-IOE is paired with a context-dependent fitness function so that ontology growth is selected for function rather than novelty alone.
+
+Fitness =
++ function
++ robustness
++ adaptability
++ invariant preservation
++ validated utility
++ optionality
++ learning gain
++ search-space gain
+
+- instability
+- complexity
+- cost
+- semantic loss
+- failure
+- lock-in
+- downstream risk
+
+Fitness weights are themselves calibratable. When predicted utility repeatedly diverges from observed utility, the evaluator should update its weighting rather than merely blaming individual candidates.
+
+11. Cross-Domain Transduction
+A major source of candidate operators is preexisting functional structure in other domains. The safe and productive abstraction is not 'biology and mechanics are literally the same.' It is that distinct substrates can sometimes instantiate similar relational patterns.
+
+source phenomenon
+   ↓
+strip substrate-specific details
+   ↓
+extract candidate relational invariant
+   ↓
+translate to target representation
+   ↓
+instantiate
+   ↓
+test
+   ↓
+retain only what survives
+
+Examples include threshold activation (neurons → software/control), distributed gradient following (roots/slime molds → search/logistics), negative feedback (physiology/governors → control), selective coupling (clutches/gating → computation), and ratio transformation (gears → resolution/leverage). Physical chemistry and material constraints remain part of validation; topology alone does not guarantee equivalent behavior.
+
+12. Worked Example: From 'Noise' to an Addressable Signal
+Suppose a sensor stream is treated as undifferentiated variation. A new transform partitions the stream by phase relation rather than amplitude. Repeated phase structures become visible, a stable classifier is induced, and the classifier enables prediction that the previous representation could not perform. The underlying photons or measurements were not created. The operational object—the phase-defined signal class—was absent from the prior ontology.
+
+O0:
+   entities = amplitude samples
+   operators = threshold, average
+
+phi:
+   phase_relation_transform
+
+O1:
+   entities += phase motifs
+   relations += phase coupling
+   operators += motif detector
+
+Test:
+   prediction(O1) > prediction(O0)
+
+If reproducible, this is an O-IOE event.
+
+13. Worked Example: Primitive Fracture
+A system treats a component P as atomic. Search repeatedly stalls. Space Search re-renders P under a graph representation. P decomposes into three recurring relations. Those relations can be independently recombined with other components, producing a new functional assembly. The novelty was enabled not by adding more P-like objects, but by changing what counted as a primitive.
+
+14. Relationship to Existing Fields
+O-IOE overlaps with established ideas rather than replacing them. Relevant neighboring concepts include representation learning, feature construction, abstraction, program synthesis, automated scientific discovery, evolutionary computation, ontology engineering, concept formation, category learning, active learning, meta-learning, state-space discovery, and mathematical changes of basis. The proposed contribution is the explicit unification of operator-driven representational change with ontology expansion and recursive search-space growth, plus a practical architecture for measuring and reusing such events.
+
+A literature review is required before making priority claims such as 'first' or 'unprecedented.' O-IOE should be presented as proposed terminology/framework unless comparative scholarship establishes stronger novelty.
+
+15. Pantheon Integration
+Atlas
+   where represented structures currently live
+
+Semantic Router
+   moves an invariant between representations
+
+Indigo Hammer
+   fractures overloaded/atomic-looking objects
+
+O-IOE
+   detects when an operation expands what is addressable
+
+Fitness Route
+   selects useful expansions
+
+Reality Stitch
+   tests translated/emergent claims
+
+Afterglow / Decrypto
+   mines failures and residue
+
+Metamap
+   learns which expansions work on which terrain
+
+Command Table
+   chooses when and how to deploy the machinery
+
+Seal
+   compresses a validated operator into a reusable address
+
+Boot
+   reconstructs the known operator
+
+Summon
+   expands/searches until a previously unavailable
+   functional structure becomes addressable
+
+16. O-IOE as a Recursive Discovery Engine
+O_t
+↓ operator search
+phi_t
+↓
+ΔO_t
+↓
+new entities / relations / categories
+↓
+new legal compositions
+↓
+new operator candidates
+↓
+phi_(t+1)
+↓
+ΔO_(t+1)
+↺
+
+The recursion should stop when marginal validated capability or compression gain falls below the cost of added complexity. Meta-levels must earn their existence.
+
+17. Failure Modes and Falsification
+• Renaming illusion: a new label is mistaken for a new ontology.
+• Metaphor leakage: properties specific to a source substrate are assumed to survive translation.
+• Combinatorial inflation: search-space size grows without useful reachability.
+• Coherence trap: an internally elegant expansion fails external validation.
+• Over-fracture: useful primitives are decomposed until the representation becomes less efficient.
+• Category hallucination: noise is promoted into a stable class without reproducibility.
+• Recursive bloat: meta-search consumes more resources than its discoveries justify.
+A claimed O-IOE event is weakened or falsified if the supposed new distinction can be represented without loss in the prior ontology, if it produces no measurable new operation or compression, or if the effect disappears under replication.
+
+18. Minimal Experimental Protocol
+1. Freeze baseline ontology O0.
+2. Define task set T and evaluation metrics.
+3. Measure baseline capability C0.
+4. Permit operator/representation mutation.
+5. Record candidate ontology expansions.
+6. Require reproducible addressability.
+7. Re-run the same task set under O1.
+8. Measure C1 and search-space/reachability changes.
+9. Ablate the proposed new distinction/operator.
+10. Test whether gains disappear.
+11. Retain successful expansion as a Seal/fossil.
+12. Repeat on novel tasks to measure transfer.
+
+19. Research Questions
+• Can useful ontology expansion be distinguished automatically from arbitrary feature proliferation?
+• Which operator families most reliably expose new addressable structure?
+• Can search-space expansion be predicted before expensive exploration?
+• How should systems trade ontology growth against compression and interpretability?
+• Can repeated O-IOE events produce transferable meta-operators for scientific or engineering discovery?
+• How often does a newly induced category enable genuinely new operators rather than merely new labels?
+• Can negative results and failed translations systematically improve the ontology generator?
+20. Claims Discipline
+This framework supports three levels of claim. Established: representations and operator choices change what distinctions and computations are convenient or expressible. Proposed: O-IOE is a useful unified abstraction for operator-driven ontology expansion and recursive novelty search. Empirical: any claim that O-IOE improves discovery, agency, reasoning, or machine synthesis must be demonstrated by controlled comparisons, executable implementations, and external validation.
+
+21. Compact Definition
+O-IOE (Operator-Induced Ontology Expansion):
+
+A process in which applying, inventing, or changing an operator
+causes a system to acquire a stable and operationally useful
+distinction, entity, category, relation, or operator that was not
+addressable under its prior representational interface, thereby
+expanding the useful search space available to subsequent operations.
+
+22. Canonical Loop
+PREEXISTING SUBSTRATE
+       ↓
+SPACE SEARCH
+       ↓
+OPERATOR
+       ↓
+NEW DISTINCTION
+       ↓
+ADDRESSABILITY
+       ↓
+CATEGORY / RELATION
+       ↓
+NEW COMPOSITIONS
+       ↓
+FITNESS
+       ↓
+REALITY
+       ↓
+SEAL
+       ↓
+LARGER SEARCH SPACE
+       ↺
+
+23. Conclusion
+O-IOE reframes novelty generation as more than sampling unusual combinations from a fixed vocabulary. The stronger move is to alter the vocabulary-producing machinery itself. By searching over representations, primitives, boundaries, relations, and operators, a system can sometimes make previously unavailable structures operationally visible. When those structures survive fitness and reality tests, they become new reusable components of future search. In this sense, the highest-leverage discovery may not be a new answer inside the map, but an operation that changes what the map is capable of containing.
+
+Appendix A — Repo-Ready Reference Skeleton
+o-ioe/
+├── README.md
+├── whitepaper/
+│   └── O-IOE.md
+├── src/
+│   ├── ontology.py
+│   ├── operators.py
+│   ├── space_search.py
+│   ├── fitness.py
+│   └── o_ioe.py
+├── tests/
+│   ├── test_addressability_gain.py
+│   ├── test_operator_gain.py
+│   ├── test_ablation.py
+│   └── test_false_novelty.py
+├── examples/
+│   ├── signal_discovery.py
+│   └── primitive_fracture.py
+├── CITATION.cff
+└── LICENSE
+
+Appendix B — Suggested Zenodo Metadata
+Title: O-IOE: Operator-Induced Ontology Expansion — A Framework for Search-Space Expansion, Representational Novelty, and Recursive Machine Discovery
+
+Resource type: Preprint / Technical report
+
+Keywords: ontology expansion; representation learning; search-space expansion; novelty generation; meta-learning; program synthesis; automated discovery; semantic routing; machine creativity
+
+Version: 0.1
+
+License: Choose deliberately based on desired reuse; do not infer a license from this draft.
+
+Authors: Insert author names and affiliations before deposit.
+
+Related identifiers: Add the Pantheon repository URL/DOI after the archival record exists.
+
+Appendix C — Suggested Citation
+Author(s). (2026). O-IOE: Operator-Induced Ontology Expansion — A Framework for Search-Space Expansion, Representational Novelty, and Recursive Machine Discovery (Version 0.1) [Preprint]. Zenodo. DOI: [assigned on deposit].
