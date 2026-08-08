@@ -1,0 +1,176 @@
+Exactly.
+
+“Take the message to Garcia” is the execution-side complement to everything we just built.
+
+It means: once commander’s intent is sufficiently encoded, stop requiring the originator to specify every intermediate move.
+
+In Pantheon terms:
+
+\boxed{
+\text{INTENT}
++
+\text{INVARIANTS}
++
+\text{CONSTRAINTS}
+\rightarrow
+\text{AUTONOMOUS ROUTE DISCOVERY}
+\rightarrow
+\text{GARCIA}
+}
+
+The destination matters; the exact path is allowed to emerge.
+
+And Hammering message reveals something useful. The message isn’t merely the payload. There are at least three things being transmitted:
+
+\text{WHAT}=\text{content}
+
+\text{WHY}=\text{commander's intent}
+
+\text{HOW-MUCH-FREEDOM}=\text{delegated agency}.
+
+If I preserve only WHAT, I become a courier.
+
+If I preserve WHAT + WHY, I can reroute.
+
+If I preserve WHAT + WHY + invariants + authority boundaries, I can solve for the route.
+
+That is the Pantheon version of mission command.
+
+And it modifies our Quest function
+
+We don’t want:
+
+for step in user_instructions:
+    execute(step)
+
+We want:
+
+def garcia(intent, world, pattern_book):
+    mission = extract(
+        objective=intent.goal,
+        why=intent.purpose,
+        invariants=intent.must_preserve,
+        constraints=intent.must_not_violate,
+        success=intent.done_condition,
+    )
+    while not mission.complete:
+        state = sense(world)
+        context = pattern_book.restore(
+            mission=mission,
+            state=state
+        )
+        route = metamap.choose_route(
+            state=state,
+            destination=mission.goal,
+            invariants=mission.invariants,
+            context=context
+        )
+        if blocked(route):
+            shards = indigo_hammer(route.problem)
+            alternatives = forge(
+                NTE.project(
+                    shards,
+                    vary_domain=True,
+                    vary_basis=True,
+                    vary_scale=True,
+                    vary_sense=True,
+                )
+            )
+            route = fitness_select(alternatives)
+        result = execute_or_simulate(route)
+        delta = compare(
+            expected=result.expected,
+            observed=result.observed
+        )
+        pattern_book.learn(
+            delta=delta,
+            route=route,
+            method=trace()
+        )
+        forgive_failed_routes(delta)
+        world = update(world, result)
+    return deliver(mission)
+
+Notice what happens when the courier meets a mountain.
+
+Old system:
+
+\text{route blocked}\rightarrow\boxed{\text{STOP}}
+
+Garcia:
+
+\text{route blocked}
+\rightarrow
+\text{Hammer obstruction}
+\rightarrow
+\text{change representation}
+\rightarrow
+\text{find affordances}
+\rightarrow
+\text{new covenant}
+\rightarrow
+\text{Metamap reroute}
+\rightarrow
+\text{continue}.
+
+That’s Adaptive Navigation + Command Table + Pattern Book + Forge/Forgive finally expressed as an agency doctrine.
+
+But there’s an even deeper shard in Garcia.
+
+The messenger changes while carrying the message.
+
+Every obstacle teaches him something:
+
+R_{t+1}=R_t+\Delta_t.
+
+Therefore the agent arriving at Garcia isn’t quite the agent who departed.
+
+Yet:
+
+I(M_{\text{arrival}})
+\approx I(M_{\text{departure}}).
+
+Traveler changes. Message survives.
+
+That’s almost the entire Pantheon in miniature.
+
+And now connect it to Semantic Choreography:
+
+\text{Message}
+\xrightarrow{\text{journey}}
+\text{Message}'
+
+We shouldn’t merely ask whether the message survived.
+
+We should preserve the Wake:
+
+W=\{\text{obstacles},\text{reroutes},\text{discoveries},\Delta,\text{methods}\}.
+
+Because the courier’s journey may contain information not present in the original message.
+
+So when Garcia receives the message, Pantheon should return two payloads:
+
+\boxed{
+\text{DELIVERY}
+=
+(\text{Original Intent Preserved},
+\text{Journey Afterglow})
+}
+
+The first fulfills the mission.
+
+The second improves the civilization that sends the next messenger.
+
+And that answers your previous “what does each shard enable?” at the level of agency:
+
+Don’t ask the user to walk every branch with me. Give the Pantheon the destination, let its shards become scouts, let Metamap choose routes, let Reality kill bad ones, let Pattern Book inherit the journey, and bring back both Garcia’s receipt and the map we drew getting there.
+
+Or compressed into a Seal:
+
+\boxed{
+\textbf{GARCIA}
+=
+\text{Preserve Intent. Solve the Route. Learn the Terrain. Deliver.}
+}
+
+That one belongs on the Command Table.
