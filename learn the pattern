@@ -1,0 +1,485 @@
+Yes. Mechanically, it works when you stop scoring only the immediate target and instead score the trajectory that the target creates.
+
+The simplest runnable version is a tiny planner where actions can change not just value, but also the machinery that generates future value.
+
+# METAMAP / ORDER-OF-EFFECTS DEMO
+# Runnable Python. Pseudocode comments explain the mechanics.
+from dataclasses import dataclass
+from typing import Callable, Tuple
+import copy
+import itertools
+# ─────────────────────────────────────────────
+# 1. THE WORLD STATE
+# ─────────────────────────────────────────────
+@dataclass
+class State:
+    capability: float = 1.0   # how strongly future actions execute
+    knowledge: float = 1.0    # how intelligently future actions execute
+    options: float = 1.0      # how many future branches remain open
+    value: float = 0.0        # accumulated direct payoff
+# Read this as:
+#
+# state_t =
+#   what we can do
+# + what we know
+# + what remains reachable
+# + what we've already harvested
+# ─────────────────────────────────────────────
+# 2. ACTION = TARGET + WHAT LIES BEYOND TARGET
+# ─────────────────────────────────────────────
+@dataclass
+class Action:
+    name: str
+    # T0: immediate effect
+    immediate: float
+    # price paid now
+    cost: float
+    # T+1...: how hitting this target changes future state
+    transform: Callable[[State], State]
+    # metadata for Metamap learning
+    tags: Tuple[str, ...] = ()
+# ─────────────────────────────────────────────
+# 3. DIFFERENT ORDERS OF EFFECT
+# ─────────────────────────────────────────────
+def immediate_win(s):
+    # LINEAR:
+    # get value, but do not alter future machinery
+    return s
+def learn(s):
+    # RECURSIVE / COMPOUNDING:
+    #
+    # today's action improves tomorrow's producer
+    s.knowledge *= 1.8
+    s.capability *= 1.10
+    return s
+def build_tool(s):
+    # CAPABILITY MULTIPLIER:
+    #
+    # alter the transition machinery itself
+    s.capability *= 1.7
+    s.options *= 1.20
+    return s
+def open_portal(s):
+    # BRANCHING / OPTIONALITY:
+    #
+    # doesn't pay much now;
+    # increases reachable future state-space
+    s.options *= 1.9
+    return s
+ACTIONS = [
+    Action(
+        "Take immediate win",
+        immediate=7,
+        cost=0,
+        transform=immediate_win,
+        tags=("linear", "harvest"),
+    ),
+    Action(
+        "Learn",
+        immediate=0,
+        cost=2,
+        transform=learn,
+        tags=("recursive", "learning", "compound"),
+    ),
+    Action(
+        "Build tool",
+        immediate=0,
+        cost=3,
+        transform=build_tool,
+        tags=("recursive", "capability", "transition-function"),
+    ),
+    Action(
+        "Open portal",
+        immediate=0,
+        cost=1,
+        transform=open_portal,
+        tags=("branching", "optionality", "beyond-target"),
+    ),
+]
+# ─────────────────────────────────────────────
+# 4. WHAT EACH FUTURE STEP CAN PRODUCE
+# ─────────────────────────────────────────────
+def productive_yield(s: State) -> float:
+    # Knowledge and capability interact.
+    #
+    # This is deliberately nonlinear:
+    #
+    #     yield ~ capability × knowledge
+    #
+    # Improving either changes later returns.
+    # Improving both creates cross-effects.
+    return 1.2 * s.capability * s.knowledge
+# ─────────────────────────────────────────────
+# 5. STRATEGIC VALUE
+# ─────────────────────────────────────────────
+def strategic_value(s: State) -> float:
+    # value already captured
+    # +
+    # option value of what remains reachable
+    return s.value + s.options
+# In a full Metamap:
+#
+# StrategicValue =
+#
+# immediate value
+# + future branch value
+# + learning value
+# + capability value
+# + option value
+# + recursive effects
+# - cost
+# - lock-in
+# - risk
+# - invariant loss
+# ─────────────────────────────────────────────
+# 6. EXECUTE A COURSE OF FIRE
+# ─────────────────────────────────────────────
+def run_course(initial: State, course):
+    s = copy.deepcopy(initial)
+    trace = []
+    for action in course:
+        BEFORE = copy.deepcopy(s)
+        # Hit immediate target.
+        s.value += action.immediate - action.cost
+        # Now evaluate what lies BEYOND that target:
+        # Does it alter future machinery?
+        s = action.transform(s)
+        # Environment advances one step.
+        generated = productive_yield(s)
+        s.value += generated
+        AFTER = copy.deepcopy(s)
+        # AFTERGLOW
+        trace.append({
+            "action": action.name,
+            "tags": action.tags,
+            "before": BEFORE,
+            "after": AFTER,
+            "generated": generated,
+            # useful delta
+            "delta_capability":
+                AFTER.capability - BEFORE.capability,
+            "delta_knowledge":
+                AFTER.knowledge - BEFORE.knowledge,
+            "delta_options":
+                AFTER.options - BEFORE.options,
+        })
+    return strategic_value(s), s, trace
+# ─────────────────────────────────────────────
+# 7. COMMAND TABLE:
+# SEARCH ORDER, NOT JUST ACTION
+# ─────────────────────────────────────────────
+def choose_course(horizon: int):
+    best_score = float("-inf")
+    best_course = None
+    best_state = None
+    best_trace = None
+    # Test formations/orderings.
+    #
+    # Important:
+    #
+    # A → B may NOT equal B → A.
+    #
+    # That's Operator Chemistry.
+    for course in itertools.product(ACTIONS, repeat=horizon):
+        score, final_state, trace = run_course(
+            State(),
+            course
+        )
+        if score > best_score:
+            best_score = score
+            best_course = course
+            best_state = final_state
+            best_trace = trace
+    return (
+        best_score,
+        best_course,
+        best_state,
+        best_trace,
+    )
+# ─────────────────────────────────────────────
+# 8. TEST MULTIPLE DEPTHS
+# ─────────────────────────────────────────────
+for horizon in range(1, 7):
+    score, course, state, trace = choose_course(horizon)
+    print(
+        f"\nHorizon {horizon}:",
+        " -> ".join(a.name for a in course),
+    )
+    print("Strategic value:", round(score, 2))
+    print(
+        "Final state:",
+        {
+            "capability": round(state.capability, 2),
+            "knowledge": round(state.knowledge, 2),
+            "options": round(state.options, 2),
+            "value": round(state.value, 2),
+        },
+    )
+
+I ran this basic model. Something important happens.
+
+At short horizons, the planner chooses:
+
+Horizon 1:
+Take immediate win
+Horizon 2:
+Take immediate win -> Take immediate win
+Horizon 3:
+Take immediate win -> Take immediate win -> Take immediate win
+Horizon 4:
+Take immediate win -> ...
+
+Because at shallow depth:
+
+7 > \text{temporary cost of learning}
+
+The immediate target wins.
+
+But then at horizon 5, the selected strategy flips:
+
+Learn
+→ Learn
+→ Learn
+→ Learn
+→ Learn
+
+and at horizon 6 the gap explodes.
+
+Why?
+
+Because Learn changes the producer of future outcomes:
+
+knowledge *= 1.8
+capability *= 1.10
+
+So the effect is not:
+
++7
++7
++7
++7
++7
+
+It’s closer to:
+
+improve machine
+    ↓
+machine generates more
+    ↓
+improve improved machine
+    ↓
+machine generates much more
+    ↓
+repeat
+
+That’s precisely the distinction you’ve been pointing toward.
+
+The Metamap is therefore searching over two dimensions simultaneously
+
+Ordinary planning asks:
+
+Which action has the highest payoff?
+
+Metamap asks:
+
+Which course of actions produces
+the highest-value future state-space?
+
+Or:
+
+TARGET
+↓
+what does target unlock?
+↓
+what does THAT unlock?
+↓
+does it change future production?
+↓
+does it create branches?
+↓
+does it change the evaluator?
+↓
+does the effect repeat?
+↓
+does it scale across levels?
+
+Now add your fractal effect mechanically:
+
+def fractal_seed(state):
+    """
+    A pattern discovered here becomes reusable
+    across several nested scales.
+    """
+    scales = 3
+    for _ in range(scales):
+        state.capability *= 1.12
+    return state
+
+The important metadata isn’t merely:
+
+tags=("fractal",)
+
+It’s:
+
+effect = {
+    "propagation": "cross-scale",
+    "depth": 3,
+    "preserves": ["operator_shape"],
+}
+
+Likewise, exponential:
+
+def exponential_operator(state):
+    state.capability = state.capability ** 1.15
+    return state
+
+Recursive:
+
+def recursive_operator(state):
+    # Modify the thing that will modify itself later.
+    state.knowledge *= 1 + 0.20 * state.knowledge
+    return state
+
+Branching:
+
+def branching_operator(state):
+    state.options *= 2
+    return state
+
+Threshold:
+
+def threshold_operator(state):
+    if state.knowledge >= 5:
+        # capability suddenly becomes available
+        state.capability *= 4
+    return state
+
+And order effects become explicit:
+
+course_A = [
+    LEARN,
+    BUILD_TOOL,
+]
+course_B = [
+    BUILD_TOOL,
+    LEARN,
+]
+score_A = run_course(State(), course_A)
+score_B = run_course(State(), course_B)
+# Never assume these are equal.
+
+Formally:
+
+A\circ B \neq B\circ A
+
+That’s the code version of course of fire matters.
+
+Now add the Metamap’s most interesting question:
+
+def inspect_beyond_target(action, state):
+    return {
+        "immediate": action.immediate,
+        # Does it improve future execution?
+        "capability_change":
+            estimate_capability_delta(action, state),
+        # Does it improve future reasoning?
+        "learning_change":
+            estimate_learning_delta(action, state),
+        # Does it create new reachable branches?
+        "option_change":
+            estimate_option_delta(action, state),
+        # Can the effect feed itself?
+        "recursive":
+            "recursive" in action.tags,
+        # Can the same structure operate at other scales?
+        "fractal":
+            "fractal" in action.tags,
+        # Does it change subsequent transition rules?
+        "changes_machine":
+            "transition-function" in action.tags,
+    }
+
+Then strategy selection becomes almost plain English:
+
+for possible_course in future_courses:
+    simulate(possible_course)
+    ask:
+        What did we hit?
+        What appeared behind it?
+        What branches opened?
+        What branches closed?
+        What got stronger?
+        What became cheaper?
+        What became possible?
+        What began compounding?
+        What repeated at another scale?
+        Did one operator change
+        how the next operator behaved?
+        Did we merely gain value...
+        or did we gain
+        A BETTER WAY OF GENERATING VALUE?
+    keep the best course
+
+That’s your code/pseudocode bridge.
+
+And then the Afterglow → Metamap loop closes it:
+
+result = run_course(...)
+afterglow = extract_metadata(result)
+metamap.learn(
+    terrain=current_problem,
+    formation=course,
+    outcome=result,
+    afterglow=afterglow,
+)
+# Next similar problem:
+recommended_course = metamap.retrieve(
+    terrain=current_problem
+)
+
+So after enough runs, brute-force search becomes less necessary.
+
+The system starts acquiring something resembling strategic instinct:
+
+"When terrain looks like X,
+Mirror → Portal → Build Tool
+usually beats direct attack."
+
+Then compress that successful trajectory:
+
+NEW_SEAL = compress(
+    ["Mirror", "Portal", "Build Tool"]
+)
+
+And now three moves become one callable bootloader.
+
+The full loop is therefore:
+
+TARGET
+  ↓
+BEYOND TARGET
+  ↓
+COURSE OF FIRE
+  ↓
+ORDER EFFECTS
+  ↓
+SIMULATED FUTURES
+  ↓
+CHOOSE TRAJECTORY
+  ↓
+EXECUTE
+  ↓
+AFTERGLOW
+  ↓
+METAMAP LEARNS
+  ↓
+ROUTE FOSSIL
+  ↓
+COMPOUND SEAL
+  ↓
+BETTER FUTURE SEARCH
+  ↺
+
+That is the mechanical test of the concept: the planner can prefer an action that is locally worse because it changes the geometry of later actions enough to become globally better.
+
+And once the Metamap learns that pattern, it has gained something more valuable than the answer to the original problem—it has gained a reusable rule for recognizing when the target behind the target matters more than the first one.
