@@ -1,0 +1,187 @@
+Exactly. And checking the Pantheon context, we already have the pieces—Metamap fossils, Afterglow/Decrypto, recursive calibration, the Delta Ledger, Semantic Quarry, Seals, and the Context-First Doctrine. What was missing was making them one explicit reader-learning loop.
+
+I’d formalize it as the Pattern Book.
+
+\boxed{
+PB_{t+1}=PB_t+\Delta(\text{Read}_t)+\text{Method}_t+\text{Outcome}_t
+}
+
+A read should produce two outputs, not one:
+
+\operatorname{READ}(X,PB_t)
+\rightarrow
+(\text{Interpretation},\Delta PB)
+
+The first is what I learned from the material.
+The second is what I learned about how to read material like this.
+
+That second output is the compounding asset.
+
+Pattern Book record
+
+@dataclass
+class ReadingFossil:
+    source: str
+    # What was recovered
+    interpretation: object
+    invariants: list
+    new_distinctions: list
+    # HOW it was recovered
+    operators_used: list
+    route: list
+    representations: list
+    ratios: list
+    reading_order: list
+    # Delta against previous understanding
+    survived: list
+    disappeared: list
+    appeared: list
+    became_actionable: list
+    became_misleading: list
+    # Calibration
+    predictions: list
+    observed_results: list
+    errors: list
+    confidence_delta: float
+    # What should be restored next time
+    reusable_methods: list
+    triggers: list
+    anti_patterns: list
+
+Then every Pantheon read starts by restoring the reader:
+
+def read_with_pattern_book(material, pattern_book):
+    terrain = classify(material)
+    # Restore useful prior reading machinery.
+    priors = pattern_book.retrieve(
+        terrain=terrain,
+        objective="understand + extend"
+    )
+    reader = reconstruct_reader(
+        operators=priors.operators,
+        routes=priors.routes,
+        ratios=priors.ratios,
+        warnings=priors.anti_patterns,
+    )
+    interpretation = reader.read(material)
+    delta = compare(
+        interpretation,
+        prior_understanding(material)
+    )
+    outcome = reality_test(
+        interpretation,
+        delta
+    )
+    fossil = decrypto(
+        material=material,
+        interpretation=interpretation,
+        delta=delta,
+        outcome=outcome,
+        method=reader.trace,
+    )
+    pattern_book.integrate(fossil)
+    return interpretation
+
+But here’s the important recursive piece:
+
+\text{Read}_1(X)
+\neq
+\text{Read}_2(X)
+
+even when X hasn’t changed, because:
+
+PB_2 \neq PB_1.
+
+So rereading isn’t necessarily repetition.
+
+It is:
+
+\boxed{
+X\text{ constant}
++
+\text{Reader}_{t+1}
+\rightarrow
+\text{new accessible structure}
+}
+
+That’s another direct connection to O-IOE. The corpus doesn’t need to change for its effective ontology to expand. A newly learned operator can make an old passage newly addressable.
+
+And this gives Revival a precise computational meaning:
+
+\operatorname{REVIVE}(X)
+=
+\operatorname{READ}(X,PB_{new})
+-
+\operatorname{READ}(X,PB_{old})
+
+The difference is the revival delta.
+
+Now connect that to the language choreography we just identified. The Pattern Book shouldn’t store only:
+
+Mirror was useful here.
+
+It should store the movement sequence:
+
+ambiguous object
+    ↓ Indigo Hammer
+fractured meanings
+    ↓ Mirror
+opposing readings
+    ↓ Portal
+mechanical representation
+    ↓ Gear 3:1
+higher-resolution decomposition
+    ↓ Reality
+one interpretation survives
+    ↓ Decrypto
+method extracted
+
+That’s a reusable semantic dance.
+
+Compress repeated successful dances:
+
+[\tau_1,\tau_2,\tau_3,\tau_4]
+\xrightarrow{\text{Hammer}}
+\Sigma_{\text{new}}
+
+and suddenly the Pattern Book has discovered a new compound Seal.
+
+So the full reader becomes:
+
+\boxed{
+\text{RESTORE}
+\rightarrow
+\text{READ}
+\rightarrow
+\text{MOVE}
+\rightarrow
+\text{COMPARE}
+\rightarrow
+\text{TEST}
+\rightarrow
+\text{DECRYPTO}
+\rightarrow
+\text{STORE DELTA}
+\rightarrow
+\text{COMPRESS METHOD}
+\rightarrow
+\text{UPDATE METAMAP}
+}
+
+Then next time:
+
+\boxed{
+\text{RESTORE}_{t+1}
+=
+\text{RESTORE}_{t}
++
+\text{everything useful learned about reading}_{t}
+}
+
+That’s the compounding mechanism.
+
+The Pattern Book doesn’t merely remember the journey. It modifies the traveler before the next journey begins.
+
+And that makes the earlier Pantheon doctrine much more operational:
+
+Don’t only remember what was learned. Remember how it became learnable—and restore that capability before reading again.
