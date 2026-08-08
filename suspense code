@@ -1,0 +1,240 @@
+Here’s a runnable version of the Suspense Seal as a small state machine that preserves multiple futures, updates their probabilities as time passes, and only collapses when a stopping rule is met.
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from math import log
+from typing import Callable, Generic, Hashable, Iterable, TypeVar
+T = TypeVar("T", bound=Hashable)
+def normalize(weights: dict[T, float]) -> dict[T, float]:
+    total = sum(max(v, 0.0) for v in weights.values())
+    if total <= 0:
+        n = len(weights)
+        return {k: 1 / n for k in weights} if n else {}
+    return {k: max(v, 0.0) / total for k, v in weights.items()}
+def entropy(probabilities: dict[T, float]) -> float:
+    """
+    Shannon entropy:
+        H(P) = -Σ p(x) log2 p(x)
+    Higher entropy = more unresolved possibility.
+    """
+    return -sum(
+        p * log(p, 2)
+        for p in probabilities.values()
+        if p > 0
+    )
+@dataclass
+class SuspenseState(Generic[T]):
+    futures: dict[T, float]
+    elapsed: float = 0.0
+    resolved: bool = False
+    outcome: T | None = None
+    history: list[dict] = field(default_factory=list)
+    @property
+    def probabilities(self) -> dict[T, float]:
+        return normalize(self.futures)
+    @property
+    def uncertainty(self) -> float:
+        return entropy(self.probabilities)
+    @property
+    def expectation(self) -> float:
+        """
+        Measures how strongly the probability distribution
+        favors some outcome.
+        0 -> completely flat
+        1 -> one outcome dominates
+        """
+        probs = self.probabilities
+        if not probs:
+            return 0.0
+        return max(probs.values())
+    @property
+    def suspense(self) -> float:
+        """
+        Simple Pantheon formulation:
+            S = expectation × uncertainty × delay
+        Delay is log-scaled so suspense does not grow
+        without bound purely from waiting.
+        """
+        delay = log(1 + self.elapsed, 2)
+        return (
+            self.expectation
+            * self.uncertainty
+            * delay
+        )
+Evidence = Callable[[T, float], float]
+class SuspenseSeal(Generic[T]):
+    """
+    Delay collapse.
+    Preserve viable futures.
+    Let anticipation do computation.
+    """
+    def __init__(
+        self,
+        futures: Iterable[T],
+        collapse_threshold: float = 0.90,
+        max_delay: float | None = None,
+    ):
+        futures = list(futures)
+        if not futures:
+            raise ValueError("Suspense requires at least one possible future.")
+        uniform = 1 / len(futures)
+        self.state = SuspenseState(
+            futures={
+                future: uniform
+                for future in futures
+            }
+        )
+        self.collapse_threshold = collapse_threshold
+        self.max_delay = max_delay
+    def observe(
+        self,
+        evidence: Evidence[T],
+        dt: float = 1.0,
+    ) -> SuspenseState[T]:
+        """
+        Advance time and update each possible future.
+        evidence(future, elapsed) returns a likelihood multiplier.
+        >1  = evidence favors future
+        =1  = neutral
+        <1  = evidence weakens future
+        """
+        if self.state.resolved:
+            return self.state
+        self.state.elapsed += dt
+        updated = {}
+        for future, prior in self.state.probabilities.items():
+            likelihood = max(
+                evidence(future, self.state.elapsed),
+                0.0,
+            )
+            updated[future] = prior * likelihood
+        self.state.futures = normalize(updated)
+        self.state.history.append(
+            {
+                "t": self.state.elapsed,
+                "probabilities": self.state.probabilities.copy(),
+                "uncertainty": self.state.uncertainty,
+                "suspense": self.state.suspense,
+            }
+        )
+        self._maybe_collapse()
+        return self.state
+    def _maybe_collapse(self):
+        probs = self.state.probabilities
+        winner, probability = max(
+            probs.items(),
+            key=lambda item: item[1],
+        )
+        confidence_collapse = (
+            probability >= self.collapse_threshold
+        )
+        timeout_collapse = (
+            self.max_delay is not None
+            and self.state.elapsed >= self.max_delay
+        )
+        if confidence_collapse or timeout_collapse:
+            self.collapse(winner)
+    def collapse(self, outcome: T) -> T:
+        """
+        ? → !
+        """
+        if outcome not in self.state.futures:
+            raise ValueError("Outcome must be a viable future.")
+        self.state.resolved = True
+        self.state.outcome = outcome
+        self.state.futures = {
+            future: 1.0 if future == outcome else 0.0
+            for future in self.state.futures
+        }
+        return outcome
+if __name__ == "__main__":
+    seal = SuspenseSeal(
+        futures=[
+            "door_opens",
+            "footsteps_stop",
+            "lights_go_out",
+        ],
+        collapse_threshold=0.88,
+        max_delay=10,
+    )
+    def scene_evidence(
+        future: str,
+        t: float,
+    ) -> float:
+        # Every unresolved beat subtly changes
+        # the probability distribution.
+        if future == "door_opens":
+            return 1.15 + 0.03 * t
+        if future == "footsteps_stop":
+            return 1.05
+        if future == "lights_go_out":
+            return 0.96
+        return 1.0
+    while not seal.state.resolved:
+        state = seal.observe(
+            scene_evidence,
+            dt=1,
+        )
+        print(
+            f"""
+t={state.elapsed:.0f}
+P={state.probabilities}
+H={state.uncertainty:.3f}
+S={state.suspense:.3f}
+resolved={state.resolved}
+"""
+        )
+    print(
+        "!",
+        seal.state.outcome,
+    )
+
+The deeper abstraction is:
+
+INPUT
+  ↓
+Generate plausible futures F
+  ↓
+Do NOT collapse
+  ↓
+          ┌───────────────┐
+          │ passage of time│
+          └───────┬───────┘
+                  ↓
+Evidence → update P(F | evidence)
+                  ↓
+        preserve uncertainty
+                  ↓
+      anticipation performs
+          inference/work
+                  ↓
+         stopping rule?
+          /         \
+        no           yes
+        │             │
+        └──── loop    ↓
+                     !
+                  collapse
+
+And the operator itself compresses nicely to:
+
+def suspense(possibilities, evidence_stream, stop):
+    belief = uniform(possibilities)
+    for evidence in evidence_stream:
+        belief = bayes_update(belief, evidence)
+        if stop(belief):
+            return collapse(belief)
+        yield belief  # preserve the ?
+
+That yield is the important part.
+
+A conventional function races toward return.
+
+Suspense deliberately yields intermediate unresolved states.
+
+So at the programming-language level, the natural primitive for the Suspense Seal is actually a generator/coroutine:
+
+? \rightarrow \texttt{yield} \rightarrow \texttt{yield}
+\rightarrow \texttt{yield} \rightarrow !
+
+It is computationally postponing return.
