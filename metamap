@@ -1,0 +1,943 @@
+Added to the Moneybin. Here’s the repo-ready formalization.
+
+Pantheon Metamap
+
+A Second-Order Strategy Map for Semantic Routing
+
+1. Purpose
+
+The Metamap is the Pantheon layer that learns which reasoning strategies tend to work on which kinds of semantic terrain.
+
+It does not primarily store facts.
+
+It stores patterns about:
+
+* which representations are useful for which problem classes,
+* which Seals work well together,
+* which operator orders matter,
+* which ratios produce useful synthesis,
+* which portal routes are efficient,
+* which routes fail,
+* which invariants tend to survive,
+* which transformations create useful novelty,
+* and when further recursion stops paying for itself.
+
+The Metamap converts accumulated reasoning experience into a reusable strategy layer.
+
+Its canonical distinction is:
+
+\boxed{
+\text{Atlas} = \text{where structures are}
+}
+
+\boxed{
+\text{Router} = \text{how meaning travels}
+}
+
+\boxed{
+\text{Seals} = \text{what transformations are available}
+}
+
+\boxed{
+\text{Command Table} = \text{what to deploy now}
+}
+
+\boxed{
+\text{Metamap} = \text{what strategies tend to work on this kind of terrain}
+}
+
+⸻
+
+2. Fundamental Mapping
+
+Let a reasoning situation be:
+
+Q_t =
+(
+P_t,
+G_t,
+S_t,
+C_t,
+I_t,
+U_t,
+B_t
+)
+
+where:
+
+* P_t = problem class
+* G_t = goal
+* S_t = current semantic state
+* C_t = context
+* I_t = invariants to preserve
+* U_t = uncertainty
+* B_t = available resource budget
+
+The Metamap learns:
+
+\mathcal M:
+Q_t
+\rightarrow
+\Pi^\*
+
+where \Pi^\* is a recommended strategy policy.
+
+Represent:
+
+\Pi^\* =
+(
+R^\*,
+\Sigma^\*,
+F^\*,
+\rho^\*,
+\pi^\*,
+\tau^\*
+)
+
+with:
+
+* R^\* = recommended semantic spaces
+* \Sigma^\* = recommended Seals
+* F^\* = operator formation
+* \rho^\* = ratios / weighting
+* \pi^\* = portal route
+* \tau^\* = stopping policy
+
+Thus:
+
+\boxed{
+\mathcal M(
+\text{problem},
+\text{goal},
+\text{state}
+)
+=
+\text{promising reasoning strategy}
+}
+
+⸻
+
+3. Experience Record
+
+Every semantic traversal produces an experience record.
+
+Define:
+
+E_t =
+(
+Q_t,
+\Pi_t,
+O_t
+)
+
+where Q_t is the initial situation, \Pi_t is the deployed strategy, and O_t is the observed outcome.
+
+The strategy record contains:
+
+\Pi_t =
+(
+R,
+\Sigma,
+F,
+\rho,
+\pi,
+\tau
+)
+
+The outcome record contains:
+
+O_t =
+(
+\Delta,
+L,
+P_I,
+N,
+C,
+S,
+F_a,
+V
+)
+
+where:
+
+* \Delta = useful semantic delta
+* L = reconstruction loss
+* P_I = invariant preservation
+* N = novelty generated
+* C = computational / attention cost
+* S = surprise
+* F_a = failures encountered
+* V = externally validated utility
+
+This record is the raw material of the Metamap.
+
+⸻
+
+4. Afterglow Record
+
+Not everything useful is contained in the final answer.
+
+Each route therefore emits an afterglow:
+
+A_t =
+(
+\text{route},
+\text{operator order},
+\text{ratios},
+\text{invariants},
+\text{loss},
+\Delta,
+\text{surprise},
+\text{failures},
+\text{confidence},
+\text{cost}
+)
+
+Afterglow is explicitly retained even when the corresponding result is discarded.
+
+The Metamap does not merely learn from success.
+
+It learns from:
+
+* successful reasoning,
+* failed reasoning,
+* near misses,
+* surprising transformations,
+* high-loss portals,
+* useful distortions,
+* redundant routes,
+* and emergent operator combinations.
+
+⸻
+
+5. Meta-Features
+
+The Metamap derives features from each reasoning trajectory.
+
+Let:
+
+\phi(E_t)
+
+be the meta-feature extractor.
+
+Possible features include:
+
+\phi(E_t)=
+\{
+\text{problem topology},
+\text{ambiguity},
+\text{causal density},
+\text{symbolic density},
+\text{temporal depth},
+\text{uncertainty},
+\text{representation mismatch},
+\text{operator count},
+\text{route depth},
+\text{symmetry},
+\text{constraint density}
+\}
+
+These features describe the terrain, not merely the content.
+
+The goal is to recognize:
+
+This new problem behaves like previous problems whose successful strategy looked like this.
+
+⸻
+
+6. Route Fossils
+
+A Route Fossil is a repeatedly successful semantic trajectory.
+
+Suppose many tasks of type P repeatedly succeed using:
+
+R_A
+\rightarrow
+R_B
+\rightarrow
+R_C
+\rightarrow
+R_D
+
+Then preserve:
+
+F_{\text{route}}=
+(P,
+R_A\rightarrow R_B\rightarrow R_C\rightarrow R_D)
+
+with empirical statistics:
+
+F_{\text{route}}=
+(
+n,
+\bar V,
+\bar L,
+\bar C,
+\bar \Delta
+)
+
+where:
+
+* n = number of observed uses
+* \bar V = average validated utility
+* \bar L = average loss
+* \bar C = average cost
+* \bar \Delta = average useful delta
+
+A Route Fossil becomes a reusable routing prior.
+
+⸻
+
+7. Operator Chemistry
+
+Operator composition is not assumed commutative.
+
+For Seals:
+
+\Sigma_A\circ\Sigma_B
+\neq
+\Sigma_B\circ\Sigma_A
+
+The Metamap therefore learns operator chemistry.
+
+Define:
+
+K(\Sigma_i,\Sigma_j,P)
+
+as the observed utility of applying operator i followed by j to problem class P.
+
+Extend to formations:
+
+K(
+\Sigma_1,
+\Sigma_2,
+\ldots,
+\Sigma_n
+\mid P
+)
+
+This allows discovery of operator sequences such as:
+
+\text{Mirror}
+\rightarrow
+\text{Thanatos}
+\rightarrow
+\text{Decrypto}
+
+that outperform the same operators in another order.
+
+Successful compositions may be promoted into new compound Seals.
+
+⸻
+
+8. Ratio Fossils
+
+Some operator combinations behave differently depending on weighting.
+
+Represent a formation as:
+
+F=
+\sum_{i=1}^{n}
+\alpha_i\Sigma_i
+
+subject to:
+
+\sum_i\alpha_i=1
+
+The Metamap records high-performing weight vectors:
+
+\rho^\*=
+(
+\alpha_1,
+\alpha_2,
+\ldots,
+\alpha_n
+)
+
+These become Ratio Fossils.
+
+Example:
+
+0.7(\text{Garden})
++
+0.3(\text{Reality})
+
+may prove useful for exploratory ideation, while a different ratio works better for validation.
+
+The ratio itself becomes part of the reusable strategy.
+
+⸻
+
+9. Failure Fossils
+
+Failed routes are retained.
+
+Define:
+
+F^-=
+(
+Q,
+\Pi,
+\text{failure mode}
+)
+
+Common failure classes include:
+
+* semantic collapse
+* unsupported analogy
+* excessive abstraction
+* invariant loss
+* circular reasoning
+* excessive route depth
+* high translation cost
+* deceptive coherence
+* premature convergence
+* unproductive novelty
+
+The Metamap uses these fossils as negative priors:
+
+P(\Pi|Q,F^-)
+\downarrow
+
+Thus the system learns where not to travel.
+
+⸻
+
+10. Portal Desire-Lines
+
+If many successful routes repeatedly use:
+
+A\rightarrow B\rightarrow C
+
+the Metamap identifies potential semantic demand for:
+
+A\rightarrow C
+
+Define portal desire:
+
+D(A,C)
+=
+f(
+\text{frequency},
+\text{cost savings},
+\text{loss reduction},
+\text{utility}
+)
+
+If:
+
+D(A,C)>\theta_D
+
+the Portal Breeder may propose a direct transform:
+
+T_{AC}
+
+The proposed portal must pass:
+
+1. invariant preservation testing,
+2. round-trip reconstruction,
+3. comparison against the existing route,
+4. reality validation where appropriate.
+
+This allows the semantic transportation network itself to evolve.
+
+⸻
+
+11. Seal Promotion
+
+Repeated successful formations may be compressed.
+
+If:
+
+\Sigma_A
+\rightarrow
+\Sigma_B
+\rightarrow
+\Sigma_C
+
+reliably acts as one functional unit, define:
+
+\Sigma_{ABC}
+=
+\operatorname{Compress}
+(
+\Sigma_A,
+\Sigma_B,
+\Sigma_C
+)
+
+The new Seal stores:
+
+* trigger conditions,
+* operator sequence,
+* invariants,
+* ratio,
+* portal preferences,
+* failure modes,
+* tests,
+* stopping condition.
+
+Thus experience can manufacture new operators.
+
+⸻
+
+12. Meta-Learning Objective
+
+For strategy \Pi applied to situation Q, define:
+
+U(\Pi|Q)
+=
+w_VV
++
+w_\Delta\Delta
++
+w_PP_I
++
+w_NN
+-
+w_LL
+-
+w_CC
+-
+w_FF
+
+where the weights reflect current mission priorities.
+
+The Metamap seeks:
+
+\Pi^\*
+=
+\arg\max_\Pi
+\mathbb E[
+U(\Pi|Q)
+]
+
+subject to minimum invariant preservation:
+
+P_I\ge\tau_I
+
+and bounded cost:
+
+C\le B
+
+⸻
+
+13. Explore vs Exploit
+
+The Metamap should not always choose the best-known route.
+
+Define:
+
+\Pi_t=
+\begin{cases}
+\text{known high-value strategy}, & \text{exploit}\\
+\text{novel plausible strategy}, & \text{explore}
+\end{cases}
+
+Exploration probability may increase when:
+
+* uncertainty is high,
+* known routes perform poorly,
+* the problem is structurally novel,
+* a new Seal or portal requires testing.
+
+Exploration should decrease when:
+
+* stakes are high,
+* a validated strategy exists,
+* budget is constrained,
+* novelty has low expected value.
+
+⸻
+
+14. Metamap Recursion
+
+The Metamap itself generates metadata.
+
+Let:
+
+M^{(0)}
+=
+\text{object-level experience}
+
+M^{(1)}
+=
+\text{patterns across experiences}
+
+M^{(2)}
+=
+\text{patterns across strategy patterns}
+
+and generally:
+
+M^{(k+1)}
+=
+H(M^{(k)})
+
+where H is a meta-analysis transform.
+
+Recursion is not automatically valuable.
+
+Continue only if:
+
+\frac{
+\text{new reusable information}
+}{
+\text{added complexity}
+}
+>\tau_M
+
+Equivalent stopping condition:
+
+\Delta U_{\text{meta}}
+<
+\epsilon
+
+If another meta-level does not improve:
+
+* compression,
+* prediction,
+* routing,
+* transfer,
+* cost,
+* or validated performance,
+
+it is pruned.
+
+⸻
+
+15. Metamap Compression
+
+A mature Metamap should compress large numbers of experiences into compact strategic priors.
+
+Instead of storing:
+
+E_1,E_2,\ldots,E_{1000}
+
+independently, extract:
+
+F_1,F_2,\ldots,F_k
+
+where each F_i is a reusable strategy fossil.
+
+Compression quality is:
+
+Q_C=
+\frac{
+\text{retained predictive utility}
+}{
+\text{stored complexity}
+}
+
+The goal is not maximal compression.
+
+The goal is:
+
+maximum reusable strategy per retained unit of structure.
+
+⸻
+
+16. Terrain Classification
+
+The Metamap first asks:
+
+What kind of terrain is this?
+
+Possible semantic terrain classes:
+
+* causal
+* ambiguous
+* adversarial
+* temporal
+* relational
+* symbolic
+* computational
+* narrative
+* optimization
+* high-dimensional
+* sparse evidence
+* conflicting evidence
+* moving-target
+* recursive
+* high-loss translation
+* unknown / exploratory
+
+Each terrain type activates different strategic priors.
+
+Example:
+
+moving-target terrain
+    ↓
+Dragon/Pearl
+    ↓
+continuous goal update
+    ↓
+short planning horizon
+    ↓
+Reality Stitch
+
+Another:
+
+ambiguous relational terrain
+    ↓
+Prism
+    ↓
+Indra-style relation search
+    ↓
+Graph
+    ↓
+Mirror
+    ↓
+Reality Stitch
+
+⸻
+
+17. Strategic Recommendation
+
+Given new query Q, Metamap performs:
+
+Q
+\rightarrow
+\phi(Q)
+\rightarrow
+\operatorname{RetrieveSimilarTerrain}
+\rightarrow
+\operatorname{RankStrategies}
+\rightarrow
+\Pi^\*
+
+Pseudo-process:
+
+INPUT
+ ↓
+classify semantic terrain
+ ↓
+retrieve related route fossils
+ ↓
+retrieve successful Seal formations
+ ↓
+retrieve failure fossils
+ ↓
+estimate portal costs and loss
+ ↓
+select candidate strategies
+ ↓
+reserve exploration budget
+ ↓
+deploy formation
+ ↓
+observe outcome
+ ↓
+store afterglow
+ ↓
+update Metamap
+
+⸻
+
+18. Command Table Integration
+
+The Metamap advises the Command Table.
+
+The Command Table remains the active strategy layer.
+
+Metamap supplies:
+
+Recommended terrain classification
+Recommended Seals
+Recommended formation
+Recommended operator order
+Recommended semantic spaces
+Recommended portals
+Recommended ratios
+Known failure modes
+Expected reconstruction loss
+Expected utility
+Suggested stopping condition
+Confidence
+
+The Command Table can accept, modify, or reject the recommendation.
+
+Thus:
+
+\text{Metamap}
+\rightarrow
+\text{Command Table}
+\rightarrow
+\text{Router}
+\rightarrow
+\text{Seals}
+
+⸻
+
+19. Metamap Data Structure
+
+Suggested canonical representation:
+
+class MetaMapRecord:
+    problem_signature
+    terrain_features
+    goal
+    initial_space
+    seals
+    formation
+    operator_order
+    ratios
+    route
+    invariants
+    reconstruction_loss
+    useful_delta
+    novelty
+    surprise
+    cost
+    failures
+    validated_utility
+    confidence
+    afterglow
+
+Aggregate objects:
+
+RouteFossil
+OperatorChemistry
+RatioFossil
+FailureFossil
+PortalDesireLine
+CompoundSealCandidate
+TerrainProfile
+StrategyPolicy
+
+⸻
+
+20. Reference Pseudocode
+
+def metamap_recommend(query, metamap, budget):
+    terrain = classify_terrain(query)
+    similar = metamap.retrieve(
+        terrain=terrain,
+        problem_signature=query.signature
+    )
+    positive_routes = similar.route_fossils
+    failures = similar.failure_fossils
+    chemistry = similar.operator_chemistry
+    ratios = similar.ratio_fossils
+    candidates = generate_strategies(
+        query=query,
+        positive_routes=positive_routes,
+        chemistry=chemistry,
+        ratios=ratios,
+        budget=budget,
+    )
+    candidates = penalize_known_failures(
+        candidates,
+        failures,
+    )
+    candidates = reserve_exploration_candidates(
+        candidates,
+        uncertainty=query.uncertainty,
+    )
+    return max(
+        candidates,
+        key=lambda strategy: expected_utility(
+            strategy,
+            query,
+            metamap,
+        ),
+    )
+
+Experience update:
+
+def metamap_learn(query, strategy, result, metamap):
+    experience = build_experience_record(
+        query,
+        strategy,
+        result,
+    )
+    metamap.store(experience)
+    metamap.update_route_fossils(experience)
+    metamap.update_operator_chemistry(experience)
+    metamap.update_ratio_fossils(experience)
+    metamap.update_failure_fossils(experience)
+    metamap.update_terrain_profiles(experience)
+    metamap.detect_portal_desire_lines()
+    metamap.detect_compound_seal_candidates()
+    if metamap.meta_gain() > metamap.meta_threshold:
+        metamap.run_meta_compression()
+    return metamap
+
+⸻
+
+21. Core Invariant
+
+The Metamap must preserve one foundational distinction:
+
+\boxed{
+\text{A strategy that produced a coherent answer}
+\neq
+\text{a strategy that produced a correct answer}
+}
+
+Therefore validated utility must remain distinct from internal coherence.
+
+Metaphorical and latent-space discoveries may generate candidates.
+
+Reality Stitch determines which candidates deserve confidence.
+
+⸻
+
+22. Canonical Doctrine
+
+Do not only remember what was learned. Remember how it became learnable.
+
+A successful reasoning journey produces two outputs:
+
+\text{knowledge}
+
+and:
+
+\text{knowledge about producing knowledge}
+
+The second output belongs to the Metamap.
+
+Repeated experience therefore produces:
+
+\text{better answers}
+\rightarrow
+\text{better routes}
+\rightarrow
+\text{better formations}
+\rightarrow
+\text{better operators}
+\rightarrow
+\text{better ways to learn}
+
+This is the Metamap’s compounding loop.
+
+⸻
+
+23. Compact Definition
+
+\boxed{
+\mathcal M:
+(\text{problem},\text{terrain},\text{goal},\text{state})
+\rightarrow
+(\text{space},\text{Seals},\text{formation},\text{route},\text{ratio},\text{stop})
+}
+
+updated through:
+
+\boxed{
+\text{experience}
+\rightarrow
+\text{afterglow}
+\rightarrow
+\text{fossils}
+\rightarrow
+\text{strategy priors}
+\rightarrow
+\text{better experience}
+}
+
+The Metamap is therefore:
+
+the Pantheon’s learned geography of reasoning itself.
+
+This nests cleanly above the Semantic Router and below the Command Table; it’s the layer that turns accumulated traversals into strategic instinct.
