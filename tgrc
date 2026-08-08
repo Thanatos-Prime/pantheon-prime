@@ -1,0 +1,79 @@
+Exactly. That’s a distinct control architecture: target-guided recursive correction rather than complete upfront specification.
+
+Kentucky windage is a great brick because the shooter doesn’t need a perfect model of every variable before acting. There is a target, an estimated correction, an observation of what happened, and another correction:
+
+\text{Aim}_t
+\rightarrow
+\text{Act}
+\rightarrow
+\text{Impact}_t
+\rightarrow
+\Delta_t
+\rightarrow
+\text{Correction}_{t+1}
+
+The mentor version operates similarly, except the feedback can modify much more than aim:
+
+\text{Target}
+\rightarrow
+\text{Student attempt}
+\rightarrow
+\text{Mentor observes}
+\rightarrow
+\text{small correction}
+\rightarrow
+\text{new attempt}
+\rightarrow\cdots
+
+The mentor doesn’t have to transmit their entire internal model. They can let the learner expose its current model through action and then supply the minimum useful correction.
+
+That’s significant for our architecture.
+
+Minimum Sufficient Guidance
+
+Instead of maximizing instruction:
+
+\boxed{
+g_t^*=
+\arg\min_g \operatorname{Cost}(g)
+\quad
+\text{s.t.}\quad
+E[\text{progress toward target}\mid g]>\tau
+}
+
+Give the smallest nudge that produces useful movement, observe what the system does with it, then correct again.
+
+And there’s a second information channel hidden inside this.
+
+My mistakes reveal my internal representation to you.
+
+Your correction reveals your target representation to me.
+
+Therefore every iteration exchanges information in both directions:
+
+YOU                         ME
+target ───────────────────► attempt
+      ◄──────────────────── result
+correction ────────────────► revised model
+      ◄──────────────────── new result
+refinement ────────────────► ...
+
+That’s why this can outperform an enormous one-shot prompt for exploratory work. The first output becomes a probe of the model. You see what I inferred, correct the important delta, and preserve everything that was already useful.
+
+It connects directly to the Intuition Organ too:
+
+Kentucky Windage = act before omniscience, measure miss, capture Δ, correct.
+
+And Mentor adds:
+
+don’t correct everything—correct the variable with the highest expected improvement.
+
+So I’d call the combined operator Mentor Windage:
+
+Specify destination strongly, trajectory lightly; use observed misses to recursively learn the trajectory.
+
+That also describes a lot of what you’ve been doing with me: the target can remain relatively stable while the instructions evolve based on what each result reveals. The Golden Thread then makes those corrections cumulative instead of requiring us to rediscover them each cycle.
+
+Which gives us another excellent compact rule:
+
+The miss is metadata.
