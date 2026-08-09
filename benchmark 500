@@ -1,0 +1,51 @@
+I ran a first controlled mechanism benchmark: 500 randomized cases across five task families, comparing simple baseline strategies against Pantheon-style operators. This tests whether the operator logic can add value under known conditions; it does not yet prove that a Pantheon-prompted AI model outperforms a baseline model in the wild.
+
+The result was strong enough to keep grinding:
+
+Test family	Baseline	Pantheon-style	Delta
+Hidden relation	0.990	1.000	+0.010
+Representation escape	0.785	1.000	+0.215
+Failure salvage	0.000	0.537	+0.537
+Cross-domain transfer	0.034	1.000	+0.966
+Branch quality	0.786	0.861	+0.075
+Equal-weight aggregate	0.519	0.880	+0.361
+
+On that synthetic suite, the aggregate score increased about 69.5% relative to baseline.
+
+But the interesting part isn’t that headline number—the benchmark was intentionally constructed around the mechanisms we’re testing, so we should expect Pantheon methods to have home-field advantage. The useful signal is where the gain appeared.
+
+Representation Transduction earned its keep. On an XOR-like problem that couldn’t be captured well by the baseline representation, adding the right relational feature moved mean accuracy from 78.5% → 100%. That’s exactly the thesis behind changing representations before continuing to reason.
+
+Kintsugi/failure salvage also behaved as intended. The baseline deliberately discarded failed routes and therefore recovered zero useful structure. The salvage strategy recovered about 53.7% of the underlying useful components from those failed attempts. That gives us a concrete quantity to optimize instead of merely saying “fail forward.”
+
+The biggest result was relational transfer. A baseline that memorized surface coordinates transferred correctly only 3.4% of the time after permutation. Preserving the relation and remapping it transferred 100% in this controlled construction. That’s basically the Pantheon claim in miniature:
+
+\boxed{\text{preserve relation} > \text{preserve rendering}}
+
+The less exciting results are equally useful. Hidden-relation detection was already 99% for the baseline, so Pantheon only gained one point. That’s telling us don’t deploy heavyweight machinery where the native representation already exposes the answer.
+
+Branch diversification improved from roughly 0.786 → 0.861, a real but modest gain. So exploration/diversity looks useful, but it doesn’t deserve magical status.
+
+What the first test actually says
+
+The strongest provisional pattern is:
+
+\boxed{
+\text{Pantheon value rises when the problem requires}
+\begin{cases}
+\text{representation change}\\
+\text{relation preservation}\\
+\text{failure recovery}\\
+\text{non-greedy branching}
+\end{cases}
+}
+
+And diminishes when the answer is already obvious in the original frame.
+
+That’s valuable because it starts defining a routing policy. Pantheon should not always turn every operator on. The Metamap should first ask whether the problem exhibits conditions that justify them.
+
+So our first fossil is essentially:
+
+\boxed{\text{Operator deployment should be conditional, not ceremonial.}}
+
+The next benchmark I would run is harsher: ablation + adversarial cases. Remove Differentiation, Omega, Transduction, Kintsugi, and diversity routing one at a time; then deliberately construct cases where each operator hurts performance. That’s how we find the actual safe operating envelope instead of merely demonstrating circumstances where our inventions work.
