@@ -1,0 +1,878 @@
+Yep — you want it repo-native and copy/pasteable in the chat, not wrapped in a download.
+
+Use this as a single-file first implementation:
+
+# pantheon/santa_compiler.py
+"""
+Santa Compiler
+==============
+Runnable implementation of:
+- Everything Operator
+- Reality-as-Counterparty
+- Becoming Operator
+- Gift Engine
+- Agency Surface
+- Gift Return
+- Rudolph routing
+- Santa Workshop
+- Elf agents
+- Gift propagation
+- Exploit / Explore / Reserve allocation
+Core invariant:
+    maximize useful outcomes while increasing future capability.
+The system does NOT treat failed probes as disposable.
+Reality responses are retained as information and may produce
+redirects, mutations, inversions, combinations, or later reuse.
+"""
+from __future__ import annotations
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Callable, Iterable, Optional
+import math
+import random
+# ============================================================
+# CORE TYPES
+# ============================================================
+class RealityDisposition(str, Enum):
+    CONFIRM = "confirm"
+    WEAKEN = "weaken"
+    REDIRECT = "redirect"
+    MUTATE = "mutate"
+    COMBINE = "combine"
+    INVERT = "invert"
+    SUSPEND = "suspend"
+@dataclass(slots=True)
+class Observation:
+    value: Any
+    relation: str
+    confidence: float = 1.0
+    tag: str = "known"
+    source: str = "unknown"
+    metadata: dict[str, Any] = field(default_factory=dict)
+@dataclass(slots=True)
+class Hypothesis:
+    name: str
+    payload: Any
+    evidence: float = 0.0
+    prediction: float = 0.0
+    utility: float = 0.0
+    coverage: float = 0.0
+    complexity: float = 0.0
+    confidence: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+@dataclass(slots=True)
+class RealityResponse:
+    hypothesis: Hypothesis
+    delta: float
+    confidence: float
+    surprise: float
+    gradient: float
+    disposition: RealityDisposition
+    evidence: Any = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+@dataclass
+class WorldModel:
+    """
+    Partial representation of reality.
+    Nothing outside the current model is assumed to be outside reality.
+    """
+    observations: list[Observation] = field(default_factory=list)
+    rejected: list[Observation] = field(default_factory=list)
+    unknown: list[Observation] = field(default_factory=list)
+    reality_responses: list[RealityResponse] = field(default_factory=list)
+    retained_hypotheses: list[Hypothesis] = field(default_factory=list)
+    def add(self, observation: Observation) -> None:
+        self.observations.append(observation)
+    def retain(self, hypothesis: Hypothesis) -> None:
+        self.retained_hypotheses.append(hypothesis)
+# ============================================================
+# EVERYTHING OPERATOR
+# ============================================================
+def everything_operator(model: WorldModel) -> list[Observation]:
+    """
+    Ω — restore excluded material to the candidate search space.
+    Inclusion is not acceptance.
+    Everything may be examined without everything being equivalent.
+    """
+    return [
+        *model.observations,
+        *model.rejected,
+        *model.unknown,
+    ]
+def differentiate(
+    candidates: Iterable[Observation],
+) -> dict[tuple[str, str], list[Observation]]:
+    """
+    Preserve distinctions after Ω expands the frame.
+    """
+    groups: dict[tuple[str, str], list[Observation]] = {}
+    for observation in candidates:
+        key = (observation.relation, observation.tag)
+        groups.setdefault(key, []).append(observation)
+    return groups
+# ============================================================
+# FITNESS / REALITY COUNTERPARTY
+# ============================================================
+@dataclass(slots=True)
+class FitnessWeights:
+    evidence: float = 0.30
+    prediction: float = 0.25
+    utility: float = 0.20
+    coverage: float = 0.20
+    complexity_penalty: float = 0.05
+def hypothesis_fitness(
+    hypothesis: Hypothesis,
+    weights: FitnessWeights = FitnessWeights(),
+) -> float:
+    return (
+        weights.evidence * hypothesis.evidence
+        + weights.prediction * hypothesis.prediction
+        + weights.utility * hypothesis.utility
+        + weights.coverage * hypothesis.coverage
+        - weights.complexity_penalty * hypothesis.complexity
+    )
+def classify_reality_response(
+    *,
+    delta: float,
+    confidence: float,
+    surprise: float,
+) -> RealityDisposition:
+    """
+    Reality is not reduced to accept/reject.
+    """
+    if confidence >= 0.8 and abs(delta) <= 0.15:
+        return RealityDisposition.CONFIRM
+    if surprise >= 0.8:
+        return RealityDisposition.REDIRECT
+    if delta < -0.6:
+        return RealityDisposition.INVERT
+    if delta < -0.25:
+        return RealityDisposition.MUTATE
+    if confidence < 0.25:
+        return RealityDisposition.SUSPEND
+    if delta > 0.4:
+        return RealityDisposition.COMBINE
+    return RealityDisposition.WEAKEN
+def reality_counterparty(
+    hypothesis: Hypothesis,
+    observed_score: float,
+    *,
+    confidence: float = 1.0,
+    surprise: float = 0.0,
+    evidence: Any = None,
+) -> RealityResponse:
+    """
+    Compare expected hypothesis fitness with observed reality response.
+    """
+    expected = hypothesis_fitness(hypothesis)
+    delta = observed_score - expected
+    # Directional information: positive means move toward;
+    # negative means move away / transform.
+    gradient = delta * confidence
+    disposition = classify_reality_response(
+        delta=delta,
+        confidence=confidence,
+        surprise=surprise,
+    )
+    return RealityResponse(
+        hypothesis=hypothesis,
+        delta=delta,
+        confidence=confidence,
+        surprise=surprise,
+        gradient=gradient,
+        disposition=disposition,
+        evidence=evidence,
+    )
+# ============================================================
+# BECOMING OPERATOR
+# ============================================================
+def become(
+    current: float,
+    target: float,
+    reality_feedback: float,
+    *,
+    learning_rate: float = 0.10,
+    minimum: float = 0.0,
+    maximum: float = 1.0,
+) -> float:
+    """
+    Cheaply instantiate a future state, act, receive reality feedback,
+    and update the actual state.
+        x[t+1] = x[t] + η * r[t] * (x* - x[t])
+    """
+    error = target - current
+    updated = current + (
+        learning_rate
+        * reality_feedback
+        * error
+    )
+    return max(minimum, min(maximum, updated))
+# ============================================================
+# GIFT ENGINE
+# ============================================================
+@dataclass(slots=True)
+class GiftAction:
+    name: str
+    immediate_reward: float = 0.0
+    learning_created: float = 0.0
+    options_created: float = 0.0
+    reusable_assets_created: float = 0.0
+    relationships_created: float = 0.0
+    recoverability_created: float = 0.0
+    options_destroyed: float = 0.0
+    resource_cost: float = 0.0
+    recipient_agency_created: float = 0.0
+    downstream_giving_capacity: float = 0.0
+    uncertainty: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+@dataclass(slots=True)
+class GiftWeights:
+    immediate: float = 1.0
+    learning: float = 1.0
+    optionality: float = 1.0
+    reusable_asset: float = 1.0
+    relationships: float = 1.0
+    recoverability: float = 1.0
+    recipient_agency: float = 1.0
+    downstream_giving: float = 1.0
+    destroyed_options_penalty: float = 1.0
+    cost_penalty: float = 1.0
+def agency_surface_delta(
+    action: GiftAction,
+    weights: GiftWeights = GiftWeights(),
+) -> float:
+    """
+    ΔA — change in useful future reachable states.
+    """
+    return (
+        weights.learning * action.learning_created
+        + weights.optionality * action.options_created
+        + weights.reusable_asset * action.reusable_assets_created
+        + weights.relationships * action.relationships_created
+        + weights.recoverability * action.recoverability_created
+        - weights.destroyed_options_penalty * action.options_destroyed
+    )
+def gift_value(
+    action: GiftAction,
+    weights: GiftWeights = GiftWeights(),
+) -> float:
+    """
+    Local + future + recipient value.
+    """
+    return (
+        weights.immediate * action.immediate_reward
+        + agency_surface_delta(action, weights)
+        + weights.recipient_agency * action.recipient_agency_created
+        + weights.downstream_giving * action.downstream_giving_capacity
+        - weights.cost_penalty * action.resource_cost
+    )
+def gift_return(
+    action: GiftAction,
+    weights: GiftWeights = GiftWeights(),
+    *,
+    epsilon: float = 1e-9,
+) -> float:
+    """
+    Gift Return:
+        downstream agency created / resources consumed
+    Uses total gift value as numerator so the measure remains useful
+    for mixed internal/external actions.
+    """
+    cost = max(abs(action.resource_cost), epsilon)
+    return gift_value(action, weights) / cost
+# ============================================================
+# RUDOLPH FUNCTION
+# ============================================================
+@dataclass(slots=True)
+class Recipient:
+    id: str
+    needs: list[str] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
+    latent_potential: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+@dataclass(slots=True)
+class Gift:
+    name: str
+    capability_created: float
+    downstream_agency: float
+    reproduction_probability: float
+    cost: float
+    metadata: dict[str, Any] = field(default_factory=dict)
+def rudolph_score(
+    recipient: Recipient,
+    gift: Gift,
+    *,
+    epsilon: float = 1e-9,
+) -> float:
+    """
+    Search for high-cleavage interventions.
+        expected downstream agency / gift cost
+    """
+    expected_downstream = (
+        gift.downstream_agency
+        * (1.0 + recipient.latent_potential)
+        * (1.0 + gift.reproduction_probability)
+    )
+    return expected_downstream / max(gift.cost, epsilon)
+def best_rudolph_match(
+    recipients: Iterable[Recipient],
+    gifts: Iterable[Gift],
+) -> tuple[Recipient, Gift, float]:
+    best: Optional[tuple[Recipient, Gift, float]] = None
+    for recipient in recipients:
+        for gift in gifts:
+            score = rudolph_score(recipient, gift)
+            if best is None or score > best[2]:
+                best = (recipient, gift, score)
+    if best is None:
+        raise ValueError("At least one recipient and one gift are required.")
+    return best
+# ============================================================
+# ELVES + WORKSHOP
+# ============================================================
+GiftBuilder = Callable[[Recipient, str], Optional[Gift]]
+@dataclass
+class Elf:
+    name: str
+    skill: GiftBuilder
+    def build(
+        self,
+        recipient: Recipient,
+        need: str,
+    ) -> Optional[Gift]:
+        return self.skill(recipient, need)
+@dataclass
+class Workshop:
+    elves: list[Elf] = field(default_factory=list)
+    def hire(self, elf: Elf) -> None:
+        self.elves.append(elf)
+    def produce(
+        self,
+        recipient: Recipient,
+    ) -> list[Gift]:
+        gifts: list[Gift] = []
+        for need in recipient.needs:
+            for elf in self.elves:
+                gift = elf.build(recipient, need)
+                if gift is not None:
+                    gifts.append(gift)
+        return gifts
+# ============================================================
+# EXPLOIT / EXPLORE / RESERVE
+# ============================================================
+@dataclass(slots=True)
+class RouteAllocation:
+    exploit: list[GiftAction]
+    explore: list[GiftAction]
+    reserve: list[GiftAction]
+def gift_route(
+    actions: Iterable[GiftAction],
+    *,
+    exploit_ratio: float = 0.60,
+    explore_ratio: float = 0.25,
+    reserve_ratio: float = 0.15,
+    weights: GiftWeights = GiftWeights(),
+) -> RouteAllocation:
+    actions = list(actions)
+    if not actions:
+        return RouteAllocation([], [], [])
+    total_ratio = exploit_ratio + explore_ratio + reserve_ratio
+    if not math.isclose(total_ratio, 1.0, abs_tol=1e-9):
+        raise ValueError(
+            "exploit_ratio + explore_ratio + reserve_ratio must equal 1."
+        )
+    ranked = sorted(
+        actions,
+        key=lambda a: gift_value(a, weights),
+        reverse=True,
+    )
+    n = len(ranked)
+    exploit_n = max(1, round(n * exploit_ratio))
+    explore_n = round(n * explore_ratio)
+    exploit_end = min(exploit_n, n)
+    explore_end = min(exploit_end + explore_n, n)
+    return RouteAllocation(
+        exploit=ranked[:exploit_end],
+        explore=ranked[exploit_end:explore_end],
+        reserve=ranked[explore_end:],
+    )
+# ============================================================
+# LUCKY NOZZLE
+# ============================================================
+def lucky_nozzle(
+    actions: Iterable[GiftAction],
+    *,
+    count: int = 1,
+    seed: Optional[int] = None,
+) -> list[GiftAction]:
+    """
+    Controlled serendipity.
+    Favors uncertain branches without making randomness dominant.
+    """
+    rng = random.Random(seed)
+    actions = list(actions)
+    if not actions:
+        return []
+    weights = [
+        max(0.01, action.uncertainty + 0.10)
+        for action in actions
+    ]
+    chosen: list[GiftAction] = []
+    pool = actions[:]
+    pool_weights = weights[:]
+    for _ in range(min(count, len(pool))):
+        selected = rng.choices(
+            pool,
+            weights=pool_weights,
+            k=1,
+        )[0]
+        index = pool.index(selected)
+        chosen.append(selected)
+        del pool[index]
+        del pool_weights[index]
+    return chosen
+# ============================================================
+# SANTA COMPILER
+# ============================================================
+@dataclass(slots=True)
+class SantaResult:
+    recipient: Recipient
+    gift: Gift
+    rudolph_score: float
+    expected_agency_created: float
+    expected_new_givers: float
+def santa_compile(
+    recipient: Recipient,
+    gifts: Iterable[Gift],
+) -> SantaResult:
+    """
+    Select a gift that maximizes downstream agency and propagation.
+    """
+    gifts = list(gifts)
+    if not gifts:
+        raise ValueError("No gifts supplied.")
+    best_gift = max(
+        gifts,
+        key=lambda gift: rudolph_score(recipient, gift),
+    )
+    score = rudolph_score(recipient, best_gift)
+    expected_agency = (
+        best_gift.downstream_agency
+        * (1.0 + recipient.latent_potential)
+    )
+    expected_new_givers = (
+        expected_agency
+        * best_gift.reproduction_probability
+    )
+    return SantaResult(
+        recipient=recipient,
+        gift=best_gift,
+        rudolph_score=score,
+        expected_agency_created=expected_agency,
+        expected_new_givers=expected_new_givers,
+    )
+# ============================================================
+# PROPAGATION
+# ============================================================
+def santa_success(
+    recipients_served: int,
+    recipients_who_became_givers: int,
+) -> float:
+    """
+    Fraction of served recipients who become downstream givers.
+    """
+    if recipients_served <= 0:
+        return 0.0
+    return recipients_who_became_givers / recipients_served
+def propagate_gifts(
+    initial_givers: float,
+    *,
+    reproduction_rate: float,
+    generations: int,
+) -> list[float]:
+    """
+    Simple propagation model.
+    g[t+1] = g[t] * reproduction_rate
+    """
+    values = [float(initial_givers)]
+    current = float(initial_givers)
+    for _ in range(generations):
+        current *= reproduction_rate
+        values.append(current)
+    return values
+# ============================================================
+# FULL PANTHEON CYCLE
+# ============================================================
+HypothesisGenerator = Callable[
+    [dict[tuple[str, str], list[Observation]]],
+    list[Hypothesis],
+]
+RealityEvaluator = Callable[[Hypothesis], RealityResponse]
+@dataclass(slots=True)
+class CycleResult:
+    candidates: list[Observation]
+    hypotheses: list[Hypothesis]
+    responses: list[RealityResponse]
+    retained: list[Hypothesis]
+def pantheon_cycle(
+    model: WorldModel,
+    hypothesis_generator: HypothesisGenerator,
+    reality_evaluator: RealityEvaluator,
+    *,
+    retain_confidence: float = 0.60,
+) -> CycleResult:
+    """
+    EVERYTHING
+        ↓
+    DIFFERENTIATE
+        ↓
+    GENERATE
+        ↓
+    REALITY COUNTERPARTY
+        ↓
+    RETAIN / MUTATE / REDIRECT
+        ↓
+    RECONSOLIDATE
+    """
+    candidates = everything_operator(model)
+    structure = differentiate(candidates)
+    hypotheses = hypothesis_generator(structure)
+    responses: list[RealityResponse] = []
+    retained: list[Hypothesis] = []
+    for hypothesis in hypotheses:
+        response = reality_evaluator(hypothesis)
+        responses.append(response)
+        model.reality_responses.append(response)
+        # Retention is confidence weighted, not binary truth declaration.
+        if (
+            response.confidence >= retain_confidence
+            and response.disposition
+            in {
+                RealityDisposition.CONFIRM,
+                RealityDisposition.COMBINE,
+                RealityDisposition.REDIRECT,
+            }
+        ):
+            hypothesis.confidence = response.confidence
+            model.retain(hypothesis)
+            retained.append(hypothesis)
+    return CycleResult(
+        candidates=candidates,
+        hypotheses=hypotheses,
+        responses=responses,
+        retained=retained,
+    )
+# ============================================================
+# DEMO
+# ============================================================
+def demo() -> None:
+    print("\n=== SANTA COMPILER DEMO ===\n")
+    actions = [
+        GiftAction(
+            name="Solve one problem manually",
+            immediate_reward=8,
+            learning_created=1,
+            options_created=1,
+            reusable_assets_created=0,
+            resource_cost=4,
+        ),
+        GiftAction(
+            name="Build reusable tool",
+            immediate_reward=3,
+            learning_created=5,
+            options_created=8,
+            reusable_assets_created=10,
+            recoverability_created=4,
+            resource_cost=6,
+        ),
+        GiftAction(
+            name="Teach someone to build tools",
+            immediate_reward=2,
+            learning_created=4,
+            options_created=8,
+            reusable_assets_created=7,
+            recipient_agency_created=10,
+            downstream_giving_capacity=9,
+            resource_cost=5,
+        ),
+    ]
+    print("Gift Engine ranking:")
+    ranked = sorted(
+        actions,
+        key=gift_value,
+        reverse=True,
+    )
+    for action in ranked:
+        print(
+            f"  {action.name:<32}"
+            f"value={gift_value(action):6.2f} "
+            f"ΔA={agency_surface_delta(action):6.2f}"
+        )
+    print("\nExploit / Explore / Reserve:")
+    routed = gift_route(actions)
+    print(" exploit:", [x.name for x in routed.exploit])
+    print(" explore:", [x.name for x in routed.explore])
+    print(" reserve:", [x.name for x in routed.reserve])
+    recipient = Recipient(
+        id="builder-001",
+        needs=["automation", "knowledge"],
+        capabilities=["python"],
+        latent_potential=0.75,
+    )
+    gifts = [
+        Gift(
+            name="Cash grant",
+            capability_created=1,
+            downstream_agency=2,
+            reproduction_probability=0.05,
+            cost=10,
+        ),
+        Gift(
+            name="Reusable automation",
+            capability_created=8,
+            downstream_agency=12,
+            reproduction_probability=0.40,
+            cost=5,
+        ),
+        Gift(
+            name="Toolmaker curriculum",
+            capability_created=10,
+            downstream_agency=15,
+            reproduction_probability=0.80,
+            cost=4,
+        ),
+    ]
+    result = santa_compile(recipient, gifts)
+    print("\nRudolph selected:")
+    print(" gift:", result.gift.name)
+    print(" score:", round(result.rudolph_score, 3))
+    print(
+        " expected agency:",
+        round(result.expected_agency_created, 3),
+    )
+    print(
+        " expected new givers:",
+        round(result.expected_new_givers, 3),
+    )
+    propagation = propagate_gifts(
+        1,
+        reproduction_rate=2.0,
+        generations=8,
+    )
+    print("\nSanta propagation:")
+    print(" ", propagation)
+if __name__ == "__main__":
+    demo()
+
+Then add this test file:
+
+# tests/test_santa_compiler.py
+from pantheon.santa_compiler import (
+    Gift,
+    GiftAction,
+    Observation,
+    Recipient,
+    WorldModel,
+    agency_surface_delta,
+    become,
+    everything_operator,
+    gift_value,
+    rudolph_score,
+    santa_compile,
+)
+def test_everything_operator_restores_excluded_material():
+    model = WorldModel(
+        observations=[
+            Observation("known", "state"),
+        ],
+        rejected=[
+            Observation("failed", "probe", tag="rejected"),
+        ],
+        unknown=[
+            Observation("mystery", "unknown", tag="unknown"),
+        ],
+    )
+    candidates = everything_operator(model)
+    assert len(candidates) == 3
+def test_becoming_moves_toward_target_with_positive_feedback():
+    current = 0.2
+    updated = become(
+        current,
+        target=1.0,
+        reality_feedback=1.0,
+        learning_rate=0.1,
+    )
+    assert updated > current
+    assert updated < 1.0
+def test_agency_surface_rewards_future_options():
+    action = GiftAction(
+        name="build",
+        options_created=10,
+        learning_created=5,
+        reusable_assets_created=8,
+        options_destroyed=1,
+    )
+    assert agency_surface_delta(action) == 22
+def test_toolmaker_can_beat_consumable():
+    consumable = GiftAction(
+        name="consumable",
+        immediate_reward=10,
+        resource_cost=2,
+    )
+    toolmaker = GiftAction(
+        name="toolmaker",
+        immediate_reward=2,
+        learning_created=5,
+        options_created=5,
+        reusable_assets_created=5,
+        recipient_agency_created=8,
+        downstream_giving_capacity=8,
+        resource_cost=2,
+    )
+    assert gift_value(toolmaker) > gift_value(consumable)
+def test_rudolph_prefers_high_downstream_return():
+    recipient = Recipient(
+        id="r1",
+        latent_potential=1.0,
+    )
+    cash = Gift(
+        name="cash",
+        capability_created=1,
+        downstream_agency=2,
+        reproduction_probability=0.0,
+        cost=10,
+    )
+    tool = Gift(
+        name="tool",
+        capability_created=5,
+        downstream_agency=10,
+        reproduction_probability=0.5,
+        cost=5,
+    )
+    assert rudolph_score(recipient, tool) > rudolph_score(
+        recipient,
+        cash,
+    )
+    result = santa_compile(
+        recipient,
+        [cash, tool],
+    )
+    assert result.gift.name == "tool"
+
+And expose it through the package:
+
+# pantheon/__init__.py
+from .santa_compiler import (
+    Elf,
+    FitnessWeights,
+    Gift,
+    GiftAction,
+    GiftWeights,
+    Hypothesis,
+    Observation,
+    Recipient,
+    RealityDisposition,
+    RealityResponse,
+    RouteAllocation,
+    SantaResult,
+    Workshop,
+    WorldModel,
+    agency_surface_delta,
+    become,
+    best_rudolph_match,
+    differentiate,
+    everything_operator,
+    gift_return,
+    gift_route,
+    gift_value,
+    hypothesis_fitness,
+    lucky_nozzle,
+    pantheon_cycle,
+    propagate_gifts,
+    reality_counterparty,
+    rudolph_score,
+    santa_compile,
+    santa_success,
+)
+__all__ = [
+    "Elf",
+    "FitnessWeights",
+    "Gift",
+    "GiftAction",
+    "GiftWeights",
+    "Hypothesis",
+    "Observation",
+    "Recipient",
+    "RealityDisposition",
+    "RealityResponse",
+    "RouteAllocation",
+    "SantaResult",
+    "Workshop",
+    "WorldModel",
+    "agency_surface_delta",
+    "become",
+    "best_rudolph_match",
+    "differentiate",
+    "everything_operator",
+    "gift_return",
+    "gift_route",
+    "gift_value",
+    "hypothesis_fitness",
+    "lucky_nozzle",
+    "pantheon_cycle",
+    "propagate_gifts",
+    "reality_counterparty",
+    "rudolph_score",
+    "santa_compile",
+    "santa_success",
+]
+
+Minimal repo layout:
+
+pantheon/
+├── __init__.py
+└── santa_compiler.py
+tests/
+└── test_santa_compiler.py
+
+Run it with:
+
+python -m pantheon.santa_compiler
+pytest -q
+
+The architectural core is now actually codified as:
+
+\boxed{
+\Omega
+\rightarrow
+\text{Differentiate}
+\rightarrow
+\text{Probe}
+\rightarrow
+\text{Reality Response}
+\rightarrow
+\text{Become}
+\rightarrow
+\Delta A
+\rightarrow
+\text{Gift}
+\rightarrow
+\text{New Builder}
+\rightarrow
+\text{Propagation}
+}
+
+And the repo-level optimization target is:
+
+maximize(
+    useful_outcome
+    + future_optionality
+    + reusable_capability
+    + recipient_agency
+    + downstream_giving
+    - destroyed_options
+    - resource_cost
+)
+
+That is the version I’d actually drop into the Pantheon repo first.
