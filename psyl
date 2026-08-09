@@ -1,0 +1,450 @@
+"""
+adaptive_plasticity_optimizer.py
+
+Pantheon / Rewild adaptive optimizer.
+
+Concept:
+- Hold substrate X fixed.
+- Vary environment/process vector E.
+- Measure outcome Y.
+- Learn a surrogate response surface from trial metadata.
+- Choose future trials with an acquisition function balancing:
+    predicted reward + uncertainty + novelty - cost/risk penalty.
+- Retest top candidates before promotion.
+
+No external ML dependencies are required; this implementation uses
+a lightweight radial-basis surrogate plus uncertainty estimated from
+distance to prior observations.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, asdict
+from typing import Callable, Dict, List, Tuple, Optional
+import json
+import math
+import random
+import statistics
+from pathlib import Path
+
+
+@dataclass
+class Observation:
+    trial_id: int
+    condition: Dict[str, float]
+    score: float
+    metadata: Dict[str, float | str | int | bool]
+
+
+@dataclass
+class CandidateEstimate:
+    condition: Dict[str, float]
+    predicted: float
+    uncertainty: float
+    novelty: float
+    acquisition: float
+
+
+class AdaptivePlasticityOptimizer:
+    """
+    Lightweight active optimizer for low-dimensional environmental searches.
+    """
+
+    def __init__(
+        self,
+        evaluator: Callable[[Dict[str, float]], float],
+        baseline: Dict[str, float],
+        bounds: Dict[str, Tuple[float, float]],
+        seed: int = 42,
+        history_path: Optional[str] = None,
+    ):
+        self.evaluator = evaluator
+        self.baseline = dict(baseline)
+        self.bounds = dict(bounds)
+        self.rng = random.Random(seed)
+        self.history: List[Observation] = []
+        self.history_path = Path(history_path) if history_path else None
+
+        if set(self.baseline) != set(self.bounds):
+            raise ValueError("baseline keys and bounds keys must match")
+
+        if self.history_path and self.history_path.exists():
+            self.load_history()
+
+    # ---------- normalization ----------
+
+    def _normalize(self, condition: Dict[str, float]) -> List[float]:
+        vec = []
+        for k in self.baseline:
+            lo, hi = self.bounds[k]
+            x = condition[k]
+            if hi == lo:
+                vec.append(0.0)
+            else:
+                vec.append((x - lo) / (hi - lo))
+        return vec
+
+    @staticmethod
+    def _euclidean(a: List[float], b: List[float]) -> float:
+        return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+
+    def _clip(self, condition: Dict[str, float]) -> Dict[str, float]:
+        out = {}
+        for k, x in condition.items():
+            lo, hi = self.bounds[k]
+            out[k] = max(lo, min(hi, x))
+        return out
+
+    # ---------- data ----------
+
+    def observe(
+        self,
+        condition: Dict[str, float],
+        score: float,
+        metadata: Optional[Dict[str, float | str | int | bool]] = None,
+    ) -> Observation:
+        obs = Observation(
+            trial_id=len(self.history) + 1,
+            condition=self._clip(condition),
+            score=float(score),
+            metadata=metadata or {},
+        )
+        self.history.append(obs)
+        self.save_history()
+        return obs
+
+    def evaluate(
+        self,
+        condition: Dict[str, float],
+        reps: int = 1,
+        metadata: Optional[Dict[str, float | str | int | bool]] = None,
+    ) -> Observation:
+        vals = [self.evaluator(self._clip(condition)) for _ in range(reps)]
+        score = statistics.fmean(vals)
+        meta = dict(metadata or {})
+        meta["reps"] = reps
+        if len(vals) > 1:
+            meta["stdev"] = statistics.stdev(vals)
+        return self.observe(condition, score, meta)
+
+    def save_history(self) -> None:
+        if not self.history_path:
+            return
+        self.history_path.write_text(
+            json.dumps([asdict(o) for o in self.history], indent=2)
+        )
+
+    def load_history(self) -> None:
+        raw = json.loads(self.history_path.read_text())
+        self.history = [Observation(**x) for x in raw]
+
+    # ---------- surrogate model ----------
+
+    def predict(self, condition: Dict[str, float], bandwidth: float = 0.28) -> Tuple[float, float, float]:
+        """
+        Returns:
+            predicted score,
+            uncertainty proxy,
+            novelty proxy
+
+        Prediction uses radial-basis weighted averaging.
+        Uncertainty rises with distance from existing observations.
+        """
+        if not self.history:
+            return 0.0, 1.0, 1.0
+
+        x = self._normalize(condition)
+        points = [(self._normalize(o.condition), o.score) for o in self.history]
+
+        distances = [self._euclidean(x, p) for p, _ in points]
+        min_dist = min(distances)
+
+        weights = [
+            math.exp(-(d ** 2) / (2 * bandwidth ** 2)) + 1e-12
+            for d in distances
+        ]
+
+        weighted_mean = sum(w * score for w, (_, score) in zip(weights, points)) / sum(weights)
+
+        # Local weighted variance: another uncertainty signal.
+        weighted_var = (
+            sum(w * (score - weighted_mean) ** 2 for w, (_, score) in zip(weights, points))
+            / sum(weights)
+        )
+
+        local_sd = math.sqrt(max(0.0, weighted_var))
+
+        # Distance-based epistemic uncertainty.
+        distance_uncertainty = min(1.0, min_dist / math.sqrt(len(x)))
+
+        # Blend local disagreement with distance from known points.
+        uncertainty = 0.55 * distance_uncertainty + 0.45 * min(1.0, local_sd)
+
+        novelty = min(1.0, min_dist / 0.6)
+
+        return weighted_mean, uncertainty, novelty
+
+    # ---------- candidate generation ----------
+
+    def _random_condition(self) -> Dict[str, float]:
+        return {
+            k: self.rng.uniform(lo, hi)
+            for k, (lo, hi) in self.bounds.items()
+        }
+
+    def _mutate(self, parent: Dict[str, float], sigma: float = 0.18) -> Dict[str, float]:
+        child = {}
+        for k, x in parent.items():
+            lo, hi = self.bounds[k]
+            span = hi - lo
+            child[k] = x + self.rng.gauss(0.0, sigma * span)
+        return self._clip(child)
+
+    def generate_candidates(
+        self,
+        n_random: int = 200,
+        n_local: int = 100,
+        local_sigma: float = 0.12,
+    ) -> List[Dict[str, float]]:
+        candidates = [self._random_condition() for _ in range(n_random)]
+
+        if self.history:
+            elites = sorted(self.history, key=lambda o: o.score, reverse=True)[: min(5, len(self.history))]
+            for _ in range(n_local):
+                parent = self.rng.choice(elites).condition
+                candidates.append(self._mutate(parent, sigma=local_sigma))
+        else:
+            candidates.append(dict(self.baseline))
+
+        return candidates
+
+    # ---------- acquisition ----------
+
+    def rank_candidates(
+        self,
+        candidates: List[Dict[str, float]],
+        beta_uncertainty: float = 1.0,
+        gamma_novelty: float = 0.25,
+        cost_fn: Optional[Callable[[Dict[str, float]], float]] = None,
+        risk_fn: Optional[Callable[[Dict[str, float]], float]] = None,
+        lambda_cost: float = 0.0,
+        lambda_risk: float = 0.0,
+    ) -> List[CandidateEstimate]:
+        ranked = []
+
+        for c in candidates:
+            pred, unc, nov = self.predict(c)
+
+            cost = cost_fn(c) if cost_fn else 0.0
+            risk = risk_fn(c) if risk_fn else 0.0
+
+            acquisition = (
+                pred
+                + beta_uncertainty * unc
+                + gamma_novelty * nov
+                - lambda_cost * cost
+                - lambda_risk * risk
+            )
+
+            ranked.append(
+                CandidateEstimate(
+                    condition=c,
+                    predicted=pred,
+                    uncertainty=unc,
+                    novelty=nov,
+                    acquisition=acquisition,
+                )
+            )
+
+        return sorted(ranked, key=lambda x: x.acquisition, reverse=True)
+
+    # ---------- adaptive loop ----------
+
+    def bootstrap(
+        self,
+        n_random: int = 8,
+        reps: int = 2,
+    ) -> None:
+        if not self.history:
+            self.evaluate(self.baseline, reps=reps, metadata={"phase": "baseline"})
+
+        for _ in range(n_random):
+            self.evaluate(
+                self._random_condition(),
+                reps=reps,
+                metadata={"phase": "bootstrap_random"},
+            )
+
+    def step(
+        self,
+        reps: int = 2,
+        beta_uncertainty: float = 1.0,
+        gamma_novelty: float = 0.25,
+        n_random: int = 200,
+        n_local: int = 100,
+        cost_fn: Optional[Callable[[Dict[str, float]], float]] = None,
+        risk_fn: Optional[Callable[[Dict[str, float]], float]] = None,
+        lambda_cost: float = 0.0,
+        lambda_risk: float = 0.0,
+    ) -> Observation:
+        candidates = self.generate_candidates(
+            n_random=n_random,
+            n_local=n_local,
+        )
+
+        ranked = self.rank_candidates(
+            candidates,
+            beta_uncertainty=beta_uncertainty,
+            gamma_novelty=gamma_novelty,
+            cost_fn=cost_fn,
+            risk_fn=risk_fn,
+            lambda_cost=lambda_cost,
+            lambda_risk=lambda_risk,
+        )
+
+        chosen = ranked[0]
+
+        return self.evaluate(
+            chosen.condition,
+            reps=reps,
+            metadata={
+                "phase": "adaptive",
+                "predicted": chosen.predicted,
+                "uncertainty": chosen.uncertainty,
+                "novelty": chosen.novelty,
+                "acquisition": chosen.acquisition,
+            },
+        )
+
+    def run(
+        self,
+        steps: int = 20,
+        bootstrap_random: int = 8,
+        reps: int = 2,
+        beta_start: float = 1.25,
+        beta_end: float = 0.35,
+    ) -> List[Observation]:
+        """
+        Anneals exploration:
+        early = uncertainty-seeking
+        late  = exploitation
+        """
+        self.bootstrap(n_random=bootstrap_random, reps=reps)
+
+        for i in range(steps):
+            t = i / max(1, steps - 1)
+            beta = beta_start * (1 - t) + beta_end * t
+
+            self.step(
+                reps=reps,
+                beta_uncertainty=beta,
+                gamma_novelty=0.20,
+            )
+
+        return self.history
+
+    # ---------- validation / promotion ----------
+
+    def retest_top(
+        self,
+        top_k: int = 5,
+        reps: int = 50,
+    ) -> List[Observation]:
+        unique = {}
+        for o in sorted(self.history, key=lambda z: z.score, reverse=True):
+            key = tuple(round(o.condition[k], 6) for k in self.baseline)
+            if key not in unique:
+                unique[key] = o
+            if len(unique) >= top_k:
+                break
+
+        results = []
+        for o in unique.values():
+            results.append(
+                self.evaluate(
+                    o.condition,
+                    reps=reps,
+                    metadata={
+                        "phase": "retest",
+                        "source_trial": o.trial_id,
+                    },
+                )
+            )
+
+        return sorted(results, key=lambda z: z.score, reverse=True)
+
+    def best(self) -> Optional[Observation]:
+        return max(self.history, key=lambda o: o.score) if self.history else None
+
+
+# ---------------------------------------------------------------------
+# Demo substrate with hidden interactions and an interior optimum
+# ---------------------------------------------------------------------
+
+if __name__ == "__main__":
+    noise_rng = random.Random(7)
+
+    def demo_evaluator(c: Dict[str, float]) -> float:
+        ch = c["challenge"]
+        va = c["variation"]
+        fb = c["feedback"]
+        rc = c["recovery"]
+        rt = c["retention"]
+
+        score = (
+            1.4 * math.tanh(1.2 * ch)
+            + 0.9 * math.tanh(va)
+            + 1.2 * math.tanh(1.1 * fb)
+            + 1.0 * math.tanh(rc)
+            + 1.3 * math.tanh(rt)
+            + 0.8 * math.tanh(ch * fb)
+            + 0.7 * math.tanh(va * rt)
+            + 0.5 * math.tanh(rc * rt)
+        )
+
+        # Overload / destructive region:
+        score -= 1.1 * max(0.0, ch - 1.5) ** 2
+        score -= 0.4 * max(0.0, va - 1.8) ** 2
+
+        # Small measurement noise:
+        score += noise_rng.gauss(0.0, 0.18)
+        return score
+
+    baseline = {
+        "challenge": 0.4,
+        "variation": 0.3,
+        "feedback": 0.4,
+        "recovery": 0.5,
+        "retention": 0.4,
+    }
+
+    bounds = {
+        "challenge": (0.0, 2.2),
+        "variation": (0.0, 2.2),
+        "feedback": (0.0, 2.2),
+        "recovery": (0.0, 2.2),
+        "retention": (0.0, 2.2),
+    }
+
+    optimizer = AdaptivePlasticityOptimizer(
+        evaluator=demo_evaluator,
+        baseline=baseline,
+        bounds=bounds,
+        seed=42,
+        history_path="/mnt/data/adaptive_plasticity_history.json",
+    )
+
+    optimizer.run(
+        steps=25,
+        bootstrap_random=10,
+        reps=3,
+    )
+
+    confirmed = optimizer.retest_top(top_k=5, reps=100)
+
+    print("\nBEST OBSERVED")
+    print(optimizer.best())
+
+    print("\nCONFIRMED TOP CONDITIONS")
+    for o in confirmed:
+        print(o)
