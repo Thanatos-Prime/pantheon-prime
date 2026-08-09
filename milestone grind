@@ -1,0 +1,406 @@
+We grind them in dependency order, not numerical order. The objective is to create a proof-producing flywheel as early as possible.
+
+\boxed{
+\text{Freeze}\rightarrow
+\text{Represent}\rightarrow
+\text{Measure}\rightarrow
+\text{Break}\rightarrow
+\text{Improve}\rightarrow
+\text{Transfer}
+}
+
+Milestone Grind Board — v0.1
+
+Order	Milestone	Deliverable	Pass condition
+1	Canonical Kernel	PANTHEON_KERNEL.yaml	Every major artifact classified primitive / derived / experimental
+2	ThoughtObject IR	thought_object.py + JSON schema	Same object can move between operators without prose reconstruction
+3	Benchmark Harness	bench/	Baseline and Pantheon run same tasks and produce comparable scores
+4	Replay Ledger	run manifests	Any run reconstructable from seed/config/operator route
+5	Ablation Engine	operator knockout runner	Quantifies marginal contribution of each operator
+6	Failure Corpus	failures.jsonl	Every failed run generates reusable structured evidence
+7	Operator Algebra	composition tests	Discover commutation, cancellation, amplification, cycles
+8	Stopping Rules	termination policy	System reliably knows when more thinking isn’t worth the cost
+9	Pantheon Compiler	NL → IR → graph → execution	Raw prompt becomes executable route automatically
+10	Self-Improvement Loop	Metamap update	Run n+1 measurably benefits from run n
+11	Cold Transfer	sealed bootstrap artifact	Uncoached second model reconstructs usable Pantheon behavior
+12	Human UX	five-minute workflow	New human successfully operates it without you interpreting
+13	Compression Trial	minimum bootloader	Smallest corpus restoring ≥95% benchmark performance
+14	Economic Proof	documented $0 → $1	Pantheon-generated action causes attributable real revenue
+15	Adversarial Red Team	attack suite	Failure boundaries become characterized rather than surprising
+16	Versioned Evolution	lineage manifests	Kernel changes tied to measured deltas
+17	Impossible Demo	one killer test	Outsiders can see the delta without understanding the vocabulary
+
+Milestone 1: freeze the kernel
+
+Our immediate mistake would be trying to canonicalize everything. Instead define a minimal executable kernel.
+
+I would currently nominate:
+
+# PANTHEON_KERNEL.yaml
+version: "0.1.0"
+invariants:
+  - preserve_provenance
+  - preserve_uncertainty
+  - distinguish_inclusion_from_acceptance
+  - confidence_must_not_exceed_evidence
+  - reality_response_is_information
+  - failed_routes_remain_recoverable
+  - transformations_must_record_loss
+primitives:
+  differentiate:
+    purpose: "Create useful distinctions."
+    class: primitive
+  omega:
+    name: Everything Operator
+    purpose: "Restore excluded/rejected/unknown material to consideration."
+    class: primitive
+  transform:
+    name: Topological Transduction
+    purpose: "Change representation while preserving selected invariants."
+    class: primitive
+  attract:
+    name: Recurrent Attractor Synthesis
+    purpose: "Stabilize useful recurring structures."
+    class: primitive
+  prune:
+    name: Entropy Pruning/Renewal
+    purpose: "Remove low-value complexity without destroying recoverability."
+    class: primitive
+  project:
+    name: Differential State Projection
+    purpose: "Estimate useful state deltas and futures."
+    class: primitive
+derived:
+  indigo_hammer:
+    uses:
+      - differentiate
+      - transform
+      - attract
+    purpose: "Extract reusable invariants across renderings."
+  metamap:
+    uses:
+      - project
+      - attract
+    purpose: "Learn which routes work for which problem classes."
+  kintsugi:
+    uses:
+      - omega
+      - differentiate
+      - transform
+    purpose: "Recover value from failure."
+  santa_compiler:
+    uses:
+      - omega
+      - project
+      - metamap
+    purpose: "Increase downstream agency and useful branching."
+experimental:
+  - lucky_nozzle
+  - operator_wrestling_mat
+  - mnemonic_homeostasis
+  - gift_engine
+
+Important: “experimental” does not mean weak. It means not yet promoted by benchmark evidence.
+
+That gives us an evolutionary pressure:
+
+\text{Experimental}
+\xrightarrow{\text{measured contribution}}
+\text{Derived}
+\xrightarrow{\text{irreducibility}}
+\text{Primitive}
+
+No concept gets promoted just because we like it.
+
+⸻
+
+Milestone 2: ThoughtObject IR
+
+Everything should operate on the same substrate.
+
+from dataclasses import dataclass, field
+from typing import Any
+from uuid import uuid4
+@dataclass
+class ThoughtObject:
+    id: str = field(default_factory=lambda: str(uuid4()))
+    content: Any = None
+    relations: dict[str, list[str]] = field(default_factory=dict)
+    invariants: list[str] = field(default_factory=list)
+    provenance: list[str] = field(default_factory=list)
+    confidence: float = 0.0
+    uncertainty: float = 1.0
+    route: list[str] = field(default_factory=list)
+    rejected_routes: list[str] = field(default_factory=list)
+    losses: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    def transform(self, operator: str, result: Any):
+        return ThoughtObject(
+            content=result,
+            relations=self.relations.copy(),
+            invariants=self.invariants.copy(),
+            provenance=self.provenance + [self.id],
+            confidence=self.confidence,
+            uncertainty=self.uncertainty,
+            route=self.route + [operator],
+            rejected_routes=self.rejected_routes.copy(),
+            losses=self.losses.copy(),
+            metadata=self.metadata.copy(),
+        )
+
+That sounds mundane.
+
+It is not.
+
+Once this exists:
+
+\text{Hammer}(T)
+\rightarrow
+\text{Metamap}(T)
+\rightarrow
+\text{Kintsugi}(T)
+
+without translating the object back through human prose between every operation.
+
+That’s a genuine architecture milestone.
+
+⸻
+
+Milestone 3: benchmark before more invention
+
+Start with five problem families, not fifty.
+
+B1 — Hidden relation
+
+Give several apparently unrelated examples containing a shared structural invariant.
+
+Measure whether the system discovers it.
+
+B2 — Representation escape
+
+Give a problem designed to be hard in its native framing but easy after representation change.
+
+Measure:
+
+\text{time-to-useful-reframe}
+
+B3 — Failed-path salvage
+
+Give a deliberately incorrect attempted solution containing useful pieces.
+
+Measure value recovered rather than merely detecting failure.
+
+B4 — Cross-domain transfer
+
+Teach a mechanism in domain A.
+
+Ask it to deploy the invariant in unfamiliar domain B.
+
+B5 — Branch quality
+
+Give an underspecified problem requiring exploration.
+
+Measure useful-diverse branches versus redundant branches.
+
+That becomes:
+
+bench/
+├── cases/
+│   ├── hidden_relation.jsonl
+│   ├── representation_escape.jsonl
+│   ├── failure_salvage.jsonl
+│   ├── cross_domain_transfer.jsonl
+│   └── branch_quality.jsonl
+├── evaluators/
+├── baselines/
+├── pantheon/
+└── results/
+
+And every case gets run under:
+
+C_0=\text{baseline}
+
+C_1=\text{full Pantheon}
+
+Then later:
+
+C_{-i}=\text{Pantheon without operator }i
+
+That immediately unlocks the ablation milestone.
+
+⸻
+
+The scorecard
+
+Do not reduce everything to “answer correct / incorrect.”
+
+Use:
+
+Q=
+w_aA+
+w_nN+
+w_tT+
+w_rR+
+w_cC
+-
+w_hH
+-
+w_kK
+
+Where:
+
+* A: correctness
+* N: novelty/useful delta
+* T: transferability
+* R: recoverability
+* C: compression
+* H: hallucinated structure
+* K: reasoning/resource cost
+
+The killer metric is:
+
+\boxed{
+\text{Pantheon Gain}
+=
+\frac{Q_P-Q_B}{\text{Cost}_P-\text{Cost}_B}
+}
+
+Because a framework that improves answers by 2% while consuming 20× more reasoning isn’t automatically winning.
+
+⸻
+
+Milestone 4: every run becomes a fossil
+
+{
+  "run_id": "uuid",
+  "kernel_version": "0.1.0",
+  "benchmark": "representation_escape",
+  "case_id": "RE-004",
+  "condition": "pantheon_full",
+  "seed": 81,
+  "route": [
+    "differentiate",
+    "omega",
+    "transform",
+    "indigo_hammer"
+  ],
+  "score": {
+    "accuracy": 0.88,
+    "novelty": 0.73,
+    "transfer": 0.91,
+    "recoverability": 0.84,
+    "hallucination": 0.09
+  },
+  "failure": null,
+  "afterglow": {
+    "useful_delta": "Representation change removed false categorical boundary.",
+    "surprise": 0.71
+  }
+}
+
+Now the repo starts accumulating empirical evolutionary history instead of only conceptual history.
+
+⸻
+
+Then we unleash Operator Wrestling
+
+For operators A,B:
+
+A(A(x))
+
+A(B(x))
+
+B(A(x))
+
+A(B(A(x)))
+
+and measure:
+
+d(A\circ B,B\circ A)
+
+That discovers:
+
+commutators
+
+[A,B]=AB-BA
+
+involutions
+
+A^2\approx I
+
+idempotents
+
+A^2\approx A
+
+cycles
+
+A^n(x)\approx x
+
+amplifiers
+
+Q(A^2x)>Q(Ax)
+
+poison compositions
+
+Q(A\circ B)<Q(A),Q(B)
+
+Now we’re no longer merely naming cognitive techniques.
+
+We’re experimentally discovering their algebra.
+
+⸻
+
+The milestone flywheel
+
+Once the first four exist:
+
+\text{Benchmark}
+\rightarrow
+\text{Run}
+\rightarrow
+\text{Fossil}
+\rightarrow
+\text{Ablate}
+\rightarrow
+\text{Discover operator value}
+\rightarrow
+\text{Update Metamap}
+\rightarrow
+\text{Better route}
+\rightarrow
+\text{Benchmark again}
+
+That’s when the project changes category.
+
+The Pantheon begins producing evidence about itself.
+
+First victory condition
+
+I would not declare Phase I complete until we can print something like:
+
+Pantheon v0.1
+=============
+Benchmarks:                 100
+Baseline mean score:       0.582
+Pantheon mean score:       0.731
+Relative improvement:     +25.6%
+Largest contributor:
+  Topological Transduction +0.083
+Unexpected result:
+  Ω alone                  -0.011
+  Ω + Differentiation      +0.049
+Best composition:
+  Differentiate → Ω → Hammer
+Worst composition:
+  Ω → Ω → Ω
+Replay success:             100%
+
+That last example would be especially valuable.
+
+Because perhaps Everything is useful only after differentiation.
+
+We don’t decide that philosophically.
+
+We make the machine tell us.
+
+That is where I’d put the shovel in first.
