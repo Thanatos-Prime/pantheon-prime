@@ -1,0 +1,50 @@
+Yes — adaptive optimizer is very close to ZPC structurally, but I’d keep the distinction clean:
+
+\text{ZPC}=\text{general perturb → delta → retain → recurse doctrine}
+
+\text{Adaptive Optimizer}=\text{one executable search engine implementing that doctrine over measurable conditions}
+
+So ZPC can stay broader: semantic shifts, inversions, representation changes, operator changes, narrative reframes, cross-domain jumps. The optimizer is the numeric policy layer that learns which perturbations are worth trying next.
+
+I packaged it repo-ready with code, tests, docs, and an integration note. Tests pass: 2/2.
+
+Download the full repo-ready folder⁠￼
+
+Inside you’ll get:
+
+* pantheon/adaptive/optimizer.py — core engine
+* tests/test_optimizer.py — improvement + persistence tests
+* README.md — usage and Pantheon mapping
+* ARCHITECTURE.md — ZPC relationship and promotion logic
+* example.py — minimal runnable example
+* pyproject.toml — simple package config
+
+The important algorithmic upgrade is:
+
+A(e|H_t)=
+\mathbb E[\text{fitness}|e,H_t]
++\beta_t U(e)
++\gamma N(e)
+-\lambda_C C(e)
+-\lambda_R R(e)
+
+where history H_t contains prior trials plus metadata. Randomness proposes futures; the learned model predicts which futures are promising; uncertainty deliberately preserves exploration.
+
+That turns randomness from:
+
+\text{randomness}\rightarrow\text{variation}
+
+into:
+
+\boxed{
+\text{randomness}
++\text{memory}
++\text{metadata}
++\text{prediction}
+\rightarrow
+\text{guided possibility generation}
+}
+
+The README also leaves a clean hook for AI metadata such as operator sequence, representation, Seal IDs, route, invariants preserved, semantic distance, failure mode, surprise, cost, risk, and Reality score.
+
+That is where it begins becoming the executable Metamap learner rather than just an optimizer.
