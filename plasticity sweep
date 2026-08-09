@@ -1,0 +1,163 @@
+"""
+plasticity_sweep.py
+A minimal Plasticity Sweep Engine for Pantheon/Rewild experiments.
+
+Core idea:
+Hold the substrate/objective fixed, vary environmental/process conditions,
+measure output, retest winners, and retain only robust gains.
+"""
+
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Tuple
+import random
+import statistics
+
+
+@dataclass
+class TrialResult:
+    name: str
+    condition: Dict[str, float]
+    mean: float
+    stdev: float
+    delta_vs_baseline: float
+
+
+class PlasticitySweep:
+    def __init__(
+        self,
+        evaluator: Callable[[Dict[str, float]], float],
+        baseline: Dict[str, float],
+        seed: int = 42,
+    ):
+        self.evaluator = evaluator
+        self.baseline = dict(baseline)
+        self.rng = random.Random(seed)
+
+    def _measure(self, condition: Dict[str, float], reps: int = 8) -> Tuple[float, float]:
+        vals = [self.evaluator(condition) for _ in range(reps)]
+        mean = statistics.fmean(vals)
+        stdev = statistics.stdev(vals) if len(vals) > 1 else 0.0
+        return mean, stdev
+
+    def sweep(
+        self,
+        step: float = 0.6,
+        lucky_trials: int = 20,
+        lucky_sigma: float = 0.55,
+        lower: float = 0.0,
+        upper: float = 2.2,
+        reps: int = 8,
+    ) -> List[TrialResult]:
+        base_mean, _ = self._measure(self.baseline, reps=max(reps, 12))
+        candidates: List[Tuple[str, Dict[str, float]]] = []
+        keys = list(self.baseline)
+
+        # One-factor perturbations
+        for k in keys:
+            c = dict(self.baseline)
+            c[k] = min(upper, c[k] + step)
+            candidates.append((f"{k}+{step}", c))
+
+        # Pairwise grafts: test interaction effects
+        for i in range(len(keys)):
+            for j in range(i + 1, len(keys)):
+                c = dict(self.baseline)
+                c[keys[i]] = min(upper, c[keys[i]] + step)
+                c[keys[j]] = min(upper, c[keys[j]] + step)
+                candidates.append((f"{keys[i]}+{keys[j]}", c))
+
+        # Lucky Nozzle: bounded random environmental perturbations
+        for n in range(lucky_trials):
+            c = {}
+            for k, v in self.baseline.items():
+                x = v + self.rng.gauss(0.0, lucky_sigma)
+                c[k] = max(lower, min(upper, x))
+            candidates.append((f"lucky_{n+1}", c))
+
+        out = []
+        for name, condition in candidates:
+            mean, stdev = self._measure(condition, reps=reps)
+            out.append(
+                TrialResult(
+                    name=name,
+                    condition=condition,
+                    mean=mean,
+                    stdev=stdev,
+                    delta_vs_baseline=mean - base_mean,
+                )
+            )
+
+        return sorted(out, key=lambda r: r.delta_vs_baseline, reverse=True)
+
+    def retest(
+        self,
+        results: List[TrialResult],
+        top_k: int = 5,
+        reps: int = 50,
+    ) -> List[TrialResult]:
+        base_mean, _ = self._measure(self.baseline, reps=reps)
+        confirmed = []
+        for r in results[:top_k]:
+            mean, stdev = self._measure(r.condition, reps=reps)
+            confirmed.append(
+                TrialResult(
+                    name=r.name,
+                    condition=r.condition,
+                    mean=mean,
+                    stdev=stdev,
+                    delta_vs_baseline=mean - base_mean,
+                )
+            )
+        return sorted(confirmed, key=lambda r: r.delta_vs_baseline, reverse=True)
+
+
+if __name__ == "__main__":
+    # Replace this evaluator with a real measured outcome.
+    # This demo simulates a substrate whose capacity depends on interactions.
+    import math
+
+    noise_rng = random.Random(7)
+
+    def demo_evaluator(c: Dict[str, float]) -> float:
+        challenge = c["challenge"]
+        variation = c["variation"]
+        feedback = c["feedback"]
+        recovery = c["recovery"]
+        retention = c["retention"]
+
+        score = (
+            1.4 * math.tanh(1.2 * challenge)
+            + 0.9 * math.tanh(variation)
+            + 1.2 * math.tanh(1.1 * feedback)
+            + 1.0 * math.tanh(recovery)
+            + 1.3 * math.tanh(retention)
+            + 0.8 * math.tanh(challenge * feedback)
+            + 0.7 * math.tanh(variation * retention)
+            + 0.5 * math.tanh(recovery * retention)
+        )
+
+        # Too much stress becomes destructive.
+        score -= 1.1 * max(0.0, challenge - 1.5) ** 2
+        score -= 0.4 * max(0.0, variation - 1.8) ** 2
+
+        return score + noise_rng.gauss(0.0, 0.18)
+
+    baseline = {
+        "challenge": 0.4,
+        "variation": 0.3,
+        "feedback": 0.4,
+        "recovery": 0.5,
+        "retention": 0.4,
+    }
+
+    engine = PlasticitySweep(demo_evaluator, baseline, seed=42)
+    first_pass = engine.sweep()
+    confirmed = engine.retest(first_pass, top_k=5, reps=100)
+
+    print("TOP FIRST-PASS CONDITIONS")
+    for r in first_pass[:5]:
+        print(r)
+
+    print("\nCONFIRMED ON RETEST")
+    for r in confirmed:
+        print(r)
