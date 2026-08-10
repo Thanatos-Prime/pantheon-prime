@@ -1,0 +1,57 @@
+Two separate reasons—and one of them was my execution choice.
+
+First, the web reader and the code-execution environment are separate. The web side could inspect public GitHub pages, but the Python/container environment I tried to use for git clone/execution could not resolve GitHub in that run. So I could read parts of the repo publicly but couldn’t simply clone the current tree into the environment and run it.
+
+Second, I did not have a clean machine-readable baseline from the prior repo check—especially a saved HEAD commit SHA + tree/file hashes. Without that, “changes since the previous run” becomes vulnerable to GitHub page caching and stale commit-index results. I chose not to manufacture a delta from inconsistent snapshots.
+
+The part I should have done better: I treated clone failure as too much of a blocker. I could have tried alternate lawful routes—fetching the GitHub archive/raw files individually, walking the public tree via the web tool, recording current SHAs, then materializing the relevant changed files for execution. That is much more in line with Garcia/Metamap than stopping at the first failed route.
+
+So the accurate postmortem is:
+
+\boxed{
+\text{clone path failed}
+\neq
+\text{mission impossible}
+}
+
+It was:
+
+GitHub public web     → accessible enough for inspection
+execution container   → direct git/network path failed
+previous baseline     → insufficiently fingerprinted
+my rerouting          → not aggressive enough
+
+The permanent fix is straightforward. Every Pantheon repo run should save a tiny Delta Anchor:
+
+{
+  "checked_at": "...",
+  "head_sha": "...",
+  "tree_sha": "...",
+  "files": {
+    "path/file.py": "content_hash"
+  }
+}
+
+Then the next run compares:
+
+A_t \leftrightarrow A_{t+1}
+
+rather than trusting whatever GitHub/search happens to render that day.
+
+And if cloning fails:
+
+\boxed{
+\text{clone}
+\rightarrow
+\text{archive}
+\rightarrow
+\text{raw file}
+\rightarrow
+\text{web tree}
+\rightarrow
+\text{per-file reconstruction}
+}
+
+until one route works.
+
+So: network separation was real; the dead end wasn’t. I should have flanked it harder.
