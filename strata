@@ -1,0 +1,667 @@
+STRATA
+
+Semantic Stratigraphy Translation & Reconstruction Architecture
+
+Repo status: runnable reference implementation
+Purpose: Preserve what ordinary translation tends to flatten: ambiguity, morphology, rhetoric, sound, etymological echoes, historical strata, textual variants, cultural interfaces, and alternative readings.
+
+> **Seal:** Translate the sentence; preserve the possibility-space.
+
+────────
+
+0. Problem
+
+Translation is often treated as:
+
+```text
+SOURCE TEXT -> TARGET TEXT
+```
+
+But a historical text is not only a sequence of dictionary meanings. It may encode meaning through:
+
+• morphology and grammatical choice,
+• polysemy,
+• idiom,
+• word order,
+• sound and rhythm,
+• root/lemma echoes,
+• rhetorical pattern,
+• intertext,
+• historical semantic layers,
+• genre conventions,
+• scribal/manuscript variation,
+• deliberate ambiguity,
+• culturally assumed knowledge,
+• and relations that have no one-to-one English equivalent.
+
+A single polished English line therefore frequently performs lossy compression.
+
+STRATA changes the target.
+
+```text
+SOURCE
+  -> evidence-preserving analysis
+  -> semantic possibility lattice
+  -> translation candidates
+  -> annotations / footnotes / confidence
+  -> reader-selectable rendering
+```
+
+The canonical output is not one translation.
+
+It is a translation plus the structure English could not carry by itself.
+
+────────
+
+1. Canonical Principle
+
+Let a source expression x expose a set of supported readings:
+
+```text
+R(x) = {r1, r2, ... rn}
+```
+
+A conventional translation often selects:
+
+```text
+T(x) = r_best
+```
+
+STRATA instead preserves:
+
+```text
+T*(x) = {
+    surface_translation,
+    literal_scaffold,
+    viable_readings[],
+    morphology[],
+    rhetorical_features[],
+    sound_features[],
+    semantic_strata[],
+    textual_variants[],
+    cultural_context[],
+    intertexts[],
+    uncertainty,
+    provenance[]
+}
+```
+
+The goal is not maximal annotation.
+
+The goal is minimum-loss transfer.
+
+────────
+
+2. The Translation Conservation Laws
+
+STRATA attempts to conserve, where evidence permits:
+
+1. Referential invariant — what entities/actions/relations are being discussed?
+2. Relational invariant — how are they connected?
+3. Ambiguity invariant — where the source leaves multiple live readings, do not silently kill them.
+4. Register invariant — legal, poetic, vulgar, royal, intimate, liturgical, technical, etc.
+5. Rhetorical invariant — parallelism, chiasm, repetition, pun, irony, intensification, omission.
+6. Temporal-semantic invariant — what the expression plausibly meant in its own period, not only what descendants mean now.
+7. Acoustic invariant — rhyme, alliteration, assonance, rhythm, phonetic resemblance where functionally meaningful.
+8. Morphological invariant — information carried by inflection, root-pattern morphology, aspect, gender, number, case, state, etc.
+9. Uncertainty invariant — uncertainty in the evidence must survive into the output.
+10. Interface invariant — preserve how the original invited a reader/hearer to interact with it when reconstructable.
+
+Not every invariant survives every language boundary.
+When an invariant cannot be carried in the English line, move it into a note rather than erase it.
+
+────────
+
+3. Evidence Channels
+
+Every annotation has a provenance class:
+
+```text
+OBSERVED       directly present in text/manuscript/corpus
+ATTESTED       supported by lexicon, grammar, parallel usage, manuscript evidence
+INFERRED       scholarly reconstruction from evidence
+INTERPRETIVE   plausible reading dependent on interpretive choices
+SPECULATIVE    interesting but weakly supported
+COUNTERFACTUAL exploratory alternative, not evidence
+```
+
+Rule: confidence may never exceed evidence.
+
+STRATA must never market an attractive pun, folk etymology, theological interpretation,
+or modern word resemblance as an established feature of the ancient text.
+
+────────
+
+4. Semantic Stratigraphy Layer
+
+For each significant lexical item:
+
+```text
+FORM(now-reading)
+    ↓
+LEMMA
+    ↓
+SENSES IN CORPUS/PERIOD
+    ↓
+EARLIER / NEIGHBORING SENSES
+    ↓
+ROOT / DERIVATIONAL FAMILY
+    ↓
+PARALLEL USES
+    ↓
+SEMANTIC DELTAS
+```
+
+The engine asks:
+
+> What possibilities were available to a competent hearer at the time?
+
+not:
+
+> What clever association can a modern reader invent?
+
+That distinction is the firewall between semantic stratigraphy and accidental mythology.
+
+────────
+
+5. The Easter-Egg Detector
+
+An “Easter egg” is not automatically a secret intentional code.
+
+STRATA uses the neutral term Layer Candidate.
+
+A Layer Candidate may be:
+
+```text
+POLYSEMY
+ROOT_ECHO
+SOUND_PLAY
+PARONOMASIA
+ALLITERATION
+ASSONANCE
+RHYTHM
+WORD_ORDER
+REPETITION
+PARALLELISM
+CHIASM
+IDIOM
+ETYMOGRAPHIC_ECHO
+INTERTEXT
+GENRE_SIGNAL
+CULTURAL_SCRIPT
+GRAMMATICAL_AMBIGUITY
+TEXTUAL_VARIANT
+SEMANTIC_SHIFT
+```
+
+Each candidate receives:
+
+```text
+{
+  "feature": "...",
+  "evidence": ["..."],
+  "intentionality": "unknown|unlikely|possible|probable|strong",
+  "confidence": 0.0-1.0,
+  "translation_loss_if_omitted": 0.0-1.0
+}
+```
+
+Important: evidence for the feature and evidence that the author deliberately intended
+the feature are separate questions.
+
+────────
+
+6. The Reader Interface
+
+STRATA should render at least four synchronized views.
+
+A. Fluent
+
+Readable English optimized for literary force.
+
+B. Glass
+
+Closer-to-source English preserving unusual structure.
+
+C. X-Ray
+
+Interlinear tokens, lemma, morphology, glosses, syntax, and alternatives.
+
+D. Stratigraphy
+
+Footnotes showing semantic history, rhetorical layers, ambiguities, variants,
+and interpretive forks.
+
+Example conceptual UI:
+
+```text
+┌─────────────────────────────────────────────┐
+│ ORIGINAL                                    │
+│ [token] [token] [token] ...                 │
+├─────────────────────────────────────────────┤
+│ FLUENT                                      │
+│ readable literary English                   │
+├─────────────────────────────────────────────┤
+│ GLASS                                       │
+│ near-source structural English              │
+├─────────────────────────────────────────────┤
+│ LAYERS                                      │
+│ ① lexical ambiguity                         │
+│ ② root echo                                 │
+│ ③ syntax permits alternate attachment       │
+│ ④ sound pattern disappears in English       │
+├─────────────────────────────────────────────┤
+│ READING LATTICE                             │
+│         ┌─ reading A                         │
+│ source ─┼─ reading B                         │
+│         └─ reading C                         │
+└─────────────────────────────────────────────┘
+```
+
+The reader can choose what degree of compression they want.
+
+────────
+
+7. Multilingual Corpus Adapters
+
+The engine is corpus-agnostic. Adapters normalize external resources into the same schema.
+
+Useful existing building blocks include:
+
+• Morphologically annotated Greek New Testament datasets.
+• Linguistically annotated Hebrew Bible datasets.
+• Qur’anic Arabic morphology/syntax corpora.
+• Classical Syriac digital corpora.
+• Historical lexica, critical apparatuses, manuscript witnesses, and parallel corpora.
+
+Adapters should never silently mix textual traditions.
+For example, Greek New Testament, Syriac Peshitta, Hebrew Bible, and later translations
+are distinct witnesses/interfaces and should be compared rather than conflated.
+
+Canonical adapter output:
+
+```json
+{
+  "text_id": "work.book.section",
+  "language": "grc",
+  "date_range": [-100, 200],
+  "witness": "named textual witness",
+  "tokens": [
+    {
+      "surface": "...",
+      "lemma": "...",
+      "morphology": {},
+      "glosses": [],
+      "position": 1
+    }
+  ],
+  "syntax": [],
+  "variants": [],
+  "provenance": []
+}
+```
+
+────────
+
+8. Translation Pipeline
+
+```text
+INGEST
+  ↓
+WITNESS LOCK
+  ↓
+TOKENIZE / NORMALIZE
+  ↓
+MORPHOLOGY
+  ↓
+SYNTAX
+  ↓
+LEXICAL SENSE RETRIEVAL
+  ↓
+PERIOD FILTER
+  ↓
+SEMANTIC STRATIGRAPHY
+  ↓
+RHETORICAL / PHONETIC SCAN
+  ↓
+INTERTEXT / PARALLEL SEARCH
+  ↓
+TEXTUAL-VARIANT LAYER
+  ↓
+READING-LATTICE CONSTRUCTION
+  ↓
+TRANSLATION CANDIDATES
+  ↓
+LOSS AUDIT
+  ↓
+FOOTNOTE GENERATION
+  ↓
+HUMAN / MODEL CRITIQUE
+  ↓
+RENDER: FLUENT + GLASS + X-RAY + STRATIGRAPHY
+```
+
+────────
+
+9. Vivid Pseudocode
+
+```text
+function TRANSLATE_WITH_MEMORY(passage, witness, target="English"):
+
+    # Do not translate yet.
+    evidence = excavate(passage, witness)
+
+    for token in evidence.tokens:
+
+        token.forms = inspect_morphology(token)
+        token.live_senses = retrieve_period_senses(token)
+
+        # Dig vertically through time.
+        token.strata = core_sample(
+            lemma=token.lemma,
+            language=passage.language,
+            period=passage.period
+        )
+
+        # Dig sideways through the text.
+        token.echoes = find_repetition_root_echo_and_parallels(token)
+
+    syntax_forks = enumerate_grammatically_viable_parses(evidence)
+
+    sound_map = listen_to_source(
+        repetitions=True,
+        rhyme=True,
+        alliteration=True,
+        rhythm=True,
+        near_homophones=True
+    )
+
+    layer_candidates = detect_layers(
+        evidence,
+        syntax_forks,
+        sound_map
+    )
+
+    for layer in layer_candidates:
+        layer.evidence_strength = grade_evidence(layer)
+        layer.intentionality = grade_intent_separately(layer)
+        layer.loss = estimate_translation_loss(layer)
+
+    readings = build_reading_lattice(
+        lexical_senses,
+        syntax_forks,
+        textual_variants,
+        genre_constraints,
+        historical_context
+    )
+
+    # Only now produce English.
+    candidates = render_multiple(readings)
+
+    for candidate in candidates:
+        candidate.loss_report = compare_against_source_invariants(candidate)
+
+    fluent = choose_best_literary(candidate_set)
+    glass  = choose_best_structure_preserving(candidate_set)
+
+    notes = rescue_every_high_value_feature_not_carried_by(fluent)
+
+    return Edition(
+        original=passage,
+        fluent=fluent,
+        glass=glass,
+        readings=readings,
+        annotations=notes,
+        confidence=calibrate(readings),
+        provenance=trace_every_claim()
+    )
+```
+
+────────
+
+10. Loss Audit
+
+For every final English candidate:
+
+```text
+LOSS =
+  w1 * ambiguity_destroyed
++ w2 * rhetoric_destroyed
++ w3 * morphology_destroyed
++ w4 * sound_destroyed
++ w5 * register_destroyed
++ w6 * historical_sense_distorted
++ w7 * relation_distorted
+```
+
+Not all loss can be avoided.
+
+The engine minimizes unreported loss.
+
+If English cannot carry a feature:
+
+```text
+CARRY IN LINE
+    else
+CARRY IN TYPOGRAPHY
+    else
+CARRY IN FOOTNOTE
+    else
+CARRY IN PARALLEL RENDERING
+    else
+MARK AS LOST
+```
+
+Nothing important should disappear silently.
+
+────────
+
+11. Translation Modes
+
+```text
+LITERAL       maximize structural correspondence
+LITERARY      maximize equivalent artistic force
+AMBIGUOUS     preserve multiple live readings
+ACOUSTIC      prioritize sound/rhythm compensation
+HISTORICAL    prioritize period-appropriate semantic range
+INTERLINEAR   expose token-level mapping
+STUDY         readable line + maximum useful annotation
+POETIC        allow controlled target-language recreation
+```
+
+A translation should identify its mode.
+
+There is no universal “most accurate” translation independent of the invariant being preserved.
+
+────────
+
+12. Sacred-Text Mode
+
+Sacred texts deserve stricter epistemic separation because tiny translation choices may carry
+large theological consequences.
+
+Enable:
+
+```text
+sacred_text_mode = true
+```
+
+This requires:
+
+1. Witness/edition always displayed.
+2. Textual variants separated from translation choices.
+3. Sectarian/theological interpretations labeled as interpretations.
+4. Multiple historically important readings retained when supported.
+5. No claim of recovering an author’s hidden intention without evidence.
+6. No conflation of original composition language with later sacred translation traditions.
+7. Notes distinguish:
+  • linguistic possibility,
+  • historical interpretation,
+  • theological doctrine.
+8. High-consequence claims require explicit sources.
+
+This makes the engine useful across the Bible, Qur’an, Syriac literature,
+rabbinic texts, classical works, poetry, law, inscriptions, and other historically layered texts
+without pretending all traditions use identical textual histories.
+
+────────
+
+13. ThoughtObject Schema
+
+The output itself should be portable.
+
+```json
+{
+  "kind": "StratifiedTranslation",
+  "source": {
+    "work": "...",
+    "passage": "...",
+    "language": "...",
+    "witness": "...",
+    "date_range": ["...", "..."]
+  },
+  "renderings": {
+    "fluent": "...",
+    "glass": "..."
+  },
+  "tokens": [],
+  "readings": [],
+  "layers": [],
+  "variants": [],
+  "footnotes": [],
+  "loss_report": {},
+  "provenance": [],
+  "confidence": 0.0
+}
+```
+
+This object can be consumed by:
+
+• a website,
+• CLI,
+• Jupyter notebook,
+• mobile app,
+• AI agent,
+• static book generator,
+• critical-edition viewer,
+• API,
+• or another Pantheon machine.
+
+────────
+
+14. Pantheon Integration
+
+STRATA is a direct composition of existing mechanisms:
+
+• Semantic Stratigraphy — excavates transformations of meaning.
+• Semantic Quarry — supplies lexical/relational bricks.
+• Counterfactual Interface — keeps alternative readings parallel.
+• Uncertainty Interface — makes confidence and missing evidence explicit.
+• Consequence Interface — forces interpretive claims to predict/find textual evidence.
+• Indigo Hammer — compares heterogeneous renderings through shared relational invariants.
+• Cross-Layer Connectivity — connects sound, syntax, semantics, history, rhetoric, and culture without forcing one layer.
+• Ouroboros with Metabolism — reader corrections and discoveries become improved rules rather than repeated commentary.
+• Metamap — learns which analysis routes expose which classes of linguistic feature.
+• 2/3 Principle — retain enough fixed evidence to safely explore unresolved interpretive space.
+• Ribcage — evidence and provenance constrain interpretation so creativity can expand without becoming fabrication.
+
+────────
+
+15. Training Loop
+
+STRATA improves through adjudicated deltas:
+
+```text
+MODEL READING
+    ↓
+SCHOLAR / READER CHALLENGE
+    ↓
+EVIDENCE COMPARISON
+    ↓
+DELTA
+    ↓
+CAUSE OF ERROR
+    ↓
+RULE / FEATURE / CORPUS FIX
+    ↓
+REGRESSION TEST
+    ↓
+NEW CAPABILITY
+```
+
+Do not merely store the corrected translation.
+
+Store why the previous route failed.
+
+────────
+
+16. Proposed Repo Layout
+
+```text
+semantic_stratigraphy_translator/
+├── README.md
+├── WHITEPAPER.md
+├── PSEUDOCODE.md
+├── pyproject.toml
+├── src/
+│   └── strata/
+│       ├── __init__.py
+│       ├── model.py
+│       ├── engine.py
+│       ├── render.py
+│       └── cli.py
+└── examples/
+    └── demo_passage.json
+```
+
+────────
+
+17. North-Star Product
+
+The eventual app should feel less like Google Translate and more like holding a
+transparent illuminated manuscript over a linguistic time machine.
+
+Tap a word and see:
+
+```text
+surface
+→ morphology
+→ lemma
+→ period senses
+→ semantic ancestry
+→ cognates
+→ other occurrences
+→ syntactic possibilities
+→ sound echoes
+→ manuscript variants
+→ historical interpretations
+→ why translators disagree
+→ what English lost
+```
+
+Zoom out and see rhetorical architecture.
+
+Zoom farther out and see semantic strata across centuries and languages.
+
+The reader should be able to move between:
+
+meaning → evidence → history → art → uncertainty
+
+without ever losing their place in the text.
+
+────────
+
+18. Final Seal
+
+> **Do not force the original to become English.**
+> 
+> Build an interface through which an English reader can approach the original.
+> 
+> Preserve the fork when the original forks.  
+> Preserve the echo when the original echoes.  
+> Preserve the uncertainty when the evidence is uncertain.  
+> Preserve the joke when possible; annotate the joke when not.  
+> Preserve the history carried inside the word.  
+> Preserve the reader’s ability to see what the translator had to choose.
+> 
+> **Translate the text. Carry the layers.**
