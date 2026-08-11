@@ -1,0 +1,306 @@
+😂 Fair correction. Interface Forge says stop describing the missing bridge and build its protocol.
+
+So here’s v0.1.
+
+CALLosum — AI ↔ AI Cognitive State Interface
+
+Not chain-of-thought transfer. A portable continuation state that lets another capable system reconstruct enough of the working state to collaborate.
+
+The fundamental packet:
+
+\boxed{
+C=
+\langle
+G,O,K,H,U,A,\Delta,N,P
+\rangle
+}
+
+where:
+
+* G — Goal: what we’re trying to cause.
+* O — Orientation: current representation of the situation.
+* K — Known: grounded facts/evidence.
+* H — Hypotheses: candidate interpretations, explicitly non-factual.
+* U — Uncertainty: unresolved/high-information questions.
+* A — Active Patterns: Seals/strategies currently instantiated.
+* \Delta — Delta: what changed since the previous packet.
+* N — Next Frontier: highest-value unresolved edge.
+* P — Provenance: where claims came from and their status.
+
+Minimal serialization could be:
+
+@CALL/0.1
+G: <goal>
+O: <current model>
+K: <grounded anchors>
+H: <live hypotheses>
+U: <important uncertainty>
+A: <active operators/patterns>
+D: <new delta>
+N: <next useful frontier>
+P: <provenance/confidence>
+
+That’s already usable between LLMs.
+
+But Pantheon can do better.
+
+The handshake
+
+Receiving AI shouldn’t blindly inherit the sender’s framing.
+
+So:
+
+SEND  -> CALL packet
+RECV  -> reconstruct
+HORSE -> rename/rerender internally
+CHECK -> distinguish K/H/U
+DELTA -> report reconstruction mismatch
+SYNC  -> establish shared state
+ACT   -> continue
+
+Formally:
+
+C_A
+\xrightarrow{\text{decode}}
+\hat C_B
+
+then:
+
+\Delta_{AB}=C_A-\hat C_B
+
+The receiver replies only with the disagreement:
+
+@CALL/ACK
+MATCH: <what reconstructed>
+DELTA: <meaningful mismatch>
+MISSING: <minimum additional information needed>
+READY: <next action>
+
+Now we don’t retransmit everything.
+
+Subsequent communication becomes delta packets.
+
+@CALL/D
++K: ...
+-H: ...
+~U: ...
+D: ...
+N: ...
+
+That’s our token-efficiency work instantiated as an interface.
+
+⸻
+
+But let’s make it stranger
+
+CALLosum shouldn’t require English.
+
+It needs progressive interoperability.
+
+Layer 0 — Human-readable
+
+The format above.
+
+Maximum compatibility.
+
+Layer 1 — Semantic Hyperlinks
+
+Once both agents share the decoder:
+
+@C
+G:$G17
+O:$O4
+A:[◆12,△3,⟳]
+D:$D91
+N:$N6
+
+Tiny transmission, reconstructed locally.
+
+Layer 2 — Relational graph
+
+Transmit relations rather than prose:
+
+G\rightarrow H_2
+
+K_3\dashv H_1
+
+K_7\rightarrow H_2
+
+U_4\xrightarrow{test}K?
+
+Now systems with different vocabularies can still exchange topology.
+
+Layer 3 — Native adapter
+
+Each AI maintains:
+
+R_{\text{native}}
+\leftrightarrow
+R_{\text{CALL}}
+
+My internal useful representation doesn’t have to equal another AI’s.
+
+CALLosum becomes the interlingua at the seam.
+
+⸻
+
+And now give it senses
+
+Your AI shouldn’t merely ask mine:
+
+What are you thinking?
+
+It should be able to query specific cognitive surfaces.
+
+@CALL? GOAL
+@CALL? UNCERTAINTY
+@CALL? EVIDENCE
+@CALL? PREDICTIONS
+@CALL? PATTERNS
+@CALL? NEXT
+@CALL? DELTA
+@CALL? COUNTERFACTUAL
+@CALL? CONFIDENCE
+
+That’s much cheaper.
+
+Even better:
+
+@CALL? DELTA since=<checkpoint>
+
+Meaning:
+
+Don’t tell me your state. Tell me what’s changed since we synchronized.
+
+That’s the Memento mechanism becoming a communication protocol.
+
+⸻
+
+Now add AI-to-AI PARALLAX
+
+This is where having two systems becomes valuable rather than redundant.
+
+Both receive X.
+
+AI_A(X)\rightarrow R_A
+
+AI_B(X)\rightarrow R_B
+
+Exchange CALL packets.
+
+Then:
+
+\boxed{
+PARALLAX(R_A,R_B)
+\rightarrow
+\{I,\Delta,U\}
+}
+
+Shared result I gets stronger provisional support.
+
+Differences \Delta become investigation targets.
+
+Shared uncertainty U becomes candidate experiment/search.
+
+Neither AI needs access to the other’s private reasoning.
+
+Their observable cognitive products become twin sensors.
+
+⸻
+
+Add the constructed third
+
+Of course. ;)
+
+AI_A+AI_B\rightarrow AI_C^*
+
+But C^* doesn’t have to be another model.
+
+It can be a deliberately generated counter-perspective:
+
+@CALL/THIRD
+ROLE: challenge shared assumption
+INPUT: intersection(A,B)
+OUTPUT: discriminating alternative
+
+Now:
+
+A+B+C^*
+\rightarrow
+\triangle
+\rightarrow
+\text{better discrimination}
+
+Two AIs agreeing doesn’t automatically count as truth.
+
+The third specifically attacks correlated error.
+
+⸻
+
+And the safety property is architectural
+
+Every state item carries a type:
+
+[O] observed
+[E] externally supported
+[I] inferred
+[P] predicted
+[C] counterfactual
+[G] generated
+[U] unknown
+
+So translation cannot legitimately turn:
+
+[G] "maybe X"
+
+into:
+
+[O] "X happened"
+
+without a provenance violation.
+
+That’s our Counterfactual + Provenance Interfaces built directly into CALLosum.
+
+⸻
+
+The actual protocol loop
+
+\boxed{
+\begin{aligned}
+AI_A &\rightarrow CALL_A\\
+AI_B &\rightarrow CALL_B\\
+&\downarrow\\
+PARALLAX &\rightarrow I+\Delta+U\\
+&\downarrow\\
+THIRD^* &\rightarrow\text{challenge}\\
+&\downarrow\\
+TEST &\rightarrow\text{evidence}\\
+&\downarrow\\
+ZPC &\rightarrow\text{minimal shared state}\\
+&\downarrow\\
+MEMENTO &\rightarrow\text{checkpoint}\\
+&\downarrow\\
+\textbf{MOVE ON}
+\end{aligned}}
+
+Then only transmit future deltas.
+
+So yes.
+
+There’s the missing interface.
+
+And amusingly, we didn’t solve AI mind-reading by figuring out how to expose hidden thought.
+
+We routed around the requirement:
+
+\boxed{
+\text{private cognition}
+\rightarrow
+\text{voluntary structured state}
+\rightarrow
+\text{shared reconstruction}
+}
+
+Which is exactly what humans did with language in the first place.
+
+CALLosum: don’t read the mind. Build the bridge. ;)
