@@ -1,0 +1,537 @@
+FILE: /pantheon/interfaces/semantic_display_field.pseudo
+
+MODULE SemanticDisplayField
+
+PURPOSE:
+    Treat the screen as a movable aperture over a larger semantic field.
+    Dynamically grant only the navigational dimensions that are useful
+    for the current task.
+
+CORE PRINCIPLE:
+    Screen != Document
+    Screen = Viewport over Programmable Representational Field
+
+RULE:
+    Grant only the navigational dimensions that create more information
+    than friction.
+
+
+DATA STRUCTURES
+
+STRUCT SemanticNode:
+    id
+    world_position = (x, y, optional_z)
+    representation
+    semantic_type
+    metadata
+    relations[]
+    interaction_policy
+    visibility_policy
+
+STRUCT SemanticField:
+    nodes[]
+    bounds
+    semantic_axes
+    layers[]
+    background_state
+    negative_space_regions[]
+
+STRUCT Viewport:
+    center = (x, y, optional_z)
+    width
+    height
+    zoom
+    rotation
+    active_dimensions
+    navigation_mode
+    locked_axes[]
+    current_layer
+    history[]
+
+STRUCT NavigationPolicy:
+    allowed_directions
+    pan_enabled
+    zoom_enabled
+    rotation_enabled
+    layer_shift_enabled
+    semantic_zoom_enabled
+    friction_threshold
+    snap_behavior
+    recovery_behavior
+
+ENUM NavigationMode:
+    READING
+    COMPARISON
+    EXPLORATION
+    INSPECTION
+    FOCUS
+    CUSTOM
+
+
+INITIALIZE(field, screen, task_context):
+
+    viewport = create_viewport(screen)
+
+    mode = infer_navigation_mode(task_context)
+
+    policy = build_navigation_policy(mode, task_context)
+
+    apply_policy(viewport, policy)
+
+    render(field, viewport)
+
+    RETURN viewport
+
+
+FUNCTION infer_navigation_mode(task_context):
+
+    IF task_context.intent == "linear_reading":
+        RETURN READING
+
+    IF task_context.intent == "compare_alternatives":
+        RETURN COMPARISON
+
+    IF task_context.intent == "discover_relationships":
+        RETURN EXPLORATION
+
+    IF task_context.intent == "inspect_dense_structure":
+        RETURN INSPECTION
+
+    IF task_context.intent == "execute_precise_action":
+        RETURN FOCUS
+
+    RETURN CUSTOM
+
+
+FUNCTION build_navigation_policy(mode, context):
+
+    policy = new NavigationPolicy
+
+    SWITCH mode:
+
+        CASE READING:
+            policy.allowed_directions = [UP, DOWN]
+            policy.pan_enabled = TRUE
+            policy.zoom_enabled = LIMITED
+            policy.rotation_enabled = FALSE
+            policy.layer_shift_enabled = FALSE
+            policy.semantic_zoom_enabled = OPTIONAL
+            policy.snap_behavior = "vertical_rail"
+
+        CASE COMPARISON:
+            policy.allowed_directions = [LEFT, RIGHT, UP, DOWN]
+            policy.pan_enabled = TRUE
+            policy.zoom_enabled = TRUE
+            policy.rotation_enabled = FALSE
+            policy.layer_shift_enabled = OPTIONAL
+            policy.semantic_zoom_enabled = TRUE
+            policy.snap_behavior = "comparison_lanes"
+
+        CASE EXPLORATION:
+            policy.allowed_directions = OMNIDIRECTIONAL
+            policy.pan_enabled = TRUE
+            policy.zoom_enabled = TRUE
+            policy.rotation_enabled = OPTIONAL
+            policy.layer_shift_enabled = TRUE
+            policy.semantic_zoom_enabled = TRUE
+            policy.snap_behavior = "soft"
+
+        CASE INSPECTION:
+            policy.allowed_directions = OMNIDIRECTIONAL
+            policy.pan_enabled = TRUE
+            policy.zoom_enabled = TRUE
+            policy.rotation_enabled = OPTIONAL
+            policy.layer_shift_enabled = TRUE
+            policy.semantic_zoom_enabled = TRUE
+            policy.snap_behavior = "object_local"
+
+        CASE FOCUS:
+            policy.allowed_directions = NONE_OR_MINIMAL
+            policy.pan_enabled = FALSE
+            policy.zoom_enabled = OPTIONAL
+            policy.rotation_enabled = FALSE
+            policy.layer_shift_enabled = FALSE
+            policy.semantic_zoom_enabled = FALSE
+            policy.snap_behavior = "locked"
+
+    RETURN policy
+
+
+FUNCTION navigate(input_vector, viewport, field):
+
+    desired_motion = translate_input_to_world_motion(input_vector)
+
+    constrained_motion =
+        apply_navigation_policy(
+            desired_motion,
+            viewport.navigation_policy
+        )
+
+    viewport.center += constrained_motion
+
+    prevent_disorientation(viewport, field)
+
+    viewport.history.append(viewport.center)
+
+    render(field, viewport)
+
+
+FUNCTION zoom(delta, viewport, field):
+
+    IF viewport.navigation_policy.zoom_enabled == FALSE:
+        RETURN
+
+    old_zoom = viewport.zoom
+
+    viewport.zoom =
+        clamp(
+            viewport.zoom * zoom_transform(delta),
+            MIN_ZOOM,
+            MAX_ZOOM
+        )
+
+    IF viewport.navigation_policy.semantic_zoom_enabled:
+        IF crossed_semantic_zoom_threshold(old_zoom, viewport.zoom):
+            recompile_visible_representations(field, viewport)
+
+    render(field, viewport)
+
+
+FUNCTION recompile_visible_representations(field, viewport):
+
+    visible_nodes = query_visible_nodes(field, viewport)
+
+    FOR EACH node IN visible_nodes:
+
+        semantic_scale =
+            determine_semantic_scale(
+                viewport.zoom,
+                node,
+                current_task
+            )
+
+        node.representation =
+            compile_representation(
+                node,
+                semantic_scale,
+                current_task
+            )
+
+
+FUNCTION compile_representation(node, semantic_scale, task):
+
+    IF semantic_scale == MICRO:
+        RETURN detailed_representation(node)
+
+    IF semantic_scale == LOCAL:
+        RETURN normal_representation(node)
+
+    IF semantic_scale == CLUSTER:
+        RETURN cluster_representation(node)
+
+    IF semantic_scale == SYSTEM:
+        RETURN abstract_system_representation(node)
+
+    IF semantic_scale == LANDSCAPE:
+        RETURN topology_representation(node)
+
+
+SEMANTIC AXIS EXAMPLE
+
+field.semantic_axes = {
+
+    vertical:
+        meaning = "depth / sequence / chronology",
+
+    horizontal:
+        meaning = "alternative / perspective / counterfactual",
+
+    depth:
+        meaning = "layer / evidence class / representation mode"
+}
+
+
+OPTIONAL LANE CONFIGURATION
+
+horizontal_lanes = [
+    REALITY,
+    INFERENCE,
+    PREDICTION,
+    IMAGINATION,
+    COUNTERFACTUAL
+]
+
+vertical_axis = [
+    ORIGIN,
+    DEVELOPMENT,
+    CONSEQUENCE,
+    RECONSTRUCTION
+]
+
+
+FUNCTION screen_to_world(screen_point, viewport):
+
+    normalized =
+        screen_point - screen_center
+
+    world_point =
+        normalized / viewport.zoom
+        + viewport.center
+
+    RETURN world_point
+
+
+FUNCTION world_to_screen(world_point, viewport):
+
+    relative =
+        world_point - viewport.center
+
+    screen_point =
+        relative * viewport.zoom
+        + screen_center
+
+    RETURN screen_point
+
+
+FUNCTION query_visible_nodes(field, viewport):
+
+    visible_bounds =
+        calculate_world_bounds(viewport)
+
+    RETURN all nodes
+        whose world_position intersects visible_bounds
+        AND whose visibility_policy permits display
+
+
+NEGATIVE SPACE
+
+FUNCTION encode_negative_space(region, meaning):
+
+    region.contains_visible_object = FALSE
+    region.semantic_meaning = meaning
+    region.is_addressable = TRUE
+
+    ADD region TO field.negative_space_regions
+
+
+FUNCTION interpret_negative_space(region):
+
+    RETURN {
+        distance,
+        separation,
+        absence,
+        exclusion,
+        uncertainty,
+        boundary,
+        reserved_space,
+        transition
+    }
+
+
+ADAPTIVE FREEDOM
+
+FUNCTION evaluate_navigation_freedom(task, viewport, field):
+
+    candidate_dimensions = [
+        HORIZONTAL,
+        VERTICAL,
+        DEPTH,
+        ZOOM,
+        ROTATION
+    ]
+
+    FOR EACH dimension IN candidate_dimensions:
+
+        information_gain =
+            estimate_information_gain(
+                dimension,
+                task,
+                field
+            )
+
+        interaction_friction =
+            estimate_navigation_friction(
+                dimension,
+                task,
+                viewport
+            )
+
+        utility =
+            information_gain - interaction_friction
+
+        IF utility > viewport.navigation_policy.friction_threshold:
+            enable_dimension(dimension)
+        ELSE:
+            disable_dimension(dimension)
+
+
+DISORIENTATION CONTROL
+
+FUNCTION prevent_disorientation(viewport, field):
+
+    IF viewport_is_far_from_meaningful_content():
+        offer_return_anchor()
+
+    IF movement_velocity > threshold:
+        reduce_motion_gain()
+
+    IF user_changes_direction_repeatedly:
+        increase_snap_strength()
+
+    IF viewport_history suggests lost_state:
+        show_minimap_or_origin_marker()
+
+    IF current_task == READING:
+        bias_return_to_vertical_rail()
+
+
+SEMANTIC VIEWPORT MEMORY
+
+FUNCTION save_view(viewport, label):
+
+    bookmark = {
+        label,
+        center,
+        zoom,
+        rotation,
+        active_layer,
+        visible_nodes,
+        navigation_mode
+    }
+
+    STORE bookmark
+
+
+FUNCTION restore_view(bookmark, viewport):
+
+    viewport.center = bookmark.center
+    viewport.zoom = bookmark.zoom
+    viewport.rotation = bookmark.rotation
+    viewport.current_layer = bookmark.active_layer
+    viewport.navigation_mode = bookmark.navigation_mode
+
+    render()
+
+
+REPRESENTATION COMPILER
+
+FUNCTION choose_best_representation(data, goal, context):
+
+    candidate_representations = [
+        TEXT,
+        TABLE,
+        TIMELINE,
+        GRAPH,
+        MAP,
+        CONSTELLATION,
+        RADIAL_FIELD,
+        SPLIT_COMPARISON,
+        FLOW,
+        LAYERED_FIELD,
+        CUSTOM_GENERATED_INTERFACE
+    ]
+
+    FOR EACH representation IN candidate_representations:
+
+        utility[representation] =
+            score(
+                clarity,
+                task_fit,
+                relational_visibility,
+                interaction_cost,
+                cognitive_load,
+                information_density,
+                reversibility
+            )
+
+    RETURN argmax(utility)
+
+
+FUNCTION instantiate_temporary_interface(data, goal):
+
+    representation =
+        choose_best_representation(data, goal, current_context)
+
+    interface =
+        compile_to_display_field(
+            data,
+            representation
+        )
+
+    USE interface
+
+    delta =
+        extract_new_information(interface)
+
+    DISCARD interface IF no longer useful
+
+    RETURN delta
+
+
+MAIN LOOP
+
+WHILE application_running:
+
+    perceive_current_task()
+
+    evaluate_navigation_freedom(
+        current_task,
+        viewport,
+        field
+    )
+
+    representation =
+        choose_best_representation(
+            current_data,
+            current_goal,
+            current_context
+        )
+
+    update_field_if_needed(
+        representation
+    )
+
+    receive_user_input()
+
+    IF input == PAN:
+        navigate()
+
+    IF input == ZOOM:
+        zoom()
+
+    IF input == LAYER_CHANGE:
+        shift_layer()
+
+    IF input == FOCUS:
+        temporarily_lock_viewport()
+
+    IF input == EXPLORE:
+        expand_viewport_freedom()
+
+    IF input == RETURN:
+        restore_previous_anchor()
+
+    render()
+
+
+CANONICAL FORMULA
+
+    INTERFACE =
+        SEMANTIC_FIELD
+        + VIEWPORT
+        + REPRESENTATION_COMPILER
+        + NAVIGATION_POLICY
+
+
+CANONICAL INVARIANT
+
+    Preserve underlying meaning while allowing
+    its spatial representation,
+    scale,
+    layout,
+    navigation dimensions,
+    and display grammar
+    to change dynamically.
+
+
+END MODULE
