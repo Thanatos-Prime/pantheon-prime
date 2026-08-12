@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>J-Hooks — Cinematic Score Grammar Transfer</title>
+<style>
+  :root{
+    --bg:#05070c;
+    --bg2:#0b1020;
+    --panel:#0e1424cc;
+    --ink:#e8ecf6;
+    --dim:#8891a8;
+    --accent:#c9a24b;
+    --accent-soft:#c9a24b33;
+    --line:#232b45;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+  body{
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #14203a55, transparent 60%),
+      radial-gradient(1000px 500px at 110% 10%, #2a1a3a55, transparent 60%),
+      var(--bg);
+    min-height:100vh;
+    padding: 28px 16px 60px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+
+  header{margin-bottom:22px;}
+  .eyebrow{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--accent); opacity:.9;
+  }
+  h1{
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-size: clamp(32px, 6vw, 52px);
+    margin: 4px 0 6px;
+    letter-spacing: .01em;
+    background: linear-gradient(180deg, #fff, #9fb0d8);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .sub{color:var(--dim); font-size:15px; max-width:640px; line-height:1.5;}
+  .maxim{
+    margin-top:10px; font-style:italic; color:#c7cee6; font-size:14px;
+    border-left:2px solid var(--accent); padding-left:10px;
+  }
+
+  /* Pipeline signature element */
+  .pipeline{
+    margin:22px 0 26px; padding:14px 16px; border:1px solid var(--line);
+    border-radius:10px; background:#0a0f1ecc; overflow-x:auto;
+  }
+  .pipe-row{display:flex; align-items:center; gap:6px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:11px; white-space:nowrap;}
+  .pipe-node{
+    padding:6px 10px; border-radius:6px; border:1px solid var(--line);
+    color:var(--dim); background:#0d1326;
+  }
+  .pipe-node.hot{ color:#08101f; background:var(--accent); border-color:var(--accent); font-weight:600; box-shadow:0 0 18px var(--accent-soft); }
+  .pipe-arrow{color:#3c4468;}
+
+  .stage{
+    border:1px solid var(--line); border-radius:14px; background:var(--panel);
+    padding:18px; margin-bottom:18px;
+  }
+
+  .scene-wrap{position:relative; border-radius:10px; overflow:hidden; border:1px solid var(--line); background:#000;}
+  canvas{display:block; width:100%; height:auto; aspect-ratio: 16/7; background:#000;}
+
+  .transport{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    margin-top:14px;
+  }
+  button{
+    font-family:inherit; font-size:14px; cursor:pointer;
+    border-radius:8px; border:1px solid var(--line); background:#121a30; color:var(--ink);
+    padding:10px 16px; transition: border-color .15s, transform .1s;
+  }
+  button:hover{border-color:var(--accent);}
+  button:active{transform: scale(.97);}
+  button.primary{ background:var(--accent); color:#08101f; border-color:var(--accent); font-weight:700; }
+  .grammar-toggle{ display:flex; gap:8px; margin-left:auto; }
+  .g-btn{ position:relative; padding:10px 14px; }
+  .g-btn[data-active="true"]{ border-color:var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .g-btn .dot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; background:currentColor;}
+  #btn-mythic{ font-family: Georgia, "Iowan Old Style", serif; letter-spacing:.02em; }
+  #btn-action{ font-family: "Arial Narrow", Helvetica, Arial, sans-serif; letter-spacing:.06em; text-transform:uppercase; font-weight:700; }
+
+  .clock{ font-family: ui-monospace, Menlo, Consolas, monospace; color:var(--dim); font-size:13px; margin-left:6px; }
+  .hint{color:var(--dim); font-size:12.5px; margin-top:10px; line-height:1.5;}
+
+  .grid{display:grid; grid-template-columns: 1.2fr 1fr; gap:16px;}
+  @media (max-width: 760px){ .grid{grid-template-columns:1fr;} }
+
+  .panel-title{
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim);
+    margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel-title .tag{color:var(--accent);}
+
+  .timeline-row{
+    display:grid; grid-template-columns: 52px 1fr; gap:10px;
+    padding:8px 6px; border-radius:8px; border-bottom:1px solid var(--line);
+    font-size:13px; opacity:.6; transition: opacity .2s, background .2s;
+  }
+  .timeline-row:last-child{border-bottom:none;}
+  .timeline-row.active{ opacity:1; background:var(--accent-soft); }
+  .timeline-row .t{font-family: ui-monospace, Menlo, Consolas, monospace; color:var(--dim);}
+  .timeline-row .fn{font-weight:600; color:var(--ink);}
+  .timeline-row .music{color:var(--dim); font-size:12.5px; margin-top:2px;}
+
+  .motif-card{
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:#0b1122;
+  }
+  .motif-card .id{font-weight:700; font-size:13.5px;}
+  .motif-card .role{color:var(--dim); font-size:11.5px; margin-bottom:6px;}
+  .motif-card .state{
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size:12px; color:var(--accent);
+  }
+
+  details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-top:14px; background:#0a0f1e;}
+  summary{cursor:pointer; font-size:13px; color:var(--dim); font-family: ui-monospace, Menlo, Consolas, monospace;}
+  pre{font-size:11.5px; overflow-x:auto; color:#b9c3e0; line-height:1.5;}
+
+  footer{color:var(--dim); font-size:12px; margin-top:26px; line-height:1.6;}
+  footer code{color:#b9c3e0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Project Polyphony · J-Hooks MVP</div>
+    <h1>J-Hooks</h1>
+    <div class="sub">Don't transfer the soundtrack. Transfer what the soundtrack learned about its movie. This demo scores one generic space-opera scene under two independent dramatic grammars — same picture, same <code>StoryIR</code>, two original <code>Pattern Books</code>.</div>
+    <div class="maxim">Dehydrate the rendering. Preserve the relation. Rehydrate in the new world.</div>
+  </header>
+
+  <div class="pipeline">
+    <div class="pipe-row" id="pipe-row">
+      <div class="pipe-node" data-n="0">SOURCE GRAMMAR</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node" data-n="1">DEHYDRATE</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node" data-n="2" id="pipe-relational">RELATIONAL IR</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node" data-n="3">REHYDRATE</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node hot" data-n="4" id="pipe-target">TARGET RENDERING</div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel-title"><span>Target Scene · bundled copyright-safe demo</span><span class="tag" id="renderer-class">renderer: original instrumental score (synthesized)</span></div>
+    <div class="scene-wrap">
+      <canvas id="scene" width="1280" height="560"></canvas>
+    </div>
+    <div class="transport">
+      <button class="primary" id="btn-play">▶ Play scene</button>
+      <button id="btn-replay">↺ Replay</button>
+      <span class="clock" id="clock">00:00 / 00:40</span>
+      <div class="grammar-toggle">
+        <button class="g-btn" id="btn-mythic" data-active="true"><span class="dot" style="color:#c9a24b"></span>Mythic Epic Fantasy</button>
+        <button class="g-btn" id="btn-action" data-active="false"><span class="dot" style="color:#2fd1ff"></span>Modern Blockbuster Action</button>
+      </div>
+    </div>
+    <div class="hint">Press play once, then tap the other grammar mid-scene — the picture never restarts, only the musical interpretation swaps. That swap is the whole demo.</div>
+  </div>
+
+  <div class="grid">
+    <div class="stage">
+      <div class="panel-title"><span>Pattern Book · what the music is doing</span><span class="tag" id="pb-label">Mythic Epic Fantasy</span></div>
+      <div id="timeline"></div>
+    </div>
+    <div class="stage">
+      <div class="panel-title"><span>Motifs · semantic hyperlinks</span></div>
+      <div id="motifs"></div>
+    </div>
+  </div>
+
+  <details>
+    <summary>StoryIR (shared, grammar-independent) — narrative facts extracted/annotated for the scene</summary>
+    <pre id="storyir-json"></pre>
+  </details>
+
+  <details>
+    <summary>Pattern Book / RelationalIR — the transferable grammar for the active treatment</summary>
+    <pre id="patternbook-json"></pre>
+  </details>
+
+  <details>
+    <summary>MusicRenderer interface — how a future generative model plugs in</summary>
+    <pre>interface MusicRenderer {
+  render(story: StoryIR, grammar: PatternBook, options: RenderOptions): Promise&lt;AudioArtifact&gt;;
+}
+
+// MVP substitution, documented:
+// This build ships `webAudioSynthRenderer`, a deterministic local renderer using
+// oscillators + filtered noise scheduled against the Web Audio clock. It fully
+// implements MusicRenderer. A future renderer (e.g. a hosted generative-music
+// model) can be dropped in behind the same interface — StoryIR and PatternBook
+// do not change, only the rendering backend does.</pre>
+  </details>
+
+  <footer>
+    Bundled demo scene is procedurally drawn (no licensed footage or music). No melodies, motifs, or arrangements are copied from any existing film score — <code>Hero Motif</code>, <code>Ally Motif</code>, <code>Pulse Motif</code>, and <code>Stab Motif</code> are original material generated for this build. StoryIR for the bundled demo was authored by hand for tonight's MVP rather than extracted by a vision model — documented substitution, see <code>TONIGHT-FIRST ENGINEERING</code> in the brief.
+  </footer>
+</div>
+
+<script>
+/* ============================== StoryIR ============================== */
+// Shared narrative timeline. Identical across grammars — this is the thing
+// both Pattern Books are reading. Times in seconds.
+const STORY_IR = [
+  {time:0.0,  narrative_function:"isolation",            action_intensity:0.15, tension:0.35, awe:0.1, visual_scale:"small",    transition:"establish"},
+  {time:11.0, narrative_function:"reinforcements_detected",action_intensity:0.25, tension:0.55, awe:0.3, visual_scale:"small",   transition:"reveal"},
+  {time:16.0, narrative_function:"allies_assemble",       action_intensity:0.4,  tension:0.5,  awe:0.55,visual_scale:"medium",  transition:"convergence"},
+  {time:21.0, narrative_function:"charge_begins",         action_intensity:0.75, tension:0.7,  awe:0.6, visual_scale:"large",   transition:"forces_charge"},
+  {time:28.0, narrative_function:"collision",             action_intensity:1.0,  tension:0.95, awe:0.7, visual_scale:"massive", transition:"heroic_convergence"},
+  {time:34.0, narrative_function:"aftermath",             action_intensity:0.2,  tension:0.15, awe:0.4, visual_scale:"medium",  transition:"release"}
+];
+const SCENE_DURATION = 40;
+document.getElementById("storyir-json").textContent = JSON.stringify(STORY_IR, null, 2);
+
+/* ============================== Audio note builders ============================== */
+const A4 = 440;
+const f = n => A4 * Math.pow(2, n/12); // n = semitone offset from A4
+
+/* ---- Mythic Epic Fantasy Pattern Book ---- */
+function composeMythic(){
+  const events = [];
+  const hero = [-7,-4,-2,0];      // D4 F4 G4 A4 — protagonists' identity
+  const ally = [-12,-9,-7,-5];    // dormant / reinforcement material
+
+  // Phase: isolation (0-11) — sparse identity over a low drone
+  events.push({t:0.2,  freq:f(-31), dur:10.4, type:"tone", wave:"sine", gain:0.16, filter:700});
+  [2.0, 5.2, 8.4].forEach((t,i)=> events.push({t, freq:f(hero[i%4]), dur:1.6, type:"tone", wave:"triangle", gain:0.12, filter:1500}));
+
+  // Phase: reinforcements detected (11-16) — dormant motif returns, quiet
+  events.push({t:11.1, freq:f(-31), dur:5.2, type:"tone", wave:"sine", gain:0.14, filter:850});
+  [11.6, 13.0, 14.4].forEach((t,i)=> events.push({t, freq:f(ally[i%4]), dur:1.3, type:"tone", wave:"sine", gain:0.11, filter:1200}));
+
+  // Phase: allies assemble (16-21) — independent motifs converge
+  events.push({t:16.0, freq:f(-19), dur:5.0, type:"tone", wave:"sawtooth", gain:0.08, filter:700});
+  for(let t=16.0, i=0; t<21; t+=0.9, i++){
+    events.push({t,        freq:f(hero[i%4]), dur:1.0, type:"tone", wave:"triangle", gain:0.15, filter:1900});
+    events.push({t:t+0.06, freq:f(ally[i%4]), dur:1.0, type:"tone", wave:"sine",     gain:0.12, filter:1300});
+  }
+
+  // Phase: charge begins (21-28) — rhythmic propulsion emerges, register expands
+  events.push({t:21.0, freq:f(-7), dur:7.0, type:"tone", wave:"sawtooth", gain:0.09, filter:1600});
+  for(let t=21.0, i=0; t<28; t+=0.6, i++){
+    events.push({t, type:"noise", dur:0.12, gain:0.2, band:1800});
+    events.push({t:t+0.3, freq:f(hero[i%4]), dur:0.5, type:"tone", wave:"triangle", gain:0.14, filter:2000});
+  }
+
+  // Phase: collision (28-34) — maximum density
+  events.push({t:28.0, type:"noise", dur:0.8, gain:0.42, band:2500});
+  [-31,-19,-7,0,3].forEach((n,i)=> events.push({t:28.03+i*0.02, freq:f(n), dur:5.0, type:"tone", wave:"sawtooth", gain:0.13, filter:2200}));
+  for(let t=29.0; t<34; t+=0.45) events.push({t, type:"noise", dur:0.15, gain:0.18, band:2000});
+
+  // Phase: aftermath (34-40) — fragment of intimate identity returns
+  events.push({t:34.1, freq:f(-31), dur:5.4, type:"tone", wave:"sine", gain:0.09, filter:600});
+  events.push({t:34.6, freq:f(hero[0]), dur:2.2, type:"tone", wave:"sine", gain:0.11, filter:1000});
+  events.push({t:37.0, freq:f(hero[1]), dur:3.0, type:"tone", wave:"sine", gain:0.07, filter:800});
+
+  return events;
+}
+
+/* ---- Modern Blockbuster Action Pattern Book ---- */
+function composeAction(){
+  const events = [];
+  const stab = [0,3,7,10]; // aggression identity
+
+  // Phase: isolation / tension (0-11) — sparse pulse, no melody
+  for(let t=0.5; t<11; t+=0.8) events.push({t, freq:f(-24), dur:0.16, type:"tone", wave:"sine", gain:0.15, filter:400});
+
+  // Phase: reinforcements detected (11-16) — anticipation, filter sweep
+  events.push({t:11.2, freq:f(-12), dur:4.5, type:"tone", wave:"sawtooth", gain:0.06, filter:300, sweepTo:4200});
+
+  // Phase: allies assemble (16-21) — reveal / drop, riff begins
+  events.push({t:16.0, type:"noise", dur:1.0, gain:0.48, band:3000});
+  events.push({t:16.0, freq:f(-24), dur:3.0, type:"tone", wave:"sawtooth", gain:0.24, filter:1200});
+  for(let t=16.5, i=0; t<21; t+=0.5, i++) events.push({t, freq:f(stab[i%4]), dur:0.35, type:"tone", wave:"sawtooth", gain:0.14, filter:2500});
+
+  // Phase: charge begins (21-28) — aggressive rhythmic music synced tight
+  events.push({t:21.0, freq:f(-24), dur:7.0, type:"tone", wave:"sine", gain:0.14, filter:500});
+  for(let t=21.0, i=0; t<28; t+=0.28, i++){
+    events.push({t, type:"noise", dur:0.08, gain:0.2, band:2200});
+    events.push({t, freq:f(stab[i%4]), dur:0.2, type:"tone", wave:"sawtooth", gain:0.16, filter:2800});
+  }
+
+  // Phase: collision (28-34) — hits synchronized with impact
+  events.push({t:28.0, type:"noise", dur:1.0, gain:0.48, band:3500});
+  [-24,-12,0,3,7].forEach((n,i)=> events.push({t:28.02+i*0.01, freq:f(n), dur:4.0, type:"tone", wave:"sawtooth", gain:0.14, filter:3000}));
+  for(let t=29.0; t<34; t+=0.5) events.push({t, type:"noise", dur:0.1, gain:0.22, band:2600});
+
+  // Phase: aftermath (34-40) — abrupt release
+  events.push({t:34.0, type:"noise", dur:0.05, gain:0.28, band:1500});
+  events.push({t:34.3, freq:f(-12), dur:5.5, type:"tone", wave:"sine", gain:0.09, filter:800});
+
+  return events;
+}
+
+/* ============================== Grammars (RelationalIR / Pattern Books) ============================== */
+const GRAMMARS = {
+  mythic: {
+    key:"mythic", label:"Mythic Epic Fantasy", accent:"#c9a24b",
+    relational_principles:[
+      "small/home/intimate -> simple recognizable identity",
+      "heroic_convergence -> previously separated musical elements combine",
+      "massive visual scale -> expanded register + density + spatial breadth",
+      "loss -> known motif returns damaged/incomplete",
+      "victory -> previous unresolved musical promises resolve"
+    ],
+    events: composeMythic(),
+    timeline:[
+      {time:0,  label:"Isolation",              music:"Sparse solo identity over a bare low drone; unresolved."},
+      {time:11, label:"Reinforcements detected", music:"Dormant motif (Ally) returns, quiet and distant."},
+      {time:16, label:"Allies assemble",         music:"Independent motifs begin to converge and harmonize."},
+      {time:21, label:"Charge begins",           music:"Rhythmic propulsion emerges; register and density expand."},
+      {time:28, label:"Collision",               music:"Maximum density — full stack, dissonance resolving."},
+      {time:34, label:"Aftermath",               music:"Fragment of the original intimate identity returns, decays."}
+    ],
+    motifs:[
+      {id:"Hero Motif", role:"protagonists' identity", transformations:[
+        {time:2,  state:"sparse, solo, unresolved"},
+        {time:16, state:"converging with Ally Motif"},
+        {time:21, state:"propulsive, rhythmically active"},
+        {time:28, state:"expanded to full density"},
+        {time:34, state:"returns fragmented, intimate"}
+      ]},
+      {id:"Ally Motif", role:"reinforcements / dormant hope", transformations:[
+        {time:11.5, state:"dormant, returns quietly"},
+        {time:16,   state:"harmonizing with Hero Motif"},
+        {time:28,   state:"absorbed into full ensemble"}
+      ]}
+    ]
+  },
+  action: {
+    key:"action", label:"Modern Blockbuster Action", accent:"#2fd1ff",
+    relational_principles:[
+      "anticipation -> pulse",
+      "reveal -> drop / entrance",
+      "charge -> aggressive rhythmic music",
+      "impact -> synchronization with major cuts",
+      "victory -> high-energy continuation or abrupt release"
+    ],
+    events: composeAction(),
+    timeline:[
+      {time:0,  label:"Isolation / tension", music:"Sparse eighth-note pulse. No melody yet — pure tension engine."},
+      {time:11, label:"Reinforcements detected", music:"Filter sweep rises — anticipation building toward a drop."},
+      {time:16, label:"Allies assemble",       music:"Drop hit + sub-bass entrance; riff motif introduced."},
+      {time:21, label:"Charge begins",         music:"Aggressive rhythmic arpeggio, tight sync with motion."},
+      {time:28, label:"Collision",             music:"Hits synchronized to impact; distorted chord stack."},
+      {time:34, label:"Aftermath",             music:"Abrupt cut, then a sustained pad releases the tension."}
+    ],
+    motifs:[
+      {id:"Pulse Motif", role:"tension engine", transformations:[
+        {time:0.5, state:"sparse eighth-note pulse"},
+        {time:16,  state:"drops out for impact hit"},
+        {time:21,  state:"driving sub-bass under riff"}
+      ]},
+      {id:"Stab Motif", role:"aggression identity", transformations:[
+        {time:16.5, state:"introduced as riff"},
+        {time:21,   state:"accelerated, arpeggiated"},
+        {time:28,   state:"stacked into distorted chord"},
+        {time:34,   state:"cut off abruptly"}
+      ]}
+    ]
+  }
+};
+
+/* ============================== webAudioSynthRenderer (MusicRenderer impl) ============================== */
+let audioCtx=null, masterGain=null, compressor=null, activeNodes=[];
+function initAudio(){
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  compressor = audioCtx.createDynamicsCompressor();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.9;
+  masterGain.connect(compressor);
+  compressor.connect(audioCtx.destination);
+}
+function scheduleEvents(events, ctxOffset){
+  events.forEach(e=>{
+    const when = ctxOffset + e.t;
+    if(when < audioCtx.currentTime - 0.01) return;
+    if(e.type==="tone"){
+      const osc = audioCtx.createOscillator();
+      osc.type = e.wave || "sine";
+      osc.frequency.setValueAtTime(e.freq, when);
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.linearRampToValueAtTime(e.gain, when+0.04);
+      g.gain.linearRampToValueAtTime(0.0001, when+e.dur);
+      let outNode = osc;
+      if(e.filter){
+        const filt = audioCtx.createBiquadFilter();
+        filt.type = "lowpass";
+        filt.frequency.setValueAtTime(e.filter, when);
+        if(e.sweepTo) filt.frequency.linearRampToValueAtTime(e.sweepTo, when+e.dur);
+        osc.connect(filt); filt.connect(g);
+      } else {
+        osc.connect(g);
+      }
+      g.connect(masterGain);
+      osc.start(when); osc.stop(when+e.dur+0.1);
+      activeNodes.push(osc);
+    } else if(e.type==="noise"){
+      const len = Math.max(1, Math.floor(audioCtx.sampleRate * e.dur));
+      const buffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i=0;i<len;i++) data[i] = Math.random()*2-1;
+      const src = audioCtx.createBufferSource();
+      src.buffer = buffer;
+      const filt = audioCtx.createBiquadFilter();
+      filt.type = "bandpass"; filt.frequency.value = e.band||2000; filt.Q.value=1.2;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(e.gain, when);
+      g.gain.linearRampToValueAtTime(0.0001, when+e.dur);
+      src.connect(filt); filt.connect(g); g.connect(masterGain);
+      src.start(when); src.stop(when+e.dur+0.05);
+      activeNodes.push(src);
+    }
+  });
+}
+function stopAllNodes(){
+  activeNodes.forEach(n=>{ try{ n.stop(); }catch(err){} });
+  activeNodes = [];
+}
+// MusicRenderer implementation used by this MVP:
+const webAudioSynthRenderer = {
+  render(storyIR, grammar, ctxOffset){ scheduleEvents(grammar.events, ctxOffset); }
+};
+
+/* ============================== Playback / transport state ============================== */
+let sceneStart = null;
+let currentKey = "mythic";
+let playing = false;
+
+function getElapsed(){ return sceneStart===null ? 0 : audioCtx.currentTime - sceneStart; }
+
+function playScene(){
+  if(!audioCtx) initAudio();
+  audioCtx.resume();
+  stopAllNodes();
+  sceneStart = audioCtx.currentTime + 0.05;
+  webAudioSynthRenderer.render(STORY_IR, GRAMMARS[currentKey], sceneStart);
+  playing = true;
+  requestAnimationFrame(renderLoop);
+}
+
+function switchGrammar(key){
+  if(key === currentKey) return;
+  currentKey = key;
+  updateGrammarUI();
+  if(playing){
+    const elapsed = getElapsed();
+    stopAllNodes();
+    const remaining = GRAMMARS[key].events.filter(e => e.t >= elapsed - 0.05);
+    const offset = audioCtx.currentTime - elapsed;
+    webAudioSynthRenderer.render(STORY_IR, {events:remaining}, offset);
+  }
+}
+
+function onSceneEnd(){
+  playing = false;
+  stopAllNodes();
+  document.getElementById("clock").textContent = "00:40 / 00:40 — scene complete";
+}
+
+/* ============================== Canvas scene (procedural, copyright-safe) ============================== */
+const canvas = document.getElementById("scene");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+const stars = Array.from({length:140}, ()=>({
+  x: Math.random()*W, y: Math.random()*H*0.85, r: Math.random()*1.5+0.3, tw: Math.random()*Math.PI*2
+}));
+let particles = [];
+let shakeUntil = -1;
+
+function lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
+function easeOut(t){ t=Math.max(0,Math.min(1,t)); return 1-Math.pow(1-t,3); }
+function phaseT(elapsed, start, end){ return (elapsed-start)/(end-start); }
+
+function drawScene(elapsed){
+  const accent = GRAMMARS[currentKey].accent;
+  ctx.save();
+  if(elapsed*1000 < shakeUntil){
+    const s = 6 * (1 - (shakeUntil - elapsed*1000)/500);
+    ctx.translate((Math.random()-0.5)*s, (Math.random()-0.5)*s);
+  }
+  // background
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, "#04050a");
+  grad.addColorStop(1, "#0a0e1c");
+  ctx.fillStyle = grad;
+  ctx.fillRect(-20,-20,W+40,H+40);
+
+  // stars
+  stars.forEach(s=>{
+    const tw = 0.5 + 0.5*Math.sin(elapsed*2 + s.tw);
+    ctx.fillStyle = `rgba(220,225,255,${0.25+0.5*tw})`;
+    ctx.beginPath(); ctx.arc(s.x - elapsed*4 % W, s.y, s.r, 0, 7); ctx.fill();
+  });
+
+  // enemy mass (right side) — dark angular silhouette, present throughout
+  const enemyPulse = 1 + 0.03*Math.sin(elapsed*1.5);
+  const enemyScale = elapsed>28 ? lerp(1, 1.12, easeOut(phaseT(elapsed,28,34))) : 1;
+  ctx.save();
+  ctx.translate(W*0.78, H*0.5);
+  ctx.scale(enemyPulse*enemyScale, enemyPulse*enemyScale);
+  ctx.fillStyle = "#241226";
+  ctx.strokeStyle = "#4a2350";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const R = 150;
+  for(let i=0;i<6;i++){
+    const a = i/6*Math.PI*2;
+    const px = Math.cos(a)*R, py = Math.sin(a)*R*0.7;
+    i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+  }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+
+  // hero ships
+  let count = 3;
+  let formSpread = 40;
+  let baseX = W*0.18, baseY = H*0.5;
+  let opacity = 0.55;
+
+  if(elapsed >= 11) count = 6;                    // reinforcements appear
+  if(elapsed >= 16){ opacity = 1; formSpread = 26; } // allies assemble, tighten formation
+
+  let travel = 0;
+  if(elapsed >= 21){
+    const t = phaseT(elapsed, 21, 28.2);
+    travel = easeOut(Math.min(t,1)) * (W*0.5);      // charge toward enemy
+  }
+  if(elapsed >= 28) travel = W*0.5;
+
+  for(let i=0;i<count;i++){
+    const col = i%3, row = Math.floor(i/3);
+    const x = baseX + col*formSpread + travel;
+    const y = baseY + (row-0.5)*formSpread*2 + Math.sin(elapsed*3+i)*3;
+    const dim = elapsed>=28 && elapsed<34 ? (i%2===0 ? 0.5 : 1) : 1; // flicker after impact
+
+    // engine trail during charge
+    if(elapsed>=21 && elapsed<34){
+      ctx.fillStyle = `${accent}55`;
+      ctx.beginPath();
+      ctx.moveTo(x-14, y);
+      ctx.lineTo(x-30-Math.random()*10, y-4);
+      ctx.lineTo(x-30-Math.random()*10, y+4);
+      ctx.closePath(); ctx.fill();
+    }
+
+    ctx.globalAlpha = opacity*dim;
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.moveTo(x+14, y);
+    ctx.lineTo(x-10, y-8);
+    ctx.lineTo(x-10, y+8);
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // impact burst + particles
+  if(elapsed>=28 && elapsed<28.05 && particles.length===0){
+    for(let i=0;i<60;i++){
+      const a = Math.random()*Math.PI*2, sp = 60+Math.random()*180;
+      particles.push({x:W*0.68,y:H*0.5, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1});
+    }
+    shakeUntil = elapsed*1000 + 500;
+  }
+  if(elapsed<28) particles = [];
+  particles.forEach(p=>{
+    p.x += p.vx*0.016; p.y += p.vy*0.016; p.life -= 0.016;
+    p.vx *= 0.96; p.vy *= 0.96;
+    if(p.life>0){
+      ctx.fillStyle = `${accent}${Math.floor(p.life*255).toString(16).padStart(2,"0")}`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,2.4,0,7); ctx.fill();
+    }
+  });
+  particles = particles.filter(p=>p.life>0);
+
+  // aftermath dim vignette
+  if(elapsed>=34){
+    const t = phaseT(elapsed,34,40);
+    ctx.fillStyle = `rgba(0,0,0,${0.35*easeOut(t)})`;
+    ctx.fillRect(-20,-20,W+40,H+40);
+  }
+
+  ctx.restore();
+}
+
+/* ============================== UI wiring ============================== */
+const timelineEl = document.getElementById("timeline");
+const motifsEl = document.getElementById("motifs");
+const clockEl = document.getElementById("clock");
+const pbLabel = document.getElementById("pb-label");
+const pipeRelational = document.getElementById("pipe-relational");
+const pipeTarget = document.getElementById("pipe-target");
+
+function fmt(t){
+  const m = Math.floor(t/60), s = Math.floor(t%60);
+  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+
+function renderTimeline(){
+  const g = GRAMMARS[currentKey];
+  timelineEl.innerHTML = g.timeline.map((row,i)=>`
+    <div class="timeline-row" data-i="${i}" data-t="${row.time}">
+      <div class="t">${fmt(row.time)}</div>
+      <div>
+        <div class="fn">${row.label}</div>
+        <div class="music">${row.music}</div>
+      </div>
+    </div>`).join("");
+}
+function renderMotifs(){
+  const g = GRAMMARS[currentKey];
+  motifsEl.innerHTML = g.motifs.map(m=>`
+    <div class="motif-card" data-id="${m.id}">
+      <div class="id">${m.id}</div>
+      <div class="role">${m.role}</div>
+      <div class="state" data-states='${JSON.stringify(m.transformations)}'>—</div>
+    </div>`).join("");
+}
+function updateGrammarUI(){
+  const g = GRAMMARS[currentKey];
+  document.documentElement.style.setProperty("--accent", g.accent);
+  document.documentElement.style.setProperty("--accent-soft", g.accent+"33");
+  document.getElementById("btn-mythic").dataset.active = String(currentKey==="mythic");
+  document.getElementById("btn-action").dataset.active = String(currentKey==="action");
+  pbLabel.textContent = g.label;
+  pipeRelational.textContent = `RELATIONAL IR (${g.label})`;
+  pipeTarget.style.background = g.accent;
+  pipeTarget.style.borderColor = g.accent;
+  document.getElementById("patternbook-json").textContent = JSON.stringify({
+    grammar: g.label,
+    relational_principles: g.relational_principles,
+    timeline: g.timeline,
+    motifs: g.motifs
+  }, null, 2);
+  renderTimeline();
+  renderMotifs();
+}
+
+function updateTimelineHighlight(elapsed){
+  const rows = [...timelineEl.querySelectorAll(".timeline-row")];
+  let activeIdx = 0;
+  rows.forEach((r,i)=>{ if(elapsed >= parseFloat(r.dataset.t)) activeIdx = i; });
+  rows.forEach((r,i)=> r.classList.toggle("active", i===activeIdx));
+}
+function updateMotifPanel(elapsed){
+  motifsEl.querySelectorAll(".state").forEach(el=>{
+    const states = JSON.parse(el.dataset.states);
+    let cur = states[0];
+    states.forEach(s=>{ if(elapsed >= s.time) cur = s; });
+    el.textContent = elapsed < states[0].time ? "not yet active" : `→ ${cur.state}`;
+  });
+}
+
+function renderLoop(){
+  if(!playing) return;
+  const elapsed = getElapsed();
+  if(elapsed >= SCENE_DURATION){ onSceneEnd(); drawScene(SCENE_DURATION); return; }
+  drawScene(elapsed);
+  clockEl.textContent = `${fmt(elapsed)} / ${fmt(SCENE_DURATION)}`;
+  updateTimelineHighlight(elapsed);
+  updateMotifPanel(elapsed);
+  requestAnimationFrame(renderLoop);
+}
+
+document.getElementById("btn-play").addEventListener("click", ()=>{
+  playScene();
+});
+document.getElementById("btn-replay").addEventListener("click", ()=>{
+  playScene();
+});
+document.getElementById("btn-mythic").addEventListener("click", ()=> switchGrammar("mythic"));
+document.getElementById("btn-action").addEventListener("click", ()=> switchGrammar("action"));
+
+// init
+updateGrammarUI();
+drawScene(0);
+clockEl.textContent = `00:00 / ${fmt(SCENE_DURATION)}`;
+</script>
+</body>
+</html>
