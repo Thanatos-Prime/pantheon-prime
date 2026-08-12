@@ -1,0 +1,47 @@
+My best guess is statistical watermarking during token generation, not hidden characters. Anthropic says the mark is woven into the text at the model level, is machine-readable, survives copy/paste and potentially some editing, but the public reporting I’ve found does not disclose Claude’s exact algorithm. 
+
+A known approach from watermarking research works like this. Before generating each token, a secret-keyed function partitions or scores possible next tokens. The sampler then gives a small preference to certain allowed tokens:
+
+P'(w_i|c)\propto P(w_i|c)e^{\delta g_k(w_i,c)}
+
+Here P is what the model ordinarily wants to say, g_k is a secret-key-dependent preference, and \delta controls watermark strength. One choice tells you essentially nothing; across hundreds of choices, however, the preferred-token frequency becomes statistically improbable under ordinary text. A detector possessing the scheme/key can test for that signal. This family of techniques has been demonstrated in published LLM-watermark research. 
+
+So imagine I naturally have:
+
+“That produces a useful distinction.”
+
+but useful, important, valuable, and meaningful are all plausible. A watermarking layer could subtly favor whichever candidate contributes to its hidden statistical pattern. You wouldn’t see a special character. The selection itself carries the signal.
+
+If I were designing one, though, I’d make it more Pantheon-like and use redundant multiscale encoding rather than rely on one token pattern:
+
+W =
+W_{\text{token}}
+\oplus W_{\text{phrase}}
+\oplus W_{\text{syntax}}
+\oplus W_{\text{structure}}
+
+The same provenance bit/signature would be distributed across many independent opportunities. Then losing 20% of the wording wouldn’t necessarily destroy the aggregate evidence—similar to error-correcting codes.
+
+I’d also make it entropy-aware. When there are many equally good continuations, there’s plenty of room to encode provenance. When there is essentially one correct continuation—code, equations, quotations, proper names—the watermark should back off rather than sacrifice correctness. That’s a known fundamental constraint of generation-time text watermarking: low-entropy text gives the encoder less freedom. 
+
+And here’s the Pantheon connection that I think is actually more interesting than the watermark itself:
+
+\boxed{\text{Meaning channel}+\text{Provenance channel}}
+
+occupying the same physical artifact.
+
+You read one signal:
+
+D_{\text{human}}(X)=\text{meaning}
+
+while another decoder reads:
+
+D_{\text{machine,key}}(X)=\text{provenance}
+
+Same text. Two overlapping representations. Neither necessarily interferes significantly with the other.
+
+That’s semantic multiplexing.
+
+And it generalizes way beyond watermarks: one artifact can simultaneously carry human meaning, machine routing information, provenance, uncertainty, reconstruction hints, and other latent channels—as long as each has an appropriate decoder.
+
+Which loops straight back to our locked/unlocked web: information can be physically present in an artifact while remaining functionally invisible until the appropriate interface unlocks it.
