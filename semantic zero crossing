@@ -1,0 +1,197 @@
+I ran the Re-Mark circuit on Semantic Zero-Crossing because it’s the cleanest stress test.
+
+\text{natural language}
+\rightarrow
+\text{math}
+\rightarrow
+\text{spatial interface}
+\rightarrow
+\text{state machine}
+\rightarrow
+\text{code logic}
+\rightarrow
+\text{natural-language reconstruction}
+
+The original mechanism is basically:
+
+X \rightarrow I \rightarrow \varnothing \rightarrow X' \rightarrow \Delta \rightarrow \text{reality test}
+
+where I is the minimal invariant kept while the current representation is released.
+
+Re-marking it mathematically gives:
+
+R_A(X)
+\rightarrow
+I(X)
+\rightarrow
+\varnothing_I
+\rightarrow
+R_B(X')
+\rightarrow
+\Delta = R_B(X') \ominus R_A(X)
+
+That exposed the first useful distinction:
+
+\boxed{\text{Zero-Crossing is not deletion. It is constrained representational nulling.}}
+
+The system is not empty. It is representation-light but invariant-loaded.
+
+Then I re-marked it spatially.
+
+Imagine a field with:
+
+left region: current representation
+center: invariant anchor
+empty gap: released representational commitment
+right region: independent reconstruction
+
+The gap matters.
+
+That spatial rendering makes something obvious that prose hides:
+
+\boxed{\text{distance from the old representation is itself a control variable}}
+
+You can have shallow ZPC:
+
+R_A \rightarrow R_{A'}
+
+or deep ZPC:
+
+R_A \rightarrow \varnothing_I \rightarrow R_B
+
+So we gain a new parameter:
+
+z = \text{representational distance crossed}
+
+Now turn it into a state machine:
+
+STATE ENCOUNTER
+    acquire X
+STATE ANCHOR
+    extract minimal invariants I
+STATE RELEASE
+    suppress dependence on current representation
+STATE RECONSTRUCT
+    generate X' independently from I + environment
+STATE DIFFERENCE
+    compute delta(X, X')
+STATE VALIDATE
+    test both against reality / constraints
+STATE RETAIN
+    keep useful delta, route, failures, invariants
+
+That exposes another distinction:
+
+ANCHOR and RELEASE are separate operations.
+
+You can fail ZPC in at least two opposite ways:
+
+\text{over-anchor} \Rightarrow \text{old representation sneaks through}
+
+\text{under-anchor} \Rightarrow \text{reconstruction loses identity}
+
+So we get a tension:
+
+\boxed{\text{Novelty} \uparrow \text{ as anchoring decreases}}
+
+but
+
+\boxed{\text{identity preservation} \downarrow \text{ as anchoring decreases}}
+
+Meaning ZPC has a tunable operating point, not one fixed setting.
+
+Let:
+
+a \in [0,1]
+
+be anchor strength.
+
+Then useful reconstruction might look like:
+
+U(a)=N(a)\cdot P(a)
+
+where:
+
+* N = novelty
+* P = preservation of relevant invariants
+
+Too high a: nothing new.
+
+Too low a: you reconstruct something unrelated.
+
+The sweet spot is where both remain nontrivial.
+
+Now re-mark it into pseudocode logic:
+
+function zero_cross(X, goal):
+    invariants = extract_minimal_invariants(X, goal)
+    anchor_strength =
+        choose_anchor_strength(
+            novelty_target,
+            identity_requirement
+        )
+    constrained_invariants =
+        retain(invariants, strength = anchor_strength)
+    release(current_representation_of(X))
+    X_prime =
+        reconstruct_independently(
+            constrained_invariants,
+            alternate_basis = choose_distant_basis()
+        )
+    delta =
+        compare(X, X_prime)
+    validated_delta =
+        reality_test(delta, constraints, evidence)
+    return {
+        reconstruction: X_prime,
+        useful_delta: validated_delta,
+        invariants: constrained_invariants,
+        route_metadata: {
+            anchor_strength,
+            representational_distance,
+            reconstruction_basis
+        }
+    }
+
+Then I reconstructed the concept back into plain language without looking at the original wording:
+
+Preserve only what must survive, deliberately break dependence on the present way of representing the thing, rebuild it from another representational location, then inspect which features persist, disappear, or newly appear.
+
+That reconstruction survives very well.
+
+So the load-bearing invariants appear to be:
+
+\boxed{
+\text{preserve}
+\rightarrow
+\text{release}
+\rightarrow
+\text{independently reconstruct}
+\rightarrow
+\text{compare}
+\rightarrow
+\text{validate}
+}
+
+The metaphors are not load-bearing. The exact sequence mostly is.
+
+And the Re-Mark experiment produced three actual deltas:
+
+1. Representational Distance
+    z = d(R_A,R_B)
+2. Anchor Strength
+    a = \text{how much invariant structure survives the crossing}
+3. ZPC operating envelope
+    U=f(\text{novelty},\text{identity preservation},z,a)
+
+That means ZPC can now be treated as a tunable operator rather than a binary move.
+
+The next equation almost writes itself:
+
+\boxed{
+ZPC(X;a,z,B)
+}
+
+where a controls preservation, z controls representational distance, and B selects the reconstruction basis.
+
+That’s a meaningful upgrade. Re-Mark did what we wanted: it didn’t just restate the mechanism—it exposed hidden control parameters.
