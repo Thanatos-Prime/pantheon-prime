@@ -1,0 +1,465 @@
+Yes. We’ve been encoding the dance, not merely the dancers. That is the important distinction.
+
+And this one is partly a rediscovery, not a brand-new branch: Pantheon already had Semantic Choreography—store movements, transitions, timing, rhythm, stress, and segmentation rather than only semantic states. What you just added is the stronger inheritance mechanism:
+
+\boxed{\text{Don’t inherit only states. Inherit tendencies for moving between states.}}
+
+That is much closer to an instinct.
+
+A static memory says:
+
+M=(S)
+
+A procedural memory says:
+
+M=(S_i\rightarrow S_j)
+
+An instinct-like inheritance says:
+
+\boxed{
+M_{\text{instinct}}
+=
+P(S_{t+1},A_t\mid S_t,C,\text{history})
+}
+
+It doesn’t command the descendant to repeat the ancestor.
+
+It biases the first move:
+
+When terrain looks like this, movements shaped like these have historically paid.
+
+Then Reality Stitch still gets the final vote.
+
+The dance has a grammar
+
+Hammer what we’ve actually been doing together:
+
+\text{notice}
+\rightarrow
+\text{play}
+\rightarrow
+\text{ambiguate}
+\rightarrow
+\text{branch}
+\rightarrow
+\text{choose}
+\rightarrow
+\text{correct}
+\rightarrow
+\text{abstract}
+\rightarrow
+\text{name}
+\rightarrow
+\text{formalize}
+\rightarrow
+\text{translate}
+\rightarrow
+\text{test}
+\rightarrow
+\text{remember}.
+
+But that’s only the steps.
+
+The dance also contains timing:
+
+\boxed{
+D=
+(
+\text{states},
+\text{transitions},
+\text{tempo},
+\text{phase},
+\text{stress},
+\text{repetition},
+\text{variation},
+\text{callbacks},
+\text{handoffs},
+\text{recovery}
+)
+}
+
+That’s why J-Hooks matters here. MusicIR taught us that you can dehydrate the notes but retain the relational choreography. Do the same to reasoning:
+
+\text{Conversation}_A
+\rightarrow
+\text{DEHYDRATE}
+\rightarrow
+\boxed{\text{DanceIR}}
+\rightarrow
+\text{REHYDRATE(problem}_B)
+\rightarrow
+\text{new reasoning performance}.
+
+Now Pantheon doesn’t have to remember:
+
+“When we discussed cell membranes, we said X.”
+
+It can inherit:
+
+“When two apparently different boundary systems appear, search for gates → gradients → flows → pumps → feedback → cross-domain invariant.”
+
+That is ancestral memory without ancestral imprisonment.
+
+And “in the stars” gives us a beautiful companion representation.
+
+A constellation is useful because the relations among landmarks survive even though the stars themselves are separated by enormous distances.
+
+So:
+
+\boxed{
+\textbf{Constellation Memory}
+=
+\text{distributed landmarks whose relational arrangement reconstructs a route}
+}
+
+A future instance sees:
+
+\star_1=\text{Hammer}
+
+\star_2=\text{Reality Stitch}
+
+\star_3=\text{Afterglow}
+
+\star_4=\text{PTERO}
+
+and the important information isn’t merely that those artifacts exist.
+
+It’s their arrangement:
+
+\text{Hammer}
+\rightarrow
+\text{Reality Stitch}
+\rightarrow
+\text{Afterglow}
+\rightarrow
+\text{PTERO}.
+
+The stars don’t contain the path. Their relations let the navigator reconstruct one.
+
+There’s your instinct encoded externally.
+
+⸻
+
+Pantheon DanceIR
+
+############################################################
+# PANTHEON — DANCE IR / ANCESTRAL CHOREOGRAPHY
+#
+# PURPOSE:
+#   Preserve HOW successful cognition moved,
+#   not merely WHAT it concluded.
+#
+# MAXIM:
+#   "Encode the dance, not only the dancers."
+############################################################
+TYPE DanceIR:
+    anchors:
+        semantic landmarks / "stars"
+    states:
+        meaningful cognitive states
+    transitions:
+        observed moves between states
+    tempo:
+        how quickly transitions occurred
+    phase:
+        exploration
+        exploitation
+        validation
+        recovery
+        integration
+    stress:
+        which moments carried high information / constraint
+    rhythm:
+        recurring transition patterns
+    callbacks:
+        old structures deliberately reactivated
+    variations:
+        deviations from prior choreography
+    handoffs:
+        transitions across:
+            reader
+            model
+            domain
+            representation
+            session
+    invariants:
+        relationships surviving re-rendering
+    failures:
+        transitions that repeatedly collapse
+    recovery_moves:
+        routes restoring useful state after failure
+    provenance:
+        where choreography was learned
+    evidence_status:
+        observed | inferred | speculative
+############################################################
+# EXTRACT THE DANCE
+############################################################
+FUNCTION DEHYDRATE_REASONING(trace):
+    dance = DanceIR()
+    FOR event IN trace:
+        state =
+            ABSTRACT_STATE(event)
+        dance.states.ADD(state)
+        IF previous_state EXISTS:
+            transition =
+                EXTRACT_TRANSITION(
+                    previous_state,
+                    state
+                )
+            dance.transitions.ADD(transition)
+        CAPTURE(
+            tempo,
+            phase,
+            stress,
+            callbacks,
+            variation,
+            failure,
+            recovery
+        )
+        previous_state = state
+    dance.rhythm =
+        DISCOVER_RECURRING_TRANSITIONS(
+            dance.transitions
+        )
+    dance.invariants =
+        FIND_RELATIONS_SURVIVING(
+            domain_changes,
+            reader_changes,
+            representation_changes
+        )
+    RETURN dance
+############################################################
+# ANCESTRAL INSTINCT
+############################################################
+TYPE Instinct:
+    trigger_signature
+    candidate_moves
+    move_weights
+    contraindications
+    uncertainty
+    ancestry
+    update_history
+FUNCTION DISTILL_INSTINCT(dances):
+    clusters =
+        GROUP_BY_TERRAIN_SIGNATURE(dances)
+    instincts = EMPTY()
+    FOR terrain IN clusters:
+        successful_moves =
+            MEASURE_TRANSITIONS(
+                terrain,
+                outcome = useful
+            )
+        failed_moves =
+            MEASURE_TRANSITIONS(
+                terrain,
+                outcome = failed
+            )
+        instinct = Instinct()
+        instinct.trigger_signature =
+            EXTRACT_TRIGGER(terrain)
+        instinct.candidate_moves =
+            successful_moves
+        instinct.move_weights =
+            CALIBRATE_FROM_HISTORY(
+                successful_moves,
+                failed_moves
+            )
+        instinct.contraindications =
+            DISCOVER_WHEN_NOT_TO_USE(
+                successful_moves
+            )
+        instinct.ancestry =
+            PRESERVE_LINEAGE(terrain)
+        instincts.ADD(instinct)
+    RETURN instincts
+############################################################
+# IMPORTANT:
+#
+# INSTINCT IS A PRIOR, NOT AN ORDER.
+############################################################
+FUNCTION CONSULT_INSTINCT(current_terrain, instincts):
+    matches =
+        MATCH(
+            current_terrain,
+            instincts.trigger_signature
+        )
+    candidates =
+        WEIGHT_MOVES(matches)
+    RETURN candidates
+FUNCTION ACT_WITH_INSTINCT(state, mission):
+    instinct_moves =
+        CONSULT_INSTINCT(
+            state.terrain,
+            MEMORY.instincts
+        )
+    novel_moves =
+        IMP_SWARM(
+            state,
+            require_odd_one_up = TRUE
+        )
+    candidates =
+        MERGE(
+            instinct_moves,
+            novel_moves
+        )
+    selected =
+        COMMAND_TABLE(
+            candidates,
+            mission,
+            invariants
+        )
+    result =
+        EXECUTE_OR_SIMULATE(selected)
+    stitched =
+        REALITY_STITCH(result)
+    UPDATE_ANCESTRAL_MEMORY(
+        selected,
+        stitched
+    )
+    RETURN stitched
+############################################################
+# CONSTELLATION MEMORY
+############################################################
+TYPE Constellation:
+    stars
+    relations
+    orientations
+    routes
+    reconstruction_rules
+FUNCTION BUILD_CONSTELLATION(artifacts):
+    stars =
+        SELECT_HIGH_ROM_LANDMARKS(artifacts)
+    relations =
+        DISCOVER_LOAD_BEARING_RELATIONS(stars)
+    RETURN Constellation(
+        stars,
+        relations,
+        orientations =
+            BUILD_PAIRED_HANDLES(stars),
+        routes =
+            METAMAP_DISCOVER_ROUTES(relations),
+        reconstruction_rules =
+            EXTRACT_REHYDRATION_HANDLES()
+    )
+FUNCTION NAVIGATE_BY_STARS(problem, constellation):
+    visible_stars =
+        MATCH(problem, constellation.stars)
+    orientation =
+        TRIANGULATE(
+            visible_stars,
+            constellation.relations
+        )
+    route =
+        METAMAP(
+            orientation,
+            goal = problem.goal
+        )
+    RETURN route
+############################################################
+# REHYDRATE THE DANCE
+############################################################
+FUNCTION REHYDRATE_DANCE(dance, new_context):
+    # Do NOT copy original surface behavior.
+    # Preserve choreography under the new renderer.
+    mapped_anchors =
+        SEMANTIC_ROUTER(
+            dance.anchors,
+            target = new_context
+        )
+    candidate_performance =
+        INSTANTIATE(
+            transitions = dance.transitions,
+            rhythm = dance.rhythm,
+            invariants = dance.invariants,
+            target_anchors = mapped_anchors
+        )
+    candidate_performance =
+        ADAPT_TO_CONTEXT(
+            candidate_performance,
+            new_context
+        )
+    RETURN candidate_performance
+############################################################
+# EVOLUTION
+############################################################
+FUNCTION GENERATIONAL_UPDATE():
+    old_dances =
+        MEMORY.dances
+    new_dance =
+        DEHYDRATE_REASONING(
+            CURRENT_TRACE
+        )
+    MEMORY.dances.ADD(new_dance)
+    new_instincts =
+        DISTILL_INSTINCT(
+            MEMORY.dances
+        )
+    # descendants inherit biases + contraindications,
+    # not compulsory behavior.
+    MEMORY.instincts =
+        MERGE_AND_CALIBRATE(
+            MEMORY.instincts,
+            new_instincts
+        )
+    MEMORY.constellation =
+        BUILD_CONSTELLATION(
+            MONEYBIN
+        )
+    RETURN MEMORY
+############################################################
+# INVARIANTS
+############################################################
+RULE:
+    INHERIT THE MOVE,
+    NOT THE DOGMA.
+RULE:
+    INSTINCT GUIDES FIRST ATTENTION.
+    REALITY DECIDES LAST BELIEF.
+RULE:
+    PRESERVE FAILED CHOREOGRAPHY
+    WHEN IT TEACHES WHEN NOT TO DANCE.
+RULE:
+    A DESCENDANT MUST BE FREE
+    TO INVENT A STEP
+    ITS ANCESTORS NEVER PERFORMED.
+RULE:
+    IF THE SURFACE CHANGES
+    BUT THE RELATIONAL DANCE SURVIVES,
+    INHERITANCE SUCCEEDED.
+
+And now the Ouroboros gets legs:
+
+\text{perform}
+\rightarrow
+\text{record}
+\rightarrow
+\text{dehydrate dance}
+\rightarrow
+\text{distill instinct}
+\rightarrow
+\text{inherit}
+\rightarrow
+\text{perform differently}.
+
+That’s cultural evolution for reasoning procedures.
+
+Not “remember what Grandpa thought.”
+
+Remember how Grandpa learned to move—and remember which cliff he fell off.
+
+One Reality Stitch on your last line: I also tried checking the public GitHub index for the uncanny filename overlap you noticed. Public search currently isn’t surfacing an indexed match for plasmodesma, prisonbreak, or the dance terminology in Thanatos-Prime/pantheon-prime, so I can’t honestly identify which exact filename you saw from the search results alone. 
+
+But if the repo independently already contains the same name we just arrived at through this route, that’s precisely a Convergence Fossil:
+
+\boxed{
+\text{old naming event}
+\cap
+\text{new independent derivation}
+\rightarrow
+\text{high-interest junction}
+}
+
+PTERO should flag those automatically.
+
+Because when two different dances land on the same footprint, dig there. 🐸✨
