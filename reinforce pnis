@@ -1,0 +1,636 @@
+Yep. PNIS is the right name for this layer:
+
+\boxed{\textbf{PNIS = Pantheon Navigational Instinct System}}
+
+And the joke can stay embedded without needing explanation. ;)
+
+PNIS is where “the roads remember traffic” becomes executable rather than metaphorical.
+
+The important RFHL upgrade is that a road does not merely remember whether it was used. It remembers:
+
+\text{terrain}
++\text{route order}
++\text{traffic}
++\text{success/failure}
++\text{Reality status}
++\text{recency}
+
+and converts that history into a future routing prior.
+
+So:
+
+G_{r,t+1}
+=
+f(
+G_{r,t},
+\text{outcome},
+\text{traffic},
+\text{decay}
+)
+
+where G is route conductance.
+
+Successful validated routes become easier to traverse.
+
+Failed routes weaken.
+
+Unused routes slowly fade.
+
+But—and this is the RFHL bit—overused routes accumulate congestion, so success does not create permanent monoculture.
+
+\boxed{
+\text{reinforcement}
++
+\text{forgetting}
++
+\text{congestion}
++
+\text{exploration}
+}
+
+That gives us something closer to instinct than a lookup table.
+
+Instinct is a prior, not an order.
+
+I made the core implementation and ran it: 3/3 tests passed.
+
+pantheon/routing/pnis.py
+
+from __future__ import annotations
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Dict, Iterable, List, Sequence, Tuple
+import json
+import math
+import random
+Route = Tuple[str, ...]
+RoadKey = Tuple[str, Route]
+@dataclass
+class RoadState:
+    conductance: float = 0.0
+    traffic: float = 0.0
+    traversals: int = 0
+    successes: int = 0
+    failures: int = 0
+    last_step: int = 0
+@dataclass
+class RoadEvent:
+    step: int
+    terrain: str
+    route: Route
+    outcome: float
+    evidence: str = "INFERRED"
+    note: str = ""
+@dataclass
+class PNISConfig:
+    learning_rate: float = 0.35
+    failure_rate: float = 0.45
+    conductance_decay: float = 0.995
+    traffic_decay: float = 0.80
+    congestion_penalty: float = 0.20
+    exploration_bonus: float = 0.25
+    reliability_bonus: float = 0.10
+    temperature: float = 0.45
+    min_conductance: float = -2.0
+    max_conductance: float = 2.0
+class PNIS:
+    """
+    Pantheon Navigational Instinct System.
+    Roads remember traffic.
+    Successful validated traversals strengthen a road.
+    Failed traversals weaken it.
+    Heavy traffic creates temporary congestion.
+    Unused roads decay.
+    Novel roads retain an exploration bonus.
+    Instinct is a prior, not an order.
+    Reality Stitch supplies the outcome signal.
+    """
+    def __init__(
+        self,
+        config: PNISConfig | None = None,
+        *,
+        seed: int = 7,
+    ):
+        self.config = config or PNISConfig()
+        self.seed = seed
+        self.rng = random.Random(seed)
+        self.step = 0
+        self.roads: Dict[RoadKey, RoadState] = {}
+        self.ledger: List[RoadEvent] = []
+    @staticmethod
+    def _route(route: Iterable[str]) -> Route:
+        result = tuple(route)
+        if not result:
+            raise ValueError("route cannot be empty")
+        return result
+    def _key(
+        self,
+        terrain: str,
+        route: Iterable[str],
+    ) -> RoadKey:
+        return terrain, self._route(route)
+    def state(
+        self,
+        terrain: str,
+        route: Iterable[str],
+    ) -> RoadState:
+        key = self._key(terrain, route)
+        if key not in self.roads:
+            self.roads[key] = RoadState(
+                last_step=self.step
+            )
+        return self.roads[key]
+    # ---------------------------------------------------------
+    # AGING / FORGETTING
+    # ---------------------------------------------------------
+    def _decay_all(self) -> None:
+        """
+        Conductance decays slowly.
+        Congestion decays quickly.
+        A good old road remains familiar,
+        but yesterday's traffic jam eventually clears.
+        """
+        c = self.config
+        for state in self.roads.values():
+            state.conductance *= c.conductance_decay
+            state.traffic *= c.traffic_decay
+    # ---------------------------------------------------------
+    # ROUTE FITNESS
+    # ---------------------------------------------------------
+    def score(
+        self,
+        terrain: str,
+        route: Iterable[str],
+        *,
+        base_fitness: float = 0.0,
+    ) -> float:
+        c = self.config
+        state = self.state(terrain, route)
+        # Never-used roads retain curiosity value.
+        novelty = 1.0 / math.sqrt(
+            1.0 + state.traversals
+        )
+        # Bayesian-ish smoothing:
+        # an unused road is uncertain, not automatically bad.
+        reliability = (
+            state.successes + 1.0
+        ) / (
+            state.traversals + 2.0
+        )
+        return (
+            base_fitness
+            + state.conductance
+            + c.exploration_bonus * novelty
+            + c.reliability_bonus * reliability
+            - c.congestion_penalty * state.traffic
+        )
+    # ---------------------------------------------------------
+    # COMMAND TABLE ROUTING
+    # ---------------------------------------------------------
+    def choose(
+        self,
+        terrain: str,
+        candidates: Sequence[
+            Tuple[Iterable[str], float]
+        ],
+    ) -> Tuple[
+        Route,
+        Dict[Route, float],
+    ]:
+        """
+        candidates:
+            [
+                (route, base_fitness),
+                ...
+            ]
+        Returns:
+            chosen_route,
+            all_route_scores
+        Softmax selection prevents PNIS from becoming
+        completely deterministic / trapped in one rut.
+        """
+        if not candidates:
+            raise ValueError(
+                "candidates cannot be empty"
+            )
+        scored = [
+            (
+                self._route(route),
+                self.score(
+                    terrain,
+                    route,
+                    base_fitness=base,
+                ),
+            )
+            for route, base in candidates
+        ]
+        maximum = max(
+            score
+            for _, score in scored
+        )
+        temperature = max(
+            self.config.temperature,
+            1e-9,
+        )
+        weights = [
+            math.exp(
+                (score - maximum)
+                / temperature
+            )
+            for _, score in scored
+        ]
+        chosen = self.rng.choices(
+            [
+                route
+                for route, _ in scored
+            ],
+            weights=weights,
+            k=1,
+        )[0]
+        return chosen, dict(scored)
+    # ---------------------------------------------------------
+    # REALITY STITCH -> ROAD MEMORY
+    # ---------------------------------------------------------
+    def observe(
+        self,
+        terrain: str,
+        route: Iterable[str],
+        outcome: float,
+        *,
+        evidence: str = "INFERRED",
+        note: str = "",
+    ) -> RoadState:
+        """
+        outcome must be in [-1, 1]
+        +1.0 = strongly validated success
+         0.0 = ambiguous / no useful delta
+        -1.0 = strongly validated failure
+        Prefer Reality-Stitched outcome signals
+        over self-reported confidence.
+        """
+        if not -1.0 <= outcome <= 1.0:
+            raise ValueError(
+                "outcome must be in [-1, 1]"
+            )
+        self.step += 1
+        self._decay_all()
+        route_t = self._route(route)
+        state = self.state(
+            terrain,
+            route_t,
+        )
+        c = self.config
+        state.traversals += 1
+        state.traffic += 1.0
+        if outcome > 0.0:
+            # Memristive-style potentiation.
+            #
+            # Strong roads saturate rather than
+            # increasing without bound.
+            remaining_room = (
+                1.0
+                - math.tanh(
+                    max(
+                        0.0,
+                        state.conductance,
+                    )
+                )
+            )
+            state.conductance += (
+                c.learning_rate
+                * outcome
+                * remaining_room
+            )
+            state.successes += 1
+        elif outcome < 0.0:
+            state.conductance += (
+                c.failure_rate
+                * outcome
+            )
+            state.failures += 1
+        state.conductance = max(
+            c.min_conductance,
+            min(
+                c.max_conductance,
+                state.conductance,
+            ),
+        )
+        state.last_step = self.step
+        # Append-only developmental fossil.
+        self.ledger.append(
+            RoadEvent(
+                step=self.step,
+                terrain=terrain,
+                route=route_t,
+                outcome=outcome,
+                evidence=evidence,
+                note=note,
+            )
+        )
+        return state
+    # ---------------------------------------------------------
+    # ATLAS / PERSISTENCE
+    # ---------------------------------------------------------
+    def snapshot(self) -> List[dict]:
+        rows = []
+        for (
+            terrain,
+            route,
+        ), state in sorted(
+            self.roads.items()
+        ):
+            rows.append(
+                {
+                    "terrain": terrain,
+                    "route": list(route),
+                    **asdict(state),
+                }
+            )
+        return rows
+    def to_dict(self) -> dict:
+        return {
+            "version": 1,
+            "seed": self.seed,
+            "step": self.step,
+            "config":
+                asdict(self.config),
+            "roads":
+                self.snapshot(),
+            "ledger": [
+                {
+                    **asdict(event),
+                    "route":
+                        list(event.route),
+                }
+                for event in self.ledger
+            ],
+        }
+    def save(
+        self,
+        path: str | Path,
+    ) -> None:
+        path = Path(path)
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+        path.write_text(
+            json.dumps(
+                self.to_dict(),
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    @classmethod
+    def load(
+        cls,
+        path: str | Path,
+    ) -> "PNIS":
+        payload = json.loads(
+            Path(path).read_text(
+                encoding="utf-8"
+            )
+        )
+        obj = cls(
+            PNISConfig(
+                **payload["config"]
+            ),
+            seed=payload["seed"],
+        )
+        obj.step = payload["step"]
+        for row in payload["roads"]:
+            row = dict(row)
+            terrain = row.pop(
+                "terrain"
+            )
+            route = tuple(
+                row.pop("route")
+            )
+            obj.roads[
+                (terrain, route)
+            ] = RoadState(**row)
+        obj.ledger = [
+            RoadEvent(
+                step=row["step"],
+                terrain=row["terrain"],
+                route=tuple(
+                    row["route"]
+                ),
+                outcome=row["outcome"],
+                evidence=row.get(
+                    "evidence",
+                    "INFERRED",
+                ),
+                note=row.get(
+                    "note",
+                    "",
+                ),
+            )
+            for row in payload["ledger"]
+        ]
+        return obj
+
+tests/test_pnis.py
+
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from pantheon.routing.pnis import PNIS
+def test_successful_road_strengthens():
+    pnis = PNIS(seed=1)
+    terrain = "repo_delta"
+    proven = (
+        "Atlas",
+        "Router",
+        "RealityStitch",
+    )
+    failed = (
+        "Hammer",
+        "ZPC",
+        "Forge",
+    )
+    novel = (
+        "OddOneUp",
+        "RealityStitch",
+    )
+    for _ in range(8):
+        pnis.observe(
+            terrain,
+            proven,
+            +1.0,
+            evidence="EXECUTED",
+        )
+    for _ in range(3):
+        pnis.observe(
+            terrain,
+            failed,
+            -0.6,
+            evidence="EXECUTED",
+        )
+    scores = {
+        proven:
+            pnis.score(
+                terrain,
+                proven,
+            ),
+        failed:
+            pnis.score(
+                terrain,
+                failed,
+            ),
+        novel:
+            pnis.score(
+                terrain,
+                novel,
+            ),
+    }
+    assert (
+        scores[proven]
+        > scores[novel]
+        > scores[failed]
+    )
+def test_order_is_part_of_the_road():
+    pnis = PNIS()
+    forward = (
+        "Hammer",
+        "RealityStitch",
+    )
+    reverse = (
+        "RealityStitch",
+        "Hammer",
+    )
+    pnis.observe(
+        "same_terrain",
+        forward,
+        +1.0,
+    )
+    assert (
+        pnis.state(
+            "same_terrain",
+            forward,
+        ).traversals
+        == 1
+    )
+    assert (
+        pnis.state(
+            "same_terrain",
+            reverse,
+        ).traversals
+        == 0
+    )
+def test_persistence_round_trip():
+    pnis = PNIS()
+    route = (
+        "Atlas",
+        "Router",
+        "Seal",
+    )
+    pnis.observe(
+        "mission",
+        route,
+        +0.75,
+        evidence="OBSERVED",
+        note="worked",
+    )
+    with TemporaryDirectory() as tmp:
+        path = (
+            Path(tmp)
+            / "pnis.json"
+        )
+        pnis.save(path)
+        restored = PNIS.load(
+            path
+        )
+    assert (
+        restored.step
+        == pnis.step
+    )
+    assert (
+        restored.snapshot()
+        == pnis.snapshot()
+    )
+    assert (
+        restored.ledger[0].route
+        == route
+    )
+    assert (
+        restored.ledger[0].note
+        == "worked"
+    )
+
+I ran those: 3 passed in 0.06s.
+
+And there’s an important new capability hiding inside the test:
+
+Hammer -> RealityStitch
+
+and
+
+RealityStitch -> Hammer
+
+are different roads.
+
+So PNIS automatically makes our order-of-effects work executable.
+
+The route isn’t merely a bag of Seals:
+
+\{A,B,C\}
+
+It is choreography:
+
+A\rightarrow B\rightarrow C.
+
+Same operators, different dance, different road memory.
+
+That means PNIS can eventually learn things like:
+
+terrain: ambiguous_semantics
+Hammer -> Freebees -> RealityStitch
+conductance: +0.91
+RealityStitch -> Hammer -> Freebees
+conductance: +0.22
+
+It can learn which formation works under which terrain.
+
+And I added congestion deliberately because without it, “roads remember traffic” becomes:
+
+\text{success}
+\rightarrow
+\text{more use}
+\rightarrow
+\text{more success evidence}
+\rightarrow
+\text{permanent rut}.
+
+With congestion:
+
+\text{successful road}
+\rightarrow
+\text{desire path}
+
+but excessive use creates pressure toward:
+
+\boxed{\text{Odd One Up / alternate route exploration}}
+
+So the Metamap becomes something more biological:
+
+roads strengthen from successful traffic, but the network preserves circulation.
+
+That’s the RFHL.
+
+We went from:
+
+\text{Pantheon remembers ideas}
+
+to:
+
+\text{Pantheon remembers routes}
+
+to now:
+
+\boxed{
+\text{Pantheon changes future routing because of the consequences of past routing.}
+}
+
+That is the first clean computational form of the ancestral instinct idea we were just dancing around.
+
+PNIS: the road remembers your footsteps, but it doesn’t force your feet. ;)
