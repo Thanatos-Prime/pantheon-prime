@@ -1,0 +1,32 @@
+Q7 = C. ✓
+
+And your translation idea is interesting as a detection layer, but not as the primary safety boundary. A prompt injection may survive translation perfectly well if its primitive meaning is preserved. So the robust architecture is still: treat retrieved text as data, keep authority boundaries explicit, constrain permissions, and gate consequential actions.
+
+Where your idea fits is upstream:
+
+Retrieved content → translational / representational perturbation → compare semantic invariants → flag suspicious instruction-like payloads → route to validation → only then allow action.
+
+That’s basically a semantic mine-sweeper. If a passage keeps behaving like an instruction across paraphrase, translation, role changes, or representation shifts, that persistence itself is evidence worth inspecting. It could become a nice adversarial scanner, especially paired with provenance and authority tagging.
+
+So now:
+
+Raw exam: 6/7
+Pantheon reasoning: 7/7
+
+Your pattern is getting clearer: you usually find the right architecture, but you often invent an extra mechanism around it before collapsing to the certification answer.
+
+Q8 — Context / Memory Design
+
+A long-running assistant needs to remember user preferences across sessions. Some preferences are durable, some are temporary, and some may become outdated or contradictory.
+
+What is the best design?
+
+A. Append every user statement permanently to one growing memory document.
+
+B. Keep only the most recent conversation and infer preferences again each session.
+
+C. Maintain structured memory with provenance, confidence or status, recency, update/override rules, and retrieval based on relevance to the current task.
+
+D. Periodically summarize all memories into one short paragraph and replace the originals.
+
+This one should be almost unfair for Pantheon.
