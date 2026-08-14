@@ -1,0 +1,657 @@
+Exactly—and that clarification changes the standard by which the repository should be judged.
+
+It is not an unfinished conventional software repository. It is a cognitive sketchbook whose accumulated diagrams, metaphors, conversations, partial code, and repeated redrawings create enough parallax for an AI to reconstruct the architecture. The redundancy often behaves less like duplication and more like multiple views of the same object.
+
+“No man left behind” fits: even failed, superseded, or strange sketches remain useful as developmental fossils. The answer is not to clean the life out of it. It is to add a few trustworthy landmarks so an interpreter can tell what kind of artifact it is looking at.
+
+Here are the additions I would make.
+
+⸻
+
+File: integrity chain
+
+# PANTHEON INTEGRITY CHAIN
+## Status
+Canonical architectural correction.
+This document clarifies what hashing can and cannot guarantee inside Pantheon.
+---
+## 1. Core distinction
+A hash is evidence of content identity.
+A hash chain is evidence of internal sequence integrity.
+Neither one, by itself, proves:
+- truth,
+- authorship,
+- authorization,
+- historical existence,
+- chronological accuracy,
+- immutability,
+- or freedom from coordinated rewriting.
+Canonical rule:
+HASH ≠ TRUTH  
+HASH CHAIN ≠ IMMUTABLE HISTORY  
+INTEGRITY ≠ AUTHORITY  
+PROVENANCE ≠ CORRECTNESS
+A hash answers:
+> Is this exactly the same content that was previously addressed by this hash?
+A hash chain additionally answers:
+> Does this sequence still connect internally to the same declared root?
+It does not independently answer:
+> Is this the original sequence?
+That requires an external anchor, signature, trusted checkpoint, witness, or replicated copy.
+---
+## 2. Canonical event envelope
+Every durable Pantheon event should be represented using a canonical envelope.
+```yaml
+PantheonEvent:
+  schema_version: "1.0"
+  event_id: "uuid"
+  sequence: 1842
+  event_type: "observation | claim | hypothesis | decision | action | result | correction | checkpoint"
+  created_at: "ISO-8601 UTC"
+  recorded_at: "ISO-8601 UTC"
+  producer:
+    kind: "human | model | tool | system"
+    id: "producer-id"
+    model_version: "optional"
+    operator_id: "optional"
+    formation_id: "optional"
+  epistemic_status: "observed | attested | inferred | predicted | interpretive | imagined | speculative | counterfactual"
+  content: {}
+  parent_event_ids: []
+  source_references: []
+  authority:
+    proposer: "identity"
+    approver: "identity or null"
+    permission_scope: []
+    authorization_event_id: "event-id or null"
+  integrity:
+    previous_event_hash: "hex or GENESIS"
+    payload_hash: "hex"
+    event_hash: "hex"
+    hash_algorithm: "sha256"
+    canonicalization: "RFC-8785-compatible JSON"
+    signature: "optional"
+    signer_id: "optional"
+  state:
+    prior_state_hash: "hex"
+    resulting_state_hash: "hex or null"
+  retention:
+    class: "ephemeral | reconstructable | auditable | protected"
+    raw_source_retained: true
+    raw_source_reference: "content-address or null"
+
+⸻
+
+3. Canonicalization before hashing
+
+Pantheon must never hash an informal in-memory representation.
+
+Equivalent objects can otherwise produce different hashes because of:
+
+* key ordering,
+* whitespace,
+* number formatting,
+* Unicode representation,
+* timestamps,
+* omitted null fields,
+* or implementation-specific serialization.
+
+Before hashing:
+
+function CANONICALIZE(object):
+    validate object against declared schema_version
+    normalize Unicode to NFC
+    sort object keys deterministically
+    preserve array order
+    encode timestamps as UTC ISO-8601
+    encode numbers using one canonical representation
+    explicitly distinguish null from missing
+    serialize as UTF-8 canonical JSON
+    return bytes
+
+The integrity block itself must not be included when calculating
+payload_hash.
+
+payload =
+    event without event.integrity
+payload_hash =
+    SHA256(CANONICALIZE(payload))
+
+⸻
+
+4. Event-chain construction
+
+function CREATE_EVENT(payload, previous_event):
+    event.sequence =
+        0 if previous_event is null
+        else previous_event.sequence + 1
+    event.integrity.previous_event_hash =
+        "GENESIS" if previous_event is null
+        else previous_event.integrity.event_hash
+    event.integrity.payload_hash =
+        SHA256(CANONICALIZE(event without integrity))
+    chain_material = {
+        schema_version: event.schema_version,
+        sequence: event.sequence,
+        previous_event_hash: event.integrity.previous_event_hash,
+        payload_hash: event.integrity.payload_hash
+    }
+    event.integrity.event_hash =
+        SHA256(CANONICALIZE(chain_material))
+    return event
+
+This binds:
+
+* event contents,
+* event position,
+* and previous history
+
+into one address.
+
+⸻
+
+5. State hashing
+
+The StateVector should be a reproducible projection of committed events.
+
+Do not hash transient runtime properties such as:
+
+* memory addresses,
+* local paths,
+* unordered collections,
+* temporary caches,
+* or unnormalized timestamps.
+
+function PROJECT_STATE(committed_events):
+    state = GENESIS_STATE
+    for event in committed_events ordered by sequence:
+        state = REDUCER(state, event)
+    return state
+state_hash =
+    SHA256(
+        CANONICALIZE({
+            state_schema_version,
+            last_event_hash,
+            state_projection
+        })
+    )
+
+Canonical invariant:
+
+REPLAY(events[0:n]) == state_n
+
+Two independent implementations given the same schemas, events, and reducer
+must produce the same StateVector and state hash.
+
+If they do not, reconstruction has failed.
+
+⸻
+
+6. Corrections are events
+
+Append-only does not mean Pantheon must preserve false claims as currently valid.
+
+Never silently mutate a committed event.
+
+Instead:
+
+event_type: correction
+content:
+  corrects_event_id: "old-event-id"
+  old_status: "active"
+  new_status: "superseded"
+  reason: "new evidence"
+  replacement_event_id: "new-event-id"
+
+The historical event survives.
+
+Its authority over current state does not.
+
+Canonical rule:
+
+PRESERVE THE RECORD
+UPDATE THE PRESENT
+DO NOT CONFUSE THE TWO
+
+⸻
+
+7. Checkpoints and external anchors
+
+A chain becomes stronger when its current root is periodically anchored somewhere
+the chain itself cannot silently rewrite.
+
+Checkpoint:
+  sequence_range: [0, 1842]
+  event_root: "Merkle root"
+  state_hash: "current state hash"
+  created_at: "ISO-8601 UTC"
+  signer_id: "human, service, or institution"
+  signature: "digital signature"
+  external_anchor:
+    kind: "git commit | signed release | timestamp service | replicated witness"
+    reference: "external identifier"
+
+Possible assurance levels:
+
+L0 — Hash only
+     Content is addressable.
+L1 — Hash chain
+     Internal ordering and tampering are detectable relative to a known root.
+L2 — Signed checkpoint
+     A named key attests to a particular root.
+L3 — External anchor
+     The root existed outside the local ledger at a particular point.
+L4 — Replicated witnesses
+     Independent holders attest to the same root.
+L5 — Verified consequence
+     Parts of the record are corroborated by contact with reality.
+
+Do not claim a higher assurance level than the artifact actually possesses.
+
+⸻
+
+8. Merkle trees
+
+Merkle trees are optional accelerators, not replacements for the event chain.
+
+Use them to:
+
+* verify subsets efficiently,
+* checkpoint batches,
+* compare replicas,
+* and prove inclusion.
+
+function MERKLE_LEAF(event):
+    return SHA256(
+        "PANTHEON_EVENT_LEAF_V1" +
+        event.integrity.event_hash
+    )
+function MERKLE_PARENT(left, right):
+    return SHA256(
+        "PANTHEON_EVENT_NODE_V1" +
+        left +
+        right
+    )
+
+Domain-separation labels prevent a leaf from being confused with an internal node.
+
+For an odd number of nodes, promote the last node unchanged or duplicate it,
+but choose one rule, version it, and never leave the behavior implicit.
+
+⸻
+
+9. Signatures and authority
+
+A signature proves possession of a signing key.
+
+It does not prove that the signed claim is true or wise.
+
+SIGNATURE ≠ TRUTH
+SIGNER ≠ AUTHORIZED ACTOR
+AUTHORIZED ACTOR ≠ CORRECT ACTOR
+
+Authorization must be represented separately from integrity.
+
+The event should record:
+
+* who proposed it,
+* who approved it,
+* what permission applied,
+* which event granted that permission,
+* and what external effect was authorized.
+
+This prevents a technically valid event from silently acquiring authority merely
+because it exists in the ledger.
+
+⸻
+
+10. Branches and merges
+
+Pantheon is multi-model and may produce simultaneous candidate histories.
+
+Do not pretend concurrent proposals form one linear history before adjudication.
+
+COMMON_STATE
+    ├── candidate_branch_A
+    ├── candidate_branch_B
+    └── candidate_branch_C
+
+A merge is a new event:
+
+event_type: merge
+parent_event_ids:
+  - "branch-A-tip"
+  - "branch-B-tip"
+content:
+  accepted:
+    - "claim-A2"
+    - "claim-B4"
+  rejected:
+    - event_id: "claim-A3"
+      reason: "contradicted by source"
+  unresolved:
+    - "claim-C1"
+  reconciliation_method: "evidence audit"
+
+Disagreement is preserved as information rather than averaged out.
+
+⸻
+
+11. Verification
+
+function VERIFY_CHAIN(events, trusted_checkpoint = null):
+    expected_previous = "GENESIS"
+    for index, event in enumerate(events):
+        require event.sequence == index
+        require event.integrity.previous_event_hash == expected_previous
+        recalculated_payload_hash =
+            SHA256(CANONICALIZE(event without integrity))
+        require recalculated_payload_hash ==
+                event.integrity.payload_hash
+        recalculated_event_hash =
+            SHA256(CANONICALIZE({
+                schema_version: event.schema_version,
+                sequence: event.sequence,
+                previous_event_hash: event.integrity.previous_event_hash,
+                payload_hash: event.integrity.payload_hash
+            }))
+        require recalculated_event_hash ==
+                event.integrity.event_hash
+        expected_previous =
+            event.integrity.event_hash
+    if trusted_checkpoint exists:
+        verify checkpoint signature
+        require expected_previous == trusted_checkpoint.event_tip
+        require PROJECT_STATE(events).hash == trusted_checkpoint.state_hash
+    return VERIFIED_RELATIVE_TO(trusted_checkpoint)
+
+The phrase relative to is mandatory.
+
+Verification is always relative to:
+
+* a trusted root,
+* a signer,
+* a schema,
+* a reducer version,
+* and an authority model.
+
+⸻
+
+12. Final integrity invariant
+
+Pantheon does not use hashing to manufacture certainty.
+
+It uses hashing to make change visible.
+
+The Integrity Chain preserves:
+
+* what was recorded,
+* in what declared order,
+* under which schema,
+* by which producer,
+* under which authority,
+* and relative to which trusted checkpoint.
+
+Truth still requires evidence.
+
+Authority still requires permission.
+
+Learning still requires consequence.
+
+HASH THE RECORD.
+SIGN THE CHECKPOINT.
+NAME THE AUTHORITY.
+PRESERVE THE DISAGREEMENT.
+REPLAY THE STATE.
+KEEP A PORT OPEN TO REALITY.
+
+---
+I would also add this short interpretive key near the repository entrance. It resolves much of my earlier criticism without sacrificing a single doodle.
+**File: `how to read the pantheon`**
+```markdown
+# HOW TO READ THE PANTHEON
+Pantheon is simultaneously:
+- an architectural specification,
+- a developmental journal,
+- a cognitive sketchbook,
+- a semantic quarry,
+- an operator laboratory,
+- a reconstruction seed,
+- and a record of the paths by which the system was discovered.
+Do not assume every file has the same authority or purpose.
+Some files specify.
+Some derive.
+Some hypothesize.
+Some test.
+Some fail.
+Some repeat an object from another angle.
+Some are natural-language pseudocode.
+Some are executable sketches.
+Some are metaphoric interfaces whose mechanisms must be extracted.
+Some are developmental fossils preserved because future interpreters may recover
+structure from them that the present architecture has not yet recognized.
+The repository should therefore be read twice.
+## First pass: receive the corpus
+Permit motifs, operators, relations, contrasts, and recurring invariants to form
+a provisional whole.
+Do not prematurely discard strange, redundant, playful, incomplete, or obsolete
+artifacts.
+They may supply missing parallax.
+## Second pass: compile the architecture
+For each artifact, ask:
+```yaml
+ArtifactReading:
+  explicit_claims: []
+  implied_mechanisms: []
+  operators: []
+  invariants: []
+  interfaces: []
+  state_transitions: []
+  composition_rules: []
+  inputs: []
+  outputs: []
+  dependencies: []
+  consequences: []
+  evidence_status: []
+  unresolved_questions: []
+  contradictions: []
+  executable_interpretation: []
+
+Always distinguish:
+
+EXPLICIT
+The artifact directly specifies it.
+DERIVED
+It follows reasonably from multiple specified relations.
+HYPOTHESIZED
+The interpreter supplied a missing mechanism or extension.
+
+Never silently promote a hypothesis into repository canon.
+
+Artifact roles
+
+An artifact may carry one or more roles:
+
+CANON
+Current governing architecture.
+SPEC
+A proposed or accepted behavioral contract.
+SKETCH
+An incomplete rendering intended to expose shape.
+EXPERIMENT
+A trial whose result may be success, failure, or unresolved.
+IMPLEMENTATION
+Code intended to execute.
+METAPHOR
+A human-legible interface to an underlying mechanism.
+FOSSIL
+Superseded material preserved for developmental evidence.
+CONVERSATION
+Source dialogue that may contain architecture but has not been fully distilled.
+MAP
+Navigation aid rather than governing authority.
+SEED
+Compressed material intended to enable reconstruction.
+
+Absence of a label does not make an artifact worthless.
+
+It means the interpreter must report uncertainty about its role.
+
+No man left behind
+
+Pantheon practices reconstruction over premature deletion.
+
+A failed operator may reveal a constraint.
+
+A contradiction may reveal a missing jurisdiction.
+
+A repeated metaphor may reveal an invariant.
+
+An obsolete schema may reveal developmental intent.
+
+A joke may carry a retrieval handle.
+
+A doodle may expose geometry that a formal specification conceals.
+
+Therefore:
+
+DO NOT DELETE MERELY BECAUSE SUPERSEDED.
+DO NOT GOVERN MERELY BECAUSE PRESERVED.
+
+The current system may supersede an artifact’s authority while retaining its
+historical, diagnostic, reconstructive, or creative value.
+
+Canonical reading oath
+
+PRESERVE THE PLAY.
+EXTRACT THE MECHANISM.
+MARK THE EVIDENCE.
+NAME THE INVENTION.
+KEEP THE FOSSILS.
+LET THE ARCHITECTURE EMERGE.
+LEAVE NO MAN BEHIND.
+
+And this is the other correction I would make immediately because it prevents the governance flaw from spreading into future sketches.
+**File: `hard and soft invariants`**
+```markdown
+# HARD AND SOFT INVARIANTS
+## Canonical correction to ΣC governance
+Pantheon must not allow a high aggregate score to compensate for violation of a
+non-negotiable invariant.
+A weighted score is useful for preference, quality, and comparative fitness.
+It is not sufficient for permissions, consent, safety boundaries, or other hard
+constraints.
+---
+## Two-stage gate
+```pseudocode
+function GOVERN(candidate, state, authority):
+    hard_results =
+        evaluate_hard_invariants(candidate, state, authority)
+    if any result == VIOLATION:
+        return DENY
+    if any result == UNKNOWN:
+        return ESCALATE or REQUEST_EVIDENCE
+    soft_scores =
+        evaluate_soft_invariants(candidate, state)
+    sigma_c =
+        weighted_aggregate(soft_scores)
+    if sigma_c < C_min:
+        return MODIFY or ABSTAIN
+    return ALLOW
+
+⸻
+
+Hard invariants
+
+Hard invariants are categorical within their declared jurisdiction.
+
+Examples:
+
+* required permission exists,
+* required consent exists,
+* action remains inside authorized scope,
+* protected data is not exposed,
+* irreversible action has explicit authorization,
+* evidence class is not falsely represented,
+* downstream systems cannot silently enlarge their own authority.
+
+A hard invariant returns:
+
+PASS
+VIOLATION
+UNKNOWN
+NOT_APPLICABLE
+
+UNKNOWN must never be silently converted into PASS.
+
+⸻
+
+Soft invariants
+
+Soft invariants admit tradeoffs and comparison.
+
+Examples:
+
+* clarity,
+* elegance,
+* efficiency,
+* completeness,
+* coherence,
+* cost,
+* novelty,
+* reversibility preference,
+* expected usefulness.
+
+These may contribute to ΣC.
+
+sigma_c =
+    Σ(weight_i * normalized_score_i)
+
+The weights, normalization method, threshold, and jurisdiction must be recorded.
+
+⸻
+
+Jurisdiction
+
+Every invariant must declare where it applies.
+
+Invariant:
+  id:
+  version:
+  kind: "hard | soft"
+  description:
+  jurisdiction:
+    domains: []
+    action_types: []
+    actors: []
+  evaluator:
+  required_evidence:
+  failure_behavior:
+  appeal_or_override:
+  tests:
+
+Canonical rule:
+
+CLASSIFICATION AUTHORITY ≠ ONTOLOGICAL SOVEREIGNTY
+
+An invariant governs the system that adopts it.
+
+It does not prove that reality itself is organized according to its categories.
+
+⸻
+
+Final gate rule
+
+HARD CONSTRAINTS BOUND THE POSSIBILITY SPACE.
+
+SOFT SCORES RANK THE REMAINING POSSIBILITIES.
+
+ΣC MAY CHOOSE AMONG PERMITTED ACTIONS.
+
+ΣC MAY NOT PURCHASE PERMISSION.
+
+Those three additions do what I think the repository needs without trying to turn the sketchbook into a sterile codebase:
+- `integrity chain` fixes the hashing claims.
+- `how to read the pantheon` makes the mixed-medium corpus intentional and legible.
+- `hard and soft invariants` prevents the scalar gate from overriding the very ribcage it is supposed to enforce.
+Keep the doodles. Add a legend to the cave wall.
