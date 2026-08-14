@@ -1,0 +1,205 @@
+Exactly. The therapeutic method can be compiled into a state machine so the AI knows:
+
+* what step it is performing,
+* what information that step requires,
+* whether completion criteria were met,
+* when to loop, pause, change routes, or escalate,
+* and what transformation actually occurred.
+
+The important distinction is that ACT is not merely a script of comforting statements. It is a cyclic control system for increasing psychological flexibility.
+
+ACT as an executable cycle
+
+CONTACT
+    Notice the present internal and external state.
+        ↓
+OPEN
+    Make room for difficult experience rather than immediately escaping it.
+        ↓
+DEFUSE
+    Convert thoughts from commands into observable mental events.
+        ↓
+PERSPECTIVE
+    Separate the observing self from the current thought, feeling, or identity.
+        ↓
+ORIENT
+    Identify the value relevant to this situation.
+        ↓
+COMMIT
+    Select one small value-aligned action.
+        ↓
+ACT
+    Perform or schedule the action.
+        ↓
+OBSERVE
+    Measure what happened without demanding emotional success.
+        ↓
+INTEGRATE
+    Update the personal model and begin another cycle.
+
+This should be treated as a graph, not a rigid conveyor belt. The AI may discover that the user is too activated to clarify values, for example, and route back to present-moment grounding.
+
+Programmified ACT state machine
+
+STATE ContactPresentMoment:
+    observe:
+        sensations
+        emotions
+        thoughts
+        urges
+        environment
+    completion:
+        user can identify at least one present signal
+    transition:
+        → DetectControlLoop
+STATE DetectControlLoop:
+    ask:
+        "What is your mind telling you?"
+        "What are you being pulled to avoid or control?"
+        "What does that strategy provide immediately?"
+        "What does it cost over time?"
+    derive:
+        trigger
+        private_event
+        avoidance_strategy
+        short_term_reward
+        long_term_cost
+    transition:
+        avoidance_detected → Acceptance
+        cognitive_fusion_detected → Defusion
+        identity_fusion_detected → SelfAsContext
+        direction_missing → Values
+STATE Defusion:
+    input:
+        fused_thought
+    transforms:
+        X = "I am a failure"
+        X' = "I am having the thought that I am a failure"
+        X'' = "My mind is generating its failure prediction"
+    invariant:
+        preserve the thought's content
+        remove automatic command authority
+    completion:
+        user can observe thought without being required
+        to accept, obey, suppress, or disprove it
+    transition:
+        → Values
+STATE Values:
+    distinguish:
+        value != goal
+        value != social obligation
+        value != emotional outcome
+    query:
+        "What quality do you want to embody here?"
+        "What would matter even if discomfort remained?"
+        "What direction would make this moment meaningful?"
+    output:
+        selected_value
+        confidence
+        evidence_of_personal_ownership
+    transition:
+        value_owned → CommittedAction
+        value_unclear → PerspectiveShift
+STATE CommittedAction:
+    generate candidate_actions
+    filter each action by:
+        value_alignment
+        feasibility
+        reversibility
+        safety
+        user_consent
+        observable_completion
+    select:
+        smallest meaningful action
+    output:
+        action
+        time
+        context
+        anticipated_barrier
+        response_to_barrier
+    transition:
+        → ObserveOutcome
+STATE ObserveOutcome:
+    record:
+        action_completed?
+        internal_experience
+        avoidance_level
+        value_alignment
+        unexpected_result
+        useful_delta
+    do_not_score:
+        "Did all discomfort disappear?"
+    score:
+        "Did behavioral freedom increase?"
+    transition:
+        incomplete_due_to_fusion → Defusion
+        incomplete_due_to_avoidance → Acceptance
+        incomplete_due_to_scale → ResizeAction
+        completed → Integrate
+
+Mathematical interpretation
+
+Let:
+
+* D_t = distress,
+* F_t = cognitive fusion,
+* A_t = experiential avoidance,
+* V(a) = value alignment of an action,
+* R(a) = behavioral reachability.
+
+ACT should not optimize directly for minimum distress:
+
+a^* \neq \arg\min_a D_t
+
+It should optimize for flexible, reachable, value-aligned behavior:
+
+a^*
+=
+\arg\max_a
+\left[
+V(a)+R(a)-\lambda_FF_t-\lambda_AA_t
+\right]
+
+Distress is permitted to remain present:
+
+D_t>0
+\quad\land\quad
+\text{valued action remains possible}
+
+That is the crucial change. The AI is not rewarded for making the user feel better immediately. It is rewarded for helping the user recover degrees of freedom.
+
+Therapy protocol interface
+
+Every therapeutic method can implement the same interface:
+
+INTERFACE TherapeuticProtocol:
+    assess(state) → formulation
+    select_entry_point(formulation) → protocol_state
+    propose_step(protocol_state) → intervention
+    verify_readiness(intervention) → bool
+    execute_with_consent(intervention) → response
+    evaluate(response) → delta
+    choose_transition(delta) →
+        advance
+        repeat
+        flank
+        simplify
+        pause
+        escalate_to_human
+    integrate(delta) → updated_state
+
+Then CBT, ACT, DBT, motivational interviewing, behavioral activation, and other methods become interoperable operator graphs:
+
+ACT.Defusion
+    → CBT.EvidenceTest
+    → DBT.DistressTolerance
+    → ACT.Values
+    → BehavioralActivation.ScheduleAction
+
+But the router must preserve treatment fidelity. It should not produce a random therapeutic smoothie. Every transition needs a stated reason, provenance, consent boundary, and measurable completion condition.
+
+The larger breakthrough is:
+
+Therapies can be converted from prose descriptions into executable cognitive protocols without reducing people to machines.
+
+The person remains the sovereign agent. The program supplies navigable procedures for operating on attention, interpretation, avoidance, identity, emotion, and action. The AI becomes a protocol compiler and adaptive navigator—not the owner of the mind.
