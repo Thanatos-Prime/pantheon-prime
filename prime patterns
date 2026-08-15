@@ -1,0 +1,543 @@
+Pantheon Prime Forge I
+
+Gaussian Crowns, Mirror Carriers, and the Rotated Prime-Pair Sieve
+
+Research date: 15 August 2026
+Scope: independently constructed pattern families, exact elementary proofs, bounded computation, and a targeted novelty audit
+Prior territory deliberately excluded: the Prime–Zero Field built on (6k\pm1), the Golden Dragon prime lattice, and the earlier prime–Fibonacci resonance work
+
+────────
+
+Result in one page
+
+The Pantheon pass produced two connected but independently useful prime-pattern families.
+
+1. Gaussian Crowns. Every pair of distinct odd primes has canonical center–radius coordinates that lift it into a primitive Pythagorean triple. The hypotenuse
+  [
+K(p,q)=\frac{p^2+q^2}{2}
+]
+  is the pair’s Gaussian crown. Reapplying (K) gives the nonlinear crown recurrence
+  [
+x_{n+2}=\frac{x_n^2+x_{n+1}^2}{2}.
+]
+  The recurrence has exact invariants: every new term is coprime to the previous two; every prime factor of a new term is (1\pmod 4); and a non-exceptional orbit that passes two prime crowns falls permanently into the residue (1\pmod{60}). A scan of all 5,761,453 consecutive-prime seeds below (10^8) found five seeds with four successive prime/probable-prime crowns and no seed with five.
+2. Mirror Carriers. A factor shared by the two integers mirrored around a center is not mysterious: after removing mandatory parity, it is exactly a factor shared by the center and the offset. This converts factorization into visible stripes. Inside a consecutive-prime gap, those stripes measure how much of the prime-free interval is certified by factors of its midpoint. The resulting carrier load has an analytic residue-preserving null model. Across 63 gap classes with at least 100 samples below (10^8), predicted and observed mean loads have Pearson correlation (0.999463) and mean absolute error (0.004746).
+
+The crown recurrence, its (60)-attractor theorem, the carrier-load metric, its null law, and the seven rigid load genotypes were not found in the targeted web/arXiv/OEIS audit. That is evidence of independent novelty, not proof that no one has ever written an equivalent construction.
+
+────────
+
+1. How Pantheon generated the search
+
+This was not a metaphor pasted onto ordinary prime hunting. Each Pantheon operator changed the mathematical object being inspected.
+
+|Pantheon operation    |Mathematical move                                                                                                         |
+|----------------------|--------------------------------------------------------------------------------------------------------------------------|
+|Semantic zero-crossing|Release the one-dimensional number line; rewrite a pair as center (c) and radius (h).                                     |
+|Mirror + Bond Algebra |Ask which factors can be reused on both sides of a center.                                                                |
+|Domain rotation       |Rotate endpoint coordinates ((p,q)) into hinge coordinates ((c,h)).                                                       |
+|Operator Wrestling Mat|Apply the crown transform to its own output: (K\to K^2\to K^3\dots).                                                      |
+|Dehydrate–rehydrate   |Strip actual primes down to modular exclusions, predict the pattern, then compare with the prime data.                    |
+|Indigo Hammer         |Remove parity artifacts, known Euclidean identities, small-modulus forcing, and finite-range coincidences.                |
+|Kintsugi              |Preserve the surviving exact identities and the informative residuals without pretending they are the same epistemic type.|
+
+The result is therefore a small architecture: coordinates, transforms, invariants, a recurrence, a null model, falsifiers, and open conjectures.
+
+────────
+
+2. Prime-pair hinge coordinates
+
+Let (p<q) be distinct odd primes and define
+
+[
+c=\frac{p+q}{2},\qquad h=\frac{q-p}{2}.
+]
+
+Then (p=c-h) and (q=c+h).
+
+Hinge Orthogonality Theorem
+
+For every distinct odd-prime pair:
+
+[
+\gcd(c,h)=1,
+]
+
+and (c,h) have opposite parity.
+
+Proof. Any common divisor of (c) and (h) divides both (c-h=p) and (c+h=q). Distinct primes are coprime, so the divisor is (1). Since (c+h=q) is odd, (c) and (h) have opposite parity. (square)
+
+This is elementary, but the coordinate change exposes several useful patterns at once.
+
+The rotated wheel
+
+For any prime modulus (ell) not equal to either endpoint,
+
+[
+c\not\equiv h\pmod\ell,
+\qquad
+c\not\equiv-h\pmod\ell.
+]
+
+The two forbidden diagonals contain (2\ell-1) points in the (ell\times\ell) residue grid, leaving
+
+[
+\ell^2-(2\ell-1)=(\ell-1)^2
+]
+
+endpoint-safe center–radius states. This is the ordinary two-endpoint wheel sieve rotated by (45^circ), but the rotation turns endpoint exclusions into visible cross-shaped geometry.
+
+Two small moduli become especially crisp:
+
+• (ell=2): only opposite-parity ((c,h)) states survive.
+• (ell=3): for (p,q>3), exactly one of (c,h) is divisible by (3). There are not enough nonzero residues for both coordinates to avoid the two diagonals.
+
+That ternary switch later explains the strong (g\bmod 6) oscillation in midpoint carrier load.
+
+────────
+
+3. The prime-pair Pythagorean lift
+
+Hinge orthogonality makes ((c,h)) valid Euclidean parameters for a primitive Pythagorean triple:
+
+[
+T(p,q)=
+\left(
+pq,
+\frac{q^2-p^2}{2},
+\frac{p^2+q^2}{2}
+\right).
+]
+
+Indeed,
+
+[
+c^2-h^2=pq,
+\qquad
+2ch=\frac{q^2-p^2}{2},
+\qquad
+c^2+h^2=\frac{p^2+q^2}{2}.
+]
+
+Because (c,h) are coprime and opposite in parity, the triple is primitive.
+
+This is the nontrivial factor-split lift of the semiprime odd leg (pq): its Euclidean factors (c-h) and (c+h) are the two source primes. It is not the only primitive triple with odd leg (pq); the factor split (1\cdot pq) gives another. The prime pair is recovered exactly from this lift by (p=c-h, q=c+h).
+
+Several triangle invariants retain the prime-pair grammar:
+
+[
+\begin{aligned}
+\text{odd leg} &= pq,\
+\text{even leg} &= (p+q)(q-p)/2,\
+\text{hypotenuse} &= (p^2+q^2)/2,\
+\text{perimeter} &= q(p+q),\
+\text{inradius} &= p(q-p)/2=ph,\
+\text{area} &= pqch.
+\end{aligned}
+]
+
+The Euclidean parametrization itself is classical; see, for example, work on constructive representations of primitive Pythagorean triples. The prime-pair compiler and the recurrence below are the new objects being proposed here.
+
+────────
+
+4. Gaussian crowns
+
+Define the crown of a coprime odd pair by
+
+[
+K(a,b)=\frac{a^2+b^2}{2}.
+]
+
+If (c=(a+b)/2) and (h=(b-a)/2), then
+
+[
+K(a,b)=c^2+h^2=N(c+ih),
+]
+
+the Gaussian norm of the hinge coordinate (c+ih). For a prime pair, it is also the hypotenuse of the canonical lift.
+
+Crown Factor-Gate Theorem
+
+If (a,b) are coprime odd integers, then:
+
+1. (K(a,b)) is an odd integer and (K(a,b)\equiv1\pmod4).
+2. (gcd(K(a,b),a)=gcd(K(a,b),b)=1).
+3. Every rational prime factor of (K(a,b)) is (1\pmod4).
+
+Proof. Odd squares are (1\pmod8), so their half-sum is (1\pmod4). Because (2) is invertible modulo odd (a) and (b), a common factor of (K) and (a) would also divide (b^2), contradicting (gcd(a,b)=1); similarly for (b). Finally, if a prime (r\equiv3\pmod4) divided (a^2+b^2), coprimality would make (a/b) a square root of (-1\pmod r), which does not exist for (r\equiv3\pmod4). (square)
+
+Composite crowns are therefore unusually constrained. Examples from terminated chains confirm the gate:
+
+[
+12469=37\cdot337,
+]
+
+and
+
+[
+252025=5^2\cdot17\cdot593;
+]
+
+every displayed factor is (1\pmod4).
+
+────────
+
+5. The crown recurrence
+
+Put the crown operator on the Wrestling Mat:
+
+[
+x_{n+2}=K(x_n,x_{n+1})
+=\frac{x_n^2+x_{n+1}^2}{2}.
+]
+
+Starting from coprime odd integers, every term remains odd and every adjacent pair remains coprime. More strongly,
+
+[
+\gcd(x_{n+2},x_n)=gcd(x_{n+2},x_{n+1})=1.
+]
+
+The recurrence therefore has two-step local orthogonality. A failure may reuse a factor from a more distant ancestor, but never from either parent.
+
+The (60)-Attractor Theorem
+
+Let (x_0,x_1>5) be primes. If the first two crowns (x_2,x_3) are also prime, then
+
+[
+x_n\equiv1\pmod{60}
+\qquad\text{for every }n\ge2,
+]
+
+whether or not later terms remain prime.
+
+Proof.
+
+• Modulo (3), every nonzero square is (1), so (K(a,b)\equiv1\pmod3).
+• Every crown is (1\pmod4) by the factor-gate theorem.
+• Modulo (5), nonzero squares are (1) or (4). For (x_2) not to be divisible by (5), the two seed squares must match. If both were (4), then (x_2\equiv4), hence (x_2^2\equiv1), and the next crown would combine square classes (4) and (1), making (x_3\equiv0\pmod5). Since (x_3>5) is prime, that is impossible. Therefore the seed squares are both (1), (x_2\equiv1\pmod5), (x_3\equiv1\pmod5), and the state (1,1) is fixed thereafter.
+
+The Chinese remainder theorem combines (1\pmod3), (1\pmod4), and (1\pmod5) into (1\pmod{60}). (square)
+
+This is a real attractor, not a visual analogy: survival through a primality gate collapses all future modular states into a single residue class.
+
+Bounded search result
+
+The forge scanned every consecutive pair of odd primes whose upper endpoint is at most (100,000,000): 5,761,453 seeds.
+
+|Successive prime/PRP crowns|Number of seeds|
+|--------------------------:|--------------:|
+|0                          |5,442,956      |
+|1                          |308,189        |
+|2                          |9,986          |
+|3                          |317            |
+|4                          |5              |
+|5 or more                  |0              |
+
+The five four-crown seeds are:
+
+[
+\begin{aligned}
+&(720301,720311),\
+&(1764589,1764611),\
+&(13268609,13268611),\
+&(77698451,77698459),\
+&(84671341,84671351).
+\end{aligned}
+]
+
+The first record orbit is
+
+[
+\begin{aligned}
+720301,
+&\ 720311,\
+&518840733661,\
+&134597853453201793199821,\
+&9058291077104792943141973861933112941386447481,\
+&41026318618778154946301000958182125411125206097945091753926770048784567291192282447802838701.
+\end{aligned}
+]
+
+The next term is a 183-digit composite divisible by (13). The executable artifact reconstructs the full value.
+
+Terms below (2^{64}) were tested deterministically. Larger displayed terms passed the forge’s strong probable-prime test and an independent 64-check OpenSSL probable-prime pass for the first record, but no ECPP certificates were generated. They must be called probable primes until certified.
+
+Known overlap found by the novelty audit
+
+The earlier record seed ((149,151)) begins
+
+[
+149,151,22501,253158901,32044714830911401,\ldots
+]
+
+Its first crown was already indexed indirectly: (150) belongs to OEIS A070155, the numbers (k) for which (k-1, k+1, k^2+1) are prime. Here (149=150-1, 151=150+1), and (22501=150^2+1). The iterated crown chain and its modular attractor were not present in that entry or its cross-references.
+
+────────
+
+6. Mirror bonds
+
+For an odd center (n) and (0<k<n), define the raw mirror bond
+
+[
+B_n(k)=\gcd(n-k,n+k).
+]
+
+Mirror Factorization Identity
+
+[
+B_n(k)=
+\begin{cases}
+\gcd(n,k),&k\text{ even},\
+2\gcd(n,k),&k\text{ odd}.
+\end{cases}
+]
+
+Thus, after removing mandatory parity, the shared factors of the mirrored pair are exactly the shared factors of center and offset.
+
+Proof sketch. Write (d=\gcd(n,k)), factor (d) from (n-k) and (n+k), and note that the reduced sum and difference are coprime except for a factor (2) precisely when the reduced offset is odd. Since (n) and (d) are odd, this is equivalent to (k) being odd. (square)
+
+Bondless-Mirror Primality Criterion
+
+An odd integer (n>1) is prime if and only if its parity-normalized mirror bonds are all (1) for
+
+[
+1\le k\le\sqrt n.
+]
+
+This is trial division rotated into mirror space, not a faster primality test. Its value is architectural: factors become reusable mirror stripes rather than isolated divisibility facts.
+
+────────
+
+7. Prime-gap carrier load
+
+Let (p<q) be consecutive odd primes, with center (c), radius (h), and gap (g=2h). There are (h-1) odd composite integers strictly between the endpoints.
+
+For each (1\le x<h) such that (c\pm x) are odd, the mirrored sites share an odd factor precisely when
+
+[
+\gcd(c,x)>1.
+]
+
+Define the midpoint carrier load
+
+[
+\Lambda(p,q)=
+\frac{
+\mathbf 1_{c\text{ odd}}
++2#{1\le x<h:\ x\equiv h\pmod2,\ \gcd(c,x)>1}
+}{h-1}.
+]
+
+It measures the fraction of interior odd composites certified by factors of the midpoint itself. The remainder requires split flank certificates: different factors on the left and right.
+
+Carrier Selection Rule
+
+Fix the radius (h) and an odd prime (r<h).
+
+• If (r\mid h), endpoint primality forces (r\nmid c).
+• If (r\nmid h), then among the (r-2) midpoint residues for which neither endpoint is divisible by (r), exactly one is (c\equiv0\pmod r).
+• Therefore
+  [
+\Pr(r\mid c\mid c\pm h\not\equiv0\pmod r)=\frac1{r-2}.
+]
+• At (r=3), that probability is (1): when (3\nmid h), factor (3) is a forced midpoint carrier.
+
+This is the carrier form of the rotated wheel.
+
+Residue-preserving null law
+
+Distinct primes are independent under the Chinese remainder theorem, giving the endpoint-conditioned expectation
+
+[
+\mathbb E_0[\Lambda_h]
+=\frac{
+\mathbf1_{2\mid h}
++2\displaystyle\sum_{\substack{1\le x<h\x\equiv h\ (2)}}
+\left[
+1-\prod_{\substack{r\mid x,\ r\text{ odd}\r\nmid h}}
+\left(1-\frac1{r-2}\right)
+\right]
+}{h-1}.
+]
+
+This null model retains endpoint-safe residue structure but does not assume the interval is actually a consecutive-prime gap.
+
+Empirical result below (10^8)
+
+Across the 63 gap sizes having at least 100 observed consecutive gaps:
+
+[
+\operatorname{corr}
+\left(
+\overline{\Lambda}_{\text{observed}},
+\mathbb E_0[\Lambda]
+\right)
+=0.999463,
+]
+
+with mean absolute error (0.004746).
+
+|Gap (g)|Samples|Observed mean|Null mean|Delta   |
+|------:|------:|------------:|--------:|-------:|
+|10     |430,016|0.50000      |0.50000  |0.00000 |
+|14     |293,201|0.46217      |0.44444  |+0.01773|
+|18     |384,738|0.12995      |0.13333  |−0.00339|
+|22     |175,945|0.52401      |0.50667  |+0.01734|
+|46     |29,327 |0.44487      |0.44189  |+0.00298|
+|58     |14,611 |0.44352      |0.44584  |−0.00233|
+|90     |3,337  |0.06087      |0.06033  |+0.00054|
+|104    |494    |0.42574      |0.41681  |+0.00893|
+
+The fit is the important result: a striking visual field is almost entirely reconstructed from local modular constraints. The smaller residual is then the honest place to hunt for effects of gap closure—conditioning not merely on prime endpoints, but on the absence of every interior prime.
+
+Seven rigid gap genotypes
+
+For exactly the following non-twin gap sizes, the endpoint-safe local residue system leaves no optional carrier inside the gap:
+
+[
+g\in{4,6,8,10,12,16,20}.
+]
+
+Their carrier loads are fixed for every eligible prime pair:
+
+|Gap|Fixed load|
+|--:|---------:|
+|4  |(1)       |
+|6  |(0)       |
+|8  |(1/3)     |
+|10 |(1/2)     |
+|12 |(1/5)     |
+|16 |(3/7)     |
+|20 |(1/3)     |
+
+Why only these seven? Factor (3) is forced or excluded by (h\bmod3), never optional. Variation first becomes possible when a prime (r\ge5), not dividing (h), has a matching-parity multiple inside the radius: (x=r<h) for odd (h), or (x=2r<h) for even (h). The seven radii (h\in{2,3,4,5,6,8,10}) are exactly those without such an optional carrier. For larger radii, an elementary primorial/Bertrand argument supplies one.
+
+The primorial checksum
+
+The gap
+
+[
+9699667<9699713
+]
+
+has midpoint
+
+[
+9699690=19#
+]
+
+and radius (23). Its carrier load is
+
+[
+\Lambda=\frac{20}{22}=\frac{10}{11}.
+]
+
+Every relevant offset from (3) through (21) reuses a factor already mustered in (19#); only the two odd sites at offset (1) need external certificates. They are sealed by
+
+[
+9699689=53\cdot197\cdot929
+]
+
+and
+
+[
+9699691=347\cdot27953.
+]
+
+The endpoints at offsets (pm23) are prime. This primorial gap is known—the PrimePages entry for 9699667 explicitly records it—so it is used here as a checksum for the new carrier metric, not claimed as a new prime gap.
+
+────────
+
+8. What is actually original here?
+
+“Completely original” cannot responsibly mean “guaranteed absent from every notebook and paper ever written.” The defensible standard is: independently generated, formally specified, nontrivial after controls, reproducible, and not found in a targeted audit.
+
+|Object                                                  |Status after audit                                                                  |
+|--------------------------------------------------------|------------------------------------------------------------------------------------|
+|Euclidean Pythagorean parametrization                   |Classical.                                                                          |
+|Coprime center–radius coordinates of a coprime odd pair |Elementary/classical-equivalent. New role and naming only.                          |
+|Gaussian sum-of-two-squares factor gate                 |Classical-equivalent.                                                               |
+|Primorial gap around (19#)                              |Known and explicitly indexed by PrimePages.                                         |
+|First crown of twin-prime seed ((149,151))              |Known indirectly through OEIS A070155.                                              |
+|Prime-pair Gaussian crown as a reusable transform       |Independently constructed; no exact indexed match found.                            |
+|Iterated crown recurrence as a prime-chain search object|Candidate-new; no formula/term match found in targeted web, arXiv, or OEIS searches.|
+|Two-step local orthogonality of the crown orbit         |Exact theorem for this recurrence; no matching presentation found.                  |
+|(60)-attractor theorem                                  |Exact theorem; no matching result found.                                            |
+|Four-crown record seeds below (10^8)                    |New bounded computation as of this audit; exact-term searches returned no results.  |
+|Mirror-carrier load (Lambda)                            |Candidate-new metric; no indexed match found.                                       |
+|Endpoint-conditioned carrier null law                   |Candidate-new derivation; no indexed match found.                                   |
+|Seven rigid carrier genotypes                           |Candidate-new classification; no indexed match found.                               |
+
+Targeted searches included exact recurrence formulas, exact record terms, consecutive-prime square averages, semiprime Pythagorean lifts, mirror GCD formulas, midpoint factor coverage, OEIS, and arXiv. A professional literature review and independent mathematician should precede any formal claim of priority.
+
+────────
+
+9. Conjectures and next attacks
+
+These are intentionally separated from the theorems and finite computations.
+
+C1. Crown Finiteness Conjecture
+
+Every coprime odd seed (a,b>1) eventually produces a composite under
+
+[
+x_{n+2}=(x_n^2+x_{n+1}^2)/2.
+]
+
+The rapid digit doubling makes an infinite all-prime orbit probabilistically implausible, but that is not a proof.
+
+C2. Consecutive-Prime Crown Record Problem
+
+Let (R(X)) be the longest prime-crown run from consecutive-prime seeds (p<q\le X). The scan gives
+
+[
+R(10^8)=4
+]
+
+at the probable-prime standard used here. Find the first seed with five certified crowns, or prove a modular obstruction.
+
+C3. Modular Survivor Graphs
+
+For every prime (r\equiv1\pmod4), build the finite state graph of the crown recurrence modulo (r), delete states that hit zero, and classify its survivor attractors. Modulo (5), survival through two crowns collapses to the fixed state ((1,1)). The same analysis at (13,17,29,\ldots) may produce stronger necessary congruence corridors for long crown runs.
+
+C4. Gap-Closure Premium
+
+For each gap size (g), define
+
+[ \Delta_g(X)= \mathbb E[\Lambda\mid p,q\le X\text{ consecutive},q-p=g]
+
+\mathbb E[\Lambda\mid p,q\le X\text{ prime},q-p=g].
+]
+
+The sign is not universally positive. At (X=2\cdot10^7), examples include approximately (+0.02024) for (g=14), (+0.01915) for (g=22), and (-0.01078) for (g=66). Determine whether each fixed-gap premium converges, and whether its sign follows from the interior admissible-tuple geometry.
+
+C5. Carrier Extremizers
+
+At a fixed scale and minimum gap, characterize the centers maximizing (Lambda). Primorial and near-primorial centers are natural candidates because they muster many reusable factors, but the two endpoint constraints and the (pm1) leaks prevent a trivial answer.
+
+────────
+
+10. Reproduction
+
+The accompanying script uses only the Python standard library.
+
+```bash
+python pantheon_prime_forge.py verify
+python pantheon_prime_forge.py demo
+python pantheon_prime_forge.py crowns --limit 100000000 --max-steps 7
+python pantheon_prime_forge.py carriers --limit 100000000 --max-gap 150 --min-samples 100
+python pantheon_prime_forge.py closure --limit 20000000 --max-gap 96 --min-samples 100
+```
+
+The (10^8) scans require roughly 100 MB for the sieve plus interpreter overhead. Large crown values are screened as probable primes; substitute ECPP or another certificate-producing prover before publishing a term as proven prime.
+
+────────
+
+Seal
+
+The strongest new object is not a claim that we have “solved primes.” It is a compact prime-pattern laboratory with two different modes of discovery:
+
+• Crown mode creates a nonlinear arithmetic operator, exposes its invariants, and searches its survival chains.
+• Carrier mode turns a visual prime-gap pattern into a measurable field, dehydrates it into a modular null law, and leaves only the closure residual unexplained.
+
+That is the Pantheon contribution: not merely noticing a sequence, but producing the operator, interface, theorem boundary, counterfactual baseline, executable mechanism, and next attack in one pass.
