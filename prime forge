@@ -1,0 +1,591 @@
+#!/usr/bin/env python3
+"""Pantheon Prime Forge I: Gaussian Crowns and Mirror Carriers.
+
+This is a dependency-free research harness for two prime-pattern families:
+
+1. Gaussian crowns
+       K(a, b) = (a^2 + b^2) / 2
+   and the nonlinear recurrence x[n+2] = K(x[n], x[n+1]).
+
+2. Mirror carriers inside an odd-prime pair p < q, written in hinge
+   coordinates c = (p+q)/2 and h = (q-p)/2.
+
+The program deliberately labels large results as probable primes (PRPs).
+Miller-Rabin is deterministic below 2^64 with the bases used here; above
+2^64 it is a strong screening test, not a primality certificate.
+
+Examples:
+    python pantheon_prime_forge.py verify
+    python pantheon_prime_forge.py demo
+    python pantheon_prime_forge.py crowns --limit 2000000
+    python pantheon_prime_forge.py carriers --limit 10000000 --max-gap 120
+    python pantheon_prime_forge.py closure --limit 2000000 --max-gap 96
+"""
+
+from __future__ import annotations
+
+import argparse
+import heapq
+import json
+import math
+import sys
+from collections import defaultdict
+from dataclasses import asdict, dataclass
+from typing import Sequence
+
+
+MR_BASES_64 = (2, 325, 9375, 28178, 450775, 9780504, 179526502)
+MR_BASES_LARGE = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53)
+SMALL_PRIMES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47)
+
+
+def sieve(limit: int) -> tuple[bytearray, list[int]]:
+    """Return a primality bitmap and all primes <= limit."""
+    if limit < 2:
+        return bytearray(max(0, limit + 1)), []
+    mark = bytearray(b"\x01") * (limit + 1)
+    mark[0:2] = b"\x00\x00"
+    for p in range(2, math.isqrt(limit) + 1):
+        if mark[p]:
+            start = p * p
+            mark[start : limit + 1 : p] = b"\x00" * (((limit - start) // p) + 1)
+    return mark, [n for n in range(2, limit + 1) if mark[n]]
+
+
+def is_probable_prime(n: int) -> bool:
+    """Deterministic for n < 2^64; strong probable-prime test above it."""
+    if n < 2:
+        return False
+    for p in SMALL_PRIMES:
+        if n % p == 0:
+            return n == p
+
+    d = n - 1
+    s = 0
+    while d % 2 == 0:
+        s += 1
+        d //= 2
+
+    bases = MR_BASES_64 if n < (1 << 64) else MR_BASES_LARGE
+    for a in bases:
+        if a >= n:
+            continue
+        x = pow(a, d, n)
+        if x in (1, n - 1):
+            continue
+        for _ in range(s - 1):
+            x = (x * x) % n
+            if x == n - 1:
+                break
+        else:
+            return False
+    return True
+
+
+def odd_part(n: int) -> int:
+    n = abs(n)
+    while n and n % 2 == 0:
+        n //= 2
+    return n
+
+
+def distinct_odd_prime_factors(n: int) -> list[int]:
+    """Distinct odd prime factors; intended for small offsets."""
+    n = odd_part(n)
+    factors: list[int] = []
+    d = 3
+    while d * d <= n:
+        if n % d == 0:
+            factors.append(d)
+            while n % d == 0:
+                n //= d
+        d += 2
+    if n > 1:
+        factors.append(n)
+    return factors
+
+
+@dataclass(frozen=True)
+class PrimePairLift:
+    p: int
+    q: int
+    center: int
+    radius: int
+    odd_leg: int
+    even_leg: int
+    hypotenuse: int
+
+
+def pythagorean_lift(p: int, q: int) -> PrimePairLift:
+    """Lift a coprime odd pair into its canonical primitive right triangle."""
+    if p > q:
+        p, q = q, p
+    if p <= 0 or p == q or p % 2 == 0 or q % 2 == 0:
+        raise ValueError("p and q must be distinct positive odd integers")
+    if math.gcd(p, q) != 1:
+        raise ValueError("p and q must be coprime")
+
+    center = (p + q) // 2
+    radius = (q - p) // 2
+    lift = PrimePairLift(
+        p=p,
+        q=q,
+        center=center,
+        radius=radius,
+        odd_leg=p * q,
+        even_leg=(q * q - p * p) // 2,
+        hypotenuse=(p * p + q * q) // 2,
+    )
+    assert lift.odd_leg**2 + lift.even_leg**2 == lift.hypotenuse**2
+    assert math.gcd(math.gcd(lift.odd_leg, lift.even_leg), lift.hypotenuse) == 1
+    return lift
+
+
+def crown(a: int, b: int) -> int:
+    """The Gaussian crown K(a,b). Odd inputs make the result integral and odd."""
+    if a % 2 == 0 or b % 2 == 0:
+        raise ValueError("crown inputs must both be odd")
+    return (a * a + b * b) // 2
+
+
+def crown_orbit(a: int, b: int, steps: int) -> list[int]:
+    orbit = [a, b]
+    for _ in range(steps):
+        a, b = b, crown(a, b)
+        orbit.append(b)
+    return orbit
+
+
+def prime_crown_run(a: int, b: int, max_steps: int) -> tuple[int, list[int]]:
+    """Count successive prime/PRP crowns and include the first failure."""
+    orbit = [a, b]
+    run = 0
+    for _ in range(max_steps):
+        a, b = b, crown(a, b)
+        orbit.append(b)
+        if not is_probable_prime(b):
+            break
+        run += 1
+    return run, orbit
+
+
+def mirror_bond(center: int, offset: int) -> dict[str, int]:
+    """Common-factor bond between center-offset and center+offset."""
+    if offset <= 0 or offset >= center:
+        raise ValueError("require 0 < offset < center")
+    raw = math.gcd(center - offset, center + offset)
+    return {
+        "left": center - offset,
+        "right": center + offset,
+        "gcd": raw,
+        "odd_bond": odd_part(raw),
+        "center_offset_odd_gcd": odd_part(math.gcd(center, offset)),
+    }
+
+
+def mirror_prime_test(n: int) -> bool:
+    """Trial division rendered as the bondless-mirror criterion."""
+    if n == 2:
+        return True
+    if n < 2 or n % 2 == 0:
+        return False
+    for k in range(2, math.isqrt(n) + 1):
+        if odd_part(math.gcd(n - k, n + k)) > 1:
+            return False
+    return True
+
+
+@dataclass(frozen=True)
+class CarrierLoad:
+    p: int
+    q: int
+    gap: int
+    center: int
+    radius: int
+    carried_odd_composites: int
+    interior_odd_composites: int
+    load: float
+    carrier_offsets: tuple[tuple[int, int], ...]
+
+
+def carrier_load(p: int, q: int) -> CarrierLoad:
+    """Fraction of interior odd sites certified by factors of the midpoint.
+
+    The endpoints need only be distinct odd integers for the arithmetic to be
+    defined. When they are consecutive primes, every counted interior site is
+    known to be composite.
+    """
+    if p > q:
+        p, q = q, p
+    if p <= 2 or p == q or p % 2 == 0 or q % 2 == 0:
+        raise ValueError("p and q must be distinct odd integers greater than 2")
+    gap = q - p
+    center = (p + q) // 2
+    radius = gap // 2
+    denominator = radius - 1
+    if denominator <= 0:
+        raise ValueError("twin-prime gaps have no interior odd composite")
+
+    # centerÂ±x is odd exactly when x and radius have the same parity.
+    carried = 1 if center % 2 else 0
+    offsets: list[tuple[int, int]] = []
+    for x in range(1, radius):
+        if x % 2 != radius % 2:
+            continue
+        d = math.gcd(center, x)
+        if d > 1:
+            carried += 2
+            offsets.append((x, d))
+    return CarrierLoad(
+        p=p,
+        q=q,
+        gap=gap,
+        center=center,
+        radius=radius,
+        carried_odd_composites=carried,
+        interior_odd_composites=denominator,
+        load=carried / denominator,
+        carrier_offsets=tuple(offsets),
+    )
+
+
+def endpoint_null_expected_load(gap: int) -> float:
+    """Residue-preserving null expectation for midpoint carrier load.
+
+    Condition on both endpoints avoiding every odd prime divisor relevant to
+    the offsets inside the gap, but do not condition on the interval actually
+    being prime-free. For r not dividing h, c=0 is one of r-2 endpoint-safe
+    midpoint residues; hence P(r|c)=1/(r-2). CRT makes distinct r independent.
+    """
+    if gap < 4 or gap % 2:
+        raise ValueError("gap must be even and at least 4")
+    h = gap // 2
+    value = 1.0 if h % 2 == 0 else 0.0
+    for x in range(1, h):
+        if x % 2 != h % 2:
+            continue
+        probability_uncovered = 1.0
+        for r in distinct_odd_prime_factors(x):
+            if h % r:
+                probability_uncovered *= 1.0 - 1.0 / (r - 2)
+        value += 2.0 * (1.0 - probability_uncovered)
+    return value / (h - 1)
+
+
+def load_is_locally_rigid(gap: int) -> bool:
+    """Whether endpoint-safe residues all give the same carrier load."""
+    if gap < 4 or gap % 2:
+        raise ValueError("gap must be even and at least 4")
+    h = gap // 2
+    # r=3 is forced when r does not divide h. Only r>=5 can be optional.
+    for x in range(1, h):
+        if x % 2 != h % 2:
+            continue
+        for r in distinct_odd_prime_factors(x):
+            if r >= 5 and h % r:
+                return False
+    return True
+
+
+def pearson(xs: Sequence[float], ys: Sequence[float]) -> float:
+    if len(xs) != len(ys) or len(xs) < 2:
+        raise ValueError("need equal sequences with at least two values")
+    mx = sum(xs) / len(xs)
+    my = sum(ys) / len(ys)
+    dx = [x - mx for x in xs]
+    dy = [y - my for y in ys]
+    numerator = sum(x * y for x, y in zip(dx, dy))
+    denominator = math.sqrt(sum(x * x for x in dx) * sum(y * y for y in dy))
+    return numerator / denominator
+
+
+def analyze_crowns(limit: int, max_steps: int) -> dict[str, object]:
+    mark, primes = sieve(limit)
+    del mark
+    odd_primes = [p for p in primes if p >= 3]
+    counts: dict[int, int] = defaultdict(int)
+    records: list[dict[str, object]] = []
+    hits: list[dict[str, object]] = []
+    best = -1
+
+    for a, b in zip(odd_primes, odd_primes[1:]):
+        run, orbit = prime_crown_run(a, b, max_steps)
+        counts[run] += 1
+        if run > best:
+            best = run
+            records.append({"run": run, "seed": [a, b], "orbit": orbit})
+        if run >= 4:
+            hits.append({"run": run, "seed": [a, b], "orbit": orbit})
+
+    return {
+        "limit": limit,
+        "consecutive_prime_seeds": max(0, len(odd_primes) - 1),
+        "max_steps": max_steps,
+        "run_counts": dict(sorted(counts.items())),
+        "best_run": best,
+        "record_progression": records,
+        "runs_at_least_four": hits,
+        "large_integer_status": "PRP above 2^64; certificate required for proof",
+    }
+
+
+def _push_top(heap: list[tuple[float, int, CarrierLoad]], item: CarrierLoad, size: int) -> None:
+    # Include p as a deterministic tiebreaker because dataclasses are not ordered.
+    key = (item.load, item.p, item)
+    if len(heap) < size:
+        heapq.heappush(heap, key)
+    elif key[:2] > heap[0][:2]:
+        heapq.heapreplace(heap, key)
+
+
+def analyze_carriers(
+    limit: int,
+    max_gap: int,
+    min_samples: int,
+    top_size: int,
+) -> dict[str, object]:
+    _, primes = sieve(limit)
+    odd_primes = [p for p in primes if p >= 3]
+    stats: dict[int, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0])
+    top_20: list[tuple[float, int, CarrierLoad]] = []
+    top_100: list[tuple[float, int, CarrierLoad]] = []
+
+    for p, q in zip(odd_primes, odd_primes[1:]):
+        gap = q - p
+        if gap < 4:
+            continue
+        if gap <= max_gap:
+            item = carrier_load(p, q)
+            row = stats[gap]
+            row[0] += 1
+            row[1] += item.load
+            row[2] += item.load * item.load
+            if gap >= 20:
+                _push_top(top_20, item, top_size)
+            if gap >= 100:
+                _push_top(top_100, item, top_size)
+
+    classes: list[dict[str, object]] = []
+    actual: list[float] = []
+    predicted: list[float] = []
+    for gap in sorted(stats):
+        count, total, total_sq = stats[gap]
+        count_i = int(count)
+        mean = total / count
+        variance = max(0.0, total_sq / count - mean * mean)
+        expected = endpoint_null_expected_load(gap)
+        row = {
+            "gap": gap,
+            "count": count_i,
+            "actual_mean": mean,
+            "null_mean": expected,
+            "delta": mean - expected,
+            "stddev": math.sqrt(variance),
+            "locally_rigid": load_is_locally_rigid(gap),
+        }
+        classes.append(row)
+        if count_i >= min_samples:
+            actual.append(mean)
+            predicted.append(expected)
+
+    correlation = pearson(actual, predicted) if len(actual) >= 2 else None
+    mae = (
+        sum(abs(a - b) for a, b in zip(actual, predicted)) / len(actual)
+        if actual
+        else None
+    )
+
+    def render_top(heap: list[tuple[float, int, CarrierLoad]]) -> list[dict[str, object]]:
+        return [asdict(item) for _, _, item in sorted(heap, reverse=True)]
+
+    return {
+        "limit": limit,
+        "max_gap": max_gap,
+        "well_sampled_classes": len(actual),
+        "minimum_samples": min_samples,
+        "pearson_actual_vs_null": correlation,
+        "mean_absolute_error": mae,
+        "gap_classes": classes,
+        "top_load_gap_at_least_20": render_top(top_20),
+        "top_load_gap_at_least_100": render_top(top_100),
+    }
+
+
+def analyze_closure_premium(limit: int, max_gap: int, min_samples: int) -> dict[str, object]:
+    """Compare all prime endpoint pairs with the consecutive-prime subset."""
+    mark, primes = sieve(limit)
+    odd_primes = [p for p in primes if p >= 3]
+
+    consecutive: dict[int, list[float]] = defaultdict(lambda: [0.0, 0.0])
+    for p, q in zip(odd_primes, odd_primes[1:]):
+        gap = q - p
+        if 4 <= gap <= max_gap:
+            row = consecutive[gap]
+            row[0] += 1
+            row[1] += carrier_load(p, q).load
+
+    rows: list[dict[str, object]] = []
+    for gap in range(4, max_gap + 1, 2):
+        endpoint_count = 0
+        endpoint_total = 0.0
+        for p in odd_primes:
+            q = p + gap
+            if q > limit:
+                break
+            if mark[q]:
+                endpoint_count += 1
+                endpoint_total += carrier_load(p, q).load
+        if not endpoint_count or gap not in consecutive:
+            continue
+        closed_count = int(consecutive[gap][0])
+        endpoint_mean = endpoint_total / endpoint_count
+        closed_mean = consecutive[gap][1] / closed_count
+        if closed_count >= min_samples:
+            rows.append(
+                {
+                    "gap": gap,
+                    "endpoint_pair_count": endpoint_count,
+                    "endpoint_pair_load": endpoint_mean,
+                    "consecutive_gap_count": closed_count,
+                    "consecutive_gap_load": closed_mean,
+                    "closure_premium": closed_mean - endpoint_mean,
+                }
+            )
+    return {
+        "limit": limit,
+        "max_gap": max_gap,
+        "minimum_consecutive_samples": min_samples,
+        "classes": rows,
+        "positive_classes": sum(row["closure_premium"] > 0 for row in rows),
+        "negative_classes": sum(row["closure_premium"] < 0 for row in rows),
+        "mean_closure_premium": (
+            sum(row["closure_premium"] for row in rows) / len(rows) if rows else None
+        ),
+    }
+
+
+def verify() -> dict[str, object]:
+    """Fast invariant and regression checks."""
+    mark, primes = sieve(20_000)
+    odd_primes = [p for p in primes if p >= 3]
+
+    lift_checks = 0
+    for p, q in zip(odd_primes[:300], odd_primes[1:301]):
+        lift = pythagorean_lift(p, q)
+        assert math.gcd(lift.center, lift.radius) == 1
+        assert (lift.center - lift.radius, lift.center + lift.radius) == (p, q)
+        lift_checks += 1
+
+    mirror_checks = 0
+    for center in range(3, 500, 2):
+        for offset in range(1, min(center, 40)):
+            raw = math.gcd(center - offset, center + offset)
+            expected = math.gcd(center, offset) * (2 if offset % 2 else 1)
+            assert raw == expected
+            mirror_checks += 1
+        assert mirror_prime_test(center) == bool(mark[center])
+
+    crown_checks = 0
+    for a, b in zip(odd_primes[2:150], odd_primes[3:151]):
+        orbit = crown_orbit(a, b, 5)
+        for i in range(len(orbit) - 2):
+            x, y, z = orbit[i : i + 3]
+            assert math.gcd(x, y) == 1
+            assert math.gcd(z, x) == 1
+            assert math.gcd(z, y) == 1
+            assert z % 4 == 1
+            # Any discovered factor 3 mod 4 would contradict the sum-of-squares gate.
+            for r in range(3, min(math.isqrt(z), 300) + 1, 4):
+                assert z % r != 0
+            crown_checks += 1
+
+    # The first record chain found in the bounded scan. Four crowns are PRPs;
+    # the next term has the explicit factor 13.
+    record = crown_orbit(720_301, 720_311, 5)
+    assert all(is_probable_prime(n) for n in record[:6])
+    assert record[6] % 13 == 0
+
+    rigid = [g for g in range(4, 42, 2) if load_is_locally_rigid(g)]
+    assert rigid == [4, 6, 8, 10, 12, 16, 20]
+
+    return {
+        "status": "ok",
+        "lift_checks": lift_checks,
+        "mirror_checks": mirror_checks,
+        "crown_transition_checks": crown_checks,
+        "first_four_crown_seed": [720_301, 720_311],
+        "first_failure_factor": 13,
+        "locally_rigid_gaps": rigid,
+    }
+
+
+def demo() -> dict[str, object]:
+    a, b = 149, 151
+    lift = pythagorean_lift(a, b)
+    run, orbit = prime_crown_run(a, b, 5)
+    gap_example = carrier_load(9_699_667, 9_699_713)
+    return {
+        "prime_pair_lift": asdict(lift),
+        "crown_seed": [a, b],
+        "prime_crown_run": run,
+        "crown_orbit_including_failure": orbit,
+        "orbit_mod_60": [n % 60 for n in orbit],
+        "mirror_examples": [mirror_bond(105, k) for k in (2, 3, 5, 7)],
+        "carrier_example": asdict(gap_example),
+        "carrier_null_for_gap_46": endpoint_null_expected_load(46),
+        "rigid_gap_genotypes": [g for g in range(4, 42, 2) if load_is_locally_rigid(g)],
+    }
+
+
+def emit(payload: object, compact: bool) -> None:
+    json.dump(payload, sys.stdout, indent=None if compact else 2, sort_keys=True)
+    sys.stdout.write("\n")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--compact", action="store_true", help="emit compact JSON")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("verify", help="run fast theorem/regression checks")
+    sub.add_parser("demo", help="show representative constructions")
+
+    crowns_parser = sub.add_parser("crowns", help="scan consecutive-prime crown chains")
+    crowns_parser.add_argument("--limit", type=int, default=2_000_000)
+    crowns_parser.add_argument("--max-steps", type=int, default=6)
+
+    carrier_parser = sub.add_parser("carriers", help="scan midpoint carrier loads")
+    carrier_parser.add_argument("--limit", type=int, default=10_000_000)
+    carrier_parser.add_argument("--max-gap", type=int, default=150)
+    carrier_parser.add_argument("--min-samples", type=int, default=100)
+    carrier_parser.add_argument("--top", type=int, default=10)
+
+    closure_parser = sub.add_parser(
+        "closure", help="compare prime endpoint pairs with consecutive-prime gaps"
+    )
+    closure_parser.add_argument("--limit", type=int, default=2_000_000)
+    closure_parser.add_argument("--max-gap", type=int, default=96)
+    closure_parser.add_argument("--min-samples", type=int, default=100)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.command == "verify":
+        payload = verify()
+    elif args.command == "demo":
+        payload = demo()
+    elif args.command == "crowns":
+        payload = analyze_crowns(args.limit, args.max_steps)
+    elif args.command == "carriers":
+        payload = analyze_carriers(args.limit, args.max_gap, args.min_samples, args.top)
+    elif args.command == "closure":
+        payload = analyze_closure_premium(args.limit, args.max_gap, args.min_samples)
+    else:  # pragma: no cover - argparse makes this unreachable.
+        raise AssertionError(args.command)
+    emit(payload, args.compact)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
