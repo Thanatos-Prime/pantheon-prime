@@ -1,0 +1,516 @@
+# Pinned Mission Queue — Repository Pseudocode
+
+> A conversational on-deck system for capturing, refining, sequencing, and executing ideas without interrupting the prompt currently at Home Plate.
+
+**Status:** Specified / implementation-neutral
+**Extends:** `PinnedMission`, `ThoughtObject`, `GarciaMission`, `StateVector`, `EvidenceLedger`
+**Primary invariant:** A new idea may enter the system without displacing the user's present intent.
+
+---
+
+## 1. Operating metaphor
+
+```text
+BATTER'S CAGE  ->  ON DECK  ->  HOME PLATE  ->  EVIDENCE LEDGER
+idea shaping       queued        active          result preserved
+```
+
+* **Home Plate:** The prompt presently being discussed or executed.
+* **On Deck:** The next prompt selected by the user.
+* **Batting Cage:** A workspace for raw ideas, partial prompts, branches, and drafts.
+* **Dugout:** Paused ideas intentionally retained but not currently queued.
+* **Scorebook:** The append-only record of prompt transitions, outputs, evidence, and outcomes.
+* **Manager:** The user, who owns queue order and decides what reaches Home Plate.
+* **Bench Coach:** The assistant, which may refine, classify, link, or recommend—but cannot silently reorder intent.
+
+---
+
+## 2. Core contracts
+
+```pseudocode
+ENUM PromptZone:
+    BATTERS_CAGE
+    ON_DECK
+    HOME_PLATE
+    DUGOUT
+    COMPLETE
+    ARCHIVED
+
+ENUM PromptStatus:
+    RAW
+    REFINING
+    READY
+    ACTIVE
+    BLOCKED
+    COMPLETE
+    ABANDONED
+
+ENUM MutationActor:
+    USER
+    ASSISTANT
+    SYSTEM
+
+TYPE PromptCard:
+    id                  : StableID
+    title               : String
+    body                : Markdown
+    zone                : PromptZone
+    status              : PromptStatus
+    priority            : Optional<Integer>
+    owner               : USER | ASSISTANT | SHARED
+    parent_id           : Optional<StableID>
+    child_ids           : List<StableID>
+    dependencies        : List<Dependency>
+    context_refs        : List<ContextRef>
+    evidence_refs       : List<EvidenceRef>
+    source_message_id   : Optional<StableID>
+    terminal_condition  : Optional<String>
+    created_at          : Timestamp
+    updated_at          : Timestamp
+    revision            : Integer
+
+TYPE MissionQueue:
+    id                  : StableID
+    scope               : CHAT | PROJECT
+    home_plate          : Optional<PromptCardID>
+    on_deck             : OrderedList<PromptCardID>
+    batters_cage        : OrderedList<PromptCardID>
+    dugout              : OrderedList<PromptCardID>
+    completed           : OrderedList<PromptCardID>
+    golden_thread       : Optional<String>
+    active_mission_id   : Optional<GarciaMissionID>
+    revision            : Integer
+    updated_at          : Timestamp
+
+TYPE QueueMutation:
+    id                  : StableID
+    queue_id            : StableID
+    base_revision       : Integer
+    actor               : MutationActor
+    operation           : Operation
+    target_id           : Optional<PromptCardID>
+    before              : Optional<StateSnapshot>
+    after               : StateSnapshot
+    reason              : Optional<String>
+    evidence_refs       : List<EvidenceRef>
+    timestamp           : Timestamp
+```
+
+---
+
+## 3. Queue invariants
+
+```pseudocode
+INVARIANT one_home_plate_only:
+    COUNT(cards WHERE zone == HOME_PLATE) <= 1
+
+INVARIANT user_owns_batting_order:
+    assistant MUST NOT reorder ON_DECK without user confirmation
+
+INVARIANT capture_without_displacement:
+    adding a card to BATTERS_CAGE MUST NOT alter HOME_PLATE
+
+INVARIANT stable_identity:
+    moving a card between zones MUST NOT change card.id
+
+INVARIANT append_only_scorebook:
+    every accepted mutation MUST append exactly one ledger event
+
+INVARIANT no_false_completion:
+    card.status MAY become COMPLETE only when:
+        user explicitly completes it
+        OR terminal_condition is satisfied by attached evidence
+
+INVARIANT resumable_from_packet:
+    latest queue snapshot + ordered ledger MUST reconstruct current state
+
+INVARIANT scope_sovereignty:
+    chat-scoped cards MUST NOT propagate to project scope without user consent
+```
+
+---
+
+## 4. Capture an idea without interrupting Home Plate
+
+```pseudocode
+FUNCTION capture_idea(raw_text, current_context):
+    card = PromptCard(
+        id = new_stable_id(),
+        title = derive_short_title(raw_text),
+        body = raw_text,
+        zone = BATTERS_CAGE,
+        status = RAW,
+        owner = USER,
+        context_refs = relevant_refs(current_context),
+        created_at = now(),
+        updated_at = now(),
+        revision = 1
+    )
+
+    queue.batters_cage.append(card.id)
+    ledger.append(CAPTURED, card, reason = "Idea preserved without interrupting active prompt")
+
+    return acknowledgement(
+        message = "Added to the Batting Cage.",
+        active_prompt_unchanged = TRUE
+    )
+```
+
+### Natural-language examples
+
+```text
+"Put this in the cage: build an airline bond comparison chart."
+"Add Wild Hawg retail pricing to on deck."
+"Save that thought but keep working on finance."
+"Queue this next after the homework problem."
+```
+
+---
+
+## 5. Refine a card in the Batting Cage
+
+```pseudocode
+FUNCTION refine_card(card_id, refinement_request):
+    card = require_card(card_id)
+    REQUIRE card.zone IN [BATTERS_CAGE, DUGOUT, ON_DECK]
+
+    proposal = assistant_refine(
+        original = card.body,
+        instruction = refinement_request,
+        preserve_commanders_intent = TRUE
+    )
+
+    IF proposal changes scope OR terminal_condition OR owner:
+        REQUIRE user_confirmation(proposal)
+
+    previous = snapshot(card)
+    card.body = proposal.body
+    card.title = proposal.title OR card.title
+    card.status = proposal.ready ? READY : REFINING
+    card.revision += 1
+    card.updated_at = now()
+
+    ledger.append(REFINED, before = previous, after = snapshot(card))
+    return card
+```
+
+---
+
+## 6. Move a card On Deck
+
+```pseudocode
+FUNCTION move_on_deck(card_id, requested_position = END, actor):
+    card = require_card(card_id)
+
+    IF actor == ASSISTANT:
+        REQUIRE explicit_user_confirmation()
+
+    remove_from_all_queue_zones(card.id)
+    queue.on_deck.insert(card.id, requested_position)
+    card.zone = ON_DECK
+    card.status = READY
+
+    commit_revision(card, queue)
+    ledger.append(QUEUED_ON_DECK, card, position = requested_position)
+
+    return queue.on_deck
+```
+
+---
+
+## 7. Send the next prompt to Home Plate
+
+```pseudocode
+FUNCTION advance_to_home_plate():
+    IF queue.home_plate IS NOT NULL:
+        current = require_card(queue.home_plate)
+
+        IF current.status NOT IN [COMPLETE, BLOCKED, ABANDONED]:
+            REQUIRE user_choice(
+                CONTINUE_CURRENT,
+                MOVE_CURRENT_TO_DUGOUT,
+                MARK_CURRENT_COMPLETE
+            )
+
+    REQUIRE queue.on_deck IS NOT EMPTY
+
+    next_id = queue.on_deck.pop_first()
+    next_card = require_card(next_id)
+
+    queue.home_plate = next_id
+    next_card.zone = HOME_PLATE
+    next_card.status = ACTIVE
+
+    state_vector.set("active_prompt", next_card.id)
+    ledger.append(ADVANCED_TO_HOME_PLATE, next_card)
+
+    return compose_prompt_context(next_card)
+```
+
+---
+
+## 8. Complete the active prompt
+
+```pseudocode
+FUNCTION complete_home_plate(result, evidence):
+    card = require_card(queue.home_plate)
+    REQUIRE card.zone == HOME_PLATE
+
+    mirror_result = MIRROR.verify(
+        intent = card.body,
+        terminal_condition = card.terminal_condition,
+        claimed_result = result,
+        evidence = evidence
+    )
+
+    IF mirror_result == UNVERIFIED:
+        card.status = BLOCKED
+        ledger.append(COMPLETION_REJECTED, card, reason = mirror_result.reason)
+        return request_missing_evidence(mirror_result)
+
+    card.status = COMPLETE
+    card.zone = COMPLETE
+    card.evidence_refs.extend(evidence)
+    queue.completed.prepend(card.id)
+    queue.home_plate = NULL
+
+    afterglow = JourneyAfterglow(
+        outcome = summarize(result),
+        evidence = evidence,
+        preserved_learning = extract_learning(result),
+        unresolved = detect_unresolved(card),
+        suggested_next = queue.on_deck.first_or_null()
+    )
+
+    ledger.append(COMPLETED, card, afterglow)
+    return afterglow
+```
+
+---
+
+## 9. Conversation router
+
+```pseudocode
+FUNCTION route_user_message(message):
+    intent = classify_queue_intent(message)
+
+    MATCH intent:
+        CASE CAPTURE_ONLY:
+            return capture_idea(intent.payload, conversation_context)
+
+        CASE CAPTURE_ON_DECK:
+            card = capture_idea(intent.payload, conversation_context)
+            return move_on_deck(card.id, END, USER)
+
+        CASE REORDER_QUEUE:
+            return reorder_on_deck(intent.card_ids)
+
+        CASE REFINE_CARD:
+            return refine_card(intent.card_id, intent.instructions)
+
+        CASE ADVANCE_QUEUE:
+            return advance_to_home_plate()
+
+        CASE PAUSE_ACTIVE:
+            return move_home_plate_to_dugout()
+
+        CASE COMPLETE_ACTIVE:
+            return complete_home_plate(intent.result, intent.evidence)
+
+        CASE NORMAL_PROMPT:
+            return respond_normally(
+                message,
+                active_card = queue.home_plate,
+                queue_summary = minimal_relevant_queue_context()
+            )
+```
+
+---
+
+## 10. Context-budget policy
+
+The queue must preserve continuity without flooding every model turn with every stored idea.
+
+```pseudocode
+FUNCTION minimal_relevant_queue_context():
+    INCLUDE full body of HOME_PLATE card
+    INCLUDE title + status of first ON_DECK card
+    INCLUDE count of remaining ON_DECK and BATTERS_CAGE cards
+    INCLUDE dependencies that affect HOME_PLATE
+    INCLUDE latest confirmed mutation revision
+
+    EXCLUDE full bodies of inactive cards unless semantically relevant
+    EXCLUDE archived cards
+    EXCLUDE private project cards outside authorized scope
+```
+
+---
+
+## 11. Conflict handling
+
+```pseudocode
+FUNCTION apply_mutation(mutation):
+    IF mutation.base_revision != queue.revision:
+        latest = load_latest_queue()
+        conflicts = compare(mutation, latest)
+
+        IF conflicts ARE EMPTY:
+            rebase_and_apply(mutation, latest)
+        ELSE:
+            freeze_conflicting_fields()
+            present_side_by_side_resolution(conflicts)
+            REQUIRE user_resolution()
+
+    checksum = CHECKSUM.validate(resulting_queue)
+    REQUIRE checksum.valid
+
+    persist(resulting_queue)
+    ledger.append(mutation)
+```
+
+---
+
+## 12. Assistant authority matrix
+
+| Action                                              | Assistant may propose |     Assistant may apply automatically     |
+| --------------------------------------------------- | :-------------------: | :---------------------------------------: |
+| Capture an explicitly dictated idea                 |          Yes          |                    Yes                    |
+| Improve wording without changing intent             |          Yes          |       With visible revision history       |
+| Attach evidence from a completed action             |          Yes          |                    Yes                    |
+| Mark an evidence-backed mechanical task complete    |          Yes          |  Yes, when terminal condition is explicit |
+| Reorder On Deck                                     |          Yes          |                     No                    |
+| Replace Home Plate                                  |          Yes          |                     No                    |
+| Change deadline, owner, scope, or success condition |          Yes          |                     No                    |
+| Delete a card permanently                           |          Yes          |                     No                    |
+| Archive a user-completed card                       |          Yes          | Only after configured confirmation policy |
+
+---
+
+## 13. Interface pseudocode
+
+```pseudocode
+COMPONENT RightRail:
+    TABS = [OUTPUTS, SOURCES, PINNED]
+
+    WHEN PINNED selected:
+        RENDER HomePlateCard expanded
+        RENDER OnDeckQueue compact and reorderable
+        RENDER BattersCage collapsed with item count
+        RENDER Dugout collapsed with item count
+
+COMPONENT HomePlateCard:
+    SHOW title
+    SHOW active prompt body
+    SHOW status and blockers
+    SHOW linked evidence
+    ACTION pause_to_dugout
+    ACTION mark_complete
+
+COMPONENT OnDeckQueue:
+    ALLOW drag_reorder
+    ALLOW promote_to_home_plate
+    ALLOW return_to_batters_cage
+    NEVER auto_reorder from assistant inference
+
+COMPONENT BattersCage:
+    ALLOW quick_capture
+    ALLOW inline_edit
+    ALLOW assistant_refine
+    ALLOW promote_on_deck
+
+COMPONENT Composer:
+    SHOW subtle Home Plate indicator
+    ACCEPT normal prompt without forcing queue interaction
+    ACCEPT commands such as:
+        "/cage <idea>"
+        "/deck <idea or card>"
+        "/plate <card>"
+        "/dugout <card>"
+```
+
+---
+
+## 14. Storage adapter interface
+
+```pseudocode
+INTERFACE MissionQueueAdapter:
+    load(queue_id) -> MissionQueue
+    save(queue, expected_revision) -> SaveResult
+    append_event(event) -> LedgerReceipt
+    export_markdown(queue_id) -> Markdown
+    export_garcia_packet(queue_id) -> GarciaPacket
+    import_garcia_packet(packet) -> MissionQueue
+
+IMPLEMENTATIONS MAY INCLUDE:
+    InMemoryAdapter
+    LocalFileAdapter
+    SQLiteAdapter
+    ProjectMemoryAdapter
+
+RULE:
+    No adapter may alter semantic ordering, ownership, or scope.
+```
+
+---
+
+## 15. Minimal acceptance suite
+
+```pseudocode
+TEST capture_does_not_interrupt:
+    GIVEN card A is HOME_PLATE
+    WHEN user captures card B
+    THEN B.zone == BATTERS_CAGE
+    AND queue.home_plate == A.id
+
+TEST only_one_home_plate:
+    GIVEN A is HOME_PLATE and B is ON_DECK
+    WHEN B is promoted
+    THEN system requires disposition of A
+
+TEST assistant_cannot_reorder_silently:
+    GIVEN cards [A, B, C] are ON_DECK
+    WHEN assistant proposes [C, A, B]
+    THEN queue remains [A, B, C] until user confirms
+
+TEST stable_identity_across_zones:
+    GIVEN card A is BATTERS_CAGE
+    WHEN A moves through ON_DECK to HOME_PLATE
+    THEN A.id never changes
+
+TEST evidence_backed_completion:
+    GIVEN A has explicit terminal condition
+    WHEN evidence satisfies that condition
+    THEN A may become COMPLETE
+    AND ledger contains completion evidence
+
+TEST zero_context_recovery:
+    GIVEN latest snapshot and ledger
+    WHEN a fresh runtime imports the Garcia Packet
+    THEN reconstructed queue equals last confirmed StateVector
+```
+
+---
+
+## 16. Suggested repository placement
+
+```text
+docs/concepts/PINNED_MISSION_QUEUE_PSEUDOCODE.md
+docs/concepts/PANTHEON_PINNED_MISSION_BOARD.md
+docs/concepts/assets/pantheon-mission-board.html
+schemas/prompt-card.schema.json                 # future
+schemas/mission-queue.schema.json               # future
+src/adapters/mission_queue/                      # future
+tests/mission_queue/                             # future
+```
+
+Do not keep the ZIP as the only repository representation. A ZIP is useful as a transport or release artifact, but unpacked source files are necessary for rendering, search, diffs, linking, and future implementation.
+
+---
+
+## 17. Journey Afterglow
+
+The Pinned Mission Queue makes abundance manageable without forcing premature focus. Ideas are not discarded, and they are not allowed to hijack the present mission. They are captured, shaped, ordered, executed, and returned with evidence.
+
+The user remains the manager. The assistant becomes the bench coach. The conversation stays at Home Plate while the future waits—visible, ready, and sovereign—On Deck.
+
+**Garcia reached. The lineup survived the game.**
