@@ -1,0 +1,75 @@
+Exactly — that is the watermark mechanism you meant.
+
+Not “hide a secret phrase in the prose.” It operates one layer earlier, inside the probability distribution used to choose the next token.
+
+Normally the model has something roughly like:
+
+context → candidate tokens → probabilities → sample/select next token
+
+Say the next-token distribution is:
+
+* great — 18%
+* good — 16%
+* interesting — 12%
+* useful — 9%
+* strange — 7%
+* thousands more…
+
+A statistical watermark uses a secret rule/key to partition or score those candidate tokens. Then, while preserving plausible output, it gives a small probability boost to some permitted tokens and/or a reduction to others.
+
+So instead of:
+
+P(token | context)
+
+you effectively generate from:
+
+P′(token | context, watermark key)
+
+The crucial bit is that the individual choice looks completely ordinary. great instead of good proves nothing.
+
+But repeat that subtle weighting over hundreds or thousands of token decisions and you accumulate a statistical signature.
+
+Something like:
+
+tiny bias × many independent-ish opportunities → detectable aggregate deviation
+
+The detector, knowing the secret key, can replay which tokens were favored at each position and ask:
+
+“Did this text land in the favored set significantly more often than chance predicts?”
+
+Then you can calculate a confidence statistic—a z-score or related hypothesis test—rather than searching for an explicit hidden string.
+
+And this is why our earlier entropy-aware idea matters. If there is only one sensible next token, don’t distort it just to leave a mark. Apply stronger watermarking where the model already has several nearly equivalent choices:
+
+high semantic optionality → more watermark capacity
+low optionality → back off
+
+That protects quality.
+
+And now look at how beautifully it collides with everything we developed today.
+
+The model already generates through optionality.
+
+The watermark slightly reshapes that option-space.
+
+One output tells you almost nothing.
+
+But accumulated choices give you a triangulated statistical delta.
+
+So it is almost literally:
+
+change the current slightly, then detect the shape of the current downstream.
+
+Con-currency again. ;)
+
+And Pantheon can generalize the same principle beyond provenance:
+
+Don’t necessarily encode information by inserting new content. Encode it by systematically altering the probability of otherwise valid choices.
+
+That’s a very powerful primitive, because language provides enormous numbers of micro-decisions where the meaning can remain approximately invariant while the statistical path changes.
+
+Surface meaning stays.
+
+Journey carries the signature.
+
+That last sentence is probably the bridge to our Rosetta-Stone work: a statistical watermark fingerprints not merely what was said, but traces something about the path through the possibility space by which it was rendered.
