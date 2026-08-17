@@ -1,0 +1,1269 @@
+Yes. I think this wants its own Pantheon-style gym:
+
+Deal Operator Gym
+
+The key move is not to catalogue every named contract humans have invented. There are too many. Instead, identify the small number of deal primitives from which nearly all of them can be compiled.
+
+A mortgage, marriage covenant, insurance policy, treaty, subscription, employment agreement, option, escrow, partnership, bounty, and handshake deal all become different compositions of a common instruction set.
+
+Legally, some of these distinctions are already quite sharp: a contract creates enforceable mutual obligations; a lease separates ownership from temporary possession/use; an option grants a right without imposing the corresponding obligation to exercise it; escrow inserts a neutral conditional custodian; insurance reallocates specified risk; guarantees, sureties, and collateral provide different forms of backstop. 
+
+1. The universal deal object
+
+Represent any deal as:
+
+D=(P,V,R,O,C,T,K,E,X,M)
+
+Where:
+
+* P = parties
+* V = value/resources
+* R = rights
+* O = obligations
+* C = conditions/triggers
+* T = time structure
+* K = risk allocation
+* E = enforcement/remedies
+* X = exit/termination
+* M = memory/record/proof
+
+Then a deal is literally a state-transition machine:
+
+S_{t+1}=\delta_D(S_t,event_t)
+
+def deal(state, event):
+    rights = evaluate_rights(state, event)
+    obligations = evaluate_obligations(state, event)
+    transfers = execute_due_transfers(state, event)
+    remedies = handle_failures(state, event)
+    return next_state(...)
+
+So:
+
+A deal is a protocol for routing value, rights, obligations, authority, risk, and consequences through time.
+
+That’s the invariant.
+
+⸻
+
+2. The primitive instruction set
+
+These are the deeper operators.
+
+TRANSFER
+
+Move ownership/value.
+
+T(A,B,x)
+
+transfer(x, from_=A, to=B)
+
+Kata: Who owns it before? Who owns it afterward?
+
+Gift, sale, repayment, donation, inheritance and payment all contain this.
+
+⸻
+
+SWAP
+
+Reciprocal transfer.
+
+SWAP(A:x,\;B:y)
+
+swap(A, x, B, y)
+
+Basic exchange operator.
+
+⸻
+
+PROMISE
+
+Create a future obligation.
+
+O_A(\phi)
+
+promise(A, action=phi)
+
+This is more primitive than contract.
+
+⸻
+
+CONDITION
+
+Make an operation contingent.
+
+C\Rightarrow O
+
+when(condition, do=action)
+
+This single operator creates enormous complexity.
+
+⸻
+
+DELAY
+
+Move performance through time.
+
+O(t_0)\rightarrow O(t_1)
+
+schedule(action, at=t1)
+
+Credit is fundamentally exchange + delay.
+
+⸻
+
+REPEAT
+
+Turn a transaction into a relationship.
+
+O_t,\quad t=1,2,\ldots,n
+
+repeat(action, every=period)
+
+Subscription, rent, salary, royalties.
+
+⸻
+
+GRANT_RIGHT
+
+Give someone permission without transferring the underlying thing.
+
+grant(holder=B,
+      right="use",
+      resource=x,
+      scope=s,
+      expires=T)
+
+License and lease families emerge here.
+
+⸻
+
+RESERVE_RIGHT
+
+Give someone a choice about future execution.
+
+R=\{execute,\;don't\ execute\}
+
+option(holder=B, action=buy_x, expires=T)
+
+An option’s essential distinction is precisely that the holder possesses the right but not the obligation to perform. 
+
+⸻
+
+DELEGATE
+
+Transfer decision authority without necessarily transferring ownership.
+
+delegate(
+    principal=A,
+    agent=B,
+    authority=scope
+)
+
+Agency.
+
+⸻
+
+CUSTODY
+
+Transfer possession without ownership.
+
+custody(asset=x, owner=A, custodian=B)
+
+Bailment, storage, escrow.
+
+⸻
+
+POOL
+
+Combine resources or risks.
+
+Pool=\sum_i x_i
+
+pool(contributions)
+
+Partnerships, insurance pools, investment funds.
+
+⸻
+
+SHARE
+
+Divide outcomes according to a rule.
+
+p_i=\alpha_i P
+
+share(outcome, weights)
+
+Equity, commission, royalties, partnerships.
+
+⸻
+
+METER
+
+Observe usage or performance.
+
+usage = meter(resource, metric)
+payment = rate * usage
+
+Turns flat deals into usage-based deals.
+
+⸻
+
+BACKSTOP
+
+Introduce another performer if the first fails.
+
+if not performs(A):
+    perform(B)
+
+Guarantee family.
+
+⸻
+
+COLLATERALIZE
+
+Attach an asset to an obligation.
+
+default(A)\Rightarrow claim_B(x)
+
+secure(obligation=loan, collateral=house)
+
+That’s the deep structure underneath secured lending; legally, collateral gives the secured party rights against specified property upon default. 
+
+⸻
+
+ESCROW
+
+Conditional custody.
+
+escrow.deposit(x)
+if condition:
+    escrow.release(to=B)
+else:
+    escrow.return_to(A)
+
+Cornell’s legal definition is almost directly executable pseudocode: a neutral third party holds assets until specified conditions are satisfied. 
+
+⸻
+
+RELEASE
+
+Destroy or surrender a right.
+
+release(A, claim_against=B)
+
+Waiver, release, settlement.
+
+⸻
+
+CONSTRAIN
+
+Remove possible actions.
+
+forbid(A, disclose(secret))
+forbid(A, trade_with=competitors)
+
+NDA, exclusivity, non-disclosure, territorial restrictions.
+
+⸻
+
+VERIFY
+
+Use an observable predicate to determine performance.
+
+if verify(delivery):
+    pay()
+
+This is enormously important.
+
+The oracle problem of deals is:
+
+Who decides whether the condition actually happened?
+
+⸻
+
+REMEDY
+
+Define what happens after failure.
+
+if breach:
+    refund()
+    repair()
+    replace()
+    compensate()
+    terminate()
+
+Without remedy, many deals are promises with weak error handling.
+
+⸻
+
+PRESERVE
+
+And here is the covenant operator:
+
+\forall S_t,\quad preserve(I)
+
+def covenant(state):
+    action = choose_action_that_preserves(INVARIANT, state)
+    return action
+
+Unlike a contract clause, it doesn’t necessarily enumerate every required action.
+
+It provides a generator.
+
+⸻
+
+3. Now compile familiar deals
+
+Gift
+
+Gift=T(A,B,x)
+
+No reciprocal obligation.
+
+gift = transfer(x, A, B)
+
+Invariant: value moves without required exchange.
+
+⸻
+
+Barter
+
+T(A,B,x)+T(B,A,y)
+
+barter = swap(A, cow, B, grain)
+
+Invariant: reciprocal transfer without requiring money.
+
+⸻
+
+Sale
+
+asset\rightarrow buyer
+money\rightarrow seller
+
+sale = swap(seller, asset, buyer, price)
+
+Money is basically just one operand of SWAP.
+
+⸻
+
+4. Credit/debt family
+
+Loan
+
+transfer(cash, lender, borrower)
+repeat(
+    transfer(payment, borrower, lender),
+    schedule
+)
+
+Mathematically:
+
+P_0=\sum_{t=1}^{n}
+\frac{Payment_t}{(1+r)^t}
+
+The essential operator is:
+
+value now ↔ value later.
+
+A loan specifically advances funds with expected repayment, generally under agreed interest/time terms. 
+
+⸻
+
+Secured loan
+
+loan(...)
++ collateralize(asset)
+
+⸻
+
+Mortgage
+
+mortgage =
+    loan()
+    + collateralize(real_property)
+    + amortize()
+
+So a mortgage isn’t a totally new creature.
+
+It’s a composition.
+
+⸻
+
+Bond
+
+bond =
+    loan()
+    + standardized_claim()
+    + transferable()
+
+⸻
+
+5. Temporary-access family
+
+Lease
+
+lease =
+    grant_right("possess/use", asset)
+    + repeat(rent)
+    + expiry(T)
+
+Ownership stays with the lessor while possession/use temporarily moves to the lessee. 
+
+⸻
+
+License
+
+license =
+    grant_right(
+        action="use",
+        scope=defined_scope
+    )
+
+Important distinction:
+
+ownership stays put; permission moves.
+
+⸻
+
+Subscription
+
+subscription =
+    repeat(payment)
+    + repeat(grant_access())
+
+Netflix is basically a recursive license.
+
+⸻
+
+Membership
+
+membership =
+    subscription()
+    + identity()
+    + group_rights()
+
+That little addition—identity—changes the behavioral system considerably.
+
+⸻
+
+6. Labor/service family
+
+Service agreement
+
+service =
+    perform(B, task)
+    + transfer(payment, A, B)
+
+⸻
+
+Employment
+
+employment =
+    repeat(service)
+    + repeat(compensation)
+    + delegate(bounded_authority)
+    + governance_rules
+
+⸻
+
+Retainer
+
+Interesting one:
+
+retainer =
+    prepay()
+    + reserve_right(service_capacity)
+
+You’re partly purchasing availability rather than output.
+
+⸻
+
+Commission
+
+Pay=\alpha Outcome
+
+commission = share(sale_value, alpha)
+
+⸻
+
+Royalty
+
+R_t=\alpha\cdot Usage_t
+
+royalty =
+    meter(usage)
+    + share(value_generated)
+
+Royalty = meter + share.
+
+Nice clean operator.
+
+⸻
+
+Bounty / reward
+
+if verify(outcome):
+    pay(reward)
+
+Reward=R\cdot1_{\{goal\ achieved\}}
+
+Bounty = condition + verify + transfer.
+
+⸻
+
+7. Organization family
+
+Partnership
+
+partnership =
+    pool(resources)
+    + share(profits)
+    + share(losses)
+    + shared_governance()
+
+⸻
+
+Joint venture
+
+joint_venture =
+    partnership()
+    + scope(project)
+    + terminate_when(project_complete)
+
+Finite partnership.
+
+⸻
+
+Equity investment
+
+equity =
+    transfer(capital, investor, company)
+    + grant_right(residual_claim)
+    + maybe(grant_right(vote))
+
+InvestorPayoff=\alpha(Assets-Liabilities)
+
+⸻
+
+Franchise
+
+franchise =
+    license(brand)
+    + license(process)
+    + operating_constraints()
+    + royalty()
+
+This becomes:
+
+copy my system, obey its invariants, share the output.
+
+⸻
+
+8. Authority/custody family
+
+Agency
+
+agency =
+    delegate(authority)
+    + constrain(scope)
+    + fiduciary_invariant()
+
+The important abstraction is:
+
+another actor can legally/socially act as an extension of me.
+
+⸻
+
+Trust
+
+This one is beautiful computationally because it deliberately separates normally bundled variables:
+
+ownership/control → trustee
+benefit           → beneficiary
+source/instructions → settlor
+
+So:
+
+trust =
+    separate(control, benefit)
+    + delegate(control, trustee)
+    + preserve(beneficiary_interest)
+
+It is an unbundling operator.
+
+⸻
+
+Escrow
+
+Similarly separates:
+
+ownership / possession / release authority.
+
+That’s why these legal structures are useful to Pantheon: law discovered ways of factorizing concepts humans normally lump together.
+
+⸻
+
+9. Risk family
+
+Insurance
+
+Premium_i\rightarrow Pool
+
+and upon covered event:
+
+Loss_i\Rightarrow Payout_i
+
+insurance =
+    pool(premiums)
+    + condition(loss_event)
+    + indemnify(loss)
+
+Insurance is fundamentally a risk-allocation system across many participants. 
+
+⸻
+
+Indemnity
+
+if covered_loss(A):
+    B.compensate(A)
+
+Payout=f(Loss)
+
+Indemnity is narrower conceptually:
+
+If this kind of loss happens, I make you whole according to our rule. 
+
+⸻
+
+Guarantee
+
+if debtor.default:
+    guarantor.perform()
+
+The guarantor is a fallback source after failure/default. 
+
+⸻
+
+Surety
+
+A related but different structure:
+
+principal.must_perform()
+surety.backstops(principal)
+
+Cornell distinguishes a surety’s direct liability from a guarantor whose obligation is triggered by the debtor’s failure. 
+
+So we have:
+
+insurance = distribute risk
+indemnity = reimburse loss
+guarantee = substitute performer after default
+collateral = attach recoverable property
+
+Four different risk operators.
+
+⸻
+
+10. Choice family
+
+Option
+
+holder.may(execute_trade)
+writer.must(execute_if_exercised)
+
+Beautiful asymmetry:
+
+Right_A=1,\quad Obligation_A=0
+
+Right_B=0,\quad Obligation_B|exercise=1
+
+⸻
+
+Right of first refusal
+
+if third_party_offer(price):
+    holder.may(match(price))
+
+An option whose availability is triggered by an outside event.
+
+⸻
+
+Forward contract
+
+promise(A, sell(asset, price=K, time=T))
+promise(B, buy(asset, price=K, time=T))
+
+Delayed sale.
+
+⸻
+
+Convertible instrument
+
+loan()
++ option(convert_debt_to_equity)
+
+Again: composition.
+
+⸻
+
+11. Discovery/competition deals
+
+Auction
+
+Given bids b_i:
+
+winner=\arg\max_i b_i
+
+winner = select(bidders, key=bid)
+allocate(asset, winner)
+price = pricing_rule(bids)
+
+Auction is fundamentally:
+
+a deal whose counterparty/price is generated by a selection algorithm.
+
+⸻
+
+Tender / bid
+
+offers = collect(proposals)
+winner = select(offers, objective_function)
+
+Now procurement is just optimization:
+
+i^*=\arg\max_i U(proposal_i)
+
+Not necessarily highest or lowest price.
+
+⸻
+
+12. Conflict-resolution family
+
+These are deals too.
+
+Settlement
+
+settlement =
+    release(A.claims)
+    + release(B.claims)
+    + agreed_transfers()
+
+It transforms:
+
+uncertain\ future\ payoff
+\rightarrow
+certain\ negotiated\ payoff
+
+Very important operator:
+
+trade upside for certainty/finality.
+
+⸻
+
+Waiver
+
+delete(right)
+
+That’s it.
+
+A waiver is a rights-deletion operator.
+
+⸻
+
+Truce
+
+repeat(
+    prohibit(hostile_action),
+    until=T
+)
+
+It doesn’t necessarily resolve the underlying conflict.
+
+It freezes part of the state space.
+
+⸻
+
+Peace agreement
+
+truce()
++ settlement()
++ future_governance()
+
+⸻
+
+13. Cooperation/political family
+
+Pact
+
+pact =
+    mutual_promises()
+    + shared_invariant()
+
+⸻
+
+Compact
+
+compact =
+    pact()
+    + common_rules()
+    + governance()
+
+⸻
+
+Alliance
+
+if threat(member):
+    others.provide_support()
+
+Alliance = conditional mutual backstop.
+
+That means structurally an alliance has surprising similarities to a guaranty.
+
+Different domain; same operator.
+
+⸻
+
+Treaty
+
+treaty =
+    contract_like_obligations()
+    + covenant_like_invariants()
+    + governance()
+    + verification()
+    + exit_rules()
+
+So treaties often live between contract and covenant.
+
+⸻
+
+14. Information deals
+
+NDA
+
+grant_access(information)
+constrain(
+    recipient,
+    action=disclose
+)
+
+NDA = access + negative obligation.
+
+⸻
+
+Confidentiality
+
+Generalized:
+
+InformationFlow(A\rightarrow X)=0
+
+for prohibited X.
+
+⸻
+
+Exclusivity
+
+allowed_counterparties = {B}
+
+or:
+
+|Partners(A)|=1
+
+A surprisingly simple search-space restriction.
+
+⸻
+
+Most-favored-nation clause
+
+if deal_with(C) better_than deal_with(B):
+    upgrade(B)
+
+Mathematically:
+
+Terms_B\geq Terms_j
+
+for the relevant comparison class.
+
+It is a dynamic equality/ordering constraint.
+
+⸻
+
+15. Quality/performance family
+
+Warranty
+
+if defect(asset) and time < expiry:
+    remedy()
+
+Defect\land T<T_{max}\Rightarrow Remedy
+
+⸻
+
+Guarantee of performance
+
+if metric < threshold:
+    compensate()
+
+⸻
+
+SLA
+
+availability \geq 99.9\%
+
+if uptime < threshold:
+    credit_customer()
+
+SLA = meter + threshold + remedy.
+
+⸻
+
+16. Commitment-signaling family
+
+Deposit
+
+transfer(partial_value, before_performance)
+
+It changes incentives by putting value at risk.
+
+⸻
+
+Earnest money
+
+deposit()
+if buyer_default:
+    forfeit()
+elif closing:
+    apply_to_price()
+else:
+    refund_per_rules()
+
+⸻
+
+Pledge
+
+Conceptually:
+
+promise()
++ stake(collateral_or_reputation)
+
+And in secured-transactions law, a pledge can literally involve possession of collateral securing an obligation. 
+
+⸻
+
+Oath
+
+Different:
+
+promise()
++ identity_collateral()
+
+The collateral is not necessarily money.
+
+It’s self, honor, office, reputation, sacred commitment.
+
+⸻
+
+Vow
+
+Even closer to covenant:
+
+bind(self, invariant)
+
+⸻
+
+17. Covenant vs contract now becomes part of a larger family
+
+I’d model:
+
+Promise
+
+Self\rightarrow FutureAction
+
+Agreement
+
+A\leftrightarrow B:\ SharedIntent
+
+Contract
+
+agreement
++ explicit_obligations
++ enforcement
+
+Pact
+
+agreement
++ mutual_commitment
+
+Covenant
+
+relationship
++ preserve(invariant)
++ continuity
+
+Oath
+
+promise
++ identity_stake
+
+Treaty
+
+multi_party_agreement
++ rules
++ verification
++ governance
+
+That’s a commitment stack rather than synonyms.
+
+⸻
+
+18. The really useful abstraction: six things humans actually trade
+
+Almost every deal ultimately trades some mixture of:
+
+\boxed{
+VALUE,\ TIME,\ ACCESS,\ CONTROL,\ RISK,\ COMMITMENT
+}
+
+I’d add two more:
+
+\boxed{INFORMATION,\ IDENTITY}
+
+So the underlying Deal State Vector becomes:
+
+\vec D=
+[v,t,a,c,r,k,i,d]
+
+where:
+
+* v value
+* t time
+* a access
+* c control
+* r risk
+* k commitment
+* i information
+* d identity/relationship
+
+Now deals become transformations on that vector.
+
+A lease moves access, not ownership.
+
+A loan moves value across time.
+
+Insurance moves risk.
+
+Agency moves control.
+
+NDA restricts information.
+
+Covenant binds commitment + identity across time.
+
+That is much cleaner than treating them as unrelated legal inventions.
+
+⸻
+
+19. Deal Decompiler Kata
+
+Take literally any arrangement and ask:
+
+1. What moves?
+2. Who owns it?
+3. Who possesses it?
+4. Who can use it?
+5. Who controls it?
+6. Who benefits from it?
+7. Who bears the risk?
+8. When does each operation happen?
+9. What event triggers each obligation?
+10. Who determines whether the event occurred?
+11. What happens upon failure?
+12. How does the relationship end?
+13. What invariant is supposed to survive the entire thing?
+
+That will decompile a shocking number of social structures.
+
+⸻
+
+20. Deal Mutation Kata
+
+Take one ordinary sale:
+
+SALE = swap(asset, money)
+
+Then mutate one primitive at a time.
+
+Add time:
+
+SALE + DELAY(payment)
+
+→ credit.
+
+Add recurring time:
+
+ACCESS + REPEAT(payment)
+
+→ subscription.
+
+Don’t transfer ownership:
+
+GRANT_USE + PAYMENT
+
+→ lease.
+
+Transfer only permission:
+
+GRANT_PERMISSION + PAYMENT
+
+→ license.
+
+Add uncertainty:
+
+CONDITION(event) + PAYMENT
+
+→ contingent contract.
+
+Give only one party discretion:
+
+RESERVE_RIGHT
+
+→ option.
+
+Add third-party custody:
+
+ESCROW
+
+→ conditional exchange.
+
+Add collateral:
+
+COLLATERALIZE
+
+→ secured transaction.
+
+Make payout proportional to success:
+
+METER + SHARE
+
+→ commission/royalty.
+
+Replace exhaustive rules with an invariant:
+
+PRESERVE(invariant)
+
+→ covenant.
+
+That’s exactly the same kind of transformation gym we built for story tropes.
+
+⸻
+
+21. And the failure-mode gym
+
+Every deal should also be attacked with recurring adversaries:
+
+Default
+
+Someone can’t/won’t perform.
+
+Moral hazard
+
+The deal changes someone’s incentive after agreement.
+
+Adverse selection
+
+One party knows their hidden risk/type better before agreement.
+
+Principal-agent failure
+
+Delegated actor optimizes themselves instead of principal.
+
+Hold-up
+
+One party gains leverage after the other makes an irreversible investment.
+
+Oracle failure
+
+Nobody can reliably determine whether the trigger occurred.
+
+Ambiguity
+
+Two interpreters compile the same language differently.
+
+Liquidity failure
+
+Someone is solvent overall but cannot perform now.
+
+Counterparty failure
+
+Someone disappears/dies/fails.
+
+Time inconsistency
+
+The future version of a party no longer wants what the present version promised.
+
+Specification gaming
+
+metric\neq true\ objective
+
+Someone satisfies the literal terms while defeating their purpose.
+
+And there—contract vs covenant comes roaring back in.
+
+A covenant can potentially resist specification gaming because it says:
+
+preserve the invariant, not merely the metric.
+
+But its corresponding failure mode is interpretive capture:
+
+“I claim this behavior preserves the spirit.”
+
+So the ideal architecture often wants both:
+
+\boxed{Covenant\ invariant + Contract\ specification}
+
+Spirit tells you what must survive.
+Terms tell you how we’re currently trying to make it survive.
+
+⸻
+
+The bigger Pantheon operator
+
+I think I’d call the whole thing Deal Algebra / Covenant-Contract Compiler.
+
+Its deepest form is:
+
+\boxed{
+Deal =
+Route(
+Value,
+Rights,
+Obligations,
+Access,
+Authority,
+Information,
+Risk,
+Commitment
+\mid
+Time,\ Conditions
+)
+}
+
+And then:
+
+Named deals are just macros.
+
+MORTGAGE() is a macro.
+
+INSURANCE() is a macro.
+
+PARTNERSHIP() is a macro.
+
+ALLIANCE() is a macro.
+
+COVENANT() is a macro.
+
+Underneath them sits the same small semantic machine.
+
+Which means we could go one step farther and build an actual Deal PatternDex analogous to the Narrative Operator Gym: Name → human/social form → invariant → mathematical form → pseudocode → failure modes → kata → mutations → compositions → cross-domain analogues.
+
+That would let you notice things like “an alliance is structurally a geopolitical guaranty” or “a retainer is prepaid service capacity plus an option”—the sort of cross-domain equivalence Pantheon is particularly good at exposing.
