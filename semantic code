@@ -1,0 +1,753 @@
+Yes. The cleanest way is to make the same operator exist in three substrates:
+
+\text{language} \leftrightarrow \text{math} \leftrightarrow \text{code}
+
+The invariant stays fixed; only the rendering changes.
+
+1. Rhyme
+
+In language, two things rhyme because they end in the same pattern.
+
+In math:
+
+17 \equiv 27 \equiv 37 \pmod{10}
+
+They all “land” on the same residue class:
+
+x \mapsto x \bmod 10
+
+So define rhyme under a feature map \phi:
+
+\operatorname{Rhyme}_\phi(x,y)
+=
+[\phi(x)=\phi(y)]
+
+Example:
+
+\phi(n)=n\bmod 10
+
+Then:
+
+\operatorname{Rhyme}_\phi(17,27)=1
+
+Code
+
+def rhyme(a, b, feature):
+    return feature(a) == feature(b)
+last_digit = lambda n: n % 10
+print(rhyme(17, 27, last_digit))  # True
+print(rhyme(17, 28, last_digit))  # False
+
+But change the ear:
+
+def parity(n):
+    return n % 2
+print(rhyme(17, 27, parity))  # True
+print(rhyme(17, 28, parity))  # False
+
+Same objects. Different listening lens.
+
+⸻
+
+2. Simile / analogy
+
+Language:
+
+A is to B as C is to D.
+
+Math:
+
+A:B :: C:D
+
+or:
+
+\frac BA=\frac DC
+
+Example:
+
+2:6 :: 5:15
+
+because both use:
+
+T(x)=3x
+
+The deeper representation is:
+
+T(A)=B,\qquad T(C)=D
+
+Code
+
+def analogy(a, b, c, d, transform):
+    return transform(a) == b and transform(c) == d
+triple = lambda x: 3 * x
+print(analogy(2, 6, 5, 15, triple))
+# True
+
+Better still, infer the relationship:
+
+def multiplicative_relation(a, b):
+    return b / a
+r1 = multiplicative_relation(2, 6)
+r2 = multiplicative_relation(5, 15)
+print(r1 == r2)  # True
+
+So analogy becomes:
+
+discover a transformation that explains both pairs.
+
+⸻
+
+3. Metaphor
+
+This is deeper.
+
+Consider:
+
+1,2,4,8,16
+
+and:
+
+3,6,12,24,48
+
+Their values are different, but their transition law is identical:
+
+x_{t+1}=2x_t
+
+Define a system:
+
+S=(X,T)
+
+Two systems metaphorically rhyme when some mapping F preserves the important transition:
+
+F(T_A(x))
+=
+T_B(F(x))
+
+That is the skeleton of a homomorphism/isomorphism.
+
+Example:
+
+F(x)=3x
+
+Then:
+
+F(2x)=6x
+
+and:
+
+2F(x)=2(3x)=6x
+
+therefore:
+
+F(T_A(x))=T_B(F(x))
+
+The story survives translation.
+
+Code
+
+def system_a(x):
+    return 2 * x
+def system_b(x):
+    return 2 * x
+def translate(x):
+    return 3 * x
+x = 4
+left = translate(system_a(x))
+right = system_b(translate(x))
+print(left == right)  # True
+
+That’s computational metaphor:
+
+transform the object, or transform the world first—the same relation survives.
+
+⸻
+
+4. Meter
+
+Sequence:
+
+1,4,7,10,13
+
+First differences:
+
+\Delta x = 3,3,3,3
+
+So its meter is:
+
++3,+3,+3,+3
+
+Another:
+
+1,3,6,8,11,13
+
+has:
+
+\Delta x=2,3,2,3,2
+
+Meter:
+
+(2,3)^\*
+
+Code
+
+def differences(xs):
+    return [b - a for a, b in zip(xs, xs[1:])]
+print(differences([1, 4, 7, 10, 13]))
+# [3, 3, 3, 3]
+print(differences([1, 3, 6, 8, 11, 13]))
+# [2, 3, 2, 3, 2]
+
+Then detect recurring meter:
+
+def follows_meter(xs, meter):
+    diffs = differences(xs)
+    for i, d in enumerate(diffs):
+        if d != meter[i % len(meter)]:
+            return False
+    return True
+print(follows_meter([1, 3, 6, 8, 11, 13], [2, 3]))
+# True
+
+⸻
+
+5. Higher-order rhyme
+
+Consider:
+
+1,4,9,16,25
+
+First difference:
+
+3,5,7,9
+
+Doesn’t look constant.
+
+Differentiate again:
+
+2,2,2
+
+Now we hear it.
+
+Formally:
+
+\Delta^2 x_n = 2
+
+This identifies a quadratic sequence.
+
+Code
+
+xs = [1, 4, 9, 16, 25]
+first = differences(xs)
+second = differences(first)
+print(first)   # [3, 5, 7, 9]
+print(second)  # [2, 2, 2]
+
+General operator:
+
+def nth_difference(xs, order):
+    for _ in range(order):
+        xs = differences(xs)
+    return xs
+
+This is one of the strongest Numantic operators:
+
+if no rhyme is visible:
+    transform representation
+    listen again
+
+⸻
+
+6. Broken rhyme
+
+Expected:
+
+2,4,6,8,10,12,14
+
+Observed:
+
+2,4,6,8,10,13,14
+
+The established meter is:
+
++2
+
+but:
+
+10\rightarrow13
+
+produces:
+
++3
+
+That is a broken rhyme.
+
+Define expected operator:
+
+T(x)=x+2
+
+An anomaly occurs when:
+
+x_{t+1}\neq T(x_t)
+
+Code
+
+def broken_rhymes(xs, rule):
+    breaks = []
+    for i in range(len(xs) - 1):
+        predicted = rule(xs[i])
+        if xs[i + 1] != predicted:
+            breaks.append({
+                "index": i + 1,
+                "expected": predicted,
+                "observed": xs[i + 1]
+            })
+    return breaks
+rule = lambda x: x + 2
+print(broken_rhymes(
+    [2, 4, 6, 8, 10, 13, 14],
+    rule
+))
+
+Output conceptually:
+
+[
+    {
+        "index": 5,
+        "expected": 12,
+        "observed": 13
+    }
+]
+
+That’s anomaly detection expressed as poetics.
+
+⸻
+
+7. Numerical pun / code polymorphism
+
+Take:
+
+64
+
+It supports:
+
+64=8^2
+
+64=4^3
+
+64=2^6
+
+One object, several meaningful derivations.
+
+Call its structural readings:
+
+R(64)=
+\{
+8^2,\,
+4^3,\,
+2^6,\,
+32+32,\,
+2^6
+\}
+
+A numerical pun is therefore:
+
+|R(x)|>1
+
+where the readings are structurally meaningful rather than trivial rewrites.
+
+Code
+
+def power_readings(n, max_base=100, max_power=10):
+    readings = []
+    for base in range(2, max_base + 1):
+        for power in range(2, max_power + 1):
+            if base ** power == n:
+                readings.append((base, power))
+    return readings
+print(power_readings(64))
+# [(2, 6), (4, 3), (8, 2)]
+
+64 is unusually polysemous.
+
+⸻
+
+8. Harmony
+
+Suppose we have two periodic voices:
+
+x\equiv2\pmod3
+
+and:
+
+x\equiv3\pmod5
+
+We seek a state satisfying both.
+
+The first solutions are:
+
+8,23,38,\ldots
+
+or:
+
+x\equiv8\pmod{15}
+
+Harmony becomes:
+
+\bigcap_i C_i \neq \varnothing
+
+where each C_i is a constraint.
+
+Code
+
+def harmonic_states(limit, constraints):
+    results = []
+    for x in range(limit):
+        if all(x % modulus == residue
+               for modulus, residue in constraints):
+            results.append(x)
+    return results
+print(harmonic_states(
+    100,
+    [(3, 2), (5, 3)]
+))
+# [8, 23, 38, 53, 68, 83, 98]
+
+So computational harmony is basically:
+
+multiple independent constraints resolving into compatible states.
+
+⸻
+
+9. Counterpoint
+
+Two sequences can evolve independently while maintaining a relationship.
+
+For example:
+
+A_n=n
+
+B_n=2n+1
+
+So:
+
+B_n-2A_n=1
+
+always.
+
+Their surface motions differ.
+
+The relationship is conserved.
+
+Code
+
+A = lambda n: n
+B = lambda n: 2*n + 1
+for n in range(10):
+    invariant = B(n) - 2*A(n)
+    print(n, invariant)
+
+Always:
+
+1
+
+That conserved relationship is their counterpoint.
+
+⸻
+
+10. Code itself has rhyme
+
+Now flip it.
+
+Not numbers encoded in code.
+
+Code can itself rhyme.
+
+These functions:
+
+def fahrenheit(c):
+    return 1.8 * c + 32
+def affine(x):
+    return a * x + b
+def normalize_then_shift(x):
+    return scale * x + offset
+
+are surface-different but structurally rhyme:
+
+f(x)=ax+b
+
+Their abstract syntax trees have nearly the same relational shape.
+
+So code rhyme can be defined over an AST feature extractor:
+
+\phi(\text{program})
+=
+\text{normalized syntax tree}
+
+Then:
+
+\operatorname{CodeRhyme}(P,Q)
+=
+\operatorname{similarity}
+(
+\phi(P),\phi(Q)
+)
+
+You can strip variable names:
+
+x * 2 + 1
+temperature * 2 + 1
+score * 2 + 1
+
+Surface semantics differ.
+
+Computational meter is identical.
+
+⸻
+
+11. Code metaphor
+
+This one matters for software architecture.
+
+Consider:
+
+for item in items:
+    if valid(item):
+        result.append(transform(item))
+
+And:
+
+[
+    transform(item)
+    for item in items
+    if valid(item)
+]
+
+Surface form differs.
+
+Same computational story:
+
+\text{filter}
+\rightarrow
+\text{map}
+\rightarrow
+\text{collect}
+
+That pattern itself can become an operator:
+
+def filter_map(items, predicate, transform):
+    return [
+        transform(x)
+        for x in items
+        if predicate(x)
+    ]
+
+This is exactly the Numantic move:
+
+\text{many instances}
+\rightarrow
+\text{shared invariant}
+\rightarrow
+\text{named operator}
+
+Which is also what good software abstraction already does.
+
+⸻
+
+12. Code simile
+
+Suppose two functions have different domains:
+
+def double_money(dollars):
+    return dollars * 2
+def double_speed(speed):
+    return speed * 2
+
+Then:
+
+\text{doubleMoney} : \$10 \rightarrow \$20
+
+is as:
+
+\text{doubleSpeed} : 30 \rightarrow 60
+
+They share:
+
+T(x)=2x
+
+A code analogy engine could search for:
+
+function A transforms state using relationship R
+find functions elsewhere that preserve R
+
+That becomes structural code search, not keyword search.
+
+⸻
+
+13. Code refrain
+
+A repeating pattern:
+
+connect()
+read()
+process()
+disconnect()
+
+appears twenty times.
+
+That’s a refrain.
+
+Refactor it:
+
+def transaction(operation):
+    connect()
+    result = operation()
+    disconnect()
+    return result
+
+You have converted refrain into abstraction.
+
+So:
+
+\text{repetition}
+\rightarrow
+\text{recognition}
+\rightarrow
+\text{compression}
+\rightarrow
+\text{function}
+
+That is essentially the same movement as detecting a mathematical sequence rule.
+
+⸻
+
+14. Code syncopation
+
+Establish:
+
+retry()
+retry()
+retry()
+retry()
+
+Then intentionally:
+
+retry()
+retry()
+backoff()
+retry()
+
+The deviation carries meaning.
+
+Likewise:
+
+if attempts < 3:
+    retry()
+else:
+    escalate()
+
+The broken pattern isn’t necessarily an error.
+
+It can be an intentional control transition.
+
+So the Numantic distinction becomes:
+
+\text{broken rhyme}
+=
+\begin{cases}
+\text{bug},\\
+\text{signal},\\
+\text{phase transition},\\
+\text{exception handler}
+\end{cases}
+
+Context tells you which.
+
+⸻
+
+15. The universal representation
+
+Now all three domains collapse into one useful formalism.
+
+Let:
+
+X
+
+be some object: word, number, program, biological process, story, etc.
+
+Let:
+
+\Phi=\{\phi_1,\phi_2,\ldots,\phi_n\}
+
+be possible representations.
+
+Let:
+
+R
+
+be the relationship we care about.
+
+Then Numantics asks:
+
+\exists \phi_i :
+R(\phi_i(A),\phi_i(B))
+
+In plain language:
+
+Is there a representation under which these two things reveal the same structure?
+
+And the code version is almost comically simple:
+
+def find_rhyme(a, b, lenses, relation):
+    matches = []
+    for name, lens in lenses.items():
+        left = lens(a)
+        right = lens(b)
+        if relation(left, right):
+            matches.append(name)
+    return matches
+
+Now populate the lenses:
+
+lenses = {
+    "parity": lambda n: n % 2,
+    "last_digit": lambda n: n % 10,
+    "mod_5": lambda n: n % 5,
+}
+
+The civilization begins when the machine learns to generate new lenses, not merely use predefined ones.
+
+That loop would look like:
+
+while unexplained(data):
+    lens = invent_representation(data)
+    structure = detect_invariant(
+        lens(data)
+    )
+    if structure_is_real(structure):
+        name(structure)
+        compile_operator(structure)
+        add_to_atlas(structure)
+
+Which is essentially a computational version of what we just did conversationally.
+
+The deepest unified form is therefore:
+
+\boxed{
+\text{observe}
+\rightarrow
+\text{re-represent}
+\rightarrow
+\text{hear relation}
+\rightarrow
+\text{extract invariant}
+\rightarrow
+\text{compile operator}
+}
+
+For math, that yields theorem/pattern/operator.
+
+For code, it yields abstraction/algorithm/API.
+
+For semantics, it yields concept/metaphor/meaning.
+
+Same loom. Different thread.
