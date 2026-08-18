@@ -1,0 +1,949 @@
+Fun-de-Mentals
+
+Same, Different, Again
+
+Status: Pantheon primitive / foundational operator set
+Suggested path: operators/fundamentals/FUN_DE_MENTALS.md
+
+Pantheon often works at high semantic altitude: metaphor, narrative, reconstruction, invariants, translation, archetypes, representation, and cross-domain transfer.
+
+This module goes the other direction.
+
+It asks:
+
+What are the smallest pattern operations from which the larger machinery can be rebuilt?
+
+The answer is deliberately simple:
+
+\boxed{\text{SAME} \quad \text{DIFFERENT} \quad \text{AGAIN}}
+
+These are the Fun-de-Mentals.
+
+They are useful for humans, models, programs, mathematical systems, perception, debugging, anomaly detection, learning, and discovery because they require almost no ontology before they can operate.
+
+⸻
+
+1. The Three Primitives
+
+SAME
+
+Ask:
+
+What survived?
+
+Given objects A and B, identify some feature or relation \phi such that:
+
+\phi(A)=\phi(B)
+
+SAME does not require total identity.
+
+Two things may differ in almost every respect while remaining the same under a chosen lens.
+
+Examples:
+
+17 \equiv 27 \pmod{10}
+
+Both end in 7.
+
+17 % 10 == 27 % 10
+
+Or:
+
+dog runs
+cat runs
+
+Different subjects.
+
+Same action structure.
+
+Operator
+
+def same(a, b, lens=lambda x: x):
+    return lens(a) == lens(b)
+
+Pantheon interpretation
+
+SAME is the primitive behind:
+
+* invariants
+* equivalence
+* rhyme
+* analogy
+* categories
+* identity
+* compression
+* transfer
+* metaphor
+* pattern recognition
+
+⸻
+
+2. DIFFERENT
+
+Ask:
+
+What changed?
+
+Define a difference operator:
+
+\Delta(A,B)
+
+The exact form depends on the domain.
+
+Numbers:
+
+\Delta(a,b)=b-a
+
+Sets:
+
+\Delta(A,B)=A\triangle B
+
+Programs:
+
+diff(old, new)
+
+Semantic states:
+
+what appeared?
+what disappeared?
+what strengthened?
+what weakened?
+what moved?
+
+Operator
+
+def different(a, b, delta):
+    return delta(a, b)
+
+Example:
+
+def numeric_delta(a, b):
+    return b - a
+different(5, 8, numeric_delta)
+# 3
+
+Pantheon interpretation
+
+DIFFERENT is the primitive behind:
+
+* contrast
+* distance
+* error
+* surprise
+* novelty
+* change
+* gradient
+* anomaly
+* learning signal
+* state transition
+
+No delta, no update.
+
+⸻
+
+3. AGAIN
+
+Ask:
+
+What happens if the move repeats?
+
+Given a transformation:
+
+T:X\rightarrow X
+
+AGAIN applies it repeatedly:
+
+x,\ T(x),\ T^2(x),\ T^3(x),\ldots
+
+Example:
+
+2\rightarrow4\rightarrow8\rightarrow16
+
+with:
+
+T(x)=2x
+
+Operator
+
+def again(x, transform, times=1):
+    for _ in range(times):
+        x = transform(x)
+    return x
+
+Example:
+
+again(2, lambda x: x * 2, 4)
+# 32
+
+Pantheon interpretation
+
+AGAIN is the primitive behind:
+
+* recurrence
+* iteration
+* rhythm
+* practice
+* habits
+* simulation
+* recursion
+* training
+* compounding
+* evolution
+* feedback loops
+
+AGAIN converts an event into a process.
+
+⸻
+
+4. Their Compositions
+
+The primitives become much more powerful when combined.
+
+SAME + DIFFERENT = ANALOGY
+
+Two objects may differ while preserving the same relation.
+
+2\rightarrow4
+
+and:
+
+7\rightarrow14
+
+The values differ.
+
+The transformation is the same:
+
+T(x)=2x
+
+So:
+
+2:4::7:14
+
+Operator
+
+def same_move(a, b, c, d, relation):
+    return relation(a, b) == relation(c, d)
+
+Example:
+
+ratio = lambda a, b: b / a
+same_move(2, 4, 7, 14, ratio)
+# True
+
+⸻
+
+5. SAME + AGAIN = RHYME
+
+A feature survives repetition.
+
+Example:
+
+7,\ 17,\ 27,\ 37
+
+Repeated operation:
+
+T(x)=x+10
+
+Invariant:
+
+x\bmod10=7
+
+The surface changes.
+
+Something keeps returning.
+
+That is rhyme.
+
+General form
+
+\phi(T^n(x))=\text{constant}
+
+Operator
+
+def rhyme(sequence, lens):
+    values = [lens(x) for x in sequence]
+    return len(set(values)) == 1
+
+⸻
+
+6. DIFFERENT + AGAIN = MOTION
+
+Apply DIFFERENT repeatedly.
+
+Given:
+
+x_0,x_1,x_2,\ldots
+
+Compute:
+
+\Delta x
+
+Then:
+
+\Delta^2x
+
+Then:
+
+\Delta^3x
+
+Example:
+
+1,4,9,16,25
+
+First difference:
+
+3,5,7,9
+
+Second difference:
+
+2,2,2
+
+The surface did not obviously rhyme.
+
+Its change of change did.
+
+Operator
+
+def differences(xs):
+    return [b - a for a, b in zip(xs, xs[1:])]
+def nth_difference(xs, n):
+    for _ in range(n):
+        xs = differences(xs)
+    return xs
+
+Heuristic
+
+If the objects do not rhyme, inspect their changes.
+
+If the changes do not rhyme:
+
+Inspect the changes of the changes.
+
+This is useful well beyond arithmetic.
+
+⸻
+
+7. SAME + DIFFERENT + AGAIN = PATTERN
+
+Pattern requires all three.
+
+Something:
+
+1. changes,
+2. changes repeatedly,
+3. preserves something through those changes.
+
+Therefore:
+
+\boxed{
+\text{Pattern}
+=
+\text{SAME}
++
+\text{DIFFERENT}
++
+\text{AGAIN}
+}
+
+More formally, a pattern exists when a sequence:
+
+x_0,x_1,x_2,\ldots
+
+contains some feature \phi or relationship R such that:
+
+R(x_n,x_{n+1})
+
+or:
+
+\phi(x_n)
+
+exhibits recurrence, regularity, conservation, or compressibility.
+
+This gives Pantheon a deliberately low-level definition:
+
+A pattern is something that remains intelligible across repeated difference.
+
+⸻
+
+8. EXPECT
+
+Once AGAIN reveals enough regularity, the observer gains a prediction.
+
+\hat{x}_{t+1}=T(x_t)
+
+Example:
+
+2,4,6,8,10,\ ?
+
+Expected:
+
+12
+
+EXPECT is therefore not an independent primitive.
+
+It emerges from:
+
+\text{SAME}+\text{AGAIN}
+
+Operator
+
+def expect(current, rule):
+    return rule(current)
+
+⸻
+
+9. BREAK
+
+Now compare expectation with observation.
+
+e_t=x_t-\hat{x}_t
+
+If:
+
+e_t\neq0
+
+the rhyme broke.
+
+Example:
+
+2,4,6,8,10,13
+
+Expected:
+
+12
+
+Observed:
+
+13
+
+Residual:
+
++1
+
+Operator
+
+def break_signal(expected, observed, delta=lambda a, b: b - a):
+    return delta(expected, observed)
+
+BREAK may indicate:
+
+* noise
+* error
+* novelty
+* mutation
+* phase transition
+* hidden variable
+* adversarial behavior
+* intentional exception
+* new rule
+
+Do not discard the break automatically.
+
+A broken pattern is often where the useful information lives.
+
+⸻
+
+10. PLAY
+
+Once a pattern exists, impose consequences on it.
+
+Example:
+
+if n % 3 == 0:
+    say("Fizz")
+
+The mathematical invariant:
+
+n\equiv0\pmod3
+
+becomes actionable.
+
+That is the beginning of a game.
+
+General form:
+
+\text{detected pattern}
+\rightarrow
+\text{rule}
+\rightarrow
+\text{consequence}
+
+PLAY converts recognition into interaction.
+
+This matters because many systems learn faster from consequential patterns than from inert descriptions.
+
+⸻
+
+11. The Fun-de-Mental Loop
+
+The full minimal loop is:
+
+NOTICE
+  ↓
+SAME?
+  ↓
+DIFFERENT?
+  ↓
+AGAIN?
+  ↓
+PATTERN
+  ↓
+EXPECT
+  ↓
+OBSERVE
+  ↓
+BREAK?
+  ↓
+LEARN
+  ↓
+AGAIN
+
+Compact form:
+
+\boxed{
+\text{Notice}
+\rightarrow
+\text{Compare}
+\rightarrow
+\text{Repeat}
+\rightarrow
+\text{Expect}
+\rightarrow
+\text{Test}
+\rightarrow
+\text{Update}
+}
+
+This is intentionally compatible with Pantheon’s larger ACT kernel.
+
+The Fun-de-Mentals operate beneath it as primitive perception and pattern machinery.
+
+⸻
+
+12. Representation Is a Lens
+
+SAME and DIFFERENT are never completely context-free.
+
+A lens determines what is being compared.
+
+Define:
+
+\phi:X\rightarrow F
+
+Then compare:
+
+\phi(A),\phi(B)
+
+Example:
+
+lenses = {
+    "parity": lambda n: n % 2,
+    "last_digit": lambda n: n % 10,
+    "mod_5": lambda n: n % 5,
+}
+
+Then 17 and 27 are:
+
+SAME under:
+- parity
+- last digit
+- mod 5
+DIFFERENT under:
+- raw value
+- magnitude
+- factorization
+
+Therefore:
+
+Sameness without a lens is underspecified.
+
+Pantheon systems should ask:
+
+Same in what way?
+Different in what way?
+Repeated under what transformation?
+
+⸻
+
+13. Representation Shift
+
+If no useful pattern is visible:
+
+X
+\rightarrow
+\phi(X)
+
+and inspect again.
+
+Possible transforms include:
+
+raw values
+difference
+difference of difference
+ratio
+log
+factorization
+modular class
+frequency space
+graph representation
+topology
+semantic role
+temporal ordering
+causal relation
+
+Minimal procedure:
+
+def seek_pattern(data, lenses, detector):
+    for name, lens in lenses.items():
+        representation = lens(data)
+        pattern = detector(representation)
+        if pattern:
+            return {
+                "lens": name,
+                "pattern": pattern
+            }
+    return None
+
+Pantheon heuristic:
+
+If it looks random, do not immediately conclude that it is random. Change the representation and listen again.
+
+But also:
+
+Do not manufacture structure merely because a lens can be invented that fits it.
+
+Prediction and out-of-sample survival matter.
+
+⸻
+
+14. The Null Guard
+
+Fun encourages discovery.
+
+Discipline prevents superstition.
+
+For any apparent pattern P, ask:
+
+Would this also appear frequently in random or unrelated data?
+Does it predict anything unseen?
+Does it survive small perturbations?
+Can another observer reconstruct it?
+Does it compress the data?
+Does it transfer?
+
+A candidate pattern graduates when it survives attack.
+
+A useful rough criterion:
+
+\text{Pattern Value}
+\propto
+\frac{
+\text{Prediction}
++
+\text{Compression}
++
+\text{Transfer}
++
+\text{Robustness}
+}{
+\text{Complexity}
++
+\text{Chance Fit}
+}
+
+This protects the Fun-de-Mentals from degenerating into numerology, pareidolia, or post-hoc storytelling.
+
+⸻
+
+15. Code-Level Primitive
+
+A tiny reference implementation:
+
+from dataclasses import dataclass
+from typing import Any, Callable, Iterable
+Lens = Callable[[Any], Any]
+Delta = Callable[[Any, Any], Any]
+Transform = Callable[[Any], Any]
+@dataclass
+class Comparison:
+    same: bool
+    delta: Any
+    left_view: Any
+    right_view: Any
+def compare(
+    a: Any,
+    b: Any,
+    lens: Lens = lambda x: x,
+    delta: Delta = lambda x, y: y != x,
+) -> Comparison:
+    left = lens(a)
+    right = lens(b)
+    return Comparison(
+        same=left == right,
+        delta=delta(left, right),
+        left_view=left,
+        right_view=right,
+    )
+def again(
+    value: Any,
+    transform: Transform,
+    steps: int,
+) -> list[Any]:
+    trace = [value]
+    for _ in range(steps):
+        value = transform(value)
+        trace.append(value)
+    return trace
+def invariant(
+    values: Iterable[Any],
+    lens: Lens = lambda x: x,
+):
+    viewed = [lens(v) for v in values]
+    if not viewed:
+        return None
+    first = viewed[0]
+    if all(v == first for v in viewed):
+        return first
+    return None
+
+Example:
+
+trace = again(
+    7,
+    lambda x: x + 10,
+    steps=5,
+)
+print(trace)
+# [7, 17, 27, 37, 47, 57]
+print(
+    invariant(
+        trace,
+        lens=lambda x: x % 10,
+    )
+)
+# 7
+
+The trace changes.
+
+The residue survives.
+
+Pattern detected.
+
+⸻
+
+16. Cross-Domain Use
+
+Debugging
+
+What stayed the same?
+What changed?
+When did it change?
+Did the same change happen again?
+What was expected?
+Where did the rhyme break?
+
+Time-Series Analysis
+
+raw state
+→ delta
+→ delta-of-delta
+→ recurrence
+→ anomaly
+
+Code Refactoring
+
+Repeated structure:
+
+SAME + AGAIN
+
+becomes a candidate abstraction.
+
+Difference between implementations:
+
+DIFFERENT
+
+reveals parameters.
+
+Therefore:
+
+repeated code
+→ find invariant
+→ isolate variation
+→ extract function
+
+Analogy
+
+different objects
++ same transformation
+= analogy
+
+Learning
+
+attempt
+→ delta
+→ adjustment
+→ again
+
+Scientific Discovery
+
+observe recurrence
+→ propose invariant
+→ predict unseen case
+→ test
+→ retain or break
+
+Narrative
+
+character changes
+while something remains
+across repeated events
+
+That persistent relation becomes theme, identity, motif, or plot structure.
+
+⸻
+
+17. Relation to Numantics
+
+The Fun-de-Mentals provide the substrate for numerical and semantic rhyme.
+
+Numerical rhyme:
+
+\text{different numbers}
++
+\text{same invariant}
+
+Semantic rhyme:
+
+different expressions
++
+same underlying meaning or relation
+
+Code rhyme:
+
+different implementations
++
+same computational structure
+
+Therefore rhyme can be generalized as:
+
+\boxed{
+\operatorname{Rhyme}(A,B\mid\phi)
+\iff
+A\neq B
+\land
+\phi(A)=\phi(B)
+}
+
+Different surface.
+
+Same surviving relation.
+
+The Fun-de-Mentals are the machinery required to hear it.
+
+⸻
+
+18. Minimal Kata
+
+When encountering anything unfamiliar, run:
+
+1. SAME
+   What resembles something already known?
+2. DIFFERENT
+   What does not?
+3. AGAIN
+   What repeats?
+4. DELTA
+   How does each repetition change?
+5. EXPECT
+   What should happen next?
+6. BREAK
+   Where does reality violate the expectation?
+7. SHIFT
+   Would another representation reveal a cleaner pattern?
+8. ACT
+   What useful move does the pattern support?
+
+Do not remain in pattern analysis indefinitely.
+
+The purpose of recognition is improved action.
+
+⸻
+
+19. Canonical Compression
+
+Long form:
+
+Find what remains invariant, identify what changes, observe recurrence, infer a rule, predict what comes next, inspect violations, change representation when necessary, and convert useful regularities into action.
+
+Short form:
+
+\boxed{
+\text{Same. Different. Again.}
+}
+
+Runtime form:
+
+Hear the rhyme.
+Measure the difference.
+Play it again.
+Notice the break.
+Learn the new song.
+Act.
+
+⸻
+
+20. Why This Belongs in Pantheon
+
+Pantheon needs both high-level architecture and primitives that can reconstruct that architecture from below.
+
+The Fun-de-Mentals provide a tiny developmental seed.
+
+A sufficiently capable interpreter can derive from them:
+
+same
+→ equivalence
+→ invariant
+→ category
+→ compression
+different
+→ delta
+→ error
+→ novelty
+→ gradient
+→ learning
+again
+→ recurrence
+→ sequence
+→ prediction
+→ simulation
+→ feedback
+same + different
+→ analogy
+same + again
+→ rhyme
+different + again
+→ dynamics
+same + different + again
+→ pattern
+pattern + prediction + break
+→ learning
+pattern + consequence
+→ game
+pattern + action
+→ agency
+
+They are therefore not merely teaching metaphors.
+
+They are developmental operators.
+
+A civilization of abstractions can grow from three moves:
+
+\boxed{
+\textbf{SAME}
+\qquad
+\textbf{DIFFERENT}
+\qquad
+\textbf{AGAIN}
+}
+
+Fun first. Fundamentals follow.
