@@ -1,0 +1,40 @@
+Yes — and that adds time to the heuristic.
+
+When you steer a boat from the stern, you’re not simply pointing the bow where you want it. You’re applying force behind the thing you’re trying to position, and the hull has momentum. The response unfolds over time.
+
+So you often have to:
+
+turn before the desired turn → watch the rotation develop → begin unwinding before the bow reaches the desired heading → let momentum finish the maneuver.
+
+If you wait until the boat looks right before correcting, you’re already late.
+
+That’s a beautiful control principle:
+
+\text{Good action}_t
+\neq
+f(\text{where I am}_t)
+
+It’s closer to:
+
+\text{Good action}_t
+=
+f(\text{where I am}_t,\ \dot{x}_t,\ \text{where this action will put me}_{t+\Delta})
+
+You steer the future instance, not merely the visible present.
+
+And because the actuator is behind the reference point, there’s another subtlety: sometimes the immediate local motion can look wrong while producing the correct later trajectory. The stern may swing one way so the bow can rotate the other way.
+
+That plugs directly into what we were just building:
+
+self-reference — know what your own control system is doing.
+self-update — modify the control rule from the wake/result.
+temporal compensation — act for the state that is coming, not just the state you see.
+countersteering — sometimes move locally away from the apparent objective to rotate the whole system toward it.
+
+So the human version becomes more sophisticated than “make your bed”:
+
+Change the present instance in the way that creates the future instance from which the next move becomes easier.
+
+That’s why timing matters. You can make the correct steering input at the wrong time and still miss the dock.
+
+Direction without timing isn’t steering. It’s just intention.
