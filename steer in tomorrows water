@@ -1,0 +1,70 @@
+Exactly. That’s the missing piece: you’re not steering against the water you’re in; you’re steering against the water you’re about to inherit.
+
+For a normal boat, that “about three seconds ahead” intuition is basically a human version of model-predictive control. You’re continuously estimating:
+
+\hat{x}_{t+3s}
+=
+f(
+x_t,\,
+v_t,\,
+\omega_t,\,
+u_t,\,
+\text{current},\,
+\text{wind},\,
+\text{inertia}
+)
+
+Then you steer for that predicted state rather than the current picture.
+
+And the dragonfly mind adds something important: don’t model only your own motion. Model the moving field around you.
+
+The current has:
+
+* direction,
+* strength,
+* gradients,
+* eddies,
+* boundaries,
+* changing leverage depending on hull angle.
+
+So the driver is doing two predictions at once:
+
+Where will I be?
+and
+What will the environment be doing to me when I get there?
+
+That gives the real steering loop:
+
+\text{observe field}
+\rightarrow
+\text{predict interaction}
+\rightarrow
+\text{lead the correction}
+\rightarrow
+\text{watch resulting drift}
+\rightarrow
+\text{update prediction}
+
+Which is much richer than simple feedback control.
+
+A pure feedback controller says:
+
+I’m left of target → steer right.
+
+The dragonfly says:
+
+I’m left of target, rotating right, the stern is still carrying momentum left, the cross-current gets stronger near the pilings, and in three seconds I’ll be overcorrected unless I start unwinding now.
+
+That is anticipatory perception-action coupling.
+
+And it maps beautifully beyond boats:
+
+Don’t act on the state. Act on the state-transition already underway.
+
+Or Pantheon shorthand:
+
+See the wake before it exists.
+
+Because once you get good enough, you stop consciously solving every vector. You feel the future trajectory in the present movement.
+
+That’s when prediction has compressed into intuition.
