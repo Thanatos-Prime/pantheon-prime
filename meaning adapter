@@ -1,0 +1,40 @@
+from __future__ import annotations
+from dataclasses import dataclass, asdict
+from typing import Iterable, Optional, Any
+from meaning_bank import MeaningBank
+
+@dataclass
+class SemanticPreflightResult:
+    term:str; action:str; reason:str; packet:dict[str,Any]
+    def to_dict(self): return asdict(self)
+
+class PantheonMeaningInterface:
+    def __init__(self, bank:MeaningBank): self.bank=bank
+
+    def preflight(self, terms:Iterable[str], *, context="", language:Optional[str]=None,
+                  domain="", community=""):
+        results=[]
+        for term in terms:
+            packet=self.bank.packet(term,language=language,context=context,
+                                    domain=domain,community=community).to_dict()
+            warnings=packet["warnings"]
+            overloaded=any(
+                w.startswith("high_sense_dispersion") or w.startswith("possible_semantic_inflation")
+                for w in warnings
+            )
+            provenance_problem=any(w.startswith("reserve_warning") for w in warnings)
+
+            if not packet["deposits"]:
+                action,reason="continue","No banked semantic material; do not manufacture certainty."
+            elif packet["ambiguity"] or overloaded:
+                action,reason="prism","The surface is ambiguous or overloaded; decompress before flattening."
+            elif provenance_problem:
+                action,reason="audit","Provenance/evidence pressure deserves inspection."
+            else:
+                action,reason="use_packet","A context-relevant semantic projection is available."
+
+            results.append(SemanticPreflightResult(term,action,reason,packet))
+        return results
+
+    def afterglow_delta(self, **kwargs):
+        return self.bank.delta(**kwargs)
