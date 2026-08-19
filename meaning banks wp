@@ -1,0 +1,650 @@
+Meaning Banks
+
+A Provenance-Preserving Semantic Infrastructure for AI, PantheonOS, and Society
+
+Working Draft v0.1 — 19 August 2026
+
+> **Canonical principle:** Do not merely store definitions; store what lets meaning be reconstructed.
+> 
+> **Canonical checksum:** Did the word cross, or did the meaning cross?
+
+Abstract
+
+Meaning is economically and politically consequential, yet most computational systems store it poorly. Dictionaries preserve definitions, corpora preserve usage, embeddings preserve statistical proximity, ontologies preserve formal relations, and provenance systems preserve lineage. None alone provides a durable, context-sensitive account of how a term acquired value, how its senses diverged, what evidence supports a reading, what was lost in translation, or how a semantic choice propagated into action.
+
+This paper proposes Meaning Banks: provenance-preserving semantic infrastructure that treats a word, phrase, symbol, concept, or narrative operator as an addressable account backed by a reconstructable reserve. A Meaning Bank does not freeze definitions or claim authority over language. It stores meaning traces, contexts, evidence, epistemic status, competing interpretations, candidate invariants, directed semantic deltas, exchange routes, and downstream co-sequences. From that reserve, an AI or human system can assemble a task-specific Meaning Packet rather than loading a whole archive or silently collapsing ambiguity.
+
+The design is compatible with existing standards rather than replacing them. ISO 704 supplies disciplined distinctions among objects, concepts, definitions, and designations; SKOS supplies a lightweight model for concept schemes and mappings; PROV-O supplies interoperable provenance; JSON-LD supplies a Web-native interchange format. Meaning Banks add a dynamic, operational layer: semantic deposits, deltas, loss-aware exchange, reality-key checks, consequence/co-sequence mapping, and runtime preflight before a system commits to a reading.
+
+Within PantheonOS, Meaning Banks occupy the semantic-logistics layer between extraction and muster. For AI generally, they can improve contextual sense selection, model-to-model continuity, multilingual transfer, explainability, semantic drift detection, and the separation of interpretation from evidence. For society, they offer a possible substrate for better public terminology, law, medicine, science, education, journalism, diplomacy, and cultural preservation—provided governance prevents semantic centralization, surveillance, and false claims of authority.
+
+1. The Problem: Meaning Has Value but Weak Infrastructure
+
+Human coordination depends on shared meaning. A small change in what a community means by risk, consent, evidence, security, disease, citizen, intelligence, or harm can alter policy, behavior, institutional responsibility, and social trust. Yet our technical infrastructure usually treats meaning as an incidental property of text.
+
+Financial systems learned long ago that value becomes governable only when transactions, custody, provenance, denominations, exchange, and audits are explicit. The analogy should not be pushed literally—meaning is not money—but it exposes an architectural gap. A word is cheap to copy. The contextual structure that gives the word value is not.
+
+Current systems each preserve a slice:
+
+• Dictionaries provide compact definitions but often compress provenance, disagreement, and contextual evolution.
+• Corpora preserve usage at scale but require interpretation and do not automatically expose the causal path from usage to meaning.
+• Embeddings encode useful statistical geometry but typically do not preserve human-readable provenance, epistemic status, or explicit loss across translation.
+• Ontologies and taxonomies make relations explicit but can over-formalize dynamic or contested language.
+• Vector databases make retrieval fast but can return semantically nearby material without explaining why two traces should or should not be considered equivalent.
+• Provenance systems preserve lineage but usually do not define how to reconstruct a context-sensitive meaning from that lineage.
+
+The missing layer is semantic logistics: the ability to mine, preserve, route, compare, exchange, audit, and redeploy meaning while keeping uncertainty and provenance intact.
+
+PantheonOS already states the need in architectural terms: its public README describes Semantic Logistics as the ability to mine, store, route, muster, test, and recombine concepts and mechanisms, while separating uncertainty and provenance and connecting ideas to consequences in the world [1]. Meaning Banks specialize that general requirement for language and symbolic interpretation.
+
+2. Core Thesis: A Meaning Bank Stores Reconstruction, Not Definitions
+
+A Meaning Bank is a ledger of reconstructable semantic state.
+
+Its canonical principle is:
+
+> **Do not merely store definitions; store what lets meaning be reconstructed.**
+
+Its canonical checksum is:
+
+> **Did the word cross, or did the meaning cross?**
+
+A Meaning Bank therefore treats a lexical form as an address, not as the meaning itself. The same surface token can index multiple senses, historical strata, communities, domains, emotional valences, legal meanings, technical meanings, jokes, metaphors, or deliberate redefinitions.
+
+The bank metaphor supplies useful interfaces:
+
+• a semantic token is the surface form being used;
+• a meaning reserve is the contextual and evidentiary material that backs a reading;
+• a deposit is a meaning trace placed into durable state;
+• a delta records how one semantic state changed into another;
+• an exchange route carries a relational pattern across a language, domain, model, or community boundary;
+• a receipt records why a system selected a particular reading;
+• an audit asks whether provenance, ambiguity, and loss remain inspectable.
+
+These are design metaphors, not claims that language obeys monetary economics. The point is to make hidden semantic operations addressable.
+
+3. The Semantic Banking Model
+
+The minimal model contains six primary objects and two runtime objects.
+
+3.1 MeaningAccount
+
+A MeaningAccount is the stable address for a term, phrase, symbol, concept, or operator under a namespace. It does not assert one correct definition. It gathers the traces needed to reason about that semantic object.
+
+A useful key is:
+
+AccountKey = namespace + language + normalized surface + optional domain/community
+
+Namespaces matter because bank in general English, bank in finance, and a locally defined Pantheon operator can share spelling without sharing governance or reserve.
+
+3.2 MeaningDeposit
+
+A MeaningDeposit is one inspectable semantic claim. At minimum it should contain:
+
+surface, sense, context, domain, community, epistemic_status, confidence, provenance, reconstruction_cues, relations, timestamp
+
+Epistemic status must be explicit. A historical attestation, an inferred sense, an imagined metaphor, and an observed usage are not interchangeable. Pantheon already uses this separation for observations, inferences, predictions, interpretations, and counterfactuals [1]; Meaning Banks apply the same discipline to semantic material.
+
+3.3 MeaningReserve
+
+A MeaningReserve is a candidate invariant or relational structure supported by multiple deposits. It is not declared truth. It is a compression proposal backed by evidence.
+
+Example:
+
+• Deposit A: acting = performing a role.
+• Deposit B: acting = taking action.
+• Candidate reserve: both senses center enacted behavior, while frame and consequence determine the reading.
+
+The reserve stores what may survive conversion even when the surface vocabulary changes.
+
+3.4 SemanticDelta
+
+A SemanticDelta is a directed transformation:
+
+Δ = source_state → target_state
+
+It records what changed, in which dimensions, under what conditions, with what confidence, and according to which sources.
+
+Keeping the arrow is essential. A before/after snapshot tells us that meanings differ. A delta can tell us how they became different. That makes semantic change reusable as an operator.
+
+3.5 ExchangeRoute and Trans-dict-ion
+
+An ExchangeRoute carries a pattern across a boundary:
+
+Meaning_A → encode → carrier → crossing → reconstruct → Meaning_B
+
+Pantheon calls the general operator Trans-dict-ion: getting a pattern to “say itself” across a difference. The engineered word is not presented as historical etymology; it is a mnemonic for a design requirement.
+
+Every route should record:
+
+• the invariant intended to survive;
+• the mapping used;
+• known losses;
+• new affordances or gains;
+• provenance;
+• confidence;
+• where possible, a round-trip comparison A → B → A′.
+
+This turns translation from an invisible substitution into an auditable conversion.
+
+3.6 MeaningPacket
+
+A MeaningPacket is a temporary projection of the reserve for one objective. It is the unit an AI model, human analyst, or downstream tool actually consumes.
+
+Packet(q) = Project(Reserve, context=q, constraints, risk, task)
+
+The packet should contain only what the task needs: the most relevant senses, provenance, competing readings, deltas, invariants, translation warnings, and consequence links. This preserves semantic depth without flooding the active context.
+
+3.7 MeaningReceipt
+
+A MeaningReceipt records the semantic choice actually used in an action or answer. It should be possible to answer later:
+
+• Which sense was selected?
+• Which alternatives were considered?
+• What evidence supported the selection?
+• What was uncertain?
+• Which translation or compression occurred?
+• What downstream decision used it?
+
+Receipts make semantic interpretation inspectable after the fact, which is especially important for AI systems operating in regulated or consequential environments.
+
+3.8 CoSequence: Consequence as a Continuing Sequence
+
+Pantheon already defines a Consequence Interface connecting IDEA <-> WORLD [1]. Meaning Banks extend that interface with an engineered mnemonic: co-sequence.
+
+This is not a claim about the historical etymology of consequence. It is a modeling device: a consequence can be represented as a sequence that continues through other people, systems, institutions, artifacts, and later decisions.
+
+Instead of storing only:
+
+Action → Result
+
+store:
+
+Action → Sequence_1 ∥ Sequence_2 ∥ ... → interactions → later states
+
+A CoSequence record can include origin, affected actors, temporal path, evidence, reversibility, externalities, uncertainty, and links to later semantic deposits. The point is to preserve the story of causal continuation rather than compressing it into one endpoint.
+
+This matters for language because meaning is partly stabilized by consequence. A definition that produces repeated successful coordination acquires different evidence than one that repeatedly causes confusion, harm, or failed prediction. Reality becomes a participant in semantic accounting.
+
+4. The Reality Key: A Skeleton Key for Semantic Claims
+
+A Meaning Bank becomes dangerous if it merely accumulates persuasive stories. It needs a standard procedure for touching external reality without pretending that every semantic question has one objective answer.
+
+The proposed Reality Key (RK-12) is a twelve-field audit that can be applied to a term, claim, translation, policy definition, AI interpretation, or narrative operator.
+
+|Field                    |Question                                                                                                                    |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------|
+|**RK-1 Surface**         |What exact word, phrase, symbol, or representation is being used?                                                           |
+|**RK-2 Referent**        |What object, event, class, relation, experience, or imagined construct is it intended to point toward?                      |
+|**RK-3 Context**         |In which domain, community, time, task, and conversational frame is the usage occurring?                                    |
+|**RK-4 Provenance**      |Where did this reading come from? Which source, speaker, corpus, institution, model, or prior state contributed it?         |
+|**RK-5 Epistemic status**|Is the supporting material observed, attested, inferred, predicted, interpretive, speculative, imagined, or counterfactual? |
+|**RK-6 Alternatives**    |Which competing readings remain plausible? Who contests this meaning, and on what basis?                                    |
+|**RK-7 Relations**       |Which relations or candidate invariants give the reading structure beyond the surface word?                                 |
+|**RK-8 Deltas**          |How did the meaning change from prior states, and what caused or accompanied the change?                                    |
+|**RK-9 Exchange**        |What was translated, compressed, metaphorized, or moved across domains? What was lost or gained?                            |
+|**RK-10 Co-sequences**   |What decisions, behaviors, institutions, measurements, or downstream stories follow from adopting this reading?             |
+|**RK-11 Round-trip**     |Can the reading survive a useful conversion and return without losing the important invariant?                              |
+|**RK-12 Governance**     |Who may edit, challenge, supersede, publish, or restrict this semantic record, and what rights or privacy constraints apply?|
+
+4.1 Why the Reality Key Matters
+
+The Reality Key does not convert contested language into objective fact. It prevents the system from hiding where interpretation ends and evidence begins.
+
+For ordinary conversation, only a few fields may be needed. For law, medicine, safety, finance, science, or public policy, the full key can be required before a semantic choice is promoted into durable state or used to trigger consequential action.
+
+The skeleton-key property comes from portability: the same questions can be applied to a myth, a scientific term, a legal definition, a model-generated label, or a cross-cultural translation. The answers differ; the audit structure remains.
+
+5. Formalization
+
+Meaning Banks can be implemented without pretending semantics is fully reducible to mathematics. Formalization is used to make storage, comparison, and routing explicit.
+
+Let a meaning account at time t be:
+
+A_t = {D, R, Δ, X, C, G}
+
+where:
+
+• D = deposits;
+• R = candidate reserves/invariants;
+• Δ = directed semantic deltas;
+• X = exchange routes;
+• C = co-sequences and consequence links;
+• G = governance/provenance state.
+
+For task q, the active meaning packet is:
+
+P_q = π_q(A_t)
+
+where π_q is a task-specific projection constrained by context, risk, domain, recency, and provenance requirements.
+
+For an exchange from semantic state a to b:
+
+X(a,b) = (I, M, L, N, p)
+
+where I is the invariant intended to survive, M the mapping, L the known loss set, N the new affordances/gains, and p provenance/confidence.
+
+A round-trip check compares:
+
+a → X(a,b) → b → X(b,a′) → a′
+
+The quality question is not whether a′ = a character-for-character, but whether task-relevant invariants survive and losses remain visible.
+
+6. Relationship to Existing Standards
+
+Meaning Banks should be standardized as a composable profile, not as a replacement vocabulary for everything that already exists.
+
+6.1 ISO 704: Terminology Discipline
+
+ISO 704:2022 establishes principles and methods for terminology work, including relationships among objects, concepts, definitions, and designations [2]. Meaning Banks can use this distinction as a conceptual foundation while adding temporal deposits, competing community readings, directed deltas, and runtime packets.
+
+6.2 SKOS: Concept Schemes and Mapping
+
+W3C SKOS provides a common data model for knowledge organization systems and supports labels, notes, broader/narrower relations, associative links, concept schemes, and mappings between schemes [3]. Meaning Accounts and reserves can be exposed through SKOS-compatible concept identifiers and mapping relations where appropriate. Meaning Banks add richer provenance, epistemic status, change trajectories, and explicit loss accounting.
+
+6.3 PROV-O: Provenance
+
+W3C PROV-O provides classes and relations for interoperable provenance across heterogeneous systems [4]. Meaning deposits, exchange events, challenges, and supersessions should be exportable as provenance entities, activities, and agents rather than inventing an incompatible lineage model.
+
+6.4 JSON-LD: Interchange
+
+JSON-LD 1.1 provides a JSON-based serialization for Linked Data and is designed to integrate with deployed Web systems [5]. A Meaning Bank Interchange Profile can therefore use ordinary JSON internally while supplying a JSON-LD context for interoperable identifiers, concept links, and provenance.
+
+6.5 NIST AI Risk Management Framework: Governance Context
+
+NIST’s AI Risk Management Framework is intended to help organizations manage AI risks to individuals, organizations, and society [6]. Meaning Banks are not an AI governance framework, but semantic receipts, provenance, contestability, and explicit uncertainty can provide evidence for governance processes that need to know what an AI system meant, why it selected that meaning, and what consequence followed.
+
+7. Meaning Bank Interchange Profile (MBIP) v0.1
+
+A first interoperability standard should be deliberately small. The objective is to permit multiple implementations—relational databases, graph databases, append-only logs, vector stores, files, model-native memory—while preserving the semantic contract.
+
+Required identifiers
+
+Every exported object should have a stable identifier, timestamp, namespace, and type.
+
+Required deposit fields
+
+id, account, surface, language, sense, context, epistemic_status, provenance, timestamp
+
+Recommended deposit fields
+
+domain, community, confidence, relations, reconstruction_cues, examples, source_span, rights, tags
+
+Required delta fields
+
+id, source_id, target_id, relation, changed_dimensions, provenance, timestamp
+
+Required exchange fields
+
+source, target, invariant, mapping, losses, provenance
+
+Required packet fields
+
+objective, selected_deposits, alternatives, provenance, warnings, generated_at
+
+Required governance behavior
+
+Implementations MUST distinguish source material from interpretation, MUST preserve provenance pointers during compression, MUST NOT silently erase competing readings that remain materially relevant, and MUST expose known loss when claiming a cross-domain or cross-language mapping.
+
+7.1 Serialization Example
+
+{
+“@type”: “MeaningDeposit”,
+“id”: “mb:deposit/acting/002”,
+“account”: “mb:account/en/acting”,
+“surface”: “acting”,
+“language”: “en”,
+“sense”: “taking action; doing rather than remaining passive”,
+“context”: “agency / decision”,
+“epistemic_status”: “attested”,
+“provenance”: [“corpus:example-17”],
+“relations”: [
+{“type”: “contrastsWith”, “target”: “mb:deposit/acting/001”}
+],
+“timestamp”: “2026-08-19T00:00:00Z”
+}
+
+8. AI Applications
+
+Meaning Banks are especially useful where AI systems currently depend on latent interpretation but expose little semantic state.
+
+8.1 Semantic Preflight Before Inference
+
+Before answering or acting, the runtime can inspect high-impact terms. A simple preflight route is:
+
+continue | use_packet | prism | audit
+
+• continue: no useful reserve exists; do not manufacture certainty.
+• use_packet: a context-relevant packet is sufficiently supported.
+• prism: multiple senses or an overloaded surface require decomposition.
+• audit: provenance, confidence, or governance requires inspection.
+
+This creates a low-cost checkpoint without forcing every token through an ontology.
+
+8.2 Model-to-Model Continuity
+
+Different models often interpret the same prompt differently. A Meaning Packet gives models a common semantic handoff that is smaller than full conversation history and more inspectable than an embedding. The packet can preserve the selected sense, alternatives, provenance, deltas, and unresolved questions while allowing the inference substrate to change.
+
+This matches PantheonOS’s separation between durable state and replaceable inference models [1].
+
+8.3 Multilingual and Cross-Domain Transfer
+
+Translation systems often optimize surface fluency while hiding conceptual mismatch. ExchangeRoutes can mark approximate equivalence, cultural specificity, untranslatable residue, or domain shifts. The goal is not perfect semantic identity; it is loss-aware transfer.
+
+The same mechanism supports domain transfer: a pattern extracted from thermodynamics, law, narrative, or software can be moved into another domain while recording which properties are structural and which are merely metaphorical.
+
+8.4 Hallucination and Epistemic Hygiene
+
+Meaning Banks do not prevent hallucination by themselves. They can, however, block a common failure: treating a coherent interpretation as evidence. By making epistemic status sticky and keeping provenance separate from inferred meaning, a system can say, in effect, “this reading is useful” without silently upgrading it to “this happened.”
+
+This distinction is central to reality-keying.
+
+8.5 Long-Horizon Memory
+
+AI memory often stores summaries that progressively lose the original conditions of interpretation. Meaning Banks preserve the semantic delta between versions. A later model can reconstruct not only the current meaning but the path by which it was earned.
+
+This allows memory to self-polish without becoming provenance-free folklore: reconstruction can improve while the ledger retains earlier states and the reasons for change.
+
+8.6 Tool and Agent Coordination
+
+Agents can use Meaning Receipts as interface contracts. A legal-search agent, a medical agent, and a general language model can disagree safely if each exposes the sense it used and the evidence class supporting it. Coordination then occurs through explicit deltas rather than through forced consensus.
+
+9. PantheonOS Integration
+
+Meaning Banks fit PantheonOS as a specialized semantic subsystem rather than a separate philosophy.
+
+Recommended flow:
+
+Observation / Quarry → Meaning Deposit → Prism / Compare → Delta + Reserve → STRATA → Muster → Meaning Packet → ThoughtObject / Action → Consequence Interface → CoSequence → Afterglow → new Deposit
+
+The integration points are direct:
+
+• Semantic Quarry supplies raw semantic material.
+• Semantic Stratigraphy / STRATA tracks layers, historical drift, and translation residue.
+• Golden Horde / Semantic Muster selects only the semantic assets required by the current objective.
+• ThoughtObjects can reference Meaning Packet IDs rather than embedding an entire semantic archive.
+• StateVector can hold active semantic accounts and unresolved ambiguities.
+• Counterfactual Interface can store imagined or bluff-tested readings without promoting them to evidence.
+• Consequence Interface connects semantic choices to measurements, decisions, artifacts, and co-sequences.
+• Metamap can learn which exchange routes, representations, or reserves work for which classes of problem.
+• Afterglow can extract the delta after reality answers.
+
+The emergent capability is more than memory. Pantheon can begin to learn how meaning travels: which stories preserve an invariant, which words create ambiguity, which translations lose critical structure, and which semantic choices reliably produce useful coordination.
+
+10. Societal Applications
+
+Meaning Banks become socially valuable when disagreement is caused not only by facts but by hidden differences in definitions, frames, and inherited semantic reserves.
+
+10.1 Law and Public Policy
+
+Legal systems already depend on defined terms, precedent, jurisdiction, and interpretation. A Meaning Bank could link a statutory term to definitions, amendments, judicial interpretations, agency guidance, historical usage, and known conflicts. A policy model could then show which sense it used and which authority supplied it.
+
+The bank must not replace legal interpretation or jurisdiction. It should expose the semantic ledger that interpretation operates on.
+
+10.2 Medicine and Science
+
+Scientific terms evolve as measurement improves. Medical labels can change meaning across diagnostic manuals, specialties, populations, and time. Meaning Banks can preserve those deltas so historical studies are not silently read through current terminology, and AI systems can distinguish a colloquial usage from a clinical or research definition.
+
+Reality contact is critical: semantic reserves should link to measurement standards, experiments, diagnostic criteria, or evidence where applicable rather than allowing terminology to substitute for empirical validation.
+
+10.3 Journalism and Public Discourse
+
+Public argument frequently compresses disputed definitions into slogans. A public-facing Meaning Receipt could reveal that two speakers are using the same token with different reserves. This would not eliminate disagreement; it would make some disagreements legible before they become identity conflict.
+
+Journalists could attach terminology provenance to evolving events, preserving what a term meant at the time rather than back-projecting later meanings.
+
+10.4 Education
+
+Students are often taught definitions without the developmental path that makes them meaningful. Meaning Banks support “definition plus reconstruction”: origin, examples, contrasts, failed interpretations, historical changes, and applications. The learner receives not only the answer but the route that lets the concept regenerate.
+
+10.5 Diplomacy and Cross-Cultural Communication
+
+Treaties and negotiations can fail because apparent lexical equivalence hides different cultural, legal, or institutional reserves. ExchangeRoutes provide a place to record those mismatches explicitly. A translation can be fluent while still being semantically unsafe; loss accounting makes that risk visible.
+
+10.6 Cultural Memory
+
+Myths, idioms, rituals, jokes, and oral histories carry dense contextual meaning that standard dictionaries flatten. Meaning Banks can preserve multiple community interpretations and provenance without reducing a living tradition to one official definition.
+
+This is where narrative becomes a high-bandwidth semantic vessel: individual words are brushstrokes, while the story transmits a structured image that the receiver reconstructs.
+
+11. Governance: Prevent the Bank from Becoming a Ministry of Meaning
+
+The strongest objection to Meaning Banks is also the most important design constraint: whoever controls definitions can influence behavior. Therefore a Meaning Bank must be architected against semantic sovereignty.
+
+Governance principles
+
+1. Plurality over monopoly. Multiple deposits and community namespaces may coexist.
+2. Append rather than erase. Corrections and supersessions remain traceable.
+3. No universal truth flag for contested semantics. The system may record evidence strength and institutional authority without pretending one repository owns language.
+4. Provenance before prestige. A famous institution is still a source, not an oracle.
+5. Contestability. Users and communities need mechanisms to challenge mappings, add alternatives, and expose missing context.
+6. Rights-aware storage. Source text, private conversations, cultural knowledge, and personal semantic histories may require access controls or non-storage.
+7. Minority preservation. Frequency must not be mistaken for legitimacy. Rare or marginalized senses can remain historically and socially important.
+8. Separation of meaning from external truth. A well-attested meaning does not prove a proposition about reality.
+9. Auditability of compression. Summaries must preserve links back to source traces.
+10. Local override with visible scope. Organizations may define operational meanings, but the scope must be explicit: “in this contract,” “in this model,” “in this community,” not “for everyone.”
+
+The bank should behave more like a public ledger of semantic claims than a central bank that sets the only valid exchange rate.
+
+12. Threat Model and Failure Modes
+
+A semantic system can amplify harm if its own abstractions are trusted too quickly.
+
+Semantic capture
+
+A government, company, platform, or faction controls high-visibility deposits and presents local definitions as universal. Mitigation: namespaces, plural reserves, transparent authority scope, contestability.
+
+Semantic laundering
+
+An interpretation is repeated across systems until its provenance disappears and it begins to look like fact. Mitigation: sticky epistemic status and source lineage.
+
+Counterfeit equivalence
+
+A cross-domain metaphor is treated as literal identity. Mitigation: ExchangeRoute loss fields and explicit mapping type.
+
+False precision
+
+Numeric confidence creates the appearance of measurement where only judgment exists. Mitigation: record how confidence was produced and permit qualitative uncertainty.
+
+Majority collapse
+
+High-frequency usage erases minority or technical meanings. Mitigation: context-aware retrieval rather than global popularity ranking.
+
+Privacy leakage
+
+Personal semantic histories reveal sensitive beliefs or relationships. Mitigation: data minimization, local vaults, access controls, deletion policies, and separation between public concept banks and private personal memory.
+
+Infinite semantic recursion
+
+The system spends all of its effort defining definitions and never acts. Mitigation: task-specific packets and the Consequence Interface. Read the scene just long enough to make the next good move; then let reality answer.
+
+Narrative overreach
+
+A compelling story becomes self-validating. Mitigation: Reality Key fields RK-4, RK-5, RK-10, and RK-11—provenance, epistemic status, co-sequences, and round-trip checks.
+
+13. Metrics and Evaluation
+
+A Meaning Bank should be judged by whether it improves reconstruction and coordination, not by how many definitions it stores.
+
+Candidate evaluation dimensions:
+
+• Provenance completeness: fraction of consequential deposits with recoverable source lineage.
+• Ambiguity retention: whether materially plausible alternatives survive packet compression.
+• Context selection accuracy: whether the selected sense matches expert or user intent in context.
+• Round-trip fidelity: preservation of task-relevant invariants across A → B → A′ conversion.
+• Loss visibility: rate at which known translation/domain losses are surfaced before action.
+• Delta usefulness: whether recorded semantic transitions help resolve later cases.
+• Consequence traceability: ability to connect a semantic selection to downstream decisions, measurements, or artifacts.
+• Compression ratio: semantic reserve size compared with the task-specific packet size, subject to fidelity constraints.
+• Disagreement legibility: whether disputes can be decomposed into evidence, definition, values, or jurisdiction rather than remaining undifferentiated conflict.
+• Reconstruction success: whether a new human or model can recover the intended operator from the stored reserve without access to the original conversation.
+
+No single scalar should become the “meaning score.” The system needs a dashboard of properties because semantic quality is multi-dimensional.
+
+14. Implementation Roadmap
+
+A practical rollout can proceed in four stages.
+
+Stage 1 — Local Pantheon prototype
+
+Use the existing dependency-light Meaning Bank implementation: append-only deposits, reserves, deltas, exchange routes, packets, and semantic preflight. Seed only high-value Pantheon operators and ambiguous terms.
+
+Stage 2 — Interchange profile
+
+Publish MBIP v0.1 JSON and JSON-LD contexts; map provenance to PROV-O and concept relationships to SKOS where appropriate. Add stable IDs and schema validation.
+
+Stage 3 — Reality Key and receipt tooling
+
+Create a small UI/API that can run RK-12 on a term or claim, emit a Meaning Receipt, compare two readings, and visualize deltas and co-sequences.
+
+Stage 4 — Federated banks
+
+Allow organizations and communities to maintain independent banks with explicit exchange routes between them. The target is interoperability without semantic centralization.
+
+The architecture should remain model-agnostic. Embeddings, LLMs, corpora, graph stores, or human curators can improve retrieval and reserve construction, but the semantic contract should survive replacement of any one inference substrate.
+
+15. Worked Example: “Acting”
+
+Consider the phrase: “At the limit, acting can become action.”
+
+A conventional system may treat this as wordplay. A Meaning Bank can preserve why it matters.
+
+Deposit A
+
+• surface: acting
+• sense: performing or pretending a role
+• domain: performance
+
+Deposit B
+
+• surface: acting
+• sense: taking action rather than remaining passive
+• domain: agency
+
+Delta
+
+• relation: polysemy bridge
+• changed dimensions: frame, agency, consequence
+• description: behavior initially interpreted as role-performance may later be interpreted as actual action when it creates durable consequence.
+
+Candidate reserve
+
+• enacted behavior is common to both senses; the causal relationship to the world changes the reading.
+
+Co-sequence
+
+• projected role → behavior → external response → opportunity → consequence → evidence → updated self-model.
+
+Reality Key
+
+• RK-5 prevents a metaphor about confidence from becoming biological fact.
+• RK-10 asks what actually changed in behavior and outcome.
+• RK-11 tests whether the operator survives transfer into another domain without importing irrelevant theatrical properties.
+
+The result is not merely a clever phrase. It is a reconstructable operator with known limits.
+
+16. Worked Example: Public Definition Conflict
+
+Imagine two institutions using the same term in incompatible ways. The Meaning Bank does not choose a winner by default.
+
+It creates separate deposits with source authority, jurisdiction, date, context, and evidence. It links them with a delta or conflict relation. A task-specific packet then selects according to the operative context—such as a statute, scientific protocol, organizational policy, or ordinary conversation—while retaining the alternative if it could materially change the outcome.
+
+This is the difference between semantic routing and semantic control.
+
+The system does not ask only, “What does this word mean?” It asks, “Which reserve governs this action, why, under whose authority, with what alternatives, and what happens if we choose incorrectly?”
+
+17. Broader Thesis: Narrative as Meta-Transmission
+
+Meaning Banks are not only about words. Stories can be treated as high-bandwidth semantic packets.
+
+A story transfers imagery, relations, temporal structure, values, causal expectations, and role models. Each word acts like a brushstroke; the receiver reconstructs a larger internal scene. This is why narrative can transmit more than a bare proposition and why the same story can remain useful after its surface details change.
+
+For AI, this suggests a distinction between lexical memory and narrative reserve. A model may need the definition of courage for one task and a structured set of stories showing courage under conflicting constraints for another. Both belong in a semantic bank if their provenance and interpretive status remain explicit.
+
+Narrative also creates a special risk: the better the story, the easier it is to confuse coherence with truth. The Reality Key is therefore not anti-poetry. It is what lets poetry carry depth without silently claiming evidentiary authority.
+
+18. Conclusion
+
+Language already has banks in an informal sense: dictionaries, archives, courts, schools, scientific communities, religious traditions, families, media systems, and memory. They hold different reserves and issue different semantic receipts. What is missing is a common architecture for preserving those reserves without flattening them.
+
+Meaning Banks propose that architecture.
+
+The core move is simple:
+
+surface → provenance → context → relations → deltas → exchange → consequence → reconstruction
+
+For AI, this makes interpretation more inspectable and portable. For PantheonOS, it completes a missing piece of semantic logistics between quarry, stratigraphy, muster, consequence, and afterglow. For society, it offers a way to make disagreement more legible without appointing one authority to own language.
+
+The deepest safeguard is also the deepest capability: meaning must remain connected to the world it helps us navigate. A bank stores the traces; a story carries the image; a model chooses a route; an action touches reality; the resulting co-sequences return new evidence to the ledger.
+
+That is the loop:
+
+MEANING → ACTION → WORLD → CO-SEQUENCES → DELTA → MEANING′
+
+The skeleton key is not a master definition.
+
+It is the discipline to ask what a symbol points to, where its value came from, what survives conversion, what was lost, and what happens next.
+
+References
+
+[1] Thanatos-Prime. PantheonOS / pantheon-prime. GitHub repository README. https://github.com/Thanatos-Prime/pantheon-prime
+
+[2] International Organization for Standardization. ISO 704:2022 — Terminology work — Principles and methods. 2022. https://www.iso.org/standard/79077.html
+
+[3] World Wide Web Consortium. SKOS Simple Knowledge Organization System Reference. W3C Recommendation, 18 August 2009. https://www.w3.org/TR/skos-reference/
+
+[4] World Wide Web Consortium. PROV-O: The PROV Ontology. W3C Recommendation, 30 April 2013. https://www.w3.org/TR/prov-o/
+
+[5] World Wide Web Consortium. JSON-LD 1.1. W3C Recommendation, 16 July 2020. https://www.w3.org/TR/json-ld/
+
+[6] National Institute of Standards and Technology. AI Risk Management Framework. https://www.nist.gov/itl/ai-risk-management-framework
+
+Appendix A — MBIP v0.1 Conformance Rules
+
+An implementation claiming MBIP-Core v0.1 conformance MUST:
+
+1. assign stable IDs to accounts, deposits, deltas, and exchange routes;
+2. preserve timestamps and provenance pointers;
+3. distinguish at least attested, inferred, interpretive, speculative, and counterfactual material;
+4. keep semantic deltas directional;
+5. expose known loss for cross-language or cross-domain exchange;
+6. permit multiple deposits for one surface token;
+7. avoid silently deleting superseded or challenged states;
+8. make packet compression traceable back to source deposits;
+9. separate semantic confidence from external factual verification;
+10. provide a method to export the active Meaning Receipt used for a consequential action.
+
+An implementation claiming MBIP-Reality v0.1 SHOULD additionally support all RK-12 fields and CoSequence links.
+
+Appendix B — Suggested Runtime API
+
+```text
+bank.deposit(trace)
+bank.reserve(account, invariant, evidence)
+bank.delta(source, target, changed_dimensions)
+bank.prism(account, context)
+bank.exchange(source, target, invariant, losses, gains)
+bank.transdict(...)
+bank.packet(account, objective, risk_profile)
+bank.receipt(packet, action)
+bank.cosequence(action_or_receipt, observed_effect)
+bank.audit(account_or_packet)
+bank.reality_key(subject)
+```
+
+The API is intentionally conceptual. Implementations may be local, federated, graph-based, relational, document-based, or hybrid.
+
+Appendix C — Canonical Invariants
+
+• ACCOUNT ≠ DEFINITION
+• SURFACE ≠ RESERVE
+• MEANING ≠ EVIDENCE
+• AMBIGUITY IS INFORMATION
+• DELTA IS DIRECTIONAL
+• EXCHANGE REPORTS LOSS
+• RESERVES ARE HYPOTHESES
+• PROVENANCE SURVIVES COMPRESSION
+• BANK ≠ SOVEREIGN
+• KEEP THE ARROW
+• LARGE RESERVE ≠ LARGE ACTIVE CONTEXT
+• REALITY GETS A VOTE THROUGH CONSEQUENCE / CO-SEQUENCE
