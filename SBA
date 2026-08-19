@@ -1,0 +1,147 @@
+Meaning Banks — Semantic Banking Architecture
+
+> **Canonical principle:** Do not merely store definitions; store what lets meaning be reconstructed.
+> 
+> **Checksum:** Did the word cross, or did the meaning cross?
+
+Meaning Banks are a Pantheon semantic-logistics capability for preserving, comparing, transferring, and reconstituting meaning without pretending a term has one timeless definition.
+
+A term is a semantic token whose value is backed by a meaning reserve: usage, context, relations, examples, etymology, stories, evidence, competing interpretations, and the deltas connecting one state of meaning to another.
+
+The bank metaphor is an interface. The mechanism underneath it is:
+
+TRACE → PROVENANCE → RELATION → DELTA → RECONSTRUCTION → TASK-SPECIFIC PROJECTION
+
+Placement
+
+```text
+SEMANTIC QUARRY
+    discover / extract
+          ↓
+MEANING BANKS
+    accounts / deposits / reserves / deltas / exchange routes
+          ↓
+STRATIGRAPHY / STRATA
+    history / translation / loss audit
+          ↓
+GOLDEN HORDE / SEMANTIC MUSTER
+    retrieve what the objective needs
+          ↓
+FORMATION / ACTION
+          ↓
+AFTERGLOW + DELTA
+          ↘ useful semantic change returns to the bank
+```
+
+Core objects
+
+• MeaningAccount — addressable term/concept ledger; not a fixed definition.
+• MeaningDeposit — a meaning trace with context, epistemic status, confidence, provenance, and reconstruction cues.
+• MeaningReserve — a candidate invariant supported by multiple traces.
+• SemanticDelta — a directed arrow describing what changed between deposits.
+• ExchangeRoute — a mapping across language/domain/community boundaries with explicit losses and gains.
+• MeaningPacket — a temporary, task-specific projection assembled from the reserve.
+
+Operations
+
+DEPOSIT • RESERVE • DELTA • RETRIEVE • PRISM • EXCHANGE • TRANSDICT • AUDIT • PRESSURE • PACKET • PREFLIGHT
+
+Trans-dict-ion
+
+Trans-dict-ion gets a relational pattern to say itself across a boundary:
+
+meaning₁ → carrier → crossing → reconstruction → meaning₂
+
+A route records what survived, what was lost, and what new affordances appeared.
+
+Semantic banking interfaces
+
+These are inspection metaphors, not literal economic laws:
+
+• semantic inflation — one term spreads across many weakly distinguished senses.
+• semantic debasement — a prestigious label remains while properties that backed it are removed.
+• semantic counterfeiting — surface resemblance borrows another concept’s authority without carrying its reserve.
+• semantic arbitrage — differences between communities’ interpretations are exploited.
+• semantic reserve — the contexts, evidence, relations, and traces backing a term.
+• meaning vault — durable provenance-preserving storage supporting reconstruction rather than frozen definitions.
+
+Emergent runtime capability
+
+pantheon_adapter.py adds semantic preflight before normal routing:
+
+```text
+PERCEIVE
+  ↓
+STRUCTURE
+  ↓
+SEMANTIC PREFLIGHT
+  ├─ continue
+  ├─ use_packet
+  ├─ prism
+  └─ audit
+  ↓
+UPDATE STATE / ROUTE / MUSTER
+  ...
+AFTERGLOW
+  ↓
+SEMANTIC DELTA DEPOSIT
+```
+
+Routing law:
+
+• continue — no useful banked material.
+• use_packet — a context-relevant semantic projection is available.
+• prism — the surface is genuinely overloaded or multiple readings remain competitive.
+• audit — provenance/evidence pressure deserves inspection.
+
+This makes the bank a live interface, not a passive archive.
+
+Minimal example
+
+```python
+from meaning_bank import MeaningBank
+
+bank = MeaningBank("bank.json")
+
+a = bank.deposit(
+    term="acting",
+    sense="performing or pretending a role",
+    language="en",
+    context="movie / theater",
+    domain="performance",
+    epistemic_status="attested",
+    confidence=0.95,
+    provenance=["corpus:acting-performance"],
+)
+
+b = bank.deposit(
+    term="acting",
+    sense="taking action; doing rather than remaining passive",
+    language="en",
+    context="agency / decision",
+    domain="agency",
+    epistemic_status="attested",
+    confidence=0.95,
+    provenance=["corpus:acting-agency"],
+)
+
+bank.delta(
+    source_id=a.id,
+    target_id=b.id,
+    relation="polysemy_bridge",
+    description="The same surface form moves from role-performance to real-world action.",
+    changed_dimensions=["frame", "agency"],
+    confidence=0.9,
+)
+
+packet = bank.packet(
+    "acting",
+    language="en",
+    context="pretending becomes action",
+    domain="agency",
+)
+```
+
+Design law
+
+A Meaning Bank does not own meaning. It keeps the ledger open enough that meaning cannot change invisibly.
