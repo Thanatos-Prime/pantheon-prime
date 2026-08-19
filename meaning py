@@ -1,0 +1,199 @@
+from __future__ import annotations
+from dataclasses import dataclass, asdict, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Iterable, Optional
+import hashlib, json, re, uuid
+
+EPISTEMIC_STATUSES = {
+    "observed","attested","inferred","predicted",
+    "interpretive","imagined","speculative","counterfactual",
+}
+EVIDENCE_WEIGHT = {
+    "observed":1.00,"attested":0.95,"inferred":0.78,"predicted":0.65,
+    "interpretive":0.62,"counterfactual":0.55,"speculative":0.45,"imagined":0.35,
+}
+
+def _now(): return datetime.now(timezone.utc).isoformat()
+def _id(prefix): return f"{prefix}_{uuid.uuid4().hex}"
+def _canonical(v): return json.dumps(v, sort_keys=True, ensure_ascii=False, separators=(",",":"))
+def _tokens(t): return set(re.findall(r"[a-z0-9']+", (t or "").lower()))
+def lexical_similarity(a,b):
+    aa,bb=_tokens(a),_tokens(b)
+    if not aa and not bb: return 1.0
+    if not aa or not bb: return 0.0
+    return len(aa&bb)/len(aa|bb)
+
+@dataclass(frozen=True)
+class MeaningDeposit:
+    id:str; term:str; language:str; sense:str; context:str; domain:str; community:str
+    epistemic_status:str; confidence:float; provenance:list[str]
+    reconstruction:dict[str,Any]; relations:list[dict[str,Any]]; tags:list[str]; created_at:str
+
+    @classmethod
+    def create(cls, *, term, sense, language="und", context="", domain="", community="",
+               epistemic_status="interpretive", confidence=0.5, provenance=None,
+               reconstruction=None, relations=None, tags=None):
+        if epistemic_status not in EPISTEMIC_STATUSES:
+            raise ValueError(f"Unknown epistemic_status: {epistemic_status}")
+        if not 0 <= confidence <= 1:
+            raise ValueError("confidence must be between 0 and 1")
+        if not str(term).strip() or not str(sense).strip():
+            raise ValueError("term and sense are required")
+        return cls(
+            _id("deposit"), str(term).strip(), str(language).strip() or "und", str(sense).strip(),
+            str(context).strip(), str(domain).strip(), str(community).strip(), epistemic_status,
+            float(confidence), list(provenance or []), dict(reconstruction or {}),
+            list(relations or []), sorted(set(tags or [])), _now()
+        )
+
+@dataclass(frozen=True)
+class MeaningReserve:
+    id:str; account_key:str; invariant:str; supported_by:list[str]; confidence:float
+    caveats:list[str]; created_at:str
+
+@dataclass(frozen=True)
+class SemanticDelta:
+    id:str; source_id:str; target_id:str; relation:str; description:str
+    changed_dimensions:list[str]; confidence:float; provenance:list[str]; created_at:str
+
+@dataclass(frozen=True)
+class ExchangeRoute:
+    id:str; source_key:str; target_key:str; invariant:str; mapping:str
+    losses:list[str]; gains:list[str]; confidence:float; provenance:list[str]; created_at:str
+
+@dataclass
+class MeaningPacket:
+    term:str; language:Optional[str]; query_context:str; domain:str
+    deposits:list[dict[str,Any]]=field(default_factory=list)
+    reserves:list[dict[str,Any]]=field(default_factory=list)
+    deltas:list[dict[str,Any]]=field(default_factory=list)
+    exchanges:list[dict[str,Any]]=field(default_factory=list)
+    ambiguity:list[str]=field(default_factory=list)
+    warnings:list[str]=field(default_factory=list)
+    provenance:list[str]=field(default_factory=list)
+    def to_dict(self): return asdict(self)
+
+class MeaningBank:
+    def __init__(self, path, *, similarity_fn:Callable[[str,str],float]=lexical_similarity):
+        self.path=Path(path); self.similarity_fn=similarity_fn; self.events=[]
+        if self.path.exists():
+            self.events=json.loads(self.path.read_text(encoding="utf-8"))
+            ok,detail=self.audit_ledger()
+            if not ok: raise ValueError(f"Ledger integrity failed: {detail}")
+
+    @staticmethod
+    def account_key(term, language="und"):
+        return f"{str(language).lower()}::{' '.join(str(term).lower().split())}"
+
+    def _append(self, event_type, payload):
+        prev=self.events[-1]["event_hash"] if self.events else None
+        event={"event_id":_id("event"),"timestamp":_now(),"event_type":event_type,
+               "payload":payload,"prev_hash":prev}
+        event["event_hash"]=hashlib.sha256(_canonical(event).encode()).hexdigest()
+        self.events.append(event)
+        self.path.parent.mkdir(parents=True,exist_ok=True)
+        self.path.write_text(json.dumps(self.events,indent=2,ensure_ascii=False),encoding="utf-8")
+        return event
+
+    def audit_ledger(self):
+        prev=None
+        for i,event in enumerate(self.events):
+            if event.get("prev_hash")!=prev: return False,f"broken prev_hash at event {i}"
+            check=dict(event); observed=check.pop("event_hash",None)
+            expected=hashlib.sha256(_canonical(check).encode()).hexdigest()
+            if observed!=expected: return False,f"hash mismatch at event {i}"
+            prev=observed
+        return True,f"{len(self.events)} events verified"
+
+    def deposit(self, **kwargs):
+        item=MeaningDeposit.create(**kwargs); self._append("deposit",asdict(item)); return item
+
+    def reserve(self, *, term, invariant, language="und", supported_by=None, confidence=0.5, caveats=None):
+        if not 0<=confidence<=1: raise ValueError("confidence must be between 0 and 1")
+        item=MeaningReserve(_id("reserve"),self.account_key(term,language),str(invariant).strip(),
+                            list(supported_by or []),float(confidence),list(caveats or []),_now())
+        self._append("reserve",asdict(item)); return item
+
+    def delta(self, *, source_id, target_id, relation, description, changed_dimensions=None,
+              confidence=0.5, provenance=None):
+        if source_id==target_id: raise ValueError("delta requires distinct deposits")
+        item=SemanticDelta(_id("delta"),source_id,target_id,str(relation).strip(),
+                           str(description).strip(),list(changed_dimensions or []),float(confidence),
+                           list(provenance or []),_now())
+        self._append("delta",asdict(item)); return item
+
+    def exchange(self, *, source_term, target_term, invariant, mapping, source_language="und",
+                 target_language="und", losses=None, gains=None, confidence=0.5, provenance=None):
+        item=ExchangeRoute(
+            _id("exchange"),self.account_key(source_term,source_language),
+            self.account_key(target_term,target_language),str(invariant).strip(),str(mapping).strip(),
+            list(losses or []),list(gains or []),float(confidence),list(provenance or []),_now())
+        self._append("exchange",asdict(item)); return item
+
+    def transdict(self, **kwargs): return self.exchange(**kwargs)
+    def _payloads(self,t): return [e["payload"] for e in self.events if e["event_type"]==t]
+
+    def deposits(self, term, language=None):
+        t=" ".join(str(term).lower().split())
+        return [d for d in self._payloads("deposit")
+                if " ".join(d["term"].lower().split())==t
+                and (not language or d["language"].lower()==str(language).lower())]
+
+    def retrieve(self, term, *, language=None, context="", domain="", community="", top_k=5):
+        query=" ".join([context,domain,community]); out=[]
+        for d in self.deposits(term,language):
+            semantic=" ".join([d.get("sense",""),d.get("context",""),d.get("domain",""),
+                               d.get("community","")," ".join(d.get("tags",[])),
+                               _canonical(d.get("reconstruction",{}))])
+            sim=self.similarity_fn(query,semantic) if query.strip() else 0.5
+            evidence=EVIDENCE_WEIGHT.get(d["epistemic_status"],0.4)
+            bonus=0.18 if domain and domain.lower()==d.get("domain","").lower() else 0.0
+            if community and community.lower()==d.get("community","").lower(): bonus+=0.10
+            score=min(1.0,0.50*sim+0.25*d["confidence"]+0.25*evidence+bonus)
+            row=dict(d); row["_retrieval_score"]=round(score,4); out.append(row)
+        return sorted(out,key=lambda x:x["_retrieval_score"],reverse=True)[:top_k]
+
+    def pressure(self, term, *, language=None):
+        ds=self.deposits(term,language)
+        if not ds: return ["no_deposits"]
+        flags=[]; senses=[d["sense"] for d in ds]
+        if len(set(senses))>=5:
+            flags.append("possible_semantic_inflation: many distinct recorded senses")
+        if len(senses)>=2:
+            sims=[self.similarity_fn(senses[i],senses[j])
+                  for i in range(len(senses)) for j in range(i+1,len(senses))]
+            if sims and sum(sims)/len(sims)<0.12:
+                flags.append("high_sense_dispersion: inspect overloaded surface form")
+        if any(d["confidence"]>=0.8 and not d.get("provenance")
+               and d["epistemic_status"] in {"observed","attested"} for d in ds):
+            flags.append("reserve_warning: high-confidence attested material lacks provenance")
+        return flags
+
+    def prism(self, term, *, language=None):
+        ds=self.deposits(term,language); ids={d["id"] for d in ds}
+        keys={self.account_key(d["term"],d["language"]) for d in ds}
+        return {"term":term,"senses":sorted({d["sense"] for d in ds}),"deposits":ds,
+                "reserves":[r for r in self._payloads("reserve") if r["account_key"] in keys],
+                "deltas":[x for x in self._payloads("delta")
+                          if x["source_id"] in ids or x["target_id"] in ids]}
+
+    def packet(self, term, *, language=None, context="", domain="", community="", top_k=5):
+        selected=self.retrieve(term,language=language,context=context,domain=domain,
+                               community=community,top_k=top_k)
+        ids={d["id"] for d in selected}
+        keys={self.account_key(d["term"],d["language"]) for d in selected}
+        ambiguity=[]
+        if len(selected)>1:
+            first=selected[0]
+            for other in selected[1:]:
+                if abs(first["_retrieval_score"]-other["_retrieval_score"])<=0.12:
+                    ambiguity.append(f"Competing reading: {other['sense']} (score {other['_retrieval_score']})")
+        return MeaningPacket(
+            term,language,context,domain,selected,
+            [r for r in self._payloads("reserve") if r["account_key"] in keys],
+            [x for x in self._payloads("delta") if x["source_id"] in ids or x["target_id"] in ids],
+            [x for x in self._payloads("exchange") if x["source_key"] in keys or x["target_key"] in keys],
+            ambiguity,self.pressure(term,language=language),
+            sorted({p for d in selected for p in d.get("provenance",[])})
+        )
