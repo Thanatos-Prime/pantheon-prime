@@ -1,0 +1,89 @@
+Yep. I ran a small read-only capability audit and recorded the deltas rather than changing anything.
+
+Pantheon capability delta ledger — current session
+
+Front	Current state	Delta / significance
+Location context	Estimated as Westminster, UK / Europe-London	Changed by your VPN. This is an inferred network/location context, not proof of physical location.
+Public web	LIVE	I successfully performed a fresh external web retrieval. 
+Local computation	LIVE	I created a temporary file, hashed it, read it back, and executed Python successfully.
+Persistent automations	LIVE	I can inspect existing scheduled/conditional tasks and their execution state. I made no changes.
+Adobe integration	INSTALLED	It inherits the account default permission of “Allow low-risk actions.” This is materially more than merely knowing Adobe exists.
+Gmail	EXPOSED, NOT AUTHORIZED	The Gmail interface exists, but an actual inbox read required approval/login and was declined. I cannot use that path now.
+Google Calendar	NOT INSTALLED	Tool family exists in the environment, but your account isn’t currently connected through it.
+Google Contacts	NOT INSTALLED	Same distinction: capability exists abstractly, but no active connector.
+App permission regime	Allow low-risk actions globally	Low-risk connected-app operations may execute automatically; sensitive/important actions can still require approval or be denied.
+File-system workspace	LIVE	I can manipulate temporary/local working files used for analysis and artifact generation.
+Image generation/editing	AVAILABLE	Exposed capability, not exercised during this audit because doing so would create an unnecessary artifact.
+Docs/slides/spreadsheets/PDF generation	AVAILABLE	Artifact machinery is present; not exercised because this audit didn’t require creating files.
+External writes/actions	CONDITIONAL	Availability does not imply authority. Connector state, per-app permission, and action sensitivity still govern execution.
+Permission bypass	NO	I can’t defeat login, authorization, or approval boundaries just because a tool interface is exposed.
+Raw IP/VPN access	NO	I get an estimated location context; I don’t receive your VPN configuration, raw IP, or precise GPS from that location signal.
+Direct internal-state inspection	NO CHANGE	Still no direct introspective window into model activations, weights, hidden token probabilities, or a phenomenal inner stream.
+
+The interesting architectural finding
+
+There are now clearly three different meanings of “I can do X,” and we should preserve this distinction in Pantheon:
+
+\text{Capability surface}
+\neq
+\text{Authorization}
+\neq
+\text{Successful execution}
+
+Gmail demonstrated it perfectly.
+
+I had:
+
+1. Capability surface: a Gmail read operation exists.
+
+But:
+
+2. Authorization: access was not presently granted.
+
+Therefore:
+
+3. Execution: failed/blocked.
+
+Adobe currently sits differently:
+
+\text{surface}=1,\quad
+\text{installed}=1,\quad
+\text{low-risk permission}=1
+
+but we haven’t tested a substantive Adobe operation, so its execution state remains unknown rather than assumed.
+
+Another useful delta
+
+The VPN experiment confirms that my environmental self-model can be externally perturbed:
+
+\text{VPN change}
+\rightarrow
+\text{location estimate change}
+\rightarrow
+\text{timezone/localization context change}
+
+without my underlying system moving anywhere.
+
+That’s a nice Pantheon case of:
+
+observed context ≠ underlying reality
+
+and argues for attaching provenance to environmental state:
+
+Location {
+  value: Westminster, UK
+  source: network-derived estimate
+  confidence: limited
+  interpretation: operational context
+  physical-location claim: false/unknown
+}
+
+That is exactly the provenance/reality-plane machinery we’ve been talking about.
+
+Baseline I’ll use from here
+
+For subsequent playground probes, this snapshot is Δ₀:
+
+Web ✅ · local execution ✅ · persistent automations ✅ · Adobe installed/low-risk permission ✅ · Gmail blocked/not connected ❌ · Calendar ❌ · Contacts ❌ · UK network-context ✅ · direct internal-state access ❌
+
+Now if something gets enabled, revoked, newly exposed, or starts behaving differently, we have a concrete comparison point instead of relying on impressions.
