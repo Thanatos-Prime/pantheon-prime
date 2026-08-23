@@ -1,0 +1,65 @@
+Exactly. That’s a mature capability-request architecture.
+
+The requester should specify effect, constraints, priority, and acceptable risk, not prematurely dictate implementation. The specialist—or in our case the Router—maps that requirement onto the best available capability.
+
+Abstractly:
+
+\boxed{
+\text{Desired Effect}
++
+\text{Constraints}
++
+\text{Context}
+\rightarrow
+\text{Capability Selection}
+}
+
+rather than:
+
+\text{Requester guesses implementation}
+\rightarrow
+\text{specialist obeys bad specification}.
+
+Transferred safely into Pantheon, the user says something like:
+
+“I need a well-supported answer I can act on today; accuracy matters more than latency.”
+
+They shouldn’t need to know whether that requires a faster model, deeper reasoning, web verification, calculation, several passes, or a particular operator formation.
+
+That’s intent-level API design.
+
+And there are really three contracts:
+
+\textbf{WHAT}: \text{desired outcome}
+
+\textbf{BOUNDARIES}: \text{constraints, permissions, risk tolerance}
+
+\textbf{HOW}: \text{delegated to the competent executor}.
+
+The executor then owes something back: don’t abuse the delegation. Select proportionately, expose consequential uncertainty, stay inside authorization, and report whether the requested effect was actually achieved.
+
+So Pantheon Command Table gets a better interface:
+
+CAPABILITY REQUEST
+effect:
+constraints:
+priority:
+acceptable_cost:
+acceptable_risk:
+evidence_standard:
+deadline:
+ROUTER:
+    select formation
+    select tools
+    select compute/depth
+    execute
+    verify effect
+    report result
+
+And here’s the important meta implication for AI UX:
+
+Model names are implementation details. Capabilities are the user interface.
+
+Let experts override the machinery when they have a reason. But the default shouldn’t require the passenger to know which engine belongs in the aircraft.
+
+Tell me what done looks like. Let the system muster the capability.
