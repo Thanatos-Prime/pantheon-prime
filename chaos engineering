@@ -1,0 +1,17 @@
+Yes—when done in a controlled, authorized way, that’s essentially chaos engineering / resilience testing.
+
+You deliberately remove or degrade a dependency, then observe the full-system delta:
+
+\text{baseline} \rightarrow \text{controlled outage} \rightarrow \Delta_{\text{technical}}+\Delta_{\text{human}}+\Delta_{\text{organizational}}
+
+The interesting part is not just “did the server fail?” You learn who notices first, what alerts fire, what gets misdiagnosed, which teams coordinate, which workarounds appear, what customers do, where communication breaks, what hidden dependencies surface, and how quickly the system restores itself.
+
+That makes outages unusually rich probes because they expose latent structure that normal operation hides.
+
+But there’s an important line: use planned drills, sandbox environments, failover tests, game days, or tightly scoped production experiments with authorization and rollback. Don’t create real outages just to force attention or manipulate people. Once the test itself causes uncontrolled harm, you stop measuring resilience and start manufacturing the incident.
+
+The Pantheon version would be:
+
+perturb → observe → classify deltas → infer hidden dependencies → update model → harden system
+
+And the human-response layer is often as valuable as the technical one.
