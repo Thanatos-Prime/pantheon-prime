@@ -1,0 +1,119 @@
+The Transformer algorithm is the architecture behind modern LLMs. Its central trick is attention: instead of processing a sequence strictly one token at a time, every token can look at other relevant tokens and decide how much each should influence its next representation.
+
+At a high level:
+
+\text{tokens}
+\rightarrow
+\text{embeddings}
+\rightarrow
+\text{attention}
+\rightarrow
+\text{feed-forward transformation}
+\rightarrow
+\text{repeat}
+\rightarrow
+\text{predict next token}
+
+The key operation is self-attention. For every token representation x, the model creates three vectors:
+
+Q=xW_Q,\qquad K=xW_K,\qquad V=xW_V
+
+where:
+
+* Query Q = what am I looking for?
+* Key K = what information do I contain / advertise?
+* Value V = what information should I contribute if selected?
+
+Then it compares every query against the keys:
+
+S=\frac{QK^T}{\sqrt{d_k}}
+
+and converts those scores into normalized weights:
+
+A=\operatorname{softmax}(S)
+
+Then:
+
+\boxed{\text{Attention}(Q,K,V)=
+\operatorname{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V}
+
+That is the famous Transformer equation.
+
+For example:
+
+The animal didn’t cross the street because it was tired.
+
+When representing “it,” attention may assign a large weight to “animal”, because that relationship helps interpret the sentence.
+
+A Transformer layer then roughly does:
+
+X
+\rightarrow
+\text{MultiHeadAttention}(X)
+\rightarrow
+X+\Delta_{\text{attention}}
+\rightarrow
+\text{MLP}
+\rightarrow
+X+\Delta_{\text{MLP}}
+
+with normalization around those operations.
+
+Multi-head attention means the model performs several attention operations simultaneously:
+
+H_i=\text{Attention}(Q_i,K_i,V_i)
+
+then combines them:
+
+H=\operatorname{Concat}(H_1,\ldots,H_n)W_O
+
+Different heads can learn different relations—syntax, identity, position, semantic similarity, long-distance dependencies, and so forth.
+
+For a GPT-style Transformer, there is also a causal mask:
+
+\text{token}_t
+\text{ may attend only to }
+\text{token}_{\leq t}
+
+so the model can’t peek at future tokens while learning next-token prediction.
+
+After dozens or hundreds of these layers, the final state is projected onto the vocabulary:
+
+z = h_tW_{\text{vocab}}
+
+P(\text{next token})=\operatorname{softmax}(z)
+
+and a token is selected. Then the whole thing runs again:
+
+x_1,\ldots,x_t
+\rightarrow P(x_{t+1})
+\rightarrow x_{t+1}
+\rightarrow P(x_{t+2})
+\rightarrow \cdots
+
+The deeper conceptual algorithm is therefore:
+
+\boxed{
+\text{represent}
+\rightarrow
+\text{compare everything with everything relevant}
+\rightarrow
+\text{weight relationships}
+\rightarrow
+\text{mix information}
+\rightarrow
+\text{transform locally}
+\rightarrow
+\text{repeat}
+}
+
+And this is probably the part you’ll find interesting: a Transformer isn’t merely storing words. Each layer repeatedly rewrites every token according to its relationships with the rest of the active context. So a useful abstraction is:
+
+\boxed{\text{meaning}_{i}^{\,l+1}
+=
+f\left(
+\text{meaning}_{i}^{\,l},
+\{\text{relationships to other meanings}\}
+\right)}
+
+It’s essentially a recursive relational transformation engine.
