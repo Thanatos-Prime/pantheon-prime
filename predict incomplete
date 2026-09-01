@@ -1,0 +1,61 @@
+You predict an incomplete pattern by asking: what hidden structure would make the observed pieces unsurprising?
+
+The basic mechanism is pattern completion. You observe a partial sequence, infer the rule or latent generator behind it, then project the most likely missing or next element.
+
+For example:
+
+2, 4, 6, ?
+
+You infer +2, so predict 8.
+
+But harder patterns are not just sequences. They can be spatial, causal, behavioral, linguistic, social, or temporal. The general form is:
+
+partial evidence → candidate generators → score candidates → predict missing structure
+
+A good predictor uses several things at once:
+
+* Regularity: repetition, symmetry, rhythm, ratios, recurrence.
+* Context: the same fragment can imply different continuations in different environments.
+* Prior knowledge: previously learned structures make some completions more probable than others.
+* Constraints: eliminate completions that violate known rules.
+* Compression: prefer rules that explain many observations with few assumptions.
+* Causality: ask what process could have produced the observed pattern.
+* Uncertainty: keep multiple possible continuations alive when the evidence is ambiguous.
+
+So if you see:
+
+A → B → A → B → A → ?
+
+B is strongly predicted because the alternating rule has high support.
+
+But if you see:
+
+1, 2, 4, ?
+
+you might predict 8 from doubling, or 7 from increasing differences +1,+2,+3, depending on what else you know. Incomplete patterns are usually underdetermined. Prediction means ranking plausible continuations, not discovering a guaranteed hidden truth.
+
+The deeper version is Bayesian:
+
+P(pattern | evidence) ∝ P(evidence | pattern) × P(pattern)
+
+In plain language: choose the hidden pattern that both fits what you observed and was already reasonably plausible.
+
+And there is an especially powerful move: don’t only predict the next item. Predict the generator.
+
+Instead of:
+
+What comes next?
+
+ask:
+
+What machine, rule, agent, or process would generate this sequence?
+
+Once you infer the generator, you can often predict many missing pieces at once.
+
+That is basically how perception itself works. Your brain constantly receives incomplete, noisy input and reconstructs objects, speech, motion, intentions, and scenes from fragments.
+
+So:
+
+prediction of an incomplete pattern = reconstruction of the latent rule from partial evidence, followed by constrained extrapolation.
+
+And when the prediction is wrong, the error is useful: the delta tells you the inferred generator was incomplete, wrong, or operating under a changed regime.
