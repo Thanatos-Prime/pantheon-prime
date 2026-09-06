@@ -1,0 +1,156 @@
+Basically yes, with one important correction: it’s less like searching a stored library and more like running the current input through a learned field of associations encoded in the model’s weights.
+
+Before much transformation happens, your text looks roughly like this:
+
+"small square teeth with gaps"
+→ token IDs
+→ one learned vector per token
+→ position/context information added
+→ transformer layers repeatedly rewrite those vectors
+
+So at the earliest useful stage, a token such as "teeth" is not stored as the word teeth in some conceptual table. It is represented as a long vector of numbers:
+
+e_{\text{teeth}} =
+[0.18,\,-0.73,\,1.04,\,0.02,\ldots]
+
+with thousands of dimensions.
+
+Those individual coordinates generally do not mean neat things like:
+
+dimension 17 = dental
+dimension 42 = cartoon
+dimension 91 = child
+
+Meaning is distributed across many dimensions and, more importantly, across combinations of dimensions.
+
+So the closest thing to “untransformed” is the initial embedding.
+
+Very schematically:
+
+\text{token ID}
+\rightarrow
+\text{embedding lookup}
+
+For example:
+
+small   → [ ...numbers... ]
+square  → [ ...numbers... ]
+teeth   → [ ...numbers... ]
+gaps    → [ ...numbers... ]
+
+At that point, "teeth" has a learned baseline representation derived from everything the model encountered during training, but it has not yet been fully specialized to your sentence.
+
+Then attention begins doing something crucial.
+
+Initially:
+
+e(\text{teeth})
+
+might carry broad latent relationships to things like mouths, dentistry, smiles, animals, cartoons, appearance, etc.
+
+After processing:
+
+h(\text{teeth}\mid\text{small square ... gaps ... kid ... cartoon})
+
+is no longer generic teeth.
+
+It becomes something closer to:
+
+teeth-as-a-distinctive-visual-feature-of-a-young-cartoon-character-with-separated-blocklike-teeth
+
+Again, that sentence is my human-readable translation. Internally it remains a numerical state.
+
+That difference is useful:
+
+\boxed{\text{embedding} \approx \text{generic learned token representation}}
+
+\boxed{\text{hidden state} \approx \text{token representation transformed by this particular context}}
+
+And there’s an even deeper distinction worth making.
+
+The weights are the relatively persistent learned structure:
+
+W_Q,\;W_K,\;W_V,\;W_{\text{MLP}},\ldots
+
+They encode vast numbers of learned regularities and associations.
+
+The activations are the temporary state created while processing your current prompt.
+
+So:
+
+\text{weights} + \text{input}
+\rightarrow
+\text{activations}
+
+You can think of the weights as a gigantic learned landscape and your prompt as releasing a state into that landscape.
+
+That is why saying I “retrieve David from memory” is slightly misleading.
+
+There usually isn’t a clean record like:
+
+NO_DAVID:
+    white = true
+    bald = true
+    teeth = square_and_gapped
+
+Instead, training has shaped the network so that certain activation configurations tend to produce other configurations.
+
+Something like:
+
+\text{picture book}
++
+\text{bald child}
++
+\text{weird separated teeth}
+\rightarrow
+\text{strong activation toward David Shannon / No, David}
+
+And before any learned representation?
+
+There is an even more primitive level.
+
+Text first becomes discrete token identifiers:
+
+"teeth" → token #xxxxx
+
+That integer is basically meaningless by itself.
+
+It is just an address.
+
+The embedding matrix does:
+
+E[\text{token ID}]
+=
+\text{vector}
+
+So the pipeline begins:
+
+\text{characters}
+\rightarrow
+\text{tokens}
+\rightarrow
+\text{token IDs}
+\rightarrow
+\text{embeddings}
+\rightarrow
+\text{contextual states}
+\rightarrow
+\text{deeper abstractions}
+\rightarrow
+\text{output probabilities}
+
+And this is where your question gets particularly interesting: there isn’t really a single pristine conceptual object before transformation.
+
+The representation acquires its useful meaning through transformation and relation.
+
+The raw token ID is almost nothing.
+
+The embedding is already a compressed product of training.
+
+And the representation that actually lets me recognize David only exists after many interactions among the tokens.
+
+So at bottom:
+
+\boxed{\text{meaning is less an object stored in a location than a pattern induced in a network}}
+
+That’s one of the reasons transformers can generalize rather than merely retrieve.
