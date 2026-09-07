@@ -1,0 +1,354 @@
+"""The bounded Garcia loop: preserve intent, solve the route, learn, deliver."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+from .checkpoint import CheckpointError, CheckpointStore
+from .environment import Environment, NumericEnvironment
+from .governor import Governor
+from .ledger import Ledger
+from .metamap import Metamap
+from .model import (
+    CycleResult,
+    DeltaReport,
+    Mission,
+    Operator,
+    RunResult,
+    SemanticState,
+)
+from .planner import FormationPlanner
+
+
+@dataclass(frozen=True)
+class RuntimeConfig:
+    prediction_error_weight: float = 1.0
+    progress_epsilon: float = 1e-9
+
+
+class PantheonRuntime:
+    """Persistent, model-independent sense/plan/act/measure/update runtime.
+
+    The planner may inspect a multi-operator formation, but the runtime executes
+    only its first operator before returning to Reality. This is intentional:
+    every consequential step is replanned from observed state.
+    """
+
+    def __init__(
+        self,
+        *,
+        mission: Mission,
+        operators: Iterable[Operator],
+        state: SemanticState | None = None,
+        environment: Environment | None = None,
+        planner: FormationPlanner | None = None,
+        governor: Governor | None = None,
+        metamap: Metamap | None = None,
+        ledger: Ledger | None = None,
+        checkpoint_path: str | Path | None = None,
+        resume: bool = False,
+        config: RuntimeConfig | None = None,
+    ) -> None:
+        self.mission = mission
+        self.operators = tuple(operators)
+        if not self.operators:
+            raise ValueError("the runtime needs at least one operator")
+        if len({operator.name for operator in self.operators}) != len(self.operators):
+            raise ValueError("operator names must be unique")
+
+        self.environment = environment or NumericEnvironment()
+        self.planner = planner or FormationPlanner()
+        self.governor = governor or Governor()
+        self.metamap = metamap or Metamap()
+        self.ledger = ledger or Ledger()
+        self.config = config or RuntimeConfig()
+        self._checkpoint = (
+            CheckpointStore(checkpoint_path) if checkpoint_path is not None else None
+        )
+        self._stall_count = 0
+
+        if resume:
+            if self._checkpoint is None or not self._checkpoint.path.exists():
+                raise CheckpointError("resume requested but no checkpoint exists")
+            restored_state, restored_map, stall_count, ledger_head = self._checkpoint.load(
+                mission_id=mission.mission_id
+            )
+            if ledger_head != self.ledger.head:
+                raise CheckpointError("checkpoint and ledger heads do not match")
+            last_payload = self.ledger.entries[-1].payload if self.ledger.entries else {}
+            ledger_state_hash = last_payload.get(
+                "state_hash", last_payload.get("integrated_state_hash")
+            )
+            if ledger_state_hash != restored_state.state_hash:
+                raise CheckpointError("checkpoint state does not match the ledger")
+            self.state = restored_state
+            self.metamap = restored_map
+            self._stall_count = stall_count
+            self.ledger.append(
+                "mission_resumed",
+                {
+                    "mission_id": mission.mission_id,
+                    "state_hash": self.state.state_hash,
+                    "cycle": self.state.cycle,
+                },
+            )
+            self._persist()
+        else:
+            self.state = state or SemanticState()
+            violations = self.governor.state_violations(
+                self.state, self.mission.invariants
+            )
+            if violations:
+                raise ValueError(f"initial state violates mission invariants: {violations}")
+            self.ledger.append(
+                "mission_started",
+                {
+                    "mission_id": mission.mission_id,
+                    "objective": mission.objective,
+                    "terrain": mission.terrain,
+                    "state_hash": self.state.state_hash,
+                    "initial_distance": mission.distance(self.state),
+                },
+            )
+            self._persist()
+
+    def _persist(self) -> None:
+        if self._checkpoint is None:
+            return
+        self._checkpoint.save(
+            mission_id=self.mission.mission_id,
+            state=self.state,
+            metamap=self.metamap,
+            stall_count=self._stall_count,
+            ledger_head=self.ledger.head,
+        )
+
+    def _stop(self, status: str, reasons: tuple[str, ...] = ()) -> CycleResult:
+        self.ledger.append(
+            "mission_stopped",
+            {
+                "mission_id": self.mission.mission_id,
+                "status": status,
+                "reasons": list(reasons),
+                "cycle": self.state.cycle,
+                "state_hash": self.state.state_hash,
+                "remaining_distance": self.mission.distance(self.state),
+            },
+        )
+        self._persist()
+        return CycleResult(status=status, state=self.state, reasons=reasons)
+
+    def run_cycle(self) -> CycleResult:
+        if self.mission.satisfied(self.state):
+            return self._stop("complete")
+        if self.state.cycle >= self.mission.max_cycles:
+            return self._stop("max_cycles")
+        if self.state.spent >= self.mission.budget:
+            return self._stop("budget_exhausted")
+
+        before_sense_hash = self.state.state_hash
+        sensed = self.environment.sense(self.state)
+        sense_gate = self.governor.gate_observation(sensed, self.mission)
+        self.ledger.append(
+            "state_sensed",
+            {
+                "cycle": self.state.cycle,
+                "before_hash": before_sense_hash,
+                "sensed_hash": sensed.state_hash,
+                "allowed": sense_gate.allowed,
+                "reasons": list(sense_gate.reasons),
+            },
+        )
+        if not sense_gate.allowed:
+            return self._stop("invariant_violation", sense_gate.reasons)
+        self.state = sensed
+        if self.mission.satisfied(self.state):
+            return self._stop("complete")
+
+        plan = self.planner.plan(
+            state=self.state,
+            mission=self.mission,
+            operators=self.operators,
+            governor=self.governor,
+            metamap=self.metamap,
+        )
+        if plan is None:
+            return self._stop("no_viable_plan")
+
+        operator = plan.operators[0]
+        decision = self.governor.gate_operator(operator, self.state, self.mission)
+        self.ledger.append(
+            "plan_selected",
+            {
+                "cycle": self.state.cycle,
+                "formation": plan.formation,
+                "next_operator": operator.name,
+                "expected_progress": plan.expected_progress,
+                "score": plan.score,
+                "allowed": decision.allowed,
+                "reasons": list(decision.reasons),
+            },
+        )
+        if not decision.allowed:
+            return self._stop("blocked", decision.reasons)
+
+        before = self.state
+        predicted = operator.apply(before)
+        observed = self.environment.execute(before, operator)
+        observation_gate = self.governor.gate_observation(observed, self.mission)
+        self.ledger.append(
+            "action_executed",
+            {
+                "cycle": before.cycle,
+                "operator": operator.name,
+                "before_hash": before.state_hash,
+                "predicted_hash": predicted.state_hash,
+                "observed_hash": observed.state_hash,
+                "observation_allowed": observation_gate.allowed,
+            },
+        )
+
+        value_keys = sorted(set(predicted.values) | set(observed.values))
+        value_error = {
+            key: observed.value(key) - predicted.value(key) for key in value_keys
+        }
+        prediction_error = sum(abs(value) for value in value_error.values())
+        progress = self.mission.distance(before) - self.mission.distance(observed)
+        formation_credit = plan.expected_progress / len(plan.operators)
+        option_value = (
+            max(0.0, formation_credit)
+            if abs(progress) <= self.config.progress_epsilon
+            else 0.0
+        )
+        credited_progress = progress + option_value
+        reward = (
+            credited_progress
+            - operator.cost
+            - self.config.prediction_error_weight * prediction_error
+        )
+
+        if not observation_gate.allowed:
+            self.state = self.environment.rollback(before, observed)
+            reward -= 1.0
+            self._stall_count += 1
+            status = "rolled_back"
+        else:
+            self.state = observed
+            if progress > self.config.progress_epsilon:
+                self._stall_count = 0
+            else:
+                self._stall_count += 1
+            status = "continue"
+
+        delta = DeltaReport(
+            predicted_values=dict(predicted.values),
+            observed_values=dict(observed.values),
+            value_error=value_error,
+            prediction_error=prediction_error,
+            progress=progress,
+            option_value=option_value,
+            credited_progress=credited_progress,
+            reward=reward,
+        )
+        success = (
+            observation_gate.allowed
+            and credited_progress > self.config.progress_epsilon
+        )
+        self.metamap.record(
+            terrain=self.mission.terrain,
+            route=operator.name,
+            reward=reward,
+            prediction_error=prediction_error,
+            success=success,
+        )
+        if plan.formation != operator.name:
+            self.metamap.record(
+                terrain=self.mission.terrain,
+                route=plan.formation,
+                reward=reward,
+                prediction_error=prediction_error,
+                success=success,
+            )
+        self.ledger.append(
+            "reality_delta",
+            {
+                "cycle": before.cycle,
+                "operator": operator.name,
+                "formation": plan.formation,
+                "delta": delta.to_dict(),
+                "post_gate_reasons": list(observation_gate.reasons),
+                "integrated_state_hash": self.state.state_hash,
+                "rolled_back": not observation_gate.allowed,
+            },
+        )
+
+        if self.mission.satisfied(self.state):
+            status = "complete"
+        elif self._stall_count >= self.mission.stall_limit:
+            status = "stalled"
+
+        if status in ("complete", "stalled"):
+            self.ledger.append(
+                "mission_stopped",
+                {
+                    "mission_id": self.mission.mission_id,
+                    "status": status,
+                    "cycle": self.state.cycle,
+                    "state_hash": self.state.state_hash,
+                    "remaining_distance": self.mission.distance(self.state),
+                },
+            )
+        self._persist()
+        return CycleResult(
+            status=status,
+            state=self.state,
+            operator=operator.name,
+            planned_formation=plan.formation,
+            delta=delta,
+            reasons=observation_gate.reasons,
+        )
+
+    def run_until(self, max_cycles: int | None = None) -> RunResult:
+        ceiling = self.mission.max_cycles
+        if max_cycles is not None:
+            if max_cycles <= 0:
+                raise ValueError("max_cycles must be positive")
+            ceiling = min(ceiling, self.state.cycle + max_cycles)
+
+        results: list[CycleResult] = []
+        terminal = {
+            "complete",
+            "budget_exhausted",
+            "max_cycles",
+            "stalled",
+            "no_viable_plan",
+            "blocked",
+            "invariant_violation",
+        }
+        while self.state.cycle < ceiling:
+            result = self.run_cycle()
+            results.append(result)
+            if result.status in terminal:
+                return RunResult(result.status, self.state, tuple(results))
+
+        if self.mission.satisfied(self.state):
+            status = "complete"
+        elif self.state.cycle >= self.mission.max_cycles:
+            status = "max_cycles"
+        else:
+            status = "paused"
+        if status != "paused":
+            self.ledger.append(
+                "mission_stopped",
+                {
+                    "mission_id": self.mission.mission_id,
+                    "status": status,
+                    "cycle": self.state.cycle,
+                    "state_hash": self.state.state_hash,
+                    "remaining_distance": self.mission.distance(self.state),
+                },
+            )
+            self._persist()
+        return RunResult(status, self.state, tuple(results))
