@@ -1,0 +1,65 @@
+Transformer-Free Runtime v0.1
+
+Pantheon Prime now contains an executable cognitive control loop that does not
+import, call, or require a transformer, an LLM, embeddings, or a model API.
+
+Its canonical loop is:
+
+```
+commander intent
+  -> typed semantic state
+  -> bounded formation search
+  -> Governor gate
+  -> one reversible action
+  -> Reality observation
+  -> prediction delta
+  -> Metamap update
+  -> durable state and ledger
+  -> repeat until a declared stop condition
+```
+
+Why one operator at a time
+
+The planner searches multi-operator formations, but the executor commits only
+the first operator. It then observes reality and replans. That keeps an elegant
+plan from outrunning evidence.
+
+When a prerequisite produces no immediate goal movement but opens a useful
+formation, its delta records explicit option value. This prevents the Metamap
+from misclassifying preparation as failure while still penalizing prediction
+error, cost, and stalled action.
+
+What each component means
+
+|Pantheon handle|Executable mechanism                                                            |
+|---------------|--------------------------------------------------------------------------------|
+|StateVector    |`SemanticState`, serialized independently of inference                          |
+|Metal Seal     |typed `Operator` with preconditions, effects, cost, risk, and authority metadata|
+|Formation      |ordered operator sequence explored by `FormationPlanner`                        |
+|Command Table  |bounded search and multi-axis scoring                                           |
+|Governor / Gyro|deterministic pre-action and post-observation gates                             |
+|Reality        |pluggable `Environment` protocol                                                |
+|Delta Calculus |predicted-versus-observed `DeltaReport`                                         |
+|Metamap        |outcome-calibrated route priors                                                 |
+|Mother Duck    |hash-chained JSONL `Ledger` plus atomic checkpoint                              |
+|Garcia         |`run_until`: carry intent through obstacles until a stopping condition          |
+
+Authority boundary
+
+External and irreversible operators are denied by default. Enabling them is an
+explicit host decision, not something a planner can grant itself. The included
+environment is a reversible numeric world for local execution and testing.
+
+Persistence
+
+Pass both a ledger path and checkpoint path to preserve continuity across
+process restarts. On resume, the checkpoint’s recorded ledger head must match
+the actual ledger head, and the checkpoint state must match the state committed
+in that ledger. Checkpoint or ledger tampering fails closed.
+
+Claims discipline
+
+This package demonstrates an executable, transformer-free control spine. It
+does not by itself establish general intelligence, open-domain natural-language
+understanding, consciousness, or broad external performance. Those remain
+benchmarks, not names.
