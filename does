@@ -1,0 +1,195 @@
+"""Dual-occupancy state estimation and consequence-aware action gating.
+
+This module is a control abstraction, not a diagnostic instrument.  It keeps
+general cognitive capability separate from reality-model calibration and
+models lucidity as revisable metacognition rather than mere coherence.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+from math import sqrt
+
+
+def _unit(value: float, label: str) -> float:
+    number = float(value)
+    if number != number or number in (float("inf"), float("-inf")):
+        raise ValueError(f"{label} must be finite")
+    if not 0.0 <= number <= 1.0:
+        raise ValueError(f"{label} must be between 0 and 1")
+    return number
+
+
+@dataclass(frozen=True)
+class DualOccupancyState:
+    """Normalized coordinates for an experienced-reality state.
+
+    The coordinates describe a state; they do not identify a disorder.
+    ``external_coupling`` measures access to independent sensory/social
+    correction. ``generative_gain`` measures internal-model dominance.
+    ``observer_awareness`` measures recognition that the current model may be
+    altered. ``revisability`` measures actual updating under disconfirmation.
+    """
+
+    external_coupling: float
+    generative_gain: float
+    salience_gain: float
+    observer_awareness: float
+    revisability: float
+    anchor_redundancy: float
+    action_urgency: float = 0.0
+    general_capability: float = 1.0
+
+    def __post_init__(self) -> None:
+        for label, value in vars(self).items():
+            object.__setattr__(self, label, _unit(value, label))
+
+    @property
+    def internal_dominance(self) -> float:
+        """Internally generated signal pressure, G*S, in [0, 1]."""
+
+        return self.generative_gain * self.salience_gain
+
+    @property
+    def metacognitive_lucidity(self) -> float:
+        """Lucidity requires awareness *and* demonstrated revisability."""
+
+        return sqrt(self.observer_awareness * self.revisability)
+
+    @property
+    def correction_capacity(self) -> float:
+        """Independent correction bandwidth available to the state."""
+
+        return self.external_coupling * self.anchor_redundancy * self.revisability
+
+    @property
+    def capture_pressure(self) -> float:
+        """Pressure for one generated interpretation to capture action."""
+
+        resistance = 0.5 * self.correction_capacity + 0.5 * self.metacognitive_lucidity
+        return min(1.0, self.internal_dominance * (1.0 - resistance))
+
+
+class DescriptiveRegime(str, Enum):
+    """Non-diagnostic regions of the state space."""
+
+    ORDINARY_WAKING = "ordinary_waking"
+    LUCID_DREAM_LIKE = "lucid_dream_like"
+    NONLUCID_DREAM_LIKE = "nonlucid_dream_like"
+    PRESERVED_INSIGHT_WAKEFUL_DISTORTION = "preserved_insight_wakeful_distortion"
+    CAPTURE_RISK = "capture_risk"
+    MIXED_OR_UNRESOLVED = "mixed_or_unresolved"
+
+
+def describe_regime(state: DualOccupancyState) -> DescriptiveRegime:
+    """Return a coarse research label, never a clinical diagnosis.
+
+    Thresholds are explicit design parameters chosen to make the abstraction
+    executable.  They are not medical cutoffs.
+    """
+
+    external = state.external_coupling
+    internal = state.internal_dominance
+    lucid = state.metacognitive_lucidity
+
+    if external < 0.25 and internal >= 0.50:
+        return (
+            DescriptiveRegime.LUCID_DREAM_LIKE
+            if lucid >= 0.60
+            else DescriptiveRegime.NONLUCID_DREAM_LIKE
+        )
+    if external >= 0.40 and internal >= 0.55:
+        if lucid >= 0.55:
+            return DescriptiveRegime.PRESERVED_INSIGHT_WAKEFUL_DISTORTION
+        return DescriptiveRegime.CAPTURE_RISK
+    if external >= 0.60 and state.correction_capacity >= 0.30 and internal < 0.55:
+        return DescriptiveRegime.ORDINARY_WAKING
+    return DescriptiveRegime.MIXED_OR_UNRESOLVED
+
+
+class GateDisposition(str, Enum):
+    ALLOW_REVERSIBLE = "allow_reversible"
+    DELAY_AND_CHECK = "delay_and_check"
+    REQUIRE_EXTERNAL_ANCHOR = "require_external_anchor"
+
+
+@dataclass(frozen=True)
+class RealityGateDecision:
+    disposition: GateDisposition
+    reasons: tuple[str, ...]
+
+    @property
+    def allowed(self) -> bool:
+        return self.disposition is GateDisposition.ALLOW_REVERSIBLE
+
+
+def gate_action(
+    state: DualOccupancyState,
+    *,
+    consequence: float,
+    reversible: bool,
+    independently_verified: bool = False,
+) -> RealityGateDecision:
+    """Gate action by consequence, reversibility, and independent correction.
+
+    Intelligence and verbal coherence intentionally do not bypass this gate.
+    High capability can improve execution without calibrating the premise from
+    which execution begins.
+    """
+
+    consequence = _unit(consequence, "consequence")
+    reasons: list[str] = []
+    regime = describe_regime(state)
+
+    if consequence >= 0.50 and not reversible:
+        reasons.append("high-consequence action is not reversible")
+    if consequence >= 0.35 and not independently_verified:
+        reasons.append("consequential premise lacks independent verification")
+    if state.capture_pressure >= 0.30:
+        reasons.append("generated interpretation is outrunning correction capacity")
+    if state.action_urgency >= 0.70 and state.metacognitive_lucidity < 0.70:
+        reasons.append("urgency exceeds current metacognitive lucidity")
+
+    if not reasons:
+        return RealityGateDecision(
+            GateDisposition.ALLOW_REVERSIBLE,
+            ("bounded action remains reversible and sufficiently checked",),
+        )
+    if regime in {
+        DescriptiveRegime.CAPTURE_RISK,
+        DescriptiveRegime.PRESERVED_INSIGHT_WAKEFUL_DISTORTION,
+    } or state.anchor_redundancy < 0.50:
+        return RealityGateDecision(GateDisposition.REQUIRE_EXTERNAL_ANCHOR, tuple(reasons))
+    return RealityGateDecision(GateDisposition.DELAY_AND_CHECK, tuple(reasons))
+
+
+def reactivate_latent_skill(
+    *,
+    active_access: float,
+    latent_competence: float,
+    practice: float,
+    reactivation_rate: float,
+    decay_rate: float,
+    dt: float = 1.0,
+) -> float:
+    """Euler step for latent-skill reactivation.
+
+    da/dt = rho*p*(k-a) - mu*(1-p)*a
+
+    This captures the distinction between stored competence ``k`` and current
+    working access ``a``: disuse can reduce recall without erasing structure.
+    """
+
+    active_access = _unit(active_access, "active_access")
+    latent_competence = _unit(latent_competence, "latent_competence")
+    practice = _unit(practice, "practice")
+    reactivation_rate = _unit(reactivation_rate, "reactivation_rate")
+    decay_rate = _unit(decay_rate, "decay_rate")
+    if dt < 0.0:
+        raise ValueError("dt must be non-negative")
+    derivative = (
+        reactivation_rate * practice * (latent_competence - active_access)
+        - decay_rate * (1.0 - practice) * active_access
+    )
+    return min(1.0, max(0.0, active_access + dt * derivative))
