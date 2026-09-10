@@ -1,0 +1,95 @@
+from __future__ import annotations
+
+import unittest
+
+from pantheon_prime import (
+    DescriptiveRegime,
+    DualOccupancyState,
+    GateDisposition,
+    describe_regime,
+    gate_action,
+    reactivate_latent_skill,
+)
+
+
+class DualOccupancyTests(unittest.TestCase):
+    def test_lucid_dream_is_low_external_coupling_with_retained_observer(self) -> None:
+        state = DualOccupancyState(
+            external_coupling=0.10,
+            generative_gain=0.90,
+            salience_gain=0.90,
+            observer_awareness=0.90,
+            revisability=0.80,
+            anchor_redundancy=0.20,
+        )
+        self.assertEqual(describe_regime(state), DescriptiveRegime.LUCID_DREAM_LIKE)
+
+    def test_preserved_insight_does_not_equal_ordinary_calibration(self) -> None:
+        state = DualOccupancyState(
+            external_coupling=0.70,
+            generative_gain=0.90,
+            salience_gain=0.90,
+            observer_awareness=0.90,
+            revisability=0.50,
+            anchor_redundancy=0.60,
+            general_capability=0.95,
+        )
+        self.assertEqual(
+            describe_regime(state),
+            DescriptiveRegime.PRESERVED_INSIGHT_WAKEFUL_DISTORTION,
+        )
+        decision = gate_action(
+            state,
+            consequence=0.80,
+            reversible=False,
+            independently_verified=False,
+        )
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.disposition, GateDisposition.REQUIRE_EXTERNAL_ANCHOR)
+
+    def test_general_capability_does_not_bypass_gate(self) -> None:
+        common = dict(
+            external_coupling=0.60,
+            generative_gain=0.90,
+            salience_gain=0.85,
+            observer_awareness=0.80,
+            revisability=0.40,
+            anchor_redundancy=0.40,
+        )
+        low = gate_action(
+            DualOccupancyState(**common, general_capability=0.20),
+            consequence=0.70,
+            reversible=False,
+        )
+        high = gate_action(
+            DualOccupancyState(**common, general_capability=0.99),
+            consequence=0.70,
+            reversible=False,
+        )
+        self.assertEqual(low, high)
+
+    def test_latent_skill_reactivates_faster_than_zero_state(self) -> None:
+        recovered = reactivate_latent_skill(
+            active_access=0.20,
+            latent_competence=0.85,
+            practice=0.80,
+            reactivation_rate=0.60,
+            decay_rate=0.10,
+        )
+        self.assertGreater(recovered, 0.20)
+        self.assertLessEqual(recovered, 0.85)
+
+    def test_inputs_are_bounded(self) -> None:
+        with self.assertRaises(ValueError):
+            DualOccupancyState(
+                external_coupling=1.10,
+                generative_gain=0.50,
+                salience_gain=0.50,
+                observer_awareness=0.50,
+                revisability=0.50,
+                anchor_redundancy=0.50,
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()
