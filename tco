@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+import corpus_observatory
+
+
+class CorpusObservatoryTest(unittest.TestCase):
+    def test_observes_dialogue_fossils_and_exact_metamers(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_dir:
+            repo = Path(raw_dir)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@example.com"], check=True)
+            subprocess.run(["git", "-C", str(repo), "config", "user.name", "Test"], check=True)
+            body = "Yes. A preserved response.\n\nIf you want, choose the next step.\n"
+            (repo / "first frame").write_text(body, encoding="utf-8")
+            (repo / "second frame").write_text(body, encoding="utf-8")
+            subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(repo), "commit", "-qm", "pair"], check=True)
+
+            report = corpus_observatory.observe(repo)
+            self.assertEqual(report["inventory"]["artifact_count"], 2)
+            self.assertEqual(report["dialogue_fossils"]["conversational_openings"], 2)
+            self.assertEqual(report["dialogue_fossils"]["open_doors"], 2)
+            self.assertEqual(report["exact_metamers"]["groups"], 1)
+            self.assertEqual(report["event_stream"]["commit_count"], 1)
+
+    def test_non_git_directory_degrades_gracefully(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_dir:
+            repo = Path(raw_dir)
+            (repo / "note").write_text("plain", encoding="utf-8")
+            report = corpus_observatory.observe(repo)
+            self.assertIsNone(report["head"])
+            self.assertEqual(report["event_stream"]["commit_count"], 0)
+            json.dumps(report)
+
+
+if __name__ == "__main__":
+    unittest.main()
