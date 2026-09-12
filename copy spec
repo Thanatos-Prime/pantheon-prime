@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""Read-only structural observatory for the Pantheon Prime artifact corpus."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import subprocess
+from collections import Counter, defaultdict
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+
+OPEN_DOOR = re.compile(
+    r"\b(if you want|if you'd like|next step|which one|want me to|i can also)\b",
+    re.IGNORECASE,
+)
+CONVERSATIONAL = re.compile(
+    r"^(yes[,.! ]|no[,.! ]|exactly\b|i (?:think|agree|see)|that(?:'s| is)\b|you(?:'re| are)\b)",
+    re.IGNORECASE,
+)
+CLAIM_STATE = re.compile(r"\b(observed|inferred|speculative|tested|falsified)\b", re.I)
+
+
+@dataclass(frozen=True)
+class Artifact:
+    path: str
+    size: int
+    sha256: str
+    suffix: str
+    first_line: str
+    conversational: bool
+    open_door: bool
+    code_fence: bool
+    claim_state: bool
+
+
+def git(repo: Path, *args: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return ""
+    return result.stdout
+
+
+def artifacts(repo: Path) -> list[Artifact]:
+    result: list[Artifact] = []
+    tracked = [repo / item for item in git(repo, "ls-files", "-z").split("\0") if item]
+    candidates = tracked or sorted(repo.rglob("*"))
+    for path in candidates:
+        if not path.is_file() or ".git" in path.parts:
+            continue
+        raw = path.read_bytes()
+        text = raw.decode("utf-8", errors="replace")
+        first = next((line.strip() for line in text.splitlines() if line.strip()), "")
+        tail = text[-900:]
+        result.append(
+            Artifact(
+                path=path.relative_to(repo).as_posix(),
+                size=len(raw),
+                sha256=hashlib.sha256(raw).hexdigest(),
+                suffix=path.suffix.lower() or "[none]",
+                first_line=first[:180],
+                conversational=bool(CONVERSATIONAL.search(first)),
+                open_door=bool(OPEN_DOOR.search(tail)),
+                code_fence="```" in text,
+                claim_state=bool(CLAIM_STATE.search(text)),
+            )
+        )
+    return result
+
+
+def event_stream(repo: Path) -> dict[str, object]:
+    rows = git(repo, "log", "--date=short", "--pretty=format:%ad").splitlines()
+    months = Counter(row[:7] for row in rows if row)
+    days = Counter(row for row in rows if row)
+    widths = [
+        int(line)
+        for line in git(repo, "log", "--pretty=format:", "--numstat").splitlines()
+        if line and "\t" not in line and line.isdigit()
+    ]
+    # numstat does not directly emit widths; use name-only commit separators.
+    marked = git(repo, "log", "--pretty=format:@@COMMIT@@", "--name-only")
+    commit_widths: list[int] = []
+    current = 0
+    seen = False
+    for line in marked.splitlines():
+        if line == "@@COMMIT@@":
+            if seen:
+                commit_widths.append(current)
+            current, seen = 0, True
+        elif line.strip():
+            current += 1
+    if seen:
+        commit_widths.append(current)
+    return {
+        "commit_count": len(rows),
+        "commits_by_month": dict(sorted(months.items())),
+        "peak_days": [{"date": day, "commits": count} for day, count in days.most_common(10)],
+        "single_artifact_commits": sum(width == 1 for width in commit_widths),
+        "multi_artifact_commits": sum(width > 1 for width in commit_widths),
+    }
+
+
+def observe(repo: Path) -> dict[str, object]:
+    items = artifacts(repo)
+    by_hash: dict[str, list[str]] = defaultdict(list)
+    for item in items:
+        by_hash[item.sha256].append(item.path)
+    duplicate_groups = [paths for paths in by_hash.values() if len(paths) > 1]
+    suffixes = Counter(item.suffix for item in items)
+    sizes = sorted(item.size for item in items)
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "repo": str(repo.resolve()),
+        "head": git(repo, "rev-parse", "HEAD").strip() or None,
+        "inventory": {
+            "artifact_count": len(items),
+            "bytes": sum(sizes),
+            "median_bytes": sizes[len(sizes) // 2] if sizes else 0,
+            "suffixes": dict(suffixes.most_common()),
+            "root_artifacts": sum("/" not in item.path for item in items),
+        },
+        "dialogue_fossils": {
+            "conversational_openings": sum(item.conversational for item in items),
+            "open_doors": sum(item.open_door for item in items),
+            "code_fences": sum(item.code_fence for item in items),
+            "explicit_claim_states": sum(item.claim_state for item in items),
+        },
+        "exact_metamers": {
+            "groups": len(duplicate_groups),
+            "artifacts": sum(map(len, duplicate_groups)),
+            "largest_group": max(map(len, duplicate_groups), default=0),
+            "samples": duplicate_groups[:20],
+        },
+        "event_stream": event_stream(repo),
+        "artifacts": [asdict(item) for item in items],
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo", type=Path, default=Path.cwd())
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    payload = json.dumps(observe(args.repo), indent=2, ensure_ascii=False) + "\n"
+    if args.output:
+        args.output.write_text(payload, encoding="utf-8")
+    else:
+        print(payload, end="")
+
+
+if __name__ == "__main__":
+    main()
