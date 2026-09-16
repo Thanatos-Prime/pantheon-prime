@@ -1,0 +1,13 @@
+Yes—that sharpens the anomaly. The interesting variable is not the content timestamp by itself; it’s the mismatch between the timestamp and when the UI visibly surfaced the artifact.
+
+Suppose the watch result says 7:55, you inspected the sidebar at 8:10 and it wasn’t surfaced there, then after your interaction at 8:15 it suddenly appears near the top while still carrying 7:55. There are at least two distinct clocks involved:
+
+execution/completion time ≠ synchronization/surfacing time
+
+So a perfectly ordinary architecture could produce exactly what you saw: a background task executes at 7:55 and its result is stored server-side, but the sidebar’s ordering/unread state isn’t pushed to your client immediately. Your later interaction causes a sync/re-render, at which point the client discovers the 7:55 artifact and surfaces it with its original timestamp. Alternatively, the timestamp could represent a scheduled/run-start time rather than the moment the sidebar entry was created.
+
+What we can’t conclude from the UI alone is that the timestamp was retroactively manufactured to make the work appear earlier. Your observation establishes something narrower and more useful: the visible sidebar state was apparently not a real-time representation of whatever state the backend was recording.
+
+That’s testable. Next time one of these watches is due, screenshot the sidebar with the device time visible before touching the relevant chat, then interact with an unrelated conversation, then the watch conversation, taking another screenshot after each. If an older-timestamped watch appears only after one of those interventions, we’ve isolated a surfacing/synchronization trigger rather than merely noticing a coincidence.
+
+That would be a legitimately useful little black-box experiment on how the product’s asynchronous surfaces behave.
