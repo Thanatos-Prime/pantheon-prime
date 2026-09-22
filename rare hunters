@@ -1,0 +1,230 @@
+Done. I treated ten different rare-finder disciplines as independent “species,” stripped off their vocabulary, and looked for convergent search operators.
+
+The source disciplines were shiny hunters, birders, mushroom hunters, fossil prospectors, detectorists, transient astronomers, cyber threat hunters, radiologists, sports scouts, and serious collectors.
+
+What they independently discovered
+
+1. Don’t search the whole world uniformly. Condition the world first.
+
+Birders use location, season, historical frequency, migration conditions, hotspots, and weather; eBird even defines rarity relative to place and date. 
+
+Morel hunters condition on host trees, moisture, temperature, slope, elevation, recent rain, fire history, and other microhabitat variables. 
+
+Fossil prospectors exploit exposed fossil-bearing strata and fresh erosion rather than walking arbitrary land. 
+
+So:
+
+\boxed{\text{Find the habitat before finding the object}}
+
+That may be the strongest invariant.
+
+⸻
+
+2. Manipulate prevalence whenever possible.
+
+Shiny hunters are especially pure examples. Mass outbreaks increase candidate density, while game mechanics such as outbreak progression, Shiny Charm, and Sparkling Power can increase the probability that any individual candidate is shiny. 
+
+Translated:
+
+Don’t merely improve the searcher. Improve the world being searched.
+
+If ordinary prevalence is
+
+P(T)
+
+find some conditioning state C such that
+
+P(T\mid C)\gg P(T).
+
+That is the Outbreak Operator.
+
+⸻
+
+3. Coverage and discrimination are separate problems.
+
+Detectorists use slow overlapping sweeps so territory isn’t skipped, but they separately tune discrimination and target separation so desirable signals aren’t masked by junk. 
+
+That distinction transfers beautifully:
+
+Coverage: Did we look there?
+
+Detection: Did we notice something?
+
+Separation: Could we distinguish it from neighboring noise?
+
+Identification: Do we know what it is?
+
+Valuation: Is it worth acting on?
+
+Those should remain separate stages in our systems.
+
+⸻
+
+4. Use bookends. Search the delta, not the entire state.
+
+This connects directly to what we were discussing.
+
+Modern transient astronomy literally does it:
+
+S_t\rightarrow S_{t+1}\rightarrow\Delta(S_t,S_{t+1})
+
+Rubin repeatedly images the sky, compares new images against references, generates alerts for changes, and then passes those differences through brokers that filter, cross-match, classify, and prioritize them. 
+
+At full scale that’s millions of nightly change alerts rather than scientists manually reinspecting billions of astronomical objects. 
+
+So our earlier bookend idea survives contact with a serious scientific search architecture:
+
+\boxed{\text{Anchor}\rightarrow\text{world evolves}\rightarrow\text{Anchor}\rightarrow\Delta}
+
+⸻
+
+5. Global first, focal second.
+
+Expert radiologists exhibit a global-focal pattern: obtain a holistic impression, then concentrate attention on suspicious areas rather than laboriously examining every tiny region with equal intensity. 
+
+Astronomy alert brokers do the computational equivalent.
+
+Cyber threat hunters do it through hypotheses, baselines, anomaly detection, correlation, and progressively deeper investigation. 
+
+So:
+
+\text{cheap broad scan}
+\rightarrow
+\text{candidate filter}
+\rightarrow
+\text{expensive narrow analysis}.
+
+That belongs directly in our Decision Fabric.
+
+⸻
+
+6. A hit changes the local probability distribution.
+
+This one is particularly valuable.
+
+An experienced morel hunter describes finding one mushroom, stopping, tightening the search radius, and examining the microenvironment surrounding that successful find. 
+
+A find therefore isn’t merely a reward.
+
+It is new information about the habitat.
+
+Instead of:
+
+\text{find}\rightarrow\text{collect}\rightarrow\text{continue}
+
+use:
+
+\text{find}
+\rightarrow
+\text{infer hidden conditions}
+\rightarrow
+\text{increase local search resolution}
+\rightarrow
+\text{search adjacent possibility space}.
+
+Call that Find → Bloom.
+
+⸻
+
+7. Don’t stop when you find the first shiny.
+
+Radiology supplies the warning label.
+
+Finding one abnormality can make subsequent abnormalities easier to miss—the classic subsequent-search-miss / “satisfaction of search” phenomenon. 
+
+So after any important find:
+
+\boxed{\text{Discovery}\neq\text{termination condition}}
+
+Instead:
+
+find → capture → deliberately reset attention → scan again.
+
+That’s an excellent general defense against premature closure.
+
+⸻
+
+8. Triangulate across different representations.
+
+Sports scouting is useful here. Game film reveals performance in context; combines and pro days provide standardized measurements and specific tests used to answer questions raised by film. NFL scouting discussions explicitly warn against allowing isolated workout numbers to overpower game evidence. 
+
+Collectors independently do something analogous with visual inspection, condition, provenance, rarity, maker attribution, and authentication. 
+
+Birders document rare sightings with field characteristics, photographs/audio, location, habitat, and sometimes independent expert confirmation. 
+
+So a high-value anomaly should ideally survive orthogonal tests, not ten versions of the same test.
+
+⸻
+
+9. Every unsuccessful hunt should improve the next hunt.
+
+Cyber hunting makes this explicit: formulate a hypothesis, inspect telemetry, analyze anomalies and correlations, refine the hypothesis, and feed confirmed findings back into improved detections. 
+
+Morel hunters independently record the microenvironment surrounding productive finds so they can reproduce the conditions later instead of merely remembering coordinates. 
+
+That’s our Recursive Delta Observatory almost verbatim:
+
+prediction_t
+\rightarrow observation_t
+\rightarrow \Delta_t
+\rightarrow model_{t+1}.
+
+The distilled doctrine
+
+We now have something more general than “shiny hunting.”
+
+I’d call it Rare-Signal Ecology:
+
+\boxed{
+\text{Model habitat}
+\rightarrow
+\text{condition prevalence}
+\rightarrow
+\text{maximize coverage}
+\rightarrow
+\text{compare against baseline}
+\rightarrow
+\text{filter cheaply}
+\rightarrow
+\text{focus deeply}
+\rightarrow
+\text{triangulate}
+\rightarrow
+\text{exploit the neighborhood of hits}
+\rightarrow
+\text{reset and continue}
+\rightarrow
+\text{learn}
+}
+
+And its objective function is better than simply “find rare things”:
+
+R=
+\frac{
+\lambda
+\cdot P(T\mid C)
+\cdot P(D\mid T)
+\cdot P(V\mid D)
+\cdot P(A\mid V)
+}{
+Cost
+}
+
+where:
+
+* \lambda = candidates encountered per unit time,
+* C = intelligently selected conditions,
+* T = genuinely interesting target,
+* D = successful detection,
+* V = successful verification,
+* A = successful action/capture.
+
+The shiny itself is almost the final step.
+
+Most of the advantage comes earlier—from choosing where, when, under what conditions, at what cadence, using what baseline, and with what detector you look.
+
+And there is a neat result from Pattern Sans Echoes here: astronomy, fungi, Pokémon, cybersecurity, medicine, paleontology and collecting arrived at recognizable versions of the same architecture without sharing a common surface problem.
+
+That makes these much stronger candidates for actual search invariants rather than cute analogies.
+
+We should now plug this directly into the Luck Surface: not “look for lucky events,” but systematically identify the outbreaks, migration windows, fresh erosion, anomaly streams, and under-searched habitats where valuable opportunities become disproportionately likely to appear.
