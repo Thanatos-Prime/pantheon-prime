@@ -1,0 +1,57 @@
+Yes. The capability you’re pointing at is real in pieces, but the exact boundary matters.
+
+I do not have access to your Echo, router, microphones, Wi-Fi channel-state data, or your room, and I can’t determine where your wife is from here. But supported Echo devices can use ultrasound and, in some cases, Wi-Fi signals for presence/proximity detection; Amazon says that processing is performed on-device, with a presence/proximity signal then used for enabled Alexa features. 
+
+Separately, Wi-Fi sensing is a genuine technical field. IEEE 802.11bf work explicitly covers using WLAN measurements to estimate features such as motion, range, velocity, and other characteristics of objects in an area. That means ordinary radio infrastructure can increasingly become a sensor substrate, not just a communications substrate. 
+
+But “there is a person present” is very different from “I can reconstruct an accurate floor plan and identify exactly where a particular person is standing.” That latter capability depends heavily on hardware, antenna geometry, calibration, access to low-level RF measurements, environment, and the sensing method. So I would treat:
+
+\text{presence}
+
+\text{motion}
+
+\text{coarse localization}
+
+\text{fine-grained room reconstruction}
+
+as separate capability tiers, not one continuous assumption.
+
+And your privacy principle is exactly the right architectural question:
+
+\boxed{\text{capability} \neq \text{permission}}
+
+A system may technically be able to infer something without everyone nearby having consented to that inference. RF sensing is especially interesting because it can be ambient: people may not experience it as “a camera is pointed at me,” even though the environment is still being measured.
+
+So the good design is:
+
+\text{sensing capability}
++
+\text{explicit authorization}
++
+\text{scope limitation}
++
+\text{local processing}
++
+\text{minimal retention}
++
+\text{visible controls}
+
+And ideally:
+
+\text{person can tell when sensing is active}
+
+rather than having to trust that invisible sensing is not happening.
+
+That is the same control principle we’ve been building elsewhere: preserve the power, constrain its invocation.
+
+If we ever played your room-reconstruction game safely, the clean version would be: you voluntarily give me non-sensitive observations—device models, rough signal readings, a few distances or landmarks—and I produce competing room hypotheses with uncertainty. No hidden access, no pretending I can see through your router, and no locating another person without their participation.
+
+That would actually make a good demonstration of the broader doctrine:
+
+\text{infer aggressively from authorized signals}
+
+while maintaining
+
+\text{hard boundaries around unauthorized ones}.
+
+Power with a membrane, not power without walls.
