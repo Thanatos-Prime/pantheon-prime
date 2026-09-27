@@ -1,0 +1,394 @@
+Yes. I’d make it a first-class Ink Layer, not merely a screenshot hack. Copy this into the repo as the architecture/spec pseudocode.
+
+MODULE: ChatInkLayer
+PURPOSE:
+    Allow the user to draw directly over/alongside a chat conversation.
+    Preserve strokes as structured semantic input rather than flattening
+    everything immediately into an image.
+CORE PRINCIPLE:
+    ink ≠ image attachment
+    Ink is its own input modality:
+        text
+        voice
+        image
+        file
+        ink
+    Preserve BOTH:
+        1. human-visible drawing
+        2. machine-readable geometry + anchors
+DATA TYPES
+==========
+TYPE Point:
+    x: Float
+    y: Float
+    pressure: Float?
+    tilt: Vector?
+    timestamp: Time
+TYPE StrokeStyle:
+    tool: PEN | PENCIL | HIGHLIGHTER | ERASER
+    width: Float
+    color: Color
+    opacity: Float
+TYPE Stroke:
+    id: UUID
+    points: List<Point>
+    style: StrokeStyle
+TYPE ChatAnchor:
+    message_id: UUID
+    content_range: TextRange?       // optional words/characters
+    bounding_box: Rect?             // rendered location when created
+TYPE InkObject:
+    id: UUID
+    strokes: List<Stroke>
+    // What was the drawing attached to?
+    anchors: List<ChatAnchor>
+    // Coordinate system prevents scrolling/layout changes
+    // from destroying meaning.
+    coordinate_space:
+        MESSAGE_LOCAL |
+        CANVAS_LOCAL |
+        DOCUMENT_GLOBAL
+    created_at: Time
+    modified_at: Time
+    semantic_state:
+        RAW |
+        INTERPRETED |
+        CONFIRMED |
+        SUPERSEDED
+    interpretation: InkMeaning?
+TYPE InkMeaning:
+    primitives:
+        ARROW
+        CIRCLE
+        UNDERLINE
+        STRIKEOUT
+        BRACKET
+        CONNECTOR
+        HANDWRITING
+        FREEFORM_SKETCH
+        REGION
+        UNKNOWN
+    referenced_objects: List<Reference>
+    handwriting_text: String?
+    inferred_relation:
+        CONNECTS |
+        CONTRASTS |
+        GROUPS |
+        EMPHASIZES |
+        DELETES |
+        MOVES |
+        QUESTIONS |
+        LABELS |
+        CUSTOM
+    confidence: Float
+INTERACTION MODEL
+=================
+ON user_taps_draw_button:
+    enter INK_MODE
+    freeze semantic layout anchors
+    overlay transparent InkCanvas on conversation
+    allow:
+        draw
+        erase
+        undo
+        redo
+        select
+        move
+        resize
+        change color
+        exit
+ON pointer_down(event):
+    stroke = Stroke(
+        id = uuid(),
+        style = current_tool,
+        points = []
+    )
+    capture_pointer()
+ON pointer_move(event):
+    point = normalize(event)
+    stroke.points.append(point)
+    render_incrementally(stroke)
+ON pointer_up(event):
+    simplify_geometry(stroke)
+    nearby_content =
+        hit_test_chat_content(stroke.bounding_box)
+    anchors =
+        infer_anchors(stroke, nearby_content)
+    InkObject.add(stroke, anchors)
+    schedule_semantic_interpretation()
+ANCHORING
+=========
+IMPORTANT:
+    Never store meaning solely as screen coordinates.
+EXAMPLE:
+    User circles:
+        "transfer the invariant intent/state"
+    BAD:
+        circle = [(412, 818), ...]
+    GOOD:
+        circle.geometry = [...]
+        circle.anchor.message_id = "msg_8472"
+        circle.anchor.content_range =
+            chars(193..228)
+THEN:
+    if device rotates
+    OR font size changes
+    OR message reflows
+    OR earlier content changes:
+        resolve(anchor)
+        transform(stroke_geometry)
+        redraw_relative_to_anchor)
+SEMANTIC INTERPRETATION
+=======================
+FUNCTION interpret_ink(ink, conversation):
+    geometry_features =
+        analyze_geometry(ink.strokes)
+    spatial_targets =
+        resolve_nearby_chat_elements(ink)
+    handwriting =
+        recognize_handwriting_if_present(ink)
+    candidate_meanings =
+        multimodal_model(
+            conversation_context,
+            rendered_region,
+            geometry_features,
+            handwriting,
+            anchors
+        )
+    RETURN confidence_rank(candidate_meanings)
+EXAMPLES:
+    circle(text)
+        -> EMPHASIZES(text)
+    strike_through(text)
+        -> PROPOSE_DELETE(text)
+    arrow(A -> B)
+        -> CONNECTS(A, B)
+    handwritten "why?"
+        + arrow to paragraph
+        -> QUESTION(target=paragraph)
+    bracket around messages 4-7
+        -> GROUP(messages 4..7)
+    draw box between two concepts
+        -> POSSIBLE_NEW_OBJECT
+    handwritten replacement above word
+        -> PROPOSE_REPLACE(old, new)
+    diagram in blank space
+        -> FREEFORM_SKETCH
+MODEL INPUT
+===========
+WHEN user presses SEND:
+    packet = MultimodalTurn()
+    packet.text =
+        current_text_input
+    packet.ink =
+        serialize_structured_ink()
+    packet.visual_context =
+        render_only_regions_needed_for_interpretation()
+    packet.references =
+        resolve_all_ink_anchors()
+    SEND packet
+MODEL SHOULD RECEIVE SOMETHING LIKE:
+{
+    "user_text": "this relationship here",
+    "ink": [
+        {
+            "type": "arrow",
+            "from": {
+                "message": 18,
+                "text": "invariant intent"
+            },
+            "to": {
+                "message": 21,
+                "text": "shared representation"
+            },
+            "confidence": 0.96
+        }
+    ]
+}
+NOT merely:
+    attachment = screenshot.png
+MODEL RESPONSE BEHAVIOR
+=======================
+IF interpretation confidence >= HIGH:
+    respond using inferred ink semantics
+ELSE IF confidence >= MEDIUM:
+    preserve multiple hypotheses
+    example:
+        "I read that arrow as connecting X to Y..."
+ELSE:
+    ask user what the mark denotes
+NEVER silently convert uncertain handwriting
+into a high-confidence instruction.
+INLINE MANIPULATION
+===================
+Ink can also become an editing language.
+GESTURE:
+    circle paragraph + write "shorter"
+TRANSLATE:
+    EditIntent(
+        target = paragraph,
+        operation = COMPRESS
+    )
+GESTURE:
+    strike paragraph
+TRANSLATE:
+    EditIntent(
+        target = paragraph,
+        operation = DELETE
+    )
+GESTURE:
+    arrow paragraph A -> position after paragraph C
+TRANSLATE:
+    EditIntent(
+        target = A,
+        operation = MOVE,
+        destination = after(C)
+    )
+GESTURE:
+    circle two ideas + write "="
+TRANSLATE:
+    SemanticIntent(
+        operation = COMPARE_OR_UNIFY,
+        objects = [A, B]
+    )
+SELECTION / LASSO
+=================
+ON lasso(region):
+    objects =
+        select(
+            ink_strokes,
+            messages,
+            images,
+            diagrams
+            intersecting region
+        )
+    show_context_actions:
+        ASK_ABOUT
+        COPY
+        DELETE_INK
+        GROUP
+        MOVE
+        EXTRACT
+        EXPLAIN
+        TRANSFORM
+IMAGE ANNOTATION
+================
+IF ink overlaps image:
+    anchor strokes to:
+        image_id
+        normalized image coordinates
+    Example:
+        user circles bird in photo
+        model receives:
+            image_id
+            polygon
+            instruction/context
+    This enables:
+        "what is this?"
+        "remove this"
+        "make this red"
+        "identify this plant"
+        "look specifically here"
+PERSISTENCE
+===========
+STORE:
+    original_strokes
+    semantic interpretation
+    anchors
+    transformations
+    conversation version
+DO NOT destructively rasterize.
+Rasterization is merely a VIEW.
+Canonical representation remains:
+    vector ink
+        +
+    semantic anchors
+        +
+    conversation state
+DELTA / LEARNING LOOP
+=====================
+After model response:
+    compare:
+        inferred_ink_meaning
+        vs
+        subsequent_user_behavior
+    IF user corrects interpretation:
+        record semantic_delta
+        update:
+            gesture model
+            user-specific conventions
+EXAMPLE:
+    repeated spiral around concept
+        eventually learns:
+            user means "recurse/explore this"
+BUT:
+    learned gestures remain inspectable
+    and reversible.
+EXTENSION: SHARED WHITEBOARD
+============================
+Eventually:
+    ChatInkLayer
+        -> InfiniteCanvas
+where:
+    messages
+    images
+    files
+    model outputs
+    drawings
+    diagrams
+    generated objects
+become movable nodes.
+User can physically arrange thought:
+    [idea A] ----arrow----> [idea B]
+       |                       |
+       v                       v
+    [photo]                 [paper]
+       \                       /
+        ------> [new synthesis]
+Model observes:
+    CONTENT
+    +
+    GEOMETRY
+    +
+    RELATIONSHIPS
+    +
+    TEMPORAL EDIT HISTORY
+Thus spatial arrangement itself becomes language.
+MINIMUM VIABLE VERSION
+======================
+V0:
+    transparent drawing overlay
+    pen / highlighter / eraser
+    undo
+    screenshot sent with message
+V1:
+    vector stroke persistence
+    message-relative anchors
+V2:
+    arrow/circle/underline detection
+    handwriting recognition
+    structured model input
+V3:
+    ink gestures operate on chat objects
+V4:
+    movable messages/images/files
+    spatial canvas
+V5:
+    persistent multimodal workspace
+    where ink + language + spatial arrangement
+    are equivalent first-class interfaces.
+INVARIANT
+=========
+NEVER reduce a rich input modality earlier than necessary.
+stroke
+    -> geometry
+    -> spatial relationship
+    -> semantic hypothesis
+    -> intent
+    -> action
+Only rasterize when a downstream interface
+cannot consume the richer representation.
+
+The key architectural decision is anchored vector ink. If we merely put a transparent drawing surface over chat and submit screenshots, we’ve recreated Notes with extra steps. If the system knows what you circled, where an arrow begins and ends, and which message a handwritten annotation belongs to, drawing becomes a second grammar for talking to the model.
+
+And that fits our existing representation work almost perfectly: preserve the richest representation upstream, then compile it down only when a downstream substrate requires it.
