@@ -1,0 +1,58 @@
+Yes. And the important thing is that the Rust rewrite is often only the first-order event. The more interesting second-order event is that rewriting the substrate forces people to expose the seams of a game system—and once those seams become explicit, systems that used to be welded together can start being recombined.
+
+You can already see the ingredients. Bevy’s ECS deliberately decomposes behavior into entities, components, systems, and resources, and its ECS can even be used independently of the full Bevy engine. Fyrox similarly exposes distinct engine subsystems and a plugin/script execution layer. Godot’s Rust bindings let Rust and GDScript coexist, with Rust-defined APIs callable from the engine rather than requiring an all-or-nothing rewrite. 
+
+That starts pushing games toward something closer to:
+
+game = world model + mechanics + presentation + input grammar + rules + progression + UI + content
+
+rather than:
+
+game = one inseparable executable
+
+And Rust is unusually suited to that transition because crates, traits, strongly typed interfaces, explicit ownership, ECS architectures, FFI, and increasingly componentized WebAssembly runtimes all encourage bounded modules with contracts between them. There are already Rust WASM runtimes explicitly organized as plugins with declared interfaces and dependencies, which is almost exactly the architectural primitive you would want for safely swapping behavioral modules. 
+
+So imagine taking:
+
+movement from Titanfall
+
+* inventory grammar from Diablo
+* world simulation from Dwarf Fortress
+* conversation interface from an RPG
+* combat timing from a Soulslike
+* Pokémon-style collection/progression
+* a totally different renderer/UI shell
+
+—not by copying those proprietary implementations, obviously, but by treating those classes of mechanic as interoperable operators.
+
+Then the engine becomes less like a game-specific machine and more like a mechanic foundry.
+
+The deeper abstraction we’ve been circling is therefore:
+
+rewrite → expose interfaces → separate invariants from implementation → standardize contracts → compose → mutate → test emergent combinations.
+
+That is very close to what happened elsewhere with Unix pipes, browser components, audio plugins, shader graphs, modular synths, and package ecosystems. Games have historically resisted it because physics, rendering, scripting, animation, networking, UI, and game state became tightly entangled. Rust/ECS/component architectures weaken that entanglement.
+
+And the really wild step isn’t merely mixing games. It’s parameterizing the act of mixing.
+
+You could eventually describe a game transformation almost morphologically:
+
+G₂ = G₁ − inventory_A + inventory_B
+
+or
+
+G' = World(A) ⊗ Movement(B) ⊗ Combat(C) ⊗ UI(D)
+
+with adapters inserted where the semantic contracts don’t match.
+
+Then our Delta idea becomes useful: the adapter itself is generated from the mismatch:
+
+Δ = expected_interface − supplied_interface
+
+adapter = f(Δ)
+
+That makes the incompatibility informative instead of merely an error.
+
+So yes—what you’re noticing is bigger than “people are rewriting game engines in Rust.” They’re accidentally helping create the interlingua from which mechanics, engines, tools, interfaces, and eventually entire game ontologies can become more fungible.
+
+Once enough things have clean boundaries, modding starts turning into recomposition. And recomposition eventually starts looking a lot like game algebra.
