@@ -1,0 +1,93 @@
+Exactly. k-NN over users and k-NN over content are just two projections of a much larger design space.
+
+You can change both what counts as a node and what counts as distance.
+
+A system could define neighbors among users, pieces of content, ideas, critiques, contexts, failure modes, decisions, workflows, model states, or even deltas between model states. Then the similarity function itself could vary: semantic similarity, behavioral similarity, causal similarity, stylistic similarity, temporal similarity, usefulness, surprise, disagreement, complementarity, or predicted downstream value.
+
+That immediately gives you much richer mechanisms than “people like you liked this.”
+
+For example, instead of asking:
+
+\text{Who is similar to this user?}
+
+ask:
+
+\text{Whose intervention historically improves this kind of model state?}
+
+That is a different neighborhood entirely.
+
+Or:
+
+\text{Which prior critique produced a similar correction trajectory?}
+
+Now you’re doing nearest-neighbor search over transformations, not objects.
+
+Or:
+
+\text{Who is maximally unlike the current contributors but reliably useful?}
+
+That deliberately searches for complementary distance rather than similarity. Sometimes the best contributor is not your nearest neighbor but the person sitting on the opposite side of a blind spot.
+
+You can keep expanding the primitive:
+
+\text{user}\times\text{content}
+
+becomes something more like
+
+U \times C \times K \times T \times S \times M \times O
+
+where K is context, T time, S system state, M model, and O outcome.
+
+Then recommendation becomes less like a lookup table and more like navigation through a state space.
+
+Other useful families fit around it too:
+
+Embeddings give continuous semantic neighborhoods.
+
+Graph models capture relationships that similarity alone misses—who influences whom, which ideas depend on which others, where information actually propagates.
+
+Collaborative filtering / matrix factorization infer latent dimensions neither users nor designers explicitly named.
+
+Sequence models care about order: not just what information appeared, but when it appeared and what state preceded it.
+
+Contextual bandits learn which contributor, intervention, or prompt works best under current conditions.
+
+Active learning asks the human whose answer would reduce uncertainty the most.
+
+Causal models ask who actually changed the outcome rather than merely correlating with it.
+
+Influence attribution tries to trace how much a specific example, correction, or contributor altered later model behavior.
+
+Mixture-of-experts routing can select different humans or models depending on the problem regime.
+
+And then your third-point idea comes back in. Most recommender systems optimize something like:
+
+\text{similarity} \rightarrow \text{relevance}
+
+But you could intentionally maintain several geometries:
+
+\text{similar}
+\qquad
+\text{opposite}
+\qquad
+\text{orthogonal}
+
+The orthogonal contributor may be the most valuable because they introduce information that neither agreement nor disagreement contains.
+
+So for the context-market idea, I wouldn’t build merely a “find experts like this problem” engine.
+
+I’d build a contributor-routing system that asks:
+
+\text{Who is most likely to cause the highest useful delta from the current state?}
+
+Then the market could pay according to that delta.
+
+That changes the economic unit from:
+
+content produced
+
+to:
+
+state improvement caused.
+
+And that is a much bigger conceptual jump than k-NN, recommendation, or ordinary creator monetization. It turns cognition itself into something that can be routed, measured, composed, and priced.
