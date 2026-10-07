@@ -1,0 +1,140 @@
+Yes. A useful way to think about it is that a transformation changes the representation, scale, topology, semantics, or resolution of data while ideally preserving some invariant you care about.
+
+Transformation family	What it changes	Examples
+Scaling	Magnitude/range	min–max scaling, z-score, logarithm, power transform, percentage, per-capita normalization
+Translation / offset	Baseline	subtract mean, inflation-adjust dollars, center coordinates
+Rotation / projection	Orientation or viewpoint	PCA rotation, coordinate transforms, camera projection
+Reshaping	Arrangement without necessarily changing values	wide↔long, matrix↔tensor, flatten, pivot, transpose
+Dimensionality	Number of descriptive axes	PCA, embeddings, feature selection, compression
+Aggregation	Many observations → fewer summaries	mean, median, sum, histogram, rolling average
+Disaggregation	Coarse → finer representation	annual→monthly estimates, national→regional decomposition
+Granularity mapping	Resolution	seconds→minutes, pixels→regions, species→genus, ZIP→county
+Categorization	Continuous/complex → discrete class	age→age band, probability→risk class, text→topic
+Binning / quantization	Precision	temperatures into ranges, RGB to fewer color levels
+Encoding	Representation system	one-hot, ordinal encoding, UTF-8, binary, tokenization
+Decoding	Representation → interpreted state	token→word, bytes→image, code→symbol
+Ranking	Absolute values → relative order	percentile, leaderboard, decile, dominance ordering
+Thresholding	Continuous → decision	probability > 0.7 → positive, edge/no-edge
+Filtering	Removes selected components	low-pass, spam filter, outlier removal, SQL WHERE
+Smoothing	Reduces local variation	moving average, Gaussian smoothing, LOESS
+Differencing	State → change	x_t-x_{t-1}, velocity from position, returns from prices
+Integration / accumulation	Changes → state	cumulative sum, distance from velocity, lifetime revenue
+Derivative-like transformation	Rate of change	slope, acceleration, gradient
+Temporal alignment	Time relationship	lag, lead, resampling, synchronization, interpolation
+Windowing	Local context	rolling 7-day average, sliding image patch, sequence chunk
+Frequency transform	Time/space → frequencies	Fourier transform, wavelets, spectrograms
+Spatial transform	Geometry	crop, translate, rotate, warp, georeference
+Coordinate transform	Reference frame	Cartesian↔polar, latitude/longitude↔map projection
+Structural mapping	Organization	list→tree, table→graph, graph→matrix, hierarchy→flat taxonomy
+Relational transformation	Connections rather than nodes	adjacency matrix, co-occurrence network, correlation graph
+Graph transformation	Network structure	contraction, community detection, line graph, graph embedding
+Topological transformation	Connectivity/shape properties	connected components, holes, persistence, neighborhood structure
+Join / fusion	Multiple sources → one structure	SQL join, sensor fusion, multimodal alignment
+Split / factorization	One structure → components	train/test split, matrix factorization, source separation
+Decomposition	Composite signal → constituent parts	trend + seasonality + noise, eigenvectors, ICA
+Feature extraction	Raw signal → informative descriptors	edges, frequency peaks, sentiment score, texture
+Feature construction	Existing features → new ones	BMI from height/weight, ratios, interactions, polynomial terms
+Interaction transformation	Variables → relationships	xy, covariance, correlations, pairwise distances
+Distance transformation	Objects → similarity/dissimilarity	Euclidean distance, cosine similarity, edit distance
+Kernel transformation	Data → implicit richer geometry	RBF kernel, polynomial kernel
+Embedding	Complex object → vector	words, images, users, graphs represented in latent space
+Latent-state inference	Observations → hidden causes	factor models, HMMs, Bayesian latent variables
+Probability transformation	Scores/beliefs	odds, log-odds, likelihood, posterior probability
+Calibration	Raw score → reliable probability	isotonic regression, Platt scaling
+Standardization	Different measurement systems → comparable form	z-scores, unit normalization
+Unit transformation	Measurement vocabulary	°F↔°C, meters↔feet, nominal dollars↔real dollars
+Semantic transformation	Meaning representation	sentence→intent, event→cause category, behavior→strategy
+Abstraction	Specific → general	Labrador→dog→mammal→organism
+Instantiation	General → specific	“vehicle”→truck→specific truck
+Ontology mapping	One conceptual system → another	ICD code↔clinical concept, job title↔skill taxonomy
+Label transformation	Classification vocabulary	merge classes, split classes, relabel, hierarchical labels
+Logical transformation	Statement form	AND/OR/NOT, implication, Boolean simplification
+Symbolic transformation	Expression structure	algebraic simplification, substitution, rewriting
+Permutation	Order	shuffle, sort, reorder axes
+Sampling	Population → subset	random sample, stratified sample, downsampling
+Upsampling	Sparse → denser representation	interpolation, synthetic samples, image enlargement
+Stochastic transformation	Adds controlled randomness	noise injection, Monte Carlo sampling, augmentation
+Masking	Removes/obscures selected information	missing-value masks, attention masks, privacy redaction
+Compression	Rich representation → smaller representation	JPEG, PCA, quantization, summaries
+Expansion	Compact representation → richer space	polynomial basis, decoding, generated features
+Canonicalization	Many equivalent forms → one standard form	lowercase text, standardized dates, canonical URLs
+Deduplication	Repeated entities → single identity	record linkage, fuzzy matching
+Imputation	Missing → estimated values	median fill, interpolation, model-based fill
+Residualization	Remove explained component	actual − predicted, detrending, confound removal
+Baseline correction	Relative-to-reference representation	anomaly from normal, change from control
+Contrast transformation	Difference between conditions	treatment−control, before−after, signal/background
+Ratio transformation	Relative magnitude	debt/income, signal/noise, conversion rate
+Compositional transformation	Parts of a constrained whole	percentages, log-ratios, simplex transforms
+Cumulative transformation	Point values → running state	CDF, cumulative sales, cumulative hazard
+Order-statistic transformation	Distribution → ranks/quantiles	median, percentile, quantile normalization
+Distribution transformation	Shape of statistical distribution	Box–Cox, log transform, Gaussianization
+Model transformation	Data → parameters/function	regression coefficients, decision tree, neural network
+Inverse transformation	Representation back toward source	exponentiating log values, inverse Fourier transform
+Cross-modal transformation	One sensory/data form → another	speech→text, image→caption, sonar→spatial map
+Domain transformation	Same phenomenon under another mathematical lens	time↔frequency, spatial↔spectral, node↔edge representation
+Counterfactual transformation	Observed state → altered hypothetical state	“what if price were 10% lower?”
+Simulation	Parameters/rules → synthetic observations	weather simulation, agent-based models
+Generative transformation	Latent/code → new instance	embedding→image, prompt→text
+Invariant transformation	Changes representation while deliberately preserving something	image rotation preserving object identity, permutation-invariant set encoding
+
+The deeper distinction is what is preserved versus what is deliberately discarded.
+
+For example:
+
+\text{raw observations}
+\rightarrow
+\text{differences}
+\rightarrow
+\text{rates}
+\rightarrow
+\text{ratios}
+\rightarrow
+\text{normalized rates}
+\rightarrow
+\text{rank}
+\rightarrow
+\text{category}
+
+The same dataset has now been viewed through six different mathematical “senses.”
+
+And several particularly useful meta-types emerge.
+
+Representation transforms change how something is written while trying to preserve its identity.
+
+Resolution transforms change how finely you are looking.
+
+Relational transforms stop studying the objects and start studying the spaces between the objects.
+
+Derivative transforms stop asking what something is and ask how it is changing.
+
+Latent transforms infer something invisible from visible manifestations.
+
+Invariant transforms deliberately change many superficial properties while preserving the property you actually care about.
+
+Lossy transforms intentionally throw away information to reveal structure.
+
+That last one is important. Sometimes losing information increases usable information.
+
+A photograph → edge map destroys color and texture, but suddenly geometry becomes conspicuous.
+
+A stock-price series → percentage returns destroys absolute price level, but makes movement comparable.
+
+A thousand behaviors → five behavioral archetypes destroys individuality, but exposes population structure.
+
+So you can almost treat transformations as lenses:
+
+D
+\xrightarrow{T_1}
+D'
+\xrightarrow{T_2}
+D''
+\xrightarrow{T_3}
+\cdots
+
+And then your Delta Observatory idea becomes even stronger:
+
+\boxed{\text{Compare what remains stable and what changes under multiple transformations}}
+
+If a pattern survives scaling, normalization, different granularities, alternate categorizations, temporal windows, and different modalities, it is much harder to dismiss as an artifact of one representation.
+
+That is essentially triangulation across transformation space.
