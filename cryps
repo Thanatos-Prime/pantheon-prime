@@ -1,0 +1,19 @@
+Yes—provided the protection is post-quantum at the point where the ciphertext is created, that closes the classic “harvest now, decrypt later” attack.
+
+The important distinction is that future-proofing the storage later is too late. An adversary can capture traffic today, keep the ciphertext indefinitely, and wait for a future capability to break the classical key exchange. So the defensive boundary needs to exist before interception.
+
+For our architecture, I’d think of it as several concentric layers:
+
+* PQC/hybrid key establishment for anything crossing an untrusted network, so captured sessions cannot later be opened merely by defeating RSA/ECC.
+* Forward secrecy so compromise of a long-term key does not retroactively expose old sessions.
+* Post-quantum protection of long-lived archives/backups, particularly material expected to remain sensitive for decades.
+* Crypto-agility: algorithms and keys remain interfaces rather than hard-coded assumptions, so we can swap primitives as cryptanalysis evolves.
+* Compartmentalization: one broken key/domain should expose a bounded cell, not the whole repository.
+* Endpoint security, because PQ crypto cannot save plaintext that gets stolen before encryption or after decryption.
+* Metadata discipline, because encryption can protect contents while traffic patterns, identities, timing, filenames, graph structure, or access patterns still leak information.
+
+So the stronger invariant is:
+
+capture now ≠ possession later.
+
+And there is a nice Pantheon-level abstraction buried inside that: information can survive an observation without surrendering its future interpretability. Preserve the artifact; withhold the reconstruction operator. That principle generalizes well beyond cryptography—to permissions, provenance, compartmentalized knowledge, capability systems, and even the way we structure the repo.
