@@ -1,0 +1,92 @@
+Biological Semantics Engine — Specification / Whitepaper v1.0
+
+Canonical ID: PANTHEON.BSE.ECOLOGICAL_INVERSION
+Classification: Translator · Inference operator · Fieldcraft playbook · Semantic atlas
+Status: Implemented reference catalogs and prototype; experimental calibration remains open.
+
+Abstract
+
+Chemical ecology is a distributed information system. A damaged leaf, attacked root, blooming flower, termite gut and ant trail can all serve as windows into otherwise invisible states. BSE models emissions and exchanges, detectable compounds, receivers, behavior, ecological consequences and sources of uncertainty as an evidence-bearing multigraph. It supports forward prediction from causes to possible observations and inverse ranking from observations to possible causes. “Translation” here is a technical metaphor for context-specific inference, not evidence that plants use human-like language or have intentional speech.
+
+1. The six layers
+
+1. State: latent condition — tissue damage, herbivory, fungal association, water status, microbial activity, food resource.
+2. Emission/exposure: compounds, concentration, medium, location, temporal profile; mechanical/electrical modes included separately.
+3. Transport/transformation: airflow, soil diffusion, adsorption, metabolism, degradation, rain, time and distance.
+4. Receiver: organism or passive sampler; sensory receptor, prior experience, physiological constraints.
+5. Response: foraging, defense priming, growth, gene expression, attraction, dispersal, fermentation, deposition.
+6. Inference/intervention: hypotheses → prediction → control → observation → counterexample → provisional canon.
+
+Stable decomposition: HiddenState -> Emission -> Transport -> Receiver -> Response -> Observer -> Hypothesis.
+
+2. Semantic discriminations
+
+• Molecule = a chemical entity; mixture = combination; blend signature = ratios and context-sensitive dynamic pattern.
+• Signal = feature influenced by selection in part because of its effects on a receiver; cue = information obtained regardless of sender evolutionary function; elicitor = trigger of a response; metabolite = compound participating in metabolism; hormone = endogenous regulator; reward = material benefit to another organism; passive sample = information collected without sensing behavior.
+• Index = correlated with condition; mechanism = causally involved; proxy = observable measurement standing in for a latent quantity.
+• Semantic content = scientist-defined hypothesis about what a pattern indicates, not an organism’s intended proposition.
+• Receiver-specific translation = observed effect conditional on a receptor and environment; universal dictionary is generally not warranted.
+
+3. Model of the physical channel
+
+Let emission rate of compound i be e_i(t, x). A receiver sees an altered concentration c_i(t, r) after diffusion, advection, degradation, transformation and environmental masking. For a simplified transport description:
+
+∂c_i/∂t = D_i ∇²c_i − v · ∇c_i − k_i c_i + e_i + transformations_i
+
+This is an engineering schematic, not a calibrated environmental model. Actual transport may require turbulent airflow, sorption, boundary layers and species-specific chemistry. Receiver response is a function R = f(c_1...c_n, history, species, physiological state, context).
+
+Inference is conditional on spatial and environmental factors:
+
+P(H|O,C) ∝ P(O|H,C) P(H|C).
+
+We must estimate the likelihoods using real data before interpreting outputs as probabilities.
+
+4. Biological pathways encoded
+
+• Caterpillar oral elicitor volicitin -> wounded maize -> inducible volatile blend -> searching parasitoid wasps. [ALBORN1997]
+• Herbivore-associated maize indole -> defense priming in maize receivers. [ERB2015]
+• Rootworm-attacked maize roots -> (E)-β-caryophyllene -> entomopathogenic nematode orientation. [RASMANN2005]
+• Root strigolactones -> arbuscular mycorrhizal fungal responses AND parasitic weed seed germination; same cue supports cooperation and exploitation. [AKIYAMA2006,WATERS2017]
+• Extrafloral nectar -> ants -> conditional plant defense (not inevitable). [HEIL2015,NOVAIS2025]
+• DIMBOA maize exudate -> Pseudomonas putida chemotaxis/colonization; soil metabolites can alter later plant microbiota. [NEAL2012,HU2018]
+• Internal wound-associated glutamate and GLR activity -> calcium wave -> defense response. [TOYOTA2018]
+• Termite + microbiota + substrate -> fermentation (not a signaling-language example). [BRUNE2014]
+• Spider webs -> passive environmental DNA sampling (not a sensory receiver). [NEWTON2024]
+
+5. Signal syntax, context and composition
+
+See GRAMMAR.md for a formal grammar. In particular, an odor blend can have non-additive ecological effects; temperature, humidity, light, receiver learning, and circadian timing can shift how it is perceived. Compositional semantics is an empirical hypothesis until measured in the appropriate receiver.
+
+6. Experimental inference cycle
+
+1. Define candidate causes H1...Hn and environmental alternatives.
+2. Establish what each cause could emit and when; enumerate receiver types.
+3. Measure or photograph behavior in non-destructive field conditions.
+4. Record provenance: species, site, time, location precision, sample method, negative and positive controls.
+5. Predict discriminating observations before investigating.
+6. Validate instrument signal identity with standards where possible; distinguish detection limit from true absence.
+7. Compare matched controls and replicate across days/sites.
+8. Analyze uncertainty, dependence, false positives and counterexamples.
+9. Decide: reject / revisit / provisional claim / supported causal relationship.
+10. Save delta, provenance, failure mode and reconstruction instructions.
+
+7. Translations between Pantheon objects
+
+BioObservation -> ThoughtObject {source, context, state, time} -> SignalUnit {type, value, uncertainty} -> GraphEdge {source,receiver,medium,mechanism,evidence} -> Hypothesis {alternatives,predictions} -> ValidatedOperator {scope,failures,provenance}.
+
+Those types describe proposed adapters; actual Pantheon class/interface compatibility must be checked at merge time. Mother Duck logs chronology; Mirror/Hound checks alternatives; Spider manages graph links; ZPC calibrates; Kintsugi annotates repaired failures; Indigo Hammer challenges assumptions. The Money Bin preserves a compressed reconstruction seed rather than an exhaustive transcript.
+
+8. False-center checks
+
+• “Ants at plant = plant disease” is false; nectar, honeydew, nest route and food debris compete.
+• “Wasp on leaf = specific herbivore” is false; search behavior has multiple explanations.
+• “One molecule = one word” is usually false; blends and receivers matter.
+• “Signal evolved for receiver’s benefit” is false; eavesdropping, conflict and exploitation occur.
+• “Posterior score = real-world confidence” is false in this uncalibrated build.
+• “Symbiotic digestion = plant speech” is false; ecological information transfer and material processing are distinct mechanisms.
+
+9. Canon criteria
+
+Do not promote novel translations to scientific canon without replicated observations, relevant controls, chemical or mechanistic confirmation, competing-hypothesis testing, known scope and transparent uncertainty. A promising analogy belongs to the hypothesis shelf, not established claims.
+
+Reconstruction seed: observe response → infer hidden condition with alternatives → verify mechanism → map relational operators → transport only invariant functions → log failures → recurse.
