@@ -1,0 +1,101 @@
+Ecological Chemical Grammar v1.0
+
+Scope
+
+This is a formalism we impose to study chemical ecology. Molecules are not literal human words and not every interaction entails evolved communication. The same molecule can be a hormone, metabolic product, attractant or incidental cue depending on context.
+
+Type system
+
+• CHEM: chemically specified molecule (indole, (Z)-3-hexenol)
+• CLASS: chemical class (strigolactones)
+• MIXTURE: physically co-present substances (extrafloral_nectar)
+• INTERNAL: signal within an organism (glutamate → calcium)
+• CUE: exploitable association (inference without establishing sender intent)
+• SIGNAL: evolved sender–receiver effect within evidence scope
+• ELICITOR: material that induces an organism response (volicitin)
+• METABOLITE: compound produced/used in metabolic processing (acetate)
+• PASSIVE_SAMPLE: trapped information (spider_web_eDNA)
+
+Proposed EBNF
+
+Observation = Context, Source, Medium, Pattern, Receiver, Response, Evidence ;
+Context     = Species, Tissue, Development, Environment, TimeWindow ;
+Source      = TaxonOrTissue, [StressOrState], [InteractionPartner] ;
+Medium      = "air" | "rhizosphere" | "liquid" | "contact" |
+              "internal" | "electrical" | "mechanical" | "passive_deposition" ;
+Pattern     = Event, {TemporalRelation, Event} ;
+Event       = ChemicalIdentity, Quantity, Position, Timestamp ;
+TemporalRelation = "before" | "after" | "overlaps" | "pulses" | "persists" ;
+Receiver    = Taxon, DetectionMode, ReceiverState ;
+Response    = ActionOrPhysiology, Latency, Magnitude ;
+Evidence    = Method, Controls, SourceIDs, Uncertainty, Alternatives ;
+
+This EBNF describes an information record, not an assertion that a plant intentionally constructs sentences.
+
+Grammar operators
+
+|Operator     |Example                               |Why it matters                                             |
+|-------------|--------------------------------------|-----------------------------------------------------------|
+|`IDENTITY`   |indole vs green-leaf volatiles        |Distinguishes pathways                                     |
+|`RATIO`      |compound A:B                          |Blends may be discriminatory even when constituents are not|
+|`DOSE`       |high vs low emission                  |Thresholds/saturation change effects                       |
+|`ORDER`      |damage burst → delayed induction      |May resolve mechanism/stress phase                         |
+|`DURATION`   |transient vs persistent release       |Separates acute response from steady background            |
+|`LOCATION`   |leaves vs roots                       |Different receivers and transport                          |
+|`CONTEXT`    |humid vs dry, day vs night            |Changes transport and physiology                           |
+|`RECEIVER`   |parasitoid vs another plant           |One pattern, distinct functional reading                   |
+|`FEEDBACK`   |response alters sender/partner        |Makes ecological loops                                     |
+|`EAVESDROP`  |hyperparasitoid uses volatile changes |Changes who benefits                                       |
+|`NEGATION`   |reliable absence above detection limit|Can exclude hypotheses if sampling supports it             |
+|`UNCERTAINTY`|overlap/limited specificity           |Prevents overly literal decoding                           |
+
+Formal primitives
+
+A profile S(t) = [c_1(t),...,c_n(t)] must include units, sampling method, compound identity confidence, detection limit and blanks. Distinguish emission rate from measured concentration because distance, airflow, temperature and sorption change observations.
+
+Provisional parse structure:
+
+{
+  "taxon": "Zea mays",
+  "tissue": "leaf",
+  "condition_candidate": "herbivore_associated_damage",
+  "signal_pattern": {
+    "features": ["green_leaf_volatile_burst", "indole_rise"],
+    "order": "rapid_damage_burst_then_induced_emission",
+    "measurement": "requires_experimental_confirmation"
+  },
+  "receivers": ["parasitoid_wasps", "neighboring_maize"],
+  "evidence_source_ids": ["ALBORN1997", "ERB2015"],
+  "interpretation": "candidate, not definitive diagnosis"
+}
+
+Reference pattern families
+
+Structured patterns are in data/grammar_patterns.json:
+
+1. Wound → green-leaf volatiles; mechanical damage remains an alternative.
+2. Herbivore elicitor + wound → altered maize volatiles.
+3. Indole emissions in maize → enhanced defense readiness in tested maize receivers.
+4. Rootworm injury → root sesquiterpene → nematode recruitment.
+5. Root strigolactones → fungal symbiosis AND parasitic-plant exploitation.
+6. Nectar/honeydew → ant foraging with divergent ecological outcomes.
+7. Root exudate → microbial community shift → next-generation plant feedback.
+8. Glutamate → GLR-mediated calcium wave within plant tissues.
+9. Gut polymer breakdown → microbial fermentation → host acetate supply: metabolic grammar, not communication.
+10. Passive web eDNA → animal presence hypothesis with environmental contamination controls.
+
+Compositional research questions
+
+• Does a specific 2-compound mixture elicit a response not induced by either component alone?
+• Is sequence more informative than total exposure dose?
+• Does the same blend have contradictory meanings to mutualists vs antagonists?
+• Do different receiver groups show conditionally independent responses?
+• Which signals survive a noisy channel or environmental disturbance?
+
+Correctness tests
+
+Syntax correctness: fields valid and units present.
+Chemical correctness: assignments confirmed where possible by standards and MS retention/spectra.
+Ecological correctness: receiver and observed behavior actually documented.
+Causal correctness: experiment discriminates alternatives.
+Transfer correctness: cross-domain analogy preserves tested functional invariants and notes where analogy ends.
