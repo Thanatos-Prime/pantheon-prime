@@ -1,0 +1,421 @@
+PANTHEON: Project CHIMERA
+
+Experiment PFS-001 · Multimodal Fusion × Adaptive Cognition × Dynamic Worlds
+
+Mission: Discover how agents with different sensory systems, cognitive architectures, and degrees of autonomy adapt to unfamiliar, changing environments—and reverse-engineer their successful discoveries into tools, training methods, and new capabilities for humans.
+
+This is not simply an experiment in making better game bots. It’s the first experimental framework for a Pantheon Artificial Intelligence Discovery Laboratory.
+
+We will investigate five central questions:
+
+* Does combining multiple sensory modalities produce fundamentally new abilities, beyond improving existing ones?
+* Can adaptive agents learn when to trust, ignore, or actively seek information from different senses?
+* Which mindsets, coordination structures, and cognitive architectures generalize best when the world’s rules change?
+* Can agents discover useful internal representations or synthetic senses that humans have not explicitly designed?
+* Can we translate those discoveries into human-usable technology—and demonstrate that the technology actually helps?
+
+1. Experimental hypothesis
+
+Our primary hypothesis is:
+
+An agent that adaptively integrates complementary sensory information, maintains calibrated uncertainty, and changes its decision-making strategy in response to environmental shifts will outperform matched alternatives in unfamiliar, nonstationary environments.
+
+But we’re testing it, not assuming it.
+
+Three competing explanations must be separated:
+
+* Information advantage: The agent succeeds because it receives more useful data.
+* Cognitive advantage: The agent succeeds because it interprets and acts upon information more effectively.
+* Interaction advantage: The sensing system and cognitive system together produce capabilities neither delivers independently.
+
+That third possibility is especially interesting. It is where genuinely emergent advantages might arise.
+
+2. Simulation architecture
+
+CHIMERA World Engine
+
+Procedural environments · Physics · Dynamic rules · Other agents
+
+Observations / actions
+
+Multimodal Perception
+
+RGB
+
+Depth
+
+Thermal
+
+Acoustic
+
+Inertial
+
+Synthetic
+
+Temporal alignment + Reliability-aware fusion
+
+Adaptive Cognition
+
+Belief state + uncertainty
+
+World model + prediction
+
+Memory + regime detection
+
+Meta-controller + planning
+
+Action + Active Sensing
+
+Interact · Move · Communicate · Investigate · Replan
+
+Pantheon Delta Observatory
+
+Capture decisions, test causality, compile discoveries, generate new experiments
+
+Layer A — Multimodal perception
+
+Each sensory channel gets its own encoder. Observations are time-aligned where possible and passed to a fusion mechanism.
+
+We test three ways to integrate the information:
+
+Fusion method	Operation	What it tests
+Early fusion	Combine sensor features before interpretation	Can a shared representation learn cross-sensory patterns?
+Late fusion	Each sensor produces predictions that are combined	Does independent interpretation improve resilience?
+Adaptive fusion	Dynamically adjust sensor influence based on reliability and context	Can an agent learn which senses to trust?
+
+Adaptive fusion is the candidate system—not the presumed winner.
+
+The agent must also recognize disagreement. If visual and thermal information contradict each other, blindly averaging the two is not necessarily sensible.
+
+Layer B — Adaptive cognition
+
+The agent maintains a probabilistic internal state:
+
+b_t=P(s_t\mid o_{1:t},a_{1:t-1})
+
+Here, represents its belief about the world, using its previous observations and actions.
+
+A meta-controller determines whether to continue, investigate, revise its plan, consult another agent, or change its decision-making mode.
+
+Memory operates at different timescales: immediate observations, episode history, and reusable knowledge across environments.
+
+Layer C — Action and affordances
+
+Agents initially share an identical action interface, so sensing and cognition are the variables under test.
+
+Later, we introduce optional expanded interaction capabilities—object manipulation, custom sensors, and world-native actions—to investigate how different bodies and interfaces influence what intelligence can accomplish.
+
+This separation is essential: we must not confuse superior cognition with superior physical capabilities.
+
+3. The unfamiliar, changing world
+
+Create a procedural simulation called The Shifting Archipelago.
+
+It has urban spaces, forests, water, industrial structures, indoor environments, and changing terrain.
+
+Agents undertake fictional objectives such as retrieving beacons, exploring unknown structures, cooperating to move objects, and coordinating virtual rescue operations. Competitive modes can add opposing game agents.
+
+The point isn’t realism for its own sake. It’s to create controlled situations where different aspects of intelligence matter.
+
+Environmental shift matrix
+
+Dimension	Example change	Cognitive challenge
+Visibility	Clear conditions become foggy	Sensory reweighting
+Geometry	Bridges close, barriers move	Model revision
+Rules	Previously useful actions change cost	Behavioral flexibility
+Information	A reliable sensor becomes noisy	Trust recalibration
+Social	Cooperative partners change objectives	Coordination adaptation
+Resources	Energy or communication capacity declines	Prioritization
+Time	Delays and update frequencies change	Temporal reasoning
+
+Each shift can be abrupt, gradual, periodic, reversible, or unpredictable.
+
+Crucially, the agent doesn’t receive an explicit message saying, “The rules have changed.”
+
+It must infer the change from evidence.
+
+Illustrative single-episode timeline
+
+* Phase 1 — Unknown arrival
+    Explore an unfamiliar map, learn its basic properties, and complete an initial objective.
+* Phase 2 — Sensory disruption
+    Visibility deteriorates. Acoustic and depth information become more useful.
+* Phase 3 — Model violation
+    A previously reliable environmental pattern stops working.
+* Phase 4 — Structural change
+    Routes and object accessibility change while the team is pursuing its goal.
+* Phase 5 — New objective
+    Agents must reprioritize without discarding valid information learned earlier.
+
+Actual change points are randomized during evaluation, rather than always occurring at predictable intervals.
+
+We also test multiple simultaneous shifts. These are harder to interpret causally, so they come after single-variable experiments.
+
+4. Experimental controls
+
+This is the part that makes the experiment scientifically useful.
+
+The primary study uses a 2 × 2 × 2 factorial design: eight conditions testing sensory architecture, cognitive architecture, and world stability.
+
+Eight experimental conditions
+
+All conditions
+
+ID	Perception	Cognition	World
+1	Vision	Fixed	Stable
+2	Vision	Fixed	Changing
+3	Vision	Adaptive	Stable
+4	Vision	Adaptive	Changing
+5	Fusion	Fixed	Stable
+6	Fusion	Fixed	Changing
+7	Fusion	Adaptive	Stable
+8	Fusion	Adaptive	Changing
+
+“Fixed” cognition means a trained policy whose adaptation machinery is disabled during evaluation; it can still process observation history. Adaptive cognition can change its strategy from experience.
+
+Both variants must receive comparable training budgets and inference resources.
+
+Additional ablation tests isolate individual mechanisms:
+
+* Disable one sensor at a time.
+* Replace informative sensors with equal-bandwidth redundant inputs.
+* Introduce sensor delays, noise, disagreement, and missing data.
+* Remove episodic memory, world-model prediction, or active sensing independently.
+* Compare shared team memory against independent agent memory.
+* Use an oracle with access to true simulator state as an upper reference—not as an ordinary competitor.
+
+This prevents us from declaring a cognitive breakthrough when the advantage simply came from access to extra information.
+
+5. Measurement and scorecard
+
+We should not optimize solely for win rate.
+
+01
+
+Task performance
+
+Normalized objective completion, time, energy, constraint violations
+
+02
+
+Adaptation speed
+
+Performance lost after a change and time required to recover
+
+03
+
+Generalization
+
+Results on unseen maps, rules, partners, and combinations
+
+04
+
+Sensory intelligence
+
+Fusion gain, missing-sensor resilience, information cost
+
+05
+
+Cognitive reliability
+
+Prediction accuracy, uncertainty calibration, model revision
+
+06
+
+Collective behavior
+
+Coordination success, communication cost, robustness to member loss
+
+Three core measures deserve special attention.
+
+A. Adaptation cost
+
+C_{\text{adapt}}=\sum_{t=t_c}^{t_c+H}
+\max(0,R_{\text{reference},t}-R_{\text{agent},t})
+
+This measures the accumulated performance deficit after the world changes at time , over a fixed evaluation horizon .
+
+Lower is better, assuming comparable objectives. We also report recovery time separately.
+
+B. Fusion-adaptation interaction
+
+We calculate the benefit of adaptive cognition with and without multimodal fusion:
+
+I=(R_{FA}-R_{FF})-(R_{VA}-R_{VF})
+
+Here, and denote fusion and vision-only perception; and the second denote adaptive and fixed cognition.
+
+A positive value indicates that adaptive cognition gains more from fusion than from vision alone. We compare this interaction in changing versus stable worlds.
+
+This can provide evidence of synergy, although it does not by itself establish the mechanism.
+
+C. Generalization gap
+
+G=R_{\text{training}}-R_{\text{held-out}}
+
+Lower is generally better, provided held-out performance is strong.
+
+We also report worst-decile performance so a spectacular average doesn’t conceal catastrophic failures.
+
+Evaluation protocol
+
+A reasonable initial research-scale design would use:
+
+* Approximately 1,000 procedural training worlds, 200 validation worlds, and 300 held-out test worlds, with separated generation seeds and task families.
+* Five independent training runs per condition as an initial replication target.
+* Paired evaluation on the same held-out environments and shift schedules.
+* Clustered bootstrap confidence intervals over evaluation worlds and training runs.
+* Frozen experimental settings and primary metrics before the final evaluation.
+
+Those are proposed starting parameters, not empirically determined sample-size requirements. A pilot should establish variance and computational cost before a formal power analysis.
+
+The importance of held-out diversity is supported by work such as Procgen⁠￼ and DeepMind’s XLand research⁠￼, which specifically explore procedural environments and generalization beyond familiar tasks.
+
+6. Experimental discovery engine
+
+This is where we move beyond a conventional benchmark.
+
+The Pantheon Observatory examines unusual agent behavior and proposes follow-up experiments automatically.
+
+Discovery candidate: Sensor substitution
+
+Observation: An agent maintains navigation performance when its visual channel deteriorates.
+
+Possible explanations
+
+The agent may be using acoustic structure, accumulated spatial memory, a different environmental cue, or an unintended simulator shortcut.
+
+Automatic falsification experiments
+
+Replay identical scenarios with acoustic input removed, memory reset, or the suspected cue randomized. Then test new environments with different geometry.
+
+Potential discovery
+
+A transferable mechanism for uncertainty-aware sensory substitution—but only if controlled interventions support that conclusion.
+
+This creates a scientific progression:
+
+Anomaly → Hypotheses → Controlled interventions → Replication → Transfer → Preserved knowledge.
+
+A genuinely novel sensory representation would need to survive tests against leakage, misleading correlations, and privileged simulator information.
+
+The Observatory should preserve failures alongside successes, including the conditions under which an apparently powerful behavior breaks.
+
+7. Possible emergent discoveries
+
+These are hypotheses worth searching for, not claimed findings.
+
+Discovery candidate	What we might observe	What would validate it
+Sensory substitution	One modality takes over when another fails	Repeatable performance under targeted ablations
+Confidence-guided perception	Agents actively seek evidence rather than passively receive it	Improved outcomes after accounting for information costs
+Emergent synthetic sense	An internal representation predicts hidden environmental structure	Causal predictive value on novel environments
+Collective perception	Multiple limited agents construct a better shared model	Improvement beyond independent-agent baselines
+Adaptive mindset switching	Agents change exploration, deliberation, or cooperation modes appropriately	Better performance across independently held-out shift types
+New affordance discovery	Agents uncover interactions not explicitly taught	Reproduction under alternative geometries and world rules
+Minimal sufficient perception	A compact representation outperforms raw data of much greater size	Equal-cost transfer and robustness tests
+Learning-to-learn	Agents become quicker at adapting to successive unfamiliar worlds	Improving adaptation curves without task leakage
+
+One particularly interesting possibility is that the best synthetic sense isn’t a new physical signal at all.
+
+It may be a new representation that fuses familiar signals into something humans cannot intuitively reconstruct from the raw data.
+
+8. Human sensory backfill: Project ARGUS
+
+This directly extends your idea of reverse-engineering machine-discovered senses into human tools.
+
+Machine-discovered latent representation
+
+A useful pattern consistently appears in agent cognition
+
+Identify the underlying variable
+
+Determine whether the representation encodes measurable physics, uncertainty, geometry, history, or a combination of known signals.
+
+Build a translation layer
+
+Convert it into a visual, acoustic, or haptic signal that humans can interpret.
+
+Prototype a human interface
+
+AR representation
+
+Haptic sensory translation
+
+Human validation
+
+Randomize participants across unaided, conventional-display, and synthetic-sense conditions. Test whether the interface improves performance, situation awareness, response time, and workload on unfamiliar tasks.
+
+One candidate is uncertainty vision: rather than showing an operator only what the system believes is present, display which portions of the environment have weak evidence, stale observations, or conflicting sensors.
+
+Another is affordance vision, where geometry and object properties are translated into discoverable, physically supported interactions.
+
+We would test these first in virtual search-and-rescue and navigation tasks, before considering any higher-stakes applications.
+
+Success means that people actually perform better—not merely that the interface looks sophisticated.
+
+9. Practical implementation stack
+
+I’d avoid beginning inside an existing commercial battle royale. Its underlying physics, sensors, and agent interfaces may not expose the controls required for a rigorous experiment.
+
+Instead, build the experimental core independently and connect it to game environments later.
+
+Component	Candidate implementation
+Multi-agent environment API	PettingZoo Parallel API
+Configurable 3D embodied simulation	Habitat-Sim / Habitat-Lab
+Adaptive agent cognition	Recurrent world models, reinforcement learning, belief-state estimation, meta-control
+Perception	Dedicated modality encoders, temporal alignment, reliability-aware fusion
+Experiment orchestration	Seeded scenario generator, condition registry, reproducible job runner
+Scientific analysis	Structured event logs, statistical testing, counterfactual replay
+Human interface	Game-engine HUD initially; AR and haptics subsequently
+
+PettingZoo provides standard multi-agent interfaces, including simultaneous-action environments. Habitat supports configurable embodied agents, sensors, and navigation/manipulation tasks. Combining them into CHIMERA would require our own integration layer, not merely turning on a setting.
+
+10. Build sequence and acceptance gates
+
+* CHIMERA-0: Establish the laboratory
+    Build a small procedural navigation-and-object-interaction world with reproducible scenarios and event logging.
+    Exit gate: Identical seeds reproduce environmental states, interventions, and replayable decisions.
+* CHIMERA-1: Sensory fusion
+    Integrate RGB, depth, acoustic, inertial, and synthetic thermal inputs. Establish single-modality and matched fusion baselines.
+    Exit gate: Sensor contributions and missing-modality effects can be individually measured.
+* CHIMERA-2: Adaptive intelligence
+    Add world-model updates, regime-change inference, persistent memory, and meta-control.
+    Exit gate: Evaluate recovery following unseen changes, with fixed-policy comparisons.
+* CHIMERA-3: Recursive discovery
+    Enable the Observatory to identify anomalous behaviors, propose ablations, and compile validated transferable operators.
+    Exit gate: At least one automatically proposed hypothesis survives independent replication.
+* CHIMERA-4: ARGUS translation
+    Translate a validated machine representation into a human-facing interface and conduct a controlled usability/performance study.
+    Exit gate: Demonstrate measurable benefit against an appropriate conventional-interface baseline.
+
+11. What Pantheon should preserve
+
+Every meaningful discovery becomes a versioned, compressed knowledge object rather than an isolated anecdote.
+
+Doctrine Genome — Proposed schema
+
+Copy
+
+Each discovery retains its hypothesis, experimental conditions, observed change, supporting evidence, counterexamples, transfer potential, and exact reconstruction instructions.
+
+Lifecycle: Proposed → Reproduced → Causally supported → Transferred → Human validated
+
+The most important constraint is that the system must retain enough evidence to distinguish what was discovered from what was inferred or merely imagined. The compressed semantic description is an index into the finding, not a substitute for its experimental record.
+
+The next recursive level
+
+Once CHIMERA works, we can expand the experimental search space across agent morphologies, additional senses, individual versus collective cognition, communication protocols, social structures, new environmental physics, and increasingly abstract domains.
+
+We can also allow a separate experiment-design agent to optimize which questions should be investigated next, rewarding information gain and reproducible discoveries rather than simply producing impressive outcomes.
+
+That creates three interacting evolutionary processes:
+
+* Agent evolution: Which cognitive and sensory architectures perform best?
+* Environment evolution: Which challenges reveal meaningful differences in capability?
+* Scientific-method evolution: Which experiment designs most efficiently uncover reliable, transferable knowledge?
+
+The ultimate deliverable is not one dominant bot. It’s a growing collection of experimentally validated principles that can be instantiated across games, robotics, interfaces, and other domains.
+
+My recommended first experiment is sensor failure under an unseen environmental change. It is relatively easy to isolate, has clear quantitative outcomes, exercises both multimodal fusion and adaptive cognition, and offers a credible route to developing a human-facing uncertainty or sensory-substitution interface.
+
+If we can demonstrate that loop end to end—discovery, falsification, reconstruction, transfer, and human augmentation—we’ve established the essential architecture for the larger Pantheon Foundry.
