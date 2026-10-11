@@ -1,0 +1,93 @@
+PANTHEON / REALITY FORGE — UNIVERSAL ENCOUNTER ENGINE SEED v0.2
+
+Repo path: apps/reality-forge/REALITY_FORGE_SEED.md
+Executable: apps/reality-forge/index.html
+State: playable, deterministic 2D prototype; not empirically calibrated; no video/3D engine or validated zoological probability model.
+
+INTENT / WHY
+
+A reusable possible-worlds laboratory. Compose arbitrary actors across time, scale, ecology, civilization, technology, mythology, and fiction; place them in any causal environment; give them agency or pseudo-agency; compare synthetic outcomes under altered conditions; render one immutable world/event history through different observation/interpretation lenses; calibrate only where actual matched independent evidence exists. Support serious hypothesis testing AND free imaginative play without confusing one with the other.
+
+COMPRESSED REHYDRATION GRAMMAR
+
+Forge = WorldKernel + EncounterKernel + AgentRegistry + CausalLedger
+      + Prism(LensStack) + Stereoscope + ExperimentLab + DeltaCalculus.
+World := (seed, t, topology, terrain, conditions, physics, resources, agents, rules).
+Agent := (identity, provenance, body, mass, scale, traits, senses, resources,
+          knowledge, memory, objectives, constraints, policy, action repertoire).
+Encounter := (participants[], location, timeline, initialConditions, rules,
+              scenarioClass, fidelityDiscipline, interventions[], confidence).
+step(W_t, dt, seed, θ) -> (W_(t+dt), causalEvents[]). No renderer may mutate W.
+Observe(W, perspective, access, knowledge) -> information-limited projection.
+Experience := Lens_n ∘ ... ∘ Lens_1(Observe(W)); lens order may matter.
+Counterfactual(W, intervention) -> fork(W', branch_id, causalChangeLog).
+TrialSet(Encounter, seeds[]) -> conditional synthetic outcome distributions.
+Validate(predictions, independent observations, matched conditions) -> Δ + U.
+Refine(Δ, candidate mechanisms, complexity budget, held-out tests) -> θ'.
+
+SEPARATE THE FIVE TRANSFORMATION TYPES
+
+1. Sensory: available signal and its spatial/temporal resolution; organism-specific sensing and occlusion.
+2. Epistemic: what the observer knows/believes; historical period locality; no unexplained omniscience.
+3. Aesthetic: camera, color, audio, prose, animation, documentary/cinematic/comic/poetic/mythic appearance. Presentation does not change causality.
+4. Interpretive: what story, values, meaning, metaphors, and causal theories are assigned; allow comparisons and reconstruction.
+5. Causal: changing biological traits, scaling, venom, magic, terrain, physics, goals, or constraints; MUST be recorded as a new experiment or branch.
+
+Lenses are composable and reversible where information isn’t discarded. Hold the state/event ledger constant for a legitimate lens-only comparison. Compare what lens order reveals or obscures; never treat fantasy aesthetics as proof of fantasy physics.
+
+ENCOUNTER CLASSES / FIDELITY CONTRACT
+
+Scenario classes: historical reconstruction; ecological what-if; cross-era counterfactual; speculative extrapolation; fantasy.
+Fidelity disciplines: strict evidence; evidence + inference; plausible extrapolation; cinematic liberty; full imagination.
+
+Grades are claims about the interpretation/assumptions, not assurances of empirical accuracy. Fantasy and speculative parts carry explicit provenance tags. Selecting “strict evidence” cannot magically validate a giant spider. A cave bear and a giant spider have no established real-world encounter. Rendered footage is simulated, never archival.
+
+Each fact/attribute/event MAY carry {source, claim, evidence_type, uncertainty, model_version, units, valid_regime} and tags from OBSERVED | RECONSTRUCTED | INFERRED | COUNTERFACTUAL | EXTRAPOLATED | FICTIONAL.
+
+CURRENT VERTICAL SLICE (IMPLEMENTED IN index.html)
+
+• Reusable CREATURES registry: giant spider (fictional scale), cave bear, woolly mammoth, modeled dromaeosaur, modeled dire wolf, fictional dragon, armored gladiator. Choose ANY two and modify their relative sizes independently (0.5–3×); the engine composes the matchup rather than relying on scripted pair outcomes.
+• Terrain: webbed cavern, open tundra, forest, arena, swamp. Terrain affects movement and web opportunities as well as graphics.
+• Initial encounter default: giant spider at 1.5× arbitrary template scale versus cave bear at 1.0× in a webbed cavern. Spider mass/venom/web mechanics are explicitly hypothetical; body mass scales cubically, while locomotion/power use illustrative laws, not calibrated biomechanics.
+• Agency: 0–5 decision complexity. Stance: natural (withdrawal possible), forced arena premise, cautious (avoidance favored). Simplified memory/adaptation, energy, reach, impact, armor, agility, modeled venom condition and web snaring.
+• Earlier two scenarios remain: stylized Roman retiarius/secutor and wolf/elk.
+• Eight presentation/epistemic lenses: historical/naturalist, scientific, cinematic, poetic, mythic, fantasy, comic, approximate agent perception. Split-view shows two lenses of one simulation state.
+• Fixed-seed reproducibility, event ledger, pause/step/scrub/fork, 24-trial synthetic batch, JSON export including assumptions and provenance, and a manual observation–prediction separation-error tool.
+• Entire executable is one offline HTML/CSS/JS file. No package manager, server, credentials, or third-party dependencies needed to run it as a standalone browser page.
+
+ACTUAL LIMITS / FAILURE MODES
+
+• Illustrated top-down sprites rather than complete biomechanics, physiological scaling, fluid dynamics, 3D contact or photorealistic video.
+• Mass (kg) labels are toy registry values, not verified estimates. A giant spider at this size violates or stresses ordinary biological constraints; current movement, exoskeleton, respiration, load-bearing, venom potency, and web strength are not solved.
+• Body shape is stylistic. Collision geometry, depth/height, terrain occlusion, realistic hearing, vision, learning and social dynamics are minimal or absent.
+• Outcome proportions across runs are MODEL OUTPUTS sensitive to arbitrary coefficients—not empirical or historical win probabilities. Independent reference data for mythical encounters cannot exist; for such cases assess only internal consistency/sensitivity and plausible constraints.
+• Seeded replay is deterministic in a compatible JS engine, but floating-point, future code changes, or altered time steps can alter trajectories. Pin model version and code hash for scientific reproducibility.
+• Current two-agent engine is a slice. A universal system should eventually support any number of heterogeneous actors, neutral bystanders, collectives/swarms, ecology and resource loops, noncombat interactions and emergent diplomacy.
+
+INVARIANTS / TEST ORACLES
+
+I1 Lens isolation: pause; change lenses/split view; numeric state and event ledger remain exactly unchanged.
+I2 Branch accountability: edit a causal setting and log a new parameter baseline; replay older snapshots with the old settings.
+I3 Seed determinism: identical code, seed, fixed dt and settings yield identical final state.
+I4 Grounding: visual/literary intensity does not upgrade evidence grade.
+I5 Agency: allow avoidance/retreat, not merely preordained attacks; role, fear, energy and sensory limits may matter.
+I6 Nonoverfit: test models with withheld real observations; report uncertainties and regime boundaries.
+I7 Adaptive resolution: increase representation/physics/agent detail only when it improves causal usefulness, scientific testability or artistic experience.
+I8 Provenance: export assumptions, parameter values, seeds, event history, scenario class and fidelity.
+I9 Multi-world comparison: control initial state and random seeds when comparing terrain or parameter interventions.
+I10 Ethics: never require real animal violence; simulations are synthetic thought experiments.
+
+NEXT BUILD SEQUENCE (SMALLEST USEFUL INCREMENTS)
+
+1. External JSON creature/agent packs with versioned trait schemas, uncertainty ranges, provenance; author arbitrary fictional creatures and nonliving agents in UI without code edits.
+2. Physiology/physical consistency gate: square-cube scaling, strength-to-weight, respiratory limits, contact mechanics, traction, armor, structural failure. Warning and optional physically constrained/fantasy-world-law variants.
+3. 3D adapter consuming recorded poses/events, separate from causal kernel; skeletal rigging and cinematic lens renderers; optional video exports stamped SIMULATED.
+4. Agent-specific sensor surfaces, knowledge models, multimodal perception, belief-state updates and actual first-person embodiments.
+5. More-than-two-agent encounters, swarms, alliances, territorial disputes, ecology and nonviolent interactions.
+6. Formal calibration datasets, parameter inference, posterior ranges, falsification, error decomposition by regime; machine-assisted active selection of next experiment.
+7. Nested/switchable/blendable LensStack and History Stereoscope across observer/world representations, time scales and cultures.
+8. Automated property-based tests for kernel invariants; pinned test seeds and trace signatures in CI.
+
+FUTURE AI INSTRUCTION / RECONSTRUCTION CUES
+
+Read this seed, then open index.html. Identify world kernel (createSim, step, stepEncounter), creature registry, rules/agent policy (pickPolicy), ledger (record), pure-ish Canvas views (render and overlays), experimentation (experiment, compare), branching/snapshots, provenance/export. Preserve contracts before refactor. Seek an executable vertical slice before a sprawling folder tree. Maintain separate columns for known / inferred / invented. Test model behavior under controlled deltas. Improve the mechanism rather than cosmetic resolution unless the task is artistic. Seed → branch → observe → compare → prune/refine → preserve → transfer across domains.
