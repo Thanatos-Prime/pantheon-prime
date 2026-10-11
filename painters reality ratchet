@@ -1,0 +1,120 @@
+PANTHEON — PAINTER: INVERSE/GENERATIVE ATELIER
+
+Canonical ID: pantheon.painter.inverse_forward_atelier
+Version: 0.1-seed | Status: architecture specified; not an implemented or validated painting model
+Repo destination: PANTHEON_PAINTER_RATCHET_SEED.md (single-file, AI-rehydratable seed)
+
+Mission
+
+Give the Pantheon Painter TWO reciprocal abilities:
+
+1. Inverse Painter / Painter’s Forensics: infer plausible strokes, tools, pigments, layering, surface interactions, and working sequence from a finished artwork and available measurement evidence.
+2. Forward Painter / Generative Atelier: execute a hypothesized construction process with digital brushes, a physical paint simulator, or an instrumented robotic painter; compare the result to the target, revise the process, and preserve the learning.
+
+These form one reversible-looking BUT NON-INVERTIBLE workflow: many different processes can produce similar final surfaces. Never describe an inferred original process as uniquely recovered without supporting independent evidence.
+
+Kernel
+
+Observe → Decompose → Hypothesize → Simulate → Render/Execute → Measure → Compare → Update → Retest → Preserve → Transfer
+
+Image ≠ Process; appearance ≠ material; similarity ≠ provenance; artistic interpretation ≠ verified reconstruction.
+
+Connect existing Pantheon operators:
+
+• Chroma-Smith: pigment/color/palette analysis and color management.
+• Visual Sniper Team: visual grammar generator + critical spotter, iterative correction.
+• Wake: infer preceding states from traces; Reality: empirical validation.
+• Ratchet / Differential / Clutch: retain verified gains, compare branches, rollback failed changes.
+• Mother Duck / Merkle Warden: provenance, checkpoints, and immutable source references.
+• Reality Prism / LensStack: forensic, conservator, instructional, cinematic, poetic, and creative viewing modes; change of lens alone must not change underlying provenance or measured observations.
+• Civilizational Transition Layer: culturally governed descriptions, consent, context, heritage access restrictions.
+
+Input contract
+
+ArtworkEvidence = {
+  asset_id, original_files[], source_owner, rights_access_consents,
+  capture:{camera, optics, scale, color_chart, illumination, ICC_profile},
+  imaging?:{high_resolution, raking_light, UV, IR_reflectography,
+             X_radiography, multispectral, 3D_topography, microscopy},
+  context?:{date_range, substrate, medium, artist_or_school, conservation_history},
+  quality_flags[], provenance[], uncertainties[]
+}
+
+Require the best available evidence, not every instrument. Never fabricate a measurement from an ordinary photograph.
+
+Two linked pipelines
+
+A. INVERSE — forensic inference
+
+1. Register: preserve untouched originals, color calibration, scale, geometric alignment, surface-condition maps, imaging provenance.
+2. Segment: regions, contours, edges, apparent brush marks, direction fields, weave/grain, craquelure, highlights, and candidate material transitions.
+3. Measure: stroke geometry, color/value distributions, relief when actually scanned, cross-image correspondence; report capture-induced artifacts.
+4. Propose construction graph: substrate/ground → sketch/underdrawing → block-in/underpainting → paint strata → glazing/scumble → accents/varnish; allow branches, overpainting, unknown order, competing hypotheses.
+5. Infer stroke programs: path, width, angle, bristle/tool family, load, speed, pressure, opacity, mixing, drying and overlap with explicit uncertainty. Infer pigment only as supported by spectral or material evidence; color appearance alone does not identify chemistry.
+6. Produce: StrokeGraph, MaterialHypotheses, LayerDAG, ConfidenceMap, EvidenceLinks, UnresolvedQuestions and 2+ alternative explanations where material.
+
+B. FORWARD — re-enact construction
+
+1. Initialize substrate, scale, paint/brush model, palette and environmental variables.
+2. Order StrokeGraph using LayerDAG with drying/wet-on-wet/material constraints.
+3. Render incremental passes; retain every intermediate canvas and executable stroke parameter.
+4. Optionally dispatch to instrumented hardware through an explicit human-approved safety interface, not direct uncontrolled motion.
+5. Recapture the output using matched imaging conditions; compare with the artwork, including texture/relief only if both sides have genuine surface measurements.
+6. Revise material, process order, brush physics or geometry. Re-run selected alternatives and holdouts before promotion.
+7. Export ProcessReplay, StepByStepTutorial, EditableStrokePlan, RenderedVariant, ComparisonReport, with provenance labels.
+
+Ratchet: validation-driven progress
+
+For iteration k, let parameters theta_k encode painting process and R(theta_k) be the forward rendering/physical outcome. Optimize with regularization and evidence limits:
+
+L = w_g * geometry_error + w_c * perceptual_color_error + w_t * measured_texture_error + w_p * process_plausibility_penalty + w_u * unsupported_claim_penalty
+
+Adapt weights to purpose and available evidence; exclude unavailable data rather than inventing it. High image similarity does NOT prove historical stroke sequence.
+
+delta_k = observed_target - measured_recreation
+
+Classify deltas: capture/calibration, shape, pigment/color, edge, topology/texture, layer-order, physics, uncertainty, cultural-context, or evaluation failure. Change the causal parameter most likely responsible, not simply increase resolution everywhere.
+
+Promotion gate: propose change → evaluate under matched conditions → test on withheld details or independent captures → assess confidence/cost → promote only if it improves the chosen objective without breaking invariants. Log failures and competing hypotheses. Revert bad ratchets. Escalate resolution selectively when residual patterns justify it. Tests across different paintings measure transfer rather than overfitting one image.
+
+Modes and truth labels
+
+• ARCHIVAL: conservative digital correction, original untouched.
+• FORENSIC: evidence-tethered reconstruction; distinguish measured/inferred/unknown.
+• PEDAGOGIC: explain a plausible sequence a student can follow.
+• RE-ENACTMENT: simulate one or several process hypotheses.
+• CREATIVE: recombine learned operators to create original work.
+• PHYSICAL: calibrated paint/brush interaction and optionally supervised robot execution.
+
+Tag every claim/output as OBSERVED, MEASURED, INFERRED, SIMULATED, GENERATED, or UNKNOWN. Digitally colorized, extrapolated, filled-in or re-created paint must never be silently presented as the original artifact. Mark imitation/reconstruction and respect rights, heritage restrictions and source context.
+
+Minimal executable slice (build next)
+
+1. Load one user-supplied high-resolution artwork plus calibration metadata.
+2. Produce a manually correctable direction/edge/color map and hypothesis-labeled stroke list.
+3. Replay that list on an HTML Canvas or SVG surface; adjustable stroke order, brush width, opacity, pressure approximation, palette.
+4. Compare registered target/reconstruction with geometry and color difference maps.
+5. Let user change ONE variable; save before/after deltas, reasoning and provenance.
+6. Export a single portable JSON session with original checksum/reference, hypotheses, parameters, stroke graph, versions, error scores and caveats.
+
+analyze(evidence) -> hypotheses[]
+plan(hypothesis, brushModel, palette, constraints) -> strokeGraph
+render(strokeGraph, surfaceState) -> canvasState, trace
+compare(target, canvasState, measurementSpec) -> deltaMap, metrics
+ratchet(hypotheses, trace, metrics, holdoutEvidence) -> revisedHypotheses, audit
+teach(replay, audience, lens) -> tutorial
+
+Invariants and validation
+
+• Original files stay unchanged and hash-addressable; reproductions/interpretations remain separate.
+• Every stroke or material claim links to evidence OR states its uncertainty.
+• No synthetic pixels promoted into source observations.
+• Rendering order must honor physical constraints when physical fidelity is requested.
+• Visual lens changes cannot silently rewrite process history.
+• Improvements require observable change under a predeclared metric; holdout comparisons and rollback available.
+• Historical/archival accuracy and artistic beauty are different objectives; neither replaces the other.
+• The artist’s unique judgment, accidents and intentions are not fully recoverable from an image.
+
+Reconstruction cue for any future AI
+
+Instantiate two agents, InversePainter (explains how it may have been made) and ForwardPainter (tries actually making it), and a separate RealitySpotter that checks evidence. Keep a transparent ledger of competing hypotheses. Start simple and low-resolution, use disagreements to decide what detail to acquire or simulate next, retain only verified gains. Interoperate through the contracts above with Chroma-Smith, Visual Sniper, Reality Prism, Mother Duck, and the cultural-sovereignty layer. A reproducible instrument first; an expressive, ever-improving painter second. Both are necessary.
