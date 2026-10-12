@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import time
-from .state_vector import StateVector
-from .thought_object import ThoughtObject
-from .invariants import InvariantAggregator, InvariantScores
-from .daemons import Daemon
+from state_vector import StateVector
+from thought_object import ThoughtObject
+from invariants import InvariantAggregator, InvariantScores
+from daemons import Daemon
 
 
 class PantheonKernel:
