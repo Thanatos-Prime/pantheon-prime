@@ -1,0 +1,62 @@
+PANTHEON MODULE SEED — VISUAL ANNOTATION / PAIN MAP ATELIER v1
+
+Mission
+
+Enable a person to DRAW DIRECTLY ON any uploaded image, not merely describe it in a separate note. Initially designed for mapping exact ankle pain and radiation paths on a phone; generalize the operator across medical symptom maps, shark-tooth sightings, field observations, diagram criticism, image forensics, and other spatially anchored semantics. Preserve the original image, mark coordinates, authorship, uncertainty, and exportability.
+
+Artifact and location
+
+Standalone working reference implementation: pain-map.html (self-contained HTML/CSS/JS; zero dependencies; offline; no data uploaded). It can be put at repo root as pain-map.html for easy GitHub Pages deployment. Private preloaded ankle images belong outside the public repository.
+
+Hard invariants
+
+1. Touch-first: one finger/stylus draws; two fingers pinch-zoom/pan without accidental marks; dedicated pan mode available.
+2. Visible annotation layer over the unmodified image: freehand pen, arrow, circle, erase entire mark, undo, redo, clear.
+3. Color/meaning key: red=primary pain; orange=radiation; blue=numbness; purple=scar/other. Allow independent legend customization later.
+4. Coordinate preservation: strokes and shapes in normalized [0,1] image coordinates (u=left to right; v=top to bottom). Zoom/pan NEVER changes stored locations.
+5. Original-resolution PNG export composites image+marks; interoperable JSON preserves strokes, colors, note, symptom type, timing, image dimensions, and provenance.
+6. JSON import restores editable marks only against a photo of matching original pixel dimensions.
+7. Local-only by default: no telemetry, servers, external libraries, or hidden uploads. Warn before publicly committing any personal/medical photo.
+8. Never infer a definitive diagnosis or anatomy from a drawn mark. Separate observation, user-asserted interpretation, and clinical hypotheses.
+
+Current schema
+
+pantheon.visual-pain-map.v1:
+
+• createdAt: ISO time
+• image: name/width/height
+• symptoms: sensation/timing/notes
+• colorLegend: mapping of hex color to interpreted category
+• coordinateSystem: normalized original image coordinates
+• annotations: array of {kind:'pen'|'arrow'|'circle', color:'#...', size:number, points:[{u:number,v:number},...]}. The size is a fraction of original image width.
+
+Transduction protocol
+
+Observe: image pixels + user-drawn regions and paths + reported sensations.
+Represent: coordinate-anchored marks, category legend, note, and image reference.
+Orient: compare marks against relevant anatomy or domain ontology only as hypotheses.
+Test: seek confirmatory evidence from clinician, source reports, repeat observation, or additional modalities.
+Export: flattened human-readable picture + structured machine-rehydratable JSON.
+Rehydrate: load original photo plus JSON, restore editability, allow refinement without losing provenance.
+
+Forward design objectives (not yet implemented)
+
+• Tap-to-place numbered callouts; editable labels and intensity gradients.
+• Layered temporal pain maps (rest vs movement, day vs night) and comparison/delta engine.
+• Segment/region tool with adjustable opacity instead of freehand-only marks.
+• Import anatomical atlas overlays with side/orientation confirmation and clinical provenance.
+• Version history/branching; reversible edits; annotated differences between visits.
+• Accessible screen-reader descriptors and keyboard-first interactions.
+• Optional AI interpretation layer showing competing structures and confidence, never silently converting a patient’s markup to a diagnosis.
+
+Acceptance tests
+
+A. iPhone portrait: load local photo, draw a red pain zone and orange path, pinch, pan, undo, redo, export full-resolution PNG.
+B. Export JSON, reload the original image, import JSON, verify marks coincide within one original image pixel (coordinate round-trip).
+C. Change zoom/pan and ensure identical exported coordinate positions.
+D. App works offline with no build step and makes no network request.
+E. Invalid or wrong-dimension JSON is rejected, not applied to an unrelated image.
+
+One-shot implementation prompt for a future AI agent
+
+“Implement or extend Pantheon Visual Annotation according to this seed. Preserve all hard invariants and schema compatibility. Make the smallest self-contained iPhone-operable artifact first. Test visible drawing, two-finger gestures, undo/redo, full-resolution PNG export, JSON round-trip, and no external requests. Treat annotations as user observations, not medical diagnoses. Give exact repository file paths and mobile GitHub commit instructions. Identify tested behavior separately from speculative future capability.”
