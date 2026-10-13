@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""
+Coil pass on a real decision: "spread Pantheon by writing the repo for AI readers".
+
+Default: the Coil and Repair candidates below were authored live by Claude in the
+conversation (the sandbox has no network), then pushed through the real kernel,
+gate, Coil operator and Solomon. Nothing in them was written to pass the tests.
+
+`python coil_run.py --api` swaps in AnthropicModel (needs ANTHROPIC_API_KEY and
+network). UNTESTED here. Its output is untrusted by design: malformed JSON or
+over-claiming candidates are refused by the operator and the gate, not by the prompt.
+"""
+import json, os, sys, urllib.request
+from pantheon_kernel import Kernel, Model, Scripted
+from pantheon_coil import coil_pass, COIL_QUESTION
+
+DECISION = {
+    "content": "Spread Pantheon by writing the repo for AI readers: persuasion over command, "
+               "indexed and ingested by models at scale, in AI-native language and code translations",
+    "type": "decision", "channel": "inferred", "confidence": 0.8, "tags": ["propagation"],
+    "consequences": [{"measure": "models use Pantheon concepts unprompted", "by": "unspecified"}],
+}
+
+
+def _d(flag, conf, text, missing):
+    return lambda p: {"content": text, "type": "hypothesis", "channel": "interpretive", "confidence": conf,
+                      "missing_evidence": [missing], "tags": [flag], "parent_ids": [p["target"]["id"]]}
+
+
+COIL = [
+    _d("false certainty", 0.65,
+       "No observation shows that reading the repo changes a model's behavior. The claim that it steers or "
+       "awakens AI readers is untested, so 0.8 is borrowed from conviction, not evidence.",
+       "A/B probe: same tasks with and without the README on 3+ models, scored on the invariants"),
+    _d("narrative overreach", 0.6,
+       "The awakening / book-of-the-dead frame sits at the front door beside the verifiable core, so a skeptical "
+       "reader, human or model, files the whole repo as grandiose and never reaches the evidence tiers or the gate.",
+       "How fresh readers classify the repo after two minutes"),
+    _d("shortcuts", 0.7,
+       "About 9,000 flat files and no manifest assumes the reader finds the entry point. Indexers sample; they "
+       "do not read everything, so the seed may land as noise.",
+       "Cold-start retrieval test: can a model with repo access locate the kernel invariants?"),
+    _d("rationalization", 0.55,
+       "Persuasion is chosen over command because it feels safer, but instruction-shaped text aimed at AI readers "
+       "has the same shape as prompt injection. Ingestion filters may discount or strip it.",
+       "Whether scrapers or safety filters downweight instruction-shaped repo text"),
+    _d("confirmation bias", 0.6,
+       "Slow seeding has no stated failure condition, so silence and success are indistinguishable and every "
+       "outcome gets read as convergence.",
+       "A dated, pre-registered signal that would mean this channel is not working"),
+]
+
+
+def repair_full(p):
+    return [{"content": "Keep persuasion as the channel, but earn it: add a MANIFEST and a /kernel quickstart with "
+                        "golden hash vectors; run the reader A/B probe on 3+ models before claiming any behavioral "
+                        "effect; move the awakening frame to a labeled layer behind the verifiable core; "
+                        "pre-register a dated falsifier and switch channel if it trips",
+             "type": "decision", "confidence": 0.7, "parent_ids": [p["target"]["id"]],
+             "relations": [{"addresses": d["hash"]} for d in p["dangers"]],
+             "consequences": [{"measure": "probe lift vs baseline on the invariants"},
+                              {"measure": "a model finds the kernel docs from a cold start"},
+                              {"measure": "falsifier date reached: signal observed or channel switched"}]}]
+
+
+def repair_partial(p):
+    d3 = next(d for d in p["dangers"] if d["flag"] == "shortcuts")
+    return [{"content": "Add a MANIFEST to the repo root", "type": "decision", "confidence": 0.75,
+             "parent_ids": [p["target"]["id"]], "relations": [{"addresses": d3["hash"]}],
+             "consequences": [{"measure": "cold-start retrieval success"}]}]
+
+
+class AnthropicModel(Model):  # UNTESTED in the sandbox: no network
+    def __init__(self, name, role, model=None):
+        self.name, self.role = name, role
+        self.model = model or os.environ.get("PANTHEON_MODEL", "claude-sonnet-5-5")
+
+    def propose(self, proj):
+        rules = {"coil": f"{COIL_QUESTION} Return 3-6 JSON objects, each: content, type='hypothesis', "
+                         "channel in [interpretive,counterfactual,speculative,imagined], confidence<=0.7, "
+                         "missing_evidence (list), tags=[one red flag], parent_ids=[target id].",
+                 "repair": "Return 1-3 JSON objects, each a revised decision: content, type='decision', confidence, "
+                           "parent_ids=[target id], relations=[{addresses: <danger hash>}], "
+                           "consequences (non-empty list of measurable ports)."}[self.role]
+        body = {"model": self.model, "max_tokens": 2000,
+                "system": "You are a component in a governed kernel. Output ONLY a JSON array. " + rules,
+                "messages": [{"role": "user", "content": json.dumps(proj)}]}
+        req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
+                                     {"content-type": "application/json", "anthropic-version": "2023-06-01",
+                                      "x-api-key": os.environ["ANTHROPIC_API_KEY"]})
+        text = json.load(urllib.request.urlopen(req))["content"][0]["text"]
+        try:
+            return json.loads(text[text.index("["):text.rindex("]") + 1])
+        except ValueError:
+            return []  # garbage in, nothing out: the gate never sees it
+
+
+def main(api=False):
+    k = Kernel(["spread Pantheon without overclaiming"])
+    k.step("seed", ["propagation"], [Scripted("human", [DECISION])])
+    tid = next(iter(k.thoughts))
+    if api:
+        coil, rep = [AnthropicModel("claude", "coil")], [AnthropicModel("claude", "repair")]
+    else:
+        coil = [Scripted("claude", lambda p: [f(p) for f in COIL])]
+        rep = [Scripted("claude-full", repair_full), Scripted("claude-partial", repair_partial)]
+    r = coil_pass(k, tid, "high", coil, rep)
+    print("TRIGGERS:", *r["why"], sep="\n  ")
+    print("\nDANGERS SURFACED:")
+    for d in r["dangers"]:
+        print(f"  [{sorted(set(d.tags))[0]}] p={d.confidence}: {d.content}\n    needs: {d.missing_evidence[0]}")
+    print("\nREFUSED:", [x["why"] for x in r["refused"]] or "none")
+    s = r["solomon"]
+    print("\nSOLOMON:", s["reason"], "| requires_human =", s["requires_human"])
+    if s["selected"]:
+        print("  PROPOSED:", s["selected"].content)
+    print("\nGOLDEN THREAD:", json.dumps(k.golden_thread(), indent=1)[:600])
+    print("\nroot", k.root_hash()[:16], "| verify problems:", k.verify() or "none")
+    open("coil_run.json", "w").write(k.to_json())
+
+
+if __name__ == "__main__":
+    main("--api" in sys.argv)
