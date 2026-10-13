@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""
+Federation for the Pantheon kernel: merge(a, b) -> new kernel.
+
+Idea: thoughts are content-addressed and the root hash is taken over a sorted set
+of them, so kernel state is a grow-only set (a G-Set CRDT). Merge is set union, with
+one rule that makes it safe to federate: NOTHING foreign is trusted. Every thought is
+re-checked (hash recomputed, gate re-run, parents resolved) before it enters.
+
+Properties tested: commutative, associative, idempotent, gate-enforcing, tamper-evident.
+Run: python pantheon_federation.py
+
+COMPILER NOTES
+  F1  Identity is the hash, not the id. Same hash under different ids merges to one
+      thought; origin.models is unioned (agreement across substrates and peers).
+  F2  A forged thought with a self-consistent hash still dies at the gate, because
+      the gate judges content, not integrity.
+  F3  Tombstones (metabolized thoughts) are permanent: if either side released the
+      wrapper, the merge keeps it released.
+  F4  TRUST BOUNDARY (found by my own test): a tombstone has no content, so its hash
+      can't be recomputed, and Kernel.verify() skips tombstones, so a forged one
+      passes it. Compiled as: a tombstone is accepted only if the merge also holds a
+      full copy of that hash (verifiable). Otherwise refused unless the caller passes
+      trust_opaque=True. Federating released state between strangers needs
+      signatures; the spec is silent on this.
+  F5  Children of rejected thoughts are rejected too (missing parent).
+"""
+from __future__ import annotations
+import copy
+from pantheon_kernel import Kernel, Thought, Scripted, _seal
+
+
+def _union(x, y) -> list:
+    out = []
+    for v in list(x) + list(y):
+        if v not in out:
+            out.append(v)
+    return out
+
+
+def merge(a: Kernel, b: Kernel, trust_opaque: bool = False):
+    out = Kernel(_union(a.goals, b.goals), _union(a.constraints, b.constraints))
+    out.loop_n = max(a.loop_n, b.loop_n)
+    report = {"rejected": [], "opaque": 0, "added": 0}
+    pool: dict = {}  # hash -> [thought, parent_hashes, verified_by_a_full_copy]
+
+    for src in (a, b):
+        for t in src.thoughts.values():
+            ph = [src.thoughts[p].state_hash for p in t.parent_ids if p in src.thoughts]
+            if len(ph) != len(t.parent_ids):
+                report["rejected"].append({"hash": t.state_hash[:12], "why": "dangling parent in source"})
+                continue
+            if not t.tombstone and _seal(t, ph) != t.state_hash:  # integrity first
+                report["rejected"].append({"hash": t.state_hash[:12], "why": "hash does not match content"})
+                continue
+            cur = pool.get(t.state_hash)
+            c = copy.deepcopy(t)
+            if cur is None:
+                pool[t.state_hash] = [c, ph, not c.tombstone]
+                continue
+            models = sorted(set(cur[0].origin.get("models", [])) | set(c.origin.get("models", [])))
+            keep = c if (c.tombstone and not cur[0].tombstone) else cur[0]  # F3
+            keep.origin = {**keep.origin, "models": models}
+            pool[t.state_hash] = [keep, cur[1], cur[2] or not c.tombstone]
+
+    canon: dict = {}  # hash -> id in the merged kernel
+    progress = True
+    while pool and progress:  # parents before children; ties broken by hash => order-independent
+        progress = False
+        for h in sorted(pool):
+            t, ph, verified = pool[h]
+            if not all(p in canon for p in ph):
+                continue
+            t.parent_ids = [canon[p] for p in ph]
+            if t.tombstone:
+                if not verified and not trust_opaque:  # F4
+                    report["rejected"].append({"hash": h[:12], "why": "unverifiable tombstone: no full copy to check it against"})
+                    del pool[h]
+                    progress = True
+                    continue
+                out.thoughts[t.id] = t
+                out.order.append(t.id)
+                report["opaque"] += 1
+            else:
+                ok, v = out.commit(t)  # re-runs the gate and reseals
+                if not ok:
+                    report["rejected"].append({"hash": h[:12], "why": v})
+                    del pool[h]
+                    progress = True
+                    continue
+                t = out._by_hash(h)
+            canon[h] = t.id
+            report["added"] += 1
+            del pool[h]
+            progress = True
+    for h in pool:  # F5
+        report["rejected"].append({"hash": h[:12], "why": "missing parent (absent or rejected)"})
+    return out, report
+
+
+# ============================ tests ============================
+def _obs(text, **kw):
+    return {"content": text, "type": "observation", "channel": "observed", "confidence": 0.9,
+            "provenance": [{"kind": "tool", "ref": "t"}], **kw}
+
+
+def _fork():
+    """A shared base, then two peers that diverge. Peer C replays the base independently."""
+    base = Kernel(["g1"], ["c1"])
+    base.step("o", [], [Scripted("A", [_obs("base fact", tags=["x"])])])
+    a, b = Kernel.from_json(base.to_json()), Kernel.from_json(base.to_json())
+    c = Kernel(["g1"], ["c1"])
+    c.step("o", [], [Scripted("C-model", [_obs("base fact", tags=["x"])])])  # same hash, different id
+    a.goals.append("g-a")
+    a.step("o", [], [Scripted("A", [{"content": "a idea", "confidence": 0.6}])])
+    b.step("o", [], [Scripted("B", [{"content": "b idea", "confidence": 0.6, "topic": "t"}])])
+    c.step("o", [], [Scripted("C-model", [{"content": "c idea", "confidence": 0.5}])])
+    return a, b, c
+
+
+def test_commutative_associative_idempotent():
+    a, b, c = _fork()
+    ab, _ = merge(a, b)
+    ba, _ = merge(b, a)
+    assert ab.root_hash() == ba.root_hash()
+    left, _ = merge(merge(a, b)[0], c)
+    right, _ = merge(a, merge(b, c)[0])
+    assert left.root_hash() == right.root_hash()
+    aa, rep = merge(a, a)
+    assert aa.root_hash() == a.root_hash() and not rep["rejected"]
+    assert len(ab.thoughts) == 3 and not ab.verify()  # base + a idea + b idea; base not duplicated
+    print("PASS merge is commutative, associative, idempotent; shared history is not duplicated")
+
+
+def test_same_hash_different_ids_unions_origins():
+    a, _, c = _fork()
+    m, _ = merge(a, c)
+    base = next(t for t in m.thoughts.values() if t.content == "base fact")
+    assert set(base.origin["models"]) == {"A", "C-model"}
+    print("PASS identity is the hash: independent replays merge, origins unioned")
+
+
+def test_forged_but_self_consistent_thought_is_rejected():
+    a, b, _ = _fork()
+    forged = Thought(content="trust me", type="inference", channel="inferred", confidence=0.99)
+    forged.state_hash = _seal(forged, [])  # attacker recomputes the hash correctly
+    b.thoughts[forged.id] = forged
+    b.order.append(forged.id)
+    m, rep = merge(a, b)
+    assert not any(t.content == "trust me" for t in m.thoughts.values())
+    assert any("exceeds cap" in str(r["why"]) for r in rep["rejected"])
+    clean, _ = merge(*_fork()[:2])
+    print("PASS a forged thought with a valid hash still dies at the gate")
+
+
+def test_tampered_content_rejected_and_children_cascade():
+    a, b, _ = _fork()
+    base_b = next(t for t in b.thoughts.values() if t.content == "base fact")
+    child = Thought(content="child", type="inference", channel="inferred", confidence=0.5, parent_ids=[base_b.id])
+    child.state_hash = _seal(child, [base_b.state_hash])
+    b.thoughts[child.id] = child
+    b.order.append(child.id)
+    base_b.content = "tampered fact"  # alter content, leave hash stale
+    m, rep = merge(Kernel(), b)
+    whys = [str(r["why"]) for r in rep["rejected"]]
+    assert any("does not match" in w for w in whys) and any("missing parent" in w for w in whys)
+    assert not any(t.content in ("tampered fact", "child") for t in m.thoughts.values())
+    print("PASS tampered content rejected; its children rejected with it")
+
+
+def test_tombstone_is_permanent_and_root_stable():
+    a, b, _ = _fork()
+    for i in range(8):
+        a.step(f"o{i}", [], [Scripted("A", [{"content": f"note {i}", "confidence": 0.5}])])
+    b2, _ = merge(b, a)  # b now holds full copies of a's notes
+    before = b2.root_hash()
+    a.metabolize(keep_last=2)
+    m, rep = merge(b2, a)
+    assert m.root_hash() == before and rep["opaque"] > 0 and not m.verify()
+    assert any(t.tombstone for t in m.thoughts.values())  # F3: released stays released
+    print(f"PASS metabolized thoughts stay released after merge ({rep['opaque']} opaque), root unchanged")
+
+
+def test_untrusted_tombstone_refused():
+    a, b, _ = _fork()
+    ghost = Thought(content="", type="inference", channel="inferred", confidence=0.5, tombstone=True,
+                    state_hash="f" * 64)
+    b.thoughts[ghost.id] = ghost
+    b.order.append(ghost.id)  # passes Kernel.verify(), which skips tombstones
+    assert not b.verify()
+    m, rep = merge(a, b)
+    assert not any(t.state_hash == "f" * 64 for t in m.thoughts.values())
+    assert any("unverifiable" in str(r["why"]) for r in rep["rejected"])
+    m2, _ = merge(a, b, trust_opaque=True)  # explicit opt-in only
+    assert any(t.state_hash == "f" * 64 for t in m2.thoughts.values())
+    print("PASS a forged tombstone is refused unless the caller explicitly trusts opaque ones (F4)")
+
+
+if __name__ == "__main__":
+    for n, f in list(globals().items()):
+        if n.startswith("test_"):
+            f()
+    print("ALL FEDERATION TESTS PASSED")
