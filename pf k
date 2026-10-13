@@ -1,0 +1,380 @@
+#!/usr/bin/env python3
+"""
+Pantheon reference kernel -- a first compile pass of the Pantheon-Prime README.
+
+Scope compiled: ThoughtObject, StateVector, Golden Thread, evidence tiers,
+governance gate, multi-model convergence (disagreement preserved), metabolism,
+rehydration. Run `python pantheon_kernel.py` to execute the conformance tests.
+
+NOT compiled (sketches that need data or design decisions first): Semantic
+Quarry, STRATA, Golden Horde muster, Metamap learning, Dice Chamber, daemons.
+
+COMPILER NOTES -- places where the README was underspecified and I had to
+choose. Each one is a candidate for a clarifying commit:
+  A1  `type` (observation|inference|...) and evidence tier (observed|inferred|
+      ...) overlap. Compiled as two fields: `type` and `channel`.
+  A2  Confidence caps per channel are not given. Numbers in CONF_CAP are mine.
+  A3  "Reject compilations where confidence exceeds evidence" -> compiled as
+      REJECT, not clamp. A child may not exceed its weakest parent's confidence.
+  A4  Who certifies "observed"? Compiled: a model cannot self-certify. Observed
+      or attested needs provenance from tool / human / sensor.
+  A5  The state hash excludes id, timestamp and origin so the same content
+      replayed on another substrate gets the same hash (Separation Theorem).
+  A6  "Agreement" between models is undefined. Compiled: same `topic`, same
+      content = agreement; same topic, different content = disagreement.
+  A9  Goal/constraint list order is excluded from the root hash (treated as sets)
+      so state can merge order-independently. Priority must live in thoughts.
+  A7  Metabolism is undefined. Compiled: old leaf thoughts with no consequence
+      port become tombstones; the hash survives, the wrapper goes.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+import datetime as dt
+from dataclasses import dataclass, field, asdict
+from typing import Callable, Union
+
+TYPES = ("observation", "inference", "prediction", "hypothesis", "decision", "artifact")
+CONF_CAP = {  # A2
+    "observed": 1.0, "attested": 0.95, "inferred": 0.85, "predicted": 0.80,
+    "interpretive": 0.70, "imagined": 0.50, "speculative": 0.40, "counterfactual": 0.50,
+}
+GROUNDED = {"observed", "attested"}
+UNGROUNDED = {"imagined", "speculative", "counterfactual"}
+EXTERNAL = {"tool", "human", "sensor"}  # A4
+
+
+def _h(obj) -> str:
+    return hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+@dataclass
+class Thought:
+    content: str
+    type: str = "inference"
+    channel: str = "inferred"
+    confidence: float = 0.5
+    topic: str = ""
+    origin: dict = field(default_factory=dict)
+    alternatives: list = field(default_factory=list)
+    missing_evidence: list = field(default_factory=list)
+    relations: list = field(default_factory=list)
+    consequences: list = field(default_factory=list)
+    provenance: list = field(default_factory=list)
+    tags: list = field(default_factory=list)
+    parent_ids: list = field(default_factory=list)
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: str = field(default_factory=lambda: dt.datetime.now(dt.timezone.utc).isoformat())
+    state_hash: str = ""
+    tombstone: bool = False
+
+
+def _seal(t: Thought, parent_hashes: list) -> str:  # A5
+    return _h({"c": t.content, "ty": t.type, "ch": t.channel, "cf": round(t.confidence, 6),
+               "tp": t.topic, "alt": t.alternatives, "me": t.missing_evidence,
+               "co": t.consequences, "pv": t.provenance, "rl": t.relations, "p": sorted(parent_hashes)})
+
+
+class Gate:
+    """Deterministic governance. Lives outside the model; the model never sees or edits it."""
+
+    def check(self, t: Thought, parents: list) -> list:
+        v = []
+        if t.type not in TYPES:
+            v.append(f"unknown type {t.type!r}")
+        if t.channel not in CONF_CAP:
+            return v + [f"unknown channel {t.channel!r}"]
+        if not 0.0 <= t.confidence <= 1.0:
+            v.append("confidence outside [0,1]")
+        if t.confidence > CONF_CAP[t.channel] + 1e-9:  # A3
+            v.append(f"confidence {t.confidence} exceeds cap {CONF_CAP[t.channel]} for channel {t.channel}")
+        if parents and t.confidence > min(p.confidence for p in parents) + 1e-9:
+            v.append("confidence exceeds weakest parent")
+        if t.channel in GROUNDED:
+            if not any(p.get("kind") in EXTERNAL for p in t.provenance):  # A4
+                v.append(f"channel {t.channel} requires external provenance (tool/human/sensor)")
+            if any(p.channel in UNGROUNDED for p in parents):
+                v.append("ungrounded ancestry cannot reach a grounded channel")
+        if t.type in ("decision", "prediction") and not t.consequences:
+            v.append(f"{t.type} needs a consequence port")
+        if t.type == "hypothesis" and not (t.missing_evidence or t.consequences):
+            v.append("hypothesis needs missing_evidence or a consequence port")
+        return v
+
+
+class Model:
+    name = "model"
+
+    def propose(self, projection: dict) -> list:
+        raise NotImplementedError
+
+
+class Scripted(Model):
+    """Stub substrate. `script` is a list of candidate dicts or a callable(projection)->list."""
+
+    def __init__(self, name: str, script: Union[list, Callable]):
+        self.name, self.script = name, script
+
+    def propose(self, projection):
+        return self.script(projection) if callable(self.script) else self.script
+
+
+class Kernel:
+    def __init__(self, goals=None, constraints=None):
+        self.goals = list(goals or [])
+        self.constraints = list(constraints or [])
+        self.thoughts: dict = {}
+        self.order: list = []
+        self.rejected: list = []
+        self.loop_n = 0
+        self.last_objective = ""
+        self.last_changed: list = []
+        self.gate = Gate()
+
+    # ---- state ----
+    def _by_hash(self, h):
+        return next((t for t in self.thoughts.values() if t.state_hash == h), None)
+
+    def commit(self, t: Thought):
+        parents = [self.thoughts[p] for p in t.parent_ids if p in self.thoughts]
+        v = self.gate.check(t, parents)
+        unknown = [p for p in t.parent_ids if p not in self.thoughts]
+        if unknown:
+            v.append(f"unknown parent ids {unknown}")
+        if v:
+            self.rejected.append({"content": t.content, "model": t.origin.get("model"), "violations": v})
+            return False, v
+        t.state_hash = _seal(t, [p.state_hash for p in parents])
+        twin = self._by_hash(t.state_hash)
+        if twin:  # agreement: same content from another substrate (A6)
+            for m in t.origin.get("models", []):
+                if m not in twin.origin["models"]:
+                    twin.origin["models"].append(m)
+            return True, []
+        self.thoughts[t.id] = t
+        self.order.append(t.id)
+        self.last_changed.append(t.id)
+        return True, []
+
+    def root_hash(self) -> str:
+        return _h({"g": sorted(self.goals), "c": sorted(self.constraints),  # A9: sets, order is not state
+                   "t": sorted(t.state_hash for t in self.thoughts.values())})
+
+    # ---- projection + thread ----
+    def project(self, tags=(), budget_chars=1500) -> dict:
+        def score(i, tid):
+            t = self.thoughts[tid]
+            return (len(set(tags) & set(t.tags)) * 10 + i, tid)  # relevance, then recency
+        ranked = sorted(((score(i, tid) for i, tid in enumerate(self.order))), reverse=True)
+        out, used = [], 0
+        for _, tid in ranked:
+            t = self.thoughts[tid]
+            if t.tombstone:
+                continue
+            item = {"id": t.id, "hash": t.state_hash[:12], "content": t.content, "channel": t.channel,
+                    "confidence": t.confidence, "topic": t.topic}
+            size = len(json.dumps(item))
+            if used + size > budget_chars:
+                break
+            out.append(item)
+            used += size
+        return {"goals": self.goals, "constraints": self.constraints,
+                "unresolved": [t.content for t in self.thoughts.values() if t.missing_evidence],
+                "thoughts": out}
+
+    def golden_thread(self) -> dict:
+        unresolved = [t for t in self.thoughts.values() if t.missing_evidence]
+        return {"where": f"loop {self.loop_n}, root {self.root_hash()[:12]}",
+                "doing": self.goals, "changed": [self.thoughts[i].content for i in self.last_changed if i in self.thoughts],
+                "unresolved": [t.content for t in unresolved],
+                "next": unresolved[0].missing_evidence[0] if unresolved else None}
+
+    def ingest(self, c: dict, model_name: str):
+        t = Thought(content=c["content"], type=c.get("type", "inference"),
+                    channel=c.get("channel", "inferred"), confidence=float(c.get("confidence", 0.5)),
+                    topic=c.get("topic", ""), alternatives=c.get("alternatives", []),
+                    missing_evidence=c.get("missing_evidence", []), consequences=c.get("consequences", []),
+                    provenance=c.get("provenance", []), tags=c.get("tags", []), relations=c.get("relations", []),
+                    parent_ids=c.get("parent_ids", []), origin={"model": model_name, "models": [model_name]})
+        ok, v = self.commit(t)
+        return ok, v, t
+
+    # ---- the loop ----
+    def step(self, objective: str, tags, models: list) -> dict:
+        self.loop_n += 1
+        self.last_objective, self.last_changed = objective, []
+        proj = self.project(tags)
+        accepted, rejected = [], 0
+        for m in models:
+            for c in m.propose(proj):
+                ok, _, t = self.ingest(c, m.name)
+                accepted.append(t) if ok else None
+                rejected += 0 if ok else 1
+        return {"accepted": len(accepted), "rejected": rejected, "disagreements": self._converge(accepted)}
+
+    def _converge(self, fresh: list) -> int:  # disagreement is information, not failure
+        by_topic: dict = {}
+        for t in fresh:
+            if t.topic:
+                by_topic.setdefault(t.topic, {}).setdefault(t.content, t)
+        n = 0
+        for topic, claims in by_topic.items():
+            if len(claims) < 2:
+                continue
+            ts = list(claims.values())
+            d = Thought(content=f"models disagree on {topic}", type="observation", channel="observed",
+                        confidence=min(t.confidence for t in ts), topic=topic,
+                        alternatives=[{"claim": t.content, "confidence": t.confidence} for t in ts],
+                        missing_evidence=[f"a test that discriminates between claims on {topic}"],
+                        provenance=[{"kind": "tool", "ref": "router"}], parent_ids=[t.id for t in ts],
+                        origin={"model": "router", "models": ["router"]})
+            if self.commit(d)[0]:
+                n += 1
+        return n
+
+    def metabolize(self, keep_last=5) -> int:  # A7
+        parents = {p for t in self.thoughts.values() for p in t.parent_ids}
+        n = 0
+        for tid in self.order[:-keep_last] if keep_last else self.order:
+            t = self.thoughts[tid]
+            if not t.tombstone and tid not in parents and not t.consequences and t.type not in ("decision", "artifact"):
+                t.content, t.alternatives, t.tombstone = "", [], True
+                n += 1
+        return n
+
+    # ---- rehydration ----
+    def to_json(self) -> str:
+        return json.dumps({"goals": self.goals, "constraints": self.constraints, "order": self.order,
+                           "loop_n": self.loop_n, "thoughts": [asdict(self.thoughts[i]) for i in self.order]})
+
+    @classmethod
+    def from_json(cls, s: str) -> "Kernel":
+        d = json.loads(s)
+        k = cls(d["goals"], d["constraints"])
+        k.order, k.loop_n = d["order"], d["loop_n"]
+        k.thoughts = {t["id"]: Thought(**t) for t in d["thoughts"]}
+        return k
+
+    def verify(self) -> list:
+        problems = []
+        for tid in self.order:
+            t = self.thoughts[tid]
+            ps = [self.thoughts[p] for p in t.parent_ids if p in self.thoughts]
+            if len(ps) != len(t.parent_ids):
+                problems.append(f"{tid}: dangling parent")
+            if not t.tombstone and _seal(t, [p.state_hash for p in ps]) != t.state_hash:
+                problems.append(f"{tid}: hash mismatch")
+        return problems
+
+
+# ======================= conformance tests =======================
+TOOL = [{"kind": "tool", "ref": "unit-test"}]
+
+
+def _obs(text, **kw):
+    return {"content": text, "type": "observation", "channel": "observed", "confidence": 0.9,
+            "provenance": TOOL, **kw}
+
+
+def test_model_swap_preserves_state():
+    k = Kernel(goals=["g"])
+    k.step("o1", [], [Scripted("A", [_obs("sensor reads 42", tags=["x"])])])
+    a = next(iter(k.thoughts.values()))
+    before = a.state_hash
+
+    def b_script(proj):  # B only knows A's work through the projection
+        seen = proj["thoughts"][0]
+        return [{"content": "42 exceeds threshold", "confidence": 0.8, "parent_ids": [seen["id"]]}]
+    k.step("o2", ["x"], [Scripted("B", b_script)])
+    assert a.state_hash == before and len(k.thoughts) == 2 and not k.verify()
+    assert {t.origin["model"] for t in k.thoughts.values()} == {"A", "B"}
+    print("PASS model swap: B continued A's state; A's hash untouched")
+
+
+def test_overclaim_rejected():
+    k = Kernel()
+    r = k.step("o", [], [Scripted("M", [{"content": "sure thing", "channel": "inferred", "confidence": 0.99}])])
+    assert r["rejected"] == 1 and not k.thoughts
+    print("PASS confidence cannot exceed evidence")
+
+
+def test_no_self_certified_observation():
+    k = Kernel()
+    for prov in ([], [{"kind": "model", "ref": "self"}]):
+        r = k.step("o", [], [Scripted("M", [{"content": "I saw it", "type": "observation",
+                                            "channel": "observed", "confidence": 0.9, "provenance": prov}])])
+        assert r["rejected"] == 1
+    print("PASS a model cannot certify its own observation")
+
+
+def test_imagination_cannot_launder():
+    k = Kernel()
+    k.step("o", [], [Scripted("M", [{"content": "what if X", "channel": "imagined", "confidence": 0.4, "tags": ["i"]}])])
+    img = next(iter(k.thoughts.values()))
+    child_hi = {"content": "so X", "confidence": 0.8, "parent_ids": [img.id]}
+    child_obs = _obs("so X is observed", parent_ids=[img.id], confidence=0.4)
+    r = k.step("o", [], [Scripted("M", [child_hi, child_obs])])
+    assert r["rejected"] == 2
+    print("PASS imagination cannot be promoted by inference or relabeling")
+
+
+def test_consequence_port():
+    k = Kernel()
+    bad = {"content": "ship it", "type": "decision", "confidence": 0.6}
+    good = {**bad, "consequences": [{"measure": "error rate", "by": "next release"}]}
+    assert k.step("o", [], [Scripted("M", [bad])])["rejected"] == 1
+    assert k.step("o", [], [Scripted("M", [good])])["accepted"] == 1
+    print("PASS decisions must expose a consequence port")
+
+
+def test_disagreement_preserved():
+    k = Kernel()
+    a = Scripted("A", [{"content": "cause is cache", "topic": "bug", "confidence": 0.7}])
+    b = Scripted("B", [{"content": "cause is race", "topic": "bug", "confidence": 0.6}])
+    r = k.step("o", [], [a, b])
+    d = [t for t in k.thoughts.values() if t.content.startswith("models disagree")]
+    assert r["disagreements"] == 1 and len(d[0].alternatives) == 2 and d[0].missing_evidence
+    assert k.golden_thread()["next"]
+    c = Scripted("C", [{"content": "cause is cache", "topic": "bug", "confidence": 0.7}])
+    k.step("o2", [], [c])  # agreement merges origin, no duplicate thought
+    assert any(len(t.origin["models"]) == 2 for t in k.thoughts.values())
+    print("PASS disagreement kept as structure; agreement merged by hash")
+
+
+def test_hash_independent_of_substrate():
+    cand = [_obs("water boils at 100C at 1 atm", topic="phys")]
+    k1, k2 = Kernel(["g"]), Kernel(["g"])
+    k1.step("o", [], [Scripted("gpt-ish", cand)])
+    k2.step("o", [], [Scripted("local-ish", cand)])
+    assert k1.root_hash() == k2.root_hash()
+    print("PASS State != Model: same content, different substrate, identical root hash")
+
+
+def test_rehydration_and_tamper():
+    k = Kernel(["g"], ["c"])
+    k.step("o", [], [Scripted("M", [_obs("a"), {"content": "b", "confidence": 0.5}])])
+    k2 = Kernel.from_json(k.to_json())
+    assert k2.root_hash() == k.root_hash() and not k2.verify()
+    d = json.loads(k.to_json())
+    d["thoughts"][0]["content"] = "tampered"
+    assert Kernel.from_json(json.dumps(d)).verify()
+    print("PASS rehydration reproduces root hash; tampering detected")
+
+
+def test_metabolism_preserves_root():
+    k = Kernel()
+    for i in range(12):
+        k.step(f"o{i}", [], [Scripted("M", [{"content": f"note {i}", "confidence": 0.5}])])
+    root = k.root_hash()
+    n = k.metabolize(keep_last=4)
+    assert n > 0 and k.root_hash() == root and not k.verify()
+    print(f"PASS metabolism released {n} wrappers, kept the hash chain")
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_"):
+            fn()
+    print("ALL CONFORMANCE TESTS PASSED")
