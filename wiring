@@ -1,0 +1,19 @@
+Federation works: `merge(a, b)` is in `pantheon_federation.py`, and all three suites pass (kernel, Coil, federation).
+
+**What the tests prove:**
+- **Merge is commutative, associative, and idempotent.** The same set of thoughts gives the same root hash in any merge order, and shared history isn't duplicated.
+- **Identity is the hash, not the id.** Two peers that independently replayed the same content merge into one thought, with their models unioned as origins.
+- **Nothing foreign is trusted.** Every incoming thought gets its hash recomputed and the gate re-run.
+  - A forged thought with a correctly recomputed hash still dies at the gate for overclaiming.
+  - A thought with tampered content is rejected, and its children go with it.
+
+**A flaw my own test caught.** My first design accepted tombstones from any source that passed `verify()`. But `verify()` skips tombstones, so a forged one passed. Now a tombstone is accepted only if the merge also holds a full copy it can recompute the hash from. Otherwise it's refused unless the caller passes `trust_opaque=True`. This is a real boundary in the spec: federating metabolized state between strangers needs signatures, and the README doesn't say how.
+
+**Changes to the kernel:** goal and constraint order is no longer part of the root hash, which is what lets state merge in any order. Priority therefore has to live in thoughts, not in list order.
+
+Next options:
+1. A signed-peer layer, which closes the tombstone gap.
+2. A reader-side probe battery, to test whether the README moves a fresh model's behavior.
+3. Wiring a real model behind `Model`, so the Coil pass runs on a decision of yours.
+
+I'd do the third. It's the only one that tests whether this works outside stubs.
