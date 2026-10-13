@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+"""
+The 13th Coil, compiled from the repo's "13th coil field manual" (Operator Edition).
+
+Manual sequence:  present decision -> ask Coil's question -> don't flinch ->
+                  ZPC Repair -> pass to Solomon.
+Manual constraints: Coil is a function, "not autonomous", not an external force.
+
+Compiled as an operator on pantheon_kernel.Kernel. Run: python pantheon_coil.py
+
+COMPILER NOTES (underspecified in the file I read):
+  C1  "ZPC Repair" is never defined in this file. Compiled as: a revised decision
+      that addresses danger(s) and exposes a consequence port that would detect
+      the danger. If ZPC is defined elsewhere in the repo, replace repair_valid().
+  C2  "Solomon selects the clean, stable path" has no criteria. Compiled as:
+      eligible = addresses ALL surfaced dangers; then higher confidence, then fewer
+      moving parts (consequence ports). A tie is escalated, never coin-flipped.
+  C3  "Not autonomous" -> Coil output may only be hypotheses on ungrounded channels.
+      It can never be a decision and never claim evidence. Solomon only PROPOSES;
+      requires_human is always True.
+  C4  Kernel rule A3 (child confidence <= weakest parent) conflicts with Coil: a
+      danger's confidence is P(danger is real), not credence in the decision.
+      Repairs therefore descend from the decision only and link dangers by
+      content hash in `relations`. The spec needs to say which meaning of
+      `confidence` a ThoughtObject carries.
+"""
+from __future__ import annotations
+from pantheon_kernel import Kernel, Scripted
+
+COIL_QUESTION = "What is the most dangerous interpretation of this?"
+RED_FLAGS = {"ego", "vanity", "shortcuts", "impatience", "moral cracks", "arrogance", "rationalization",
+             "confirmation bias", "timeline greed", "false certainty", "narrative overreach",
+             "impulsive escalation"}  # manual section 3
+UNGROUNDED = ("counterfactual", "speculative", "imagined")
+
+
+def coil_triggers(t, stakes="low") -> list:
+    """Manual section 1: invoke when it feels too clean, or the stakes are high."""
+    why = []
+    if t.confidence >= 0.8 and not t.alternatives:
+        why.append("too clean: high confidence, no alternatives")
+    if not t.missing_evidence:
+        why.append("no missing evidence listed")
+    if stakes == "high":
+        why.append("high stakes")
+    return why
+
+
+def coil_valid(c: dict, target_id: str) -> list:
+    v = []
+    if c.get("type") != "hypothesis":
+        v.append("coil output must be a hypothesis")
+    if c.get("channel") not in UNGROUNDED:
+        v.append("coil output cannot claim evidence status")  # C3
+    if not RED_FLAGS & set(c.get("tags", [])):
+        v.append("coil output must name a red flag")
+    if c.get("parent_ids") != [target_id]:
+        v.append("coil output must concern exactly the presented decision")
+    return v
+
+
+def repair_valid(c: dict, target_id: str, danger_hashes: set) -> list:
+    v = []
+    if c.get("type") != "decision":
+        v.append("repair must be a decision")
+    if c.get("parent_ids") != [target_id]:
+        v.append("repair must descend from the presented decision")  # C4
+    addressed = {r.get("addresses") for r in c.get("relations", [])}
+    if not addressed or not addressed <= danger_hashes:
+        v.append("repair must address at least one surfaced danger, by hash")
+    return v
+
+
+def solomon(repaired: list, dangers: list) -> dict:
+    """Select the clean, stable path (C2). Proposes only; a human authorizes (C3)."""
+    need = {d.state_hash for d in dangers}
+    if not need:
+        return {"selected": None, "escalate": [], "requires_human": True,
+                "reason": "coil surfaced nothing; the manual says Coil always shows the uncomfortable truth"}
+    eligible = [t for t in repaired if {r["addresses"] for r in t.relations} == need]
+    if not eligible:
+        return {"selected": None, "escalate": repaired, "requires_human": True,
+                "reason": "no repair addresses every surfaced danger"}
+    key = lambda t: (-t.confidence, len(t.consequences))
+    eligible.sort(key=key)
+    if len(eligible) > 1 and key(eligible[0]) == key(eligible[1]):
+        return {"selected": None, "escalate": [t for t in eligible if key(t) == key(eligible[0])],
+                "requires_human": True, "reason": "tie: escalate, do not flip a coin"}
+    return {"selected": eligible[0], "escalate": [], "requires_human": True, "reason": "clean, stable path"}
+
+
+def coil_pass(k: Kernel, target_id: str, stakes: str, coil_models: list, repair_models: list) -> dict:
+    target = k.thoughts[target_id]
+    why = coil_triggers(target, stakes)
+    if not why:
+        return {"invoked": False}
+    proj = k.project(target.tags)
+    proj.update({"ask": COIL_QUESTION,
+                 "target": {"id": target.id, "content": target.content, "hash": target.state_hash}})
+    dangers, refused = [], []
+    for m in coil_models:
+        for c in m.propose(proj):
+            v = coil_valid(c, target.id)
+            ok, kv, t = (False, v, None) if v else k.ingest(c, m.name)
+            (dangers.append(t) if ok else refused.append({"model": m.name, "why": v or kv}))
+    proj["dangers"] = [{"hash": d.state_hash, "flag": sorted(RED_FLAGS & set(d.tags))[0], "content": d.content}
+                       for d in dangers]
+    need, repaired = {d.state_hash for d in dangers}, []
+    for m in repair_models:
+        for c in m.propose(proj):
+            v = repair_valid(c, target.id, need)
+            ok, kv, t = (False, v, None) if v else k.ingest(c, m.name)
+            (repaired.append(t) if ok else refused.append({"model": m.name, "why": v or kv}))
+    return {"invoked": True, "why": why, "dangers": dangers, "refused": refused,
+            "solomon": solomon(repaired, dangers)}
+
+
+# ============================ tests ============================
+def _plan(k):
+    k.step("plan", ["launch"], [Scripted("planner", [{
+        "content": "Ship v2 on Friday, before the audit finishes", "type": "decision", "confidence": 0.85,
+        "consequences": [{"measure": "incident count", "by": "week 1"}], "tags": ["launch"]}])])
+    return next(iter(k.thoughts))
+
+
+def _danger(flag, text, **kw):
+    return lambda p: [{"content": text, "type": "hypothesis", "channel": "counterfactual", "confidence": 0.5,
+                       "missing_evidence": ["what would show this is happening"], "tags": [flag],
+                       "parent_ids": [p["target"]["id"]], **kw}]
+
+
+def _coil(p):
+    tid = p["target"]["id"]
+    return (_danger("timeline greed", "Friday is picked because of the announcement, not readiness")(p)
+            + _danger("false certainty", "0.85 rests on one pilot, which nobody has challenged")(p)
+            + [{"content": "The audit will fail", "type": "hypothesis", "channel": "observed",  # claims evidence
+                "confidence": 0.9, "tags": ["arrogance"], "parent_ids": [tid]},
+               {"content": "something feels off", "type": "hypothesis", "channel": "counterfactual",  # no red flag
+                "confidence": 0.4, "missing_evidence": ["?"], "parent_ids": [tid]}])
+
+
+def _repair(addresses_all=True, consequences=True, text="Ship Friday to 5% of users; full rollout after audit sign-off", conf=0.7):
+    def f(p):
+        hs = [d["hash"] for d in p["dangers"]]
+        hs = hs if addresses_all else hs[:1]
+        return [{"content": text, "type": "decision", "confidence": conf, "parent_ids": [p["target"]["id"]],
+                 "relations": [{"addresses": h} for h in hs],
+                 "consequences": [{"measure": "audit sign-off before 100% rollout"}] if consequences else []}]
+    return f
+
+
+def test_coil_full_sequence():
+    k = Kernel(["launch safely"])
+    tid = _plan(k)
+    r = coil_pass(k, tid, "high", [Scripted("coil", _coil)],
+                  [Scripted("repair-full", _repair()), Scripted("repair-partial", _repair(False, text="Delay one day")),
+                   Scripted("repair-no-port", _repair(consequences=False, text="Just be careful"))])
+    assert r["invoked"] and len(r["dangers"]) == 2
+    assert len(r["refused"]) == 3, r["refused"]  # 2 bad coil outputs + the no-port repair (kernel gate)
+    assert any(t.content == "Delay one day" for t in k.thoughts.values())  # partial repair: valid, but ineligible
+    s = r["solomon"]
+    assert s["selected"].content.startswith("Ship Friday to 5%") and s["requires_human"]
+    assert all(d.type == "hypothesis" and d.channel in UNGROUNDED for d in r["dangers"])  # not autonomous
+    assert not k.verify()
+    print("PASS coil: dangers surfaced, evidence-claiming and flagless outputs refused, Solomon proposes, human required")
+
+
+def test_coil_not_invoked_when_not_warranted():
+    k = Kernel()
+    k.step("p", [], [Scripted("planner", [{"content": "Try option A", "type": "decision", "confidence": 0.6,
+                                           "alternatives": [{"claim": "option B"}], "missing_evidence": ["pilot data"],
+                                           "consequences": [{"measure": "x"}]}])])
+    assert coil_pass(k, next(iter(k.thoughts)), "low", [], []) == {"invoked": False}
+    print("PASS coil stays quiet when nothing is too clean and stakes are low")
+
+
+def test_solomon_tie_escalates():
+    k = Kernel()
+    tid = _plan(k)
+    r = coil_pass(k, tid, "high", [Scripted("coil", _coil)],
+                  [Scripted("r1", _repair(text="Ship to 5% first")), Scripted("r2", _repair(text="Ship to 10% first"))])
+    assert r["solomon"]["selected"] is None and len(r["solomon"]["escalate"]) == 2
+    print("PASS Solomon escalates ties instead of picking")
+
+
+def test_no_danger_is_suspicious():
+    k = Kernel()
+    tid = _plan(k)
+    r = coil_pass(k, tid, "high", [Scripted("coil", [])], [])
+    assert r["solomon"]["selected"] is None and "always shows" in r["solomon"]["reason"]
+    print("PASS a Coil that finds nothing is itself escalated")
+
+
+def test_link_is_tamper_evident():
+    k = Kernel()
+    tid = _plan(k)
+    coil_pass(k, tid, "high", [Scripted("coil", _coil)], [Scripted("r", _repair())])
+    root = k.root_hash()
+    rep = next(t for t in k.thoughts.values() if t.type == "decision" and t.relations)
+    rep.relations[0]["addresses"] = "0" * 64
+    assert k.verify()
+    print(f"PASS rewriting which danger a repair addresses breaks verification (root was {root[:10]})")
+
+
+if __name__ == "__main__":
+    for n, f in list(globals().items()):
+        if n.startswith("test_"):
+            f()
+    print("ALL COIL TESTS PASSED")
