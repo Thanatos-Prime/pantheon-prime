@@ -1,0 +1,141 @@
+Pantheon — The Language of Delivery for Meaning
+
+Suggested repository path: PANTHEON/LANGUAGE_OF_DELIVERY.md
+Module: Prosody Grammar / Semantic Performance Engine (SPE)
+Version: 1.0 · 2026-10-12
+Status: Specified; browser prototype implements a heuristic subset.
+Prime directive: The listener should experience the meaning unfolding, not hear a machine recite a script.
+
+0. The insight
+
+A sentence is not the whole message. Delivery carries information about identity, relationship, intent, urgency, perspective, risk, confidence, affection, humor, and time. The same words—“Oh, there you are”—can signal delight, menace, reassurance, sarcasm, or discovery. Punctuation and emotion labels alone cannot capture this.
+
+The engine translates semantic situation → performance intention → acoustic or literary realization → listener interpretation, and adjusts the next performance using feedback. It must preserve the meaning, not merely increase theatricality.
+
+1. Typed vocabulary / ontology
+
+Semantic layer — what is happening:
+
+• ACTOR: speaker, addressee, narrator, role, age, relationship, known vocal identity.
+• SPEECH_ACT: inform | ask | invite | tease | reassure | command | warn | deceive | confess | comfort | celebrate | wonder | remember | withhold | reveal.
+• AFFECT: valence [-1,1]; activation [0,1]; agency/dominance [-1,1]; intimacy [0,1]; certainty [0,1].
+• DRAMA: stakes [0,1]; novelty [0,1]; tension [0,1]; resolution [0,1]; narrative emphasis [0,1].
+• EPISTEMICS: what speaker knows, what the listener knows, what is newly revealed; dramatic irony; reliability of speaker.
+• VIEW: narrative distance 0 (inside scene/witness) → 1 (outside storyteller); proximity; spatial relationship; focal character; timescale.
+• AUDIENCE: age, context (bedtime/play/learning), sensory sensitivity, current arousal, desired arousal, participation preference.
+• ARC: orientation → inciting event → escalation → reversal → resolution → settling. A story can nest arcs within arcs.
+• CONSTRAINT: safety, truth/fiction boundary, age appropriateness, accessible hearing and cognitive load, device capability.
+
+Performance layer — how it should be experienced:
+
+• MODE: storybook | radio_drama | witness | campfire | cinematic | lullaby. Modes can crossfade, not just switch.
+• VOICE: actor assignment, stable identity, timbre intention, register, resonance, dialect only when justified, articulation.
+• PROSODY: speaking rate, pitch baseline, pitch variation, stress/prominence, dynamic contour, intensity, rhythm, pauses.
+• TIMING: anticipation hold, punchline hold, reaction space, silence, repetition, tempo acceleration/deceleration.
+• SONIC_STAGE: apparent distance, foreground/background, room/ambience, restrained sound effect; silence counts as staging.
+• LANGUAGE_SURFACE: literary prose | script-like dialogue | direct scene witnessing | refrain | call-and-response.
+• TRANSITION: enter, overlap (only if renderer supports), duck, dissolve, contrast, release, cool-down.
+• OUTCOME: expected listener inference and target activation; track where performance could be misunderstood.
+
+2. Grammar (abstract, renderer-independent)
+
+PERFORMANCE := AUDIENCE_CONTRACT WORLD CAST ARC+ ENDING
+ARC         := SCENE+ 
+SCENE       := SCENE_FRAME BEAT+ TRANSITION?
+BEAT        := ACTOR? INTENTION? MEANING VIEW? DELIVERY? REACTION?
+INTENTION   := SPEECH_ACT AFFECT? DRAMA? EPISTEMICS?
+DELIVERY    := MODE? VOICE? PROSODY? TIMING? SONIC_STAGE?
+REACTION    := LISTENER_EXPECTATION? HOLD? NEXT_STATE?
+ENDING      := RESOLUTION SETTLE SILENCE
+
+Precedence and inheritance: audience constraints > scene arc > speaker identity > beat intention > surface punctuation. Beat-specific cues override scene defaults; character voice persists across appearances; bedtime taper clamps peak excitement near the close. Unknown values inherit, rather than being invented.
+
+Composition rules:
+
+1. Character identity ≠ emotion. Bruno’s voice remains recognizably Bruno whether furious, confused, or tender. Speaker timbre is a stable baseline; momentary emotion modifies it.
+2. Meaning ≠ volume. Menace can be quieter than laughter; wonder can be slower than sadness. Never map a single emotion label directly to a single pitch or volume setting.
+3. Humor = setup → expectation → violation/reframe → reaction space. Pace the setup naturally, briefly suspend before the turn, punch clearly, then leave a beat for laughter.
+4. Suspense = prediction + uncertainty + withheld resolution. Narrow attention and stretch the reveal, not the entire paragraph.
+5. Witnessing = diegetic access. Shift from “Momo ran toward the tunnel” to footfalls, breath, spoken lines, spatial cues, and moment-to-moment observation where rewriting is permitted. Do not misrepresent changes as verbatim reading.
+6. Rhythm conveys structure. Repeated digs, footsteps, and chants can crescendo; a sudden absence of rhythm can carry surprise.
+7. Silence is a meaningful token. A small pause is punctuation; a longer hold can convey thought, danger, comic anticipation, or comfort. Context decides which.
+8. Bedtime is an arc, not a filter. Decrease threat, density, onset frequency, surprise and intensity, while increasing predictability, emotional warmth and restful pauses. Make a natural ending; do not suddenly whisper mid-battle.
+9. Truthful mode framing. Book narration can quote an authorial script; radio drama is an adaptation, not a literal reading; sound and actor voices depend on output renderer.
+10. Listener-first constraints. A 3-year-old gets short turns, accessible vocabulary, non-frightening stakes, playful pattern repetition and a gentle landing.
+
+3. Meaning → delivery map
+
+|Meaning / event            |Narration intervention                                                      |Why                                   |
+|---------------------------|----------------------------------------------------------------------------|--------------------------------------|
+|Wonder, revelation         |Slightly slower pace, open vocal contour, breath of silence                 |Gives the new world room to appear    |
+|Playful teasing            |Springy rhythm, precise consonants, smiling energy                          |Makes intent legible without harshness|
+|Boastful lion              |Stable low-register identity, longer stressed syllables                     |Signals scale and pride               |
+|Fast chase                 |Short verbal units, quicker rate, repeated footfall rhythm                  |Carries kinetic energy                |
+|Comic misdirection         |Ordinary setup → small hold → crisp unexpected line → reaction pause        |Preserves the joke’s causal timing    |
+|Secret/conspiracy          |Reduced apparent distance, quieter intimate address, strategic gaps         |Creates a shared discovery            |
+|Sudden danger (young child)|Brief surprise, immediate safety cue, bounded tension                       |Excitement without lingering fear     |
+|Reassurance                |Warm, unhurried phrasing, downward settling contour, no sharp accents       |Supports trust and calm               |
+|Return to safety           |Decelerating beat density, familiar refrain, lower event novelty            |Signals completion                    |
+|Bedtime coda               |Reduce pace and dynamic range gradually, lengthen the space between thoughts|Encourages winding down               |
+
+4. Portable score — minimal canonical schema
+
+{
+  "schema": "pantheon.delivery-score/1.0",
+  "audience": {"age": 3, "context": "bedtime", "target_activation_at_end": 0.12},
+  "scene": {"place": "savanna", "phase": "reversal", "mode": "radio_drama"},
+  "beat": {
+    "speaker": "Momo", "addressee": "Bruno", "text": "A little deeper on the left!",
+    "speech_act": "tease", "valence": 0.8, "activation": 0.65,
+    "dominance": 0.5, "intimacy": 0.3, "tension": 0.2,
+    "view": {"distance": 0.15, "point_of_hearing": "inside burrow"},
+    "delivery": {"tempo": 1.05, "pitch_shift": 0.1, "pause_after_ms": 320,
+                 "voice_identity": "momo", "articulation": "playful-crisp"},
+    "intended_listener_effect": "amusement at Momo making the lions renovate"
+  }
+}
+
+tempo and pitch_shift are normalized directives, not guarantees of an actual device voice. The schema describes semantic intention and remains useful with future TTS, live actors, animation, robotics, or other modalities.
+
+5. Rendering profiles
+
+• Storybook: literary framing remains, warm single narrator, quoted dialogue performed lightly.
+• Radio drama: narration reduced when safe, assigned actors, dialogue-first progression, restrained spatial/sound cues.
+• Witness: sensory and dialogue first, minimal external explanation; perceived “camera” inside action.
+• Campfire trickster: conspiratorial audience relationship, asides, clever timing, repetition, reveal.
+• Cinematic epic: longer contrasts, expansive environment, layered stakes, controlled scale.
+• Lullaby ending: safe closure, low novelty, soft repetition, progressively lower activation.
+
+Mode selection is semantic, not keyword-exclusive. Modes can move along two independent axes: narrator distance ↔ witnessed action, and intensity ↔ quietness. Example: a quiet intimate radio scene is still radio drama; a loud storybook chase is still literature.
+
+6. Control and learning loop
+
+Observe story + audience → parse scenes/actors/intent/arc
+  → construct performance score → choose mode and voice identity
+  → render speech (+optional soundstage) → observe feedback
+  → compare intended vs perceived effect (delta)
+  → adjust next scene/story without destroying stable identities.
+
+Feedback vocabulary: too_fast, too_slow, too_loud, flat, overacted, scary, funny, confusing_speaker, perfect, sleepy, want_more_action. One correction should update a small relevant parameter subset, not rewrite the entire storytelling personality. Avoid interpreting silence as acceptance or sleep without evidence.
+
+Quality metrics: actor attribution accuracy, listener comprehension, comedic beat success, arc continuity, speech naturalness, per-beat latency, end-arousal fit, device reliability, and accessibility. Human evaluation beats proxy metrics.
+
+7. Test cases / failure modes
+
+1. Ambiguous “Oh, there you are.” Generate affectionate discovery, sarcastic suspicion, and terrifying recognition with different semantics; same words must not force one performance.
+2. Momo taunts Bruno. Teasing should read playful rather than mean; lion response should sound big but not frightening to a preschooler.
+3. “The lions dug. And dug. And dug.” Rhythm may accelerate, then pause before the realization that they have built Momo’s house.
+4. Dialogue attribution. Do not confidently assign an untagged line to the wrong character; keep narrator fallback or low-confidence attribution.
+5. Mid-scene bedtime request. Finish the emotional arc, then deliberately soften. Do not claim the story ends if it is still in danger.
+6. Device has one voice. Use pacing and punctuation differences; do not promise distinct timbres that the renderer cannot provide.
+7. Speech synthesis fails. Keep readable text available, recover play/pause state, and be honest about audio capabilities.
+8. Cultural translation. Preserve intention and relationship, adapt performance idioms with care; do not equate loudness, silence, or irony universally across cultures.
+
+8. Implementation contracts and provenance
+
+• The companion single-file HTML prototype uses on-device browser speechSynthesis and rule-based cue extraction. It is an illustrative subset of this grammar; it is not a trained semantic model, an autonomous actor, or a direct modifier of ChatGPT Voice settings.
+• The reference bedtime story comes from this conversation’s original fictional Momo and lions tale. No external text or third-party audio is needed.
+• Future AI integration: replace or augment cue heuristics with a model returning validated pantheon.delivery-score/1.0 objects. Keep deterministic renderer fallbacks, clamp rates and volume for children, and explicitly report model uncertainty.
+• Reconstruction: ontology → grammar → planner → score → renderer → listener feedback → delta evaluation. The semantic score is the invariant interface: it can be rendered in speech, audiobook, animation, stage, music, sign language, or robot gesture without making the words themselves carry the full burden of meaning.
+
+Core axiom: Meaning is transmitted by what happens, who intends what, what the audience knows, how the moment unfolds, and how the experience is delivered. Words are one instrument in the orchestra.
