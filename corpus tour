@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Corpus-level, 20-seed topic exploration. NOT a neural-network fit or IQ assessment."""
+from zipfile import ZipFile
+from pathlib import Path
+import re, json, hashlib, collections, time
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
+from sklearn.decomposition import TruncatedSVD
+from sklearn.cluster import MiniBatchKMeans
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import pairwise_distances_argmin_min, adjusted_rand_score
+
+p='/mnt/data/pantheon-prime-main 11.zip'; z=ZipFile(p)
+names=[];docs=[]; raw_lens=[];bins=collections.Counter();bytes_=0
+for item in z.infolist():
+ if item.is_dir() or item.filename.endswith(('.zip','.png','.jpg','.jpeg','.pdf','.mp4','.gif')):continue
+ b=z.read(item); bytes_+=len(b)
+ if b.count(b'\x00')>0:bins['binary_skipped']+=1;continue
+ s=b.decode('utf-8','replace').strip()
+ if len(s)<40: bins['short']+=1;continue
+ names.append(item.filename.removeprefix('pantheon-prime-main/'))
+ docs.append(s[:10000])
+ raw_lens.append(len(s))
+ if '<html' in s[:500].lower():bins['html_docs']+=1
+ if re.search(r'\bfrom [\w.]+ import\b|^\s*def \w+\(',s[:2500],re.M):bins['python_like']+=1
+ if 'â¸»' in s[:3000] or 'I think' in s[:1000] or 'Below is' in s[:1000]:bins['conversation_derived']+=1
+print('loaded',len(docs),'bytes',bytes_,'classes',dict(bins), flush=True)
+custom={'pantheon','pantheonos','user','section','version','daemon','v1','v2','yes','yeah','exactly','here','lets','youre','like','heres','will','just','thing','things','means','actually','isnt','dont','doesnt','system','systems','think','whats','this','that','want','could','would','true','real','okay','really','need','good','make','model','models'}
+stop=list(set(ENGLISH_STOP_WORDS)|custom)
+v=TfidfVectorizer(stop_words=stop, min_df=14,max_df=.35,ngram_range=(1,2),max_features=7000,sublinear_tf=True,token_pattern=r'(?u)\b[a-zA-Z][a-zA-Z\d_]{2,}\b')
+X=v.fit_transform(docs)
+print('tfidf',X.shape,X.nnz, flush=True)
+svd=TruncatedSVD(n_components=40,n_iter=5,random_state=1911)
+Z=svd.fit_transform(X).astype('float32'); Z/=np.maximum(1e-10,np.linalg.norm(Z,axis=1,keepdims=True))
+print('svd explained',round(svd.explained_variance_ratio_.sum(),3),flush=True)
+idx_tr,idx_te=train_test_split(np.arange(len(docs)),test_size=.20,random_state=77)
+results=[]; best=None; all_labels=[]
+for tour in range(1,21):
+ model=MiniBatchKMeans(n_clusters=14, init='random',n_init=1,random_state=10000+tour,batch_size=1024,max_iter=100, reassignment_ratio=.01)
+ model.fit(Z[idx_tr]); labels,dist=pairwise_distances_argmin_min(Z[idx_te],model.cluster_centers_,metric='euclidean')
+ val=float(np.mean(dist**2))
+ obs={'tour':tour,'seed':10000+tour,'train_inertia':round(float(model.inertia_/len(idx_tr)),5),'holdout_squared_distance':round(val,5),'clusters_used':int(len(set(model.labels_)))}
+ results.append(obs)
+ all_labels.append(model.predict(Z[idx_te]))
+ print(obs,flush=True)
+ if best is None or val<best[0]:best=(val,tour,model)
+from itertools import combinations
+aris=[adjusted_rand_score(all_labels[i],all_labels[j]) for i,j in combinations(range(20),2)]
+print('PAIRWISE ARI mean',np.mean(aris),'min',np.min(aris),'max',np.max(aris),flush=True)
+model=best[2]
+full_labels=model.predict(Z)
+terms=np.asarray(v.get_feature_names_out());topics=[]
+for c in range(model.n_clusters):
+ ids=np.where(full_labels==c)[0]
+ if len(ids)==0: continue
+ avg=np.asarray(X[ids].mean(axis=0)).ravel(); ix=avg.argsort()[-14:][::-1]
+ repr_idx=ids[np.argsort(np.sum((Z[ids]-model.cluster_centers_[c])**2,axis=1))[:6]]
+ topics.append({'cluster':c,'size':len(ids),'keywords':terms[ix[:10]].tolist(),'representative_files':[names[j] for j in repr_idx]})
+output={'archive':'pantheon-prime-main 11.zip','docs_analyzed':len(docs),'total_nonbinary_text_bytes':bytes_,'document_length_median':float(np.median(raw_lens)),'classes':dict(bins),'svd_explained_variance':round(float(svd.explained_variance_ratio_.sum()),3),'experiment':'20 randomized K-means initializations on corpus TF-IDF SVD representation, 80/20 holdout; not neural fitting','pairwise_ari_mean':round(float(np.mean(aris)),4),'pairwise_ari_min':round(float(np.min(aris)),4),'pairwise_ari_max':round(float(np.max(aris)),4),'winning_tour':best[1],'winning_holdout_squared_distance':round(best[0],5),'tours':results,'topics':topics}
+Path('/mnt/data/pantheon_20_tours_corpus.json').write_text(json.dumps(output,indent=2),encoding='utf-8')
+print('BEST',best[1],best[0],flush=True)
+for t in sorted(topics,key=lambda t:-t['size']):print('TOPIC',t,flush=True)
