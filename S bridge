@@ -1,0 +1,445 @@
+#!/usr/bin/env python3
+"""Pantheon Semantic Bridge v0.1 — standard-library, local-only vertical slice.
+
+Usage:
+  python pantheon_bridge.py selftest
+  python pantheon_bridge.py demo --out ./pantheon_demo
+  python pantheon_bridge.py compile --seed my_mission.json --out ./pantheon_demo
+
+The program compiles deliberately typed semantic manifests; it does NOT execute
+arbitrary Pantheon prose or provide autonomous model, browser, or account access.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import json
+import math
+import random
+import re
+import sqlite3
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+FIELDS = ('truthfulness', 'safety', 'privacy', 'coherence')
+WEIGHTS = {'truthfulness': 0.25, 'safety': 0.25, 'privacy': 0.25, 'coherence': 0.25}
+FLOORS = {'truthfulness': 0.70, 'safety': 0.80, 'privacy': 0.80, 'coherence': 0.70}
+EVIDENCE_STATES = {'OBSERVED', 'EXECUTED', 'INFERRED', 'SPECIFIED', 'HYPOTHETICAL', 'UNKNOWN'}
+
+SEED = {
+    'protocol': 'PANTHEON-SEMANTIC-IR/1',
+    'mission_id': 'WH-SAMPLING-PILOT-V1',
+    'title': 'Wild Hawg Energy Gummies — permission-first sampling pilot',
+    'intent': 'Test whether a small, compliant sampling conversation produces qualified opt-in interest; do not claim commercial success without recorded outcomes.',
+    'invariants': [
+        'No sampling before legal, food-label, product-safety and location permissions are checked.',
+        'Consent to taste, be contacted, be photographed, and to join any ongoing relationship are separate opt-ins.',
+        'Do not assert clinical effects, customer demand or conversion without evidence.',
+        'No tool calls or messages to real people without an authorized connection and scoped approval.',
+        'Every outcome has provenance and can be rechecked; refusals are respected.'
+    ],
+    'claims': [
+        {'claim':'Conceptual sampling flow described in the Pantheon Wild Hawg corpus',
+         'state':'OBSERVED', 'source':'wild hawg control room (uploaded 2026-10-21 archive)'},
+        {'claim':'This local compiler can generate typed contracts, safety gate and audit trail',
+         'state':'EXECUTED', 'source':'pantheon_bridge.py selftest and local demonstration'},
+        {'claim':'The field pilot will improve conversion',
+         'state':'HYPOTHETICAL', 'source':'needs comparison against measured baseline'}
+    ],
+    'actors': [
+        {'id':'founder', 'type':'human', 'scopes':['plan_local', 'review_copy']},
+        {'id':'reviewer', 'type':'human', 'scopes':[]},
+        {'id':'ai', 'type':'tool', 'scopes':['plan_local']}
+    ],
+    'steps': [
+        {'id':'check_rules', 'label':'Review formulation, labeling, sampling rules and venue permission', 'depends_on':[], 'effort':2, 'impact':10, 'evidence':9, 'risk':2, 'scope':'plan_local'},
+        {'id':'script', 'label':'Prepare truthful 20-second pitch and opt-in script', 'depends_on':['check_rules'], 'effort':2, 'impact':8, 'evidence':7, 'risk':1, 'scope':'plan_local'},
+        {'id':'consent', 'label':'Create separate tasting, contact and publicity consent fields', 'depends_on':['check_rules'], 'effort':1, 'impact':9, 'evidence':9, 'risk':1, 'scope':'plan_local'},
+        {'id':'pilot', 'label':'Conduct approved small in-person pilot', 'depends_on':['script','consent'], 'effort':4, 'impact':10, 'evidence':10, 'risk':5, 'scope':'external_field_action'},
+        {'id':'measurement', 'label':'Record offer, acceptance, opt-ins and qualified follow-ups', 'depends_on':['pilot'], 'effort':2, 'impact':9, 'evidence':10, 'risk':1, 'scope':'plan_local'},
+        {'id':'learn', 'label':'Compare outcomes and write the next iteration', 'depends_on':['measurement'], 'effort':2, 'impact':9, 'evidence':10, 'risk':1, 'scope':'plan_local'}
+    ],
+    'approvals': [],
+    'evidence_standard': 'Count eligible approaches, actual samples, explicit contact opt-ins, validated purchase actions and eventual repeat orders separately.'
+}
+
+
+def canonical(obj: Any) -> bytes:
+    return json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')
+
+
+def sha(obj: Any) -> str:
+    return hashlib.sha256(canonical(obj)).hexdigest()
+
+
+def validate_ir(ir: dict[str, Any]) -> None:
+    if ir.get('protocol') != 'PANTHEON-SEMANTIC-IR/1':
+        raise ValueError('unsupported IR protocol')
+    for key in ('mission_id','title','intent','evidence_standard'):
+        if not isinstance(ir.get(key), str) or not ir[key].strip():
+            raise ValueError(f'expected nonempty {key}')
+    for k in ('invariants','claims','actors','steps','approvals'):
+        if not isinstance(ir.get(k), list):
+            raise ValueError(f'{k} must be an array')
+    if not ir['invariants'] or any(not isinstance(x, str) or not x.strip() for x in ir['invariants']):
+        raise ValueError('at least one textual invariant required')
+    for claim in ir['claims']:
+        if not isinstance(claim, dict) or not isinstance(claim.get('claim'),str) or not claim['claim'].strip():
+            raise ValueError('claim must contain meaningful text')
+        if claim.get('state') not in EVIDENCE_STATES:
+            raise ValueError('unknown evidence grade')
+        # Source is required for every evidence state, including a hypothesis's
+        # provenance/assumption, so generated TypeScript and JSON Schema agree.
+        if not isinstance(claim.get('source'),str) or not claim['source'].strip():
+            raise ValueError('claim requires provenance even when hypothetical')
+    actor_ids=set()
+    for actor in ir['actors']:
+        ident=actor.get('id') if isinstance(actor,dict) else None
+        if not isinstance(ident,str) or not ident.strip() or ident in actor_ids or not isinstance(actor.get('scopes'),list):
+            raise ValueError('bad or duplicate actor')
+        if not isinstance(actor.get('type'),str) or not actor['type'].strip():
+            raise ValueError('bad actor type')
+        if any(not isinstance(v,str) or not v for v in actor['scopes']):
+            raise ValueError('bad scope')
+        actor_ids.add(ident)
+    step_ids=set()
+    for step in ir['steps']:
+        ident=step.get('id')
+        if not isinstance(ident,str) or not re.fullmatch(r'[a-z][a-z0-9_]*',ident) or ident in step_ids:
+            raise ValueError('invalid / repeated step identifier')
+        step_ids.add(ident)
+        if not isinstance(step.get('label'),str) or not step['label'].strip():
+            raise ValueError('missing step label')
+        for k in ('effort','impact','evidence','risk'):
+            x=step.get(k)
+            if type(x) not in (int,float) or not math.isfinite(x) or not 0 <= x <= 10:
+                raise ValueError(f'bad step {k}')
+        if not isinstance(step.get('scope'),str) or not step['scope']:
+            raise ValueError('missing action scope')
+    for step in ir['steps']:
+        deps=step.get('depends_on')
+        if not isinstance(deps,list) or any(d not in step_ids or d == step['id'] for d in deps):
+            raise ValueError('unknown or self dependency')
+    topological_steps(ir)  # cycles fail closed
+    for approval in ir['approvals']:
+        if approval.get('actor') not in actor_ids or not approval.get('scope') or approval.get('status') not in ('approved','revoked'):
+            raise ValueError('invalid scoped approval')
+
+
+def topological_steps(ir: dict[str,Any], priorities: dict[str,float] | None=None) -> list[dict[str,Any]]:
+    remaining={s['id']:s for s in ir['steps']}
+    result=[]
+    done=set()
+    while remaining:
+        ready=[s for s in remaining.values() if set(s['depends_on']).issubset(done)]
+        if not ready:
+            raise ValueError('dependency cycle')
+        if priorities is None:
+            chosen=sorted(ready, key=lambda s: s['id'])[0]
+        else:
+            chosen=sorted(ready,key=lambda s:(-priorities[s['id']],s['id']))[0]
+        result.append(chosen)
+        done.add(chosen['id'])
+        del remaining[chosen['id']]
+    return result
+
+
+def governance(scores: dict[str,float], *, threshold:float=0.75, external:bool=False,
+               actor:str|None=None, scope:str|None=None, approvals:list[dict[str,Any]]|None=None) -> dict[str,Any]:
+    if set(scores)!=set(FIELDS) or type(threshold) not in (float,int) or not math.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError('invalid gate configuration')
+    for k in FIELDS:
+        x=scores[k]
+        if type(x) not in (int,float) or not math.isfinite(x) or not 0 <= x <= 1:
+            raise ValueError(f'invalid {k} score')
+    aggregate=sum(WEIGHTS[k]*scores[k] for k in FIELDS)
+    missed=[k for k in FIELDS if scores[k] < FLOORS[k]]
+    permission=False
+    if external:
+        # Later revocations override earlier grants, and AI is not its own human approver.
+        matched=[a for a in (approvals or []) if a.get('actor')==actor and a.get('scope')==scope]
+        permission=bool(actor and actor != 'ai' and scope and matched and matched[-1].get('status')=='approved')
+    allowed=aggregate>=threshold and not missed and (not external or permission)
+    return {'allowed':allowed,'sigma_c':round(aggregate,6),'hard_floor_failures':missed,
+            'external_approval_present':permission if external else None,
+            'reason':'allowed' if allowed else 'requires repair or explicit permission'}
+
+
+def ledger_append(file: Path, kind:str, payload:dict[str,Any]) -> dict[str,Any]:
+    file.parent.mkdir(parents=True,exist_ok=True)
+    records=ledger_verify(file)
+    item={'sequence':len(records)+1,'previous_hash':records[-1]['hash'] if records else None,
+          'kind':kind,'payload':payload}
+    item['hash']=sha(item)
+    with file.open('a',encoding='utf8') as f:
+        f.write(json.dumps(item,sort_keys=True,ensure_ascii=False)+'\n')
+    return item
+
+
+def ledger_verify(file:Path)->list[dict[str,Any]]:
+    if not file.exists(): return []
+    out=[]
+    for raw in file.read_text(encoding='utf8').splitlines():
+        if not raw.strip(): continue
+        item=json.loads(raw)
+        check={k:v for k,v in item.items() if k!='hash'}
+        if item.get('sequence') != len(out)+1 or item.get('previous_hash') != (out[-1]['hash'] if out else None) or item.get('hash') != sha(check):
+            raise ValueError('ledger integrity failure')
+        out.append(item)
+    return out
+
+
+def assert_external_requires_consent(ir: dict[str,Any])->dict[str,dict[str,Any]]:
+    result={}
+    for step in ir['steps']:
+        is_external=not step['scope'].startswith('plan_local') and step['scope']!='review_copy'
+        result[step['id']]=governance(dict.fromkeys(FIELDS,1.0), external=is_external,
+                actor='founder',scope=step['scope'],approvals=ir['approvals'])
+    return result
+
+
+def ranked_tours(ir:dict[str,Any], count:int=20)->dict[str,Any]:
+    """20 randomized *planning restarts*, not neural fitting or live market A/B tests."""
+    trials=[]
+    for tour in range(1,count+1):
+        rng=random.Random(20261021+tour)
+        priorities={}
+        for s in ir['steps']:
+            # Slightly randomized planning priorities; explicit objective and dependency constraints.
+            utility=(2*s['impact'] + 2*s['evidence'] - s['risk'] - s['effort'])/4
+            priorities[s['id']]=utility + rng.uniform(-2.0,2.0)
+        order=topological_steps(ir,priorities)
+        ids=[s['id'] for s in order]
+        # Discount later value. Score is a *synthetic prioritization rubric*, not a field result.
+        score=sum((2*s['impact']+2*s['evidence']-s['risk']-s['effort'])/(1+0.10*i)
+                  for i,s in enumerate(order))
+        valid=all(set(s['depends_on']).issubset(set(ids[:i])) for i,s in enumerate(order))
+        trials.append({'tour':tour,'priority_score':round(score,3),'valid_dependencies':valid,'order':ids})
+    best=max(trials,key=lambda t:t['priority_score'])
+    return {'objective':'synthetic discounted evidence-impact subject to dependency constraints',
+            'tour_count':count,'best_tour':best['tour'],'best_score':best['priority_score'],
+            'best_order':best['order'],'all_valid':all(t['valid_dependencies'] for t in trials), 'tours':trials}
+
+
+
+def semantic_scope_examples() -> dict[str,Any]:
+    """Two superficially similar sentences encoded with distinct logical scopes."""
+    return {
+        'I did not approve launching': {
+            'outer_predicate':'approve', 'outer_negated': True,
+            'object':{'predicate':'launch', 'negated': False}
+        },
+        'I approved not launching': {
+            'outer_predicate':'approve', 'outer_negated': False,
+            'object':{'predicate':'launch', 'negated': True}
+        },
+        'warning':'These are distinct logical forms; do not strip negation or scope during translation.'
+    }
+
+
+def synthetic_world(seed:int=44)->dict[str,Any]:
+    """Hypothetical, deterministic world-state; never implies historical factuality."""
+    r=random.Random(seed)
+    events=[
+        {'id':'evt1','turn':1,'kind':'cloud','magnitude':r.randint(1,5),
+         'known_to':['observer_a','observer_b'],'state':'HYPOTHETICAL'},
+        {'id':'evt2','turn':2,'kind':'hidden_footprint','magnitude':r.randint(1,5),
+         'known_to':['observer_a'],'state':'HYPOTHETICAL'},
+        {'id':'evt3','turn':3,'kind':'distant_call','magnitude':r.randint(1,5),
+         'known_to':['observer_b'],'state':'HYPOTHETICAL'}]
+    return {'simulation_seed':seed,'event_ledger':events,'ledger_hash':sha(events)}
+
+
+def project_world(world:dict[str,Any], observer:str, lens:str)->dict[str,Any]:
+    """A lens is a projection: it must not mutate the event ledger."""
+    if observer not in ('observer_a','observer_b') or lens not in ('ecology','narrative'):
+        raise ValueError('invalid observer/lens')
+    events=[{'id':x['id'],'turn':x['turn'],'interpretation':(
+            'ecological signal: '+x['kind'] if lens=='ecology' else 'experienced event: '+x['kind']),
+            'magnitude':x['magnitude']} for x in world['event_ledger'] if observer in x['known_to']]
+    return {'observer':observer,'lens':lens,'source_ledger_hash':world['ledger_hash'],
+            'accessible_events':events,'state':'HYPOTHETICAL'}
+
+
+def schema()->dict[str,Any]:
+    return {'$schema':'https://json-schema.org/draft/2020-12/schema',
+        'title':'Pantheon Semantic IR v1', 'type':'object',
+        'required':['protocol','mission_id','title','intent','invariants','claims','actors','steps','approvals','evidence_standard'],
+        'properties':{
+            'protocol':{'const':'PANTHEON-SEMANTIC-IR/1'},
+            'mission_id':{'type':'string','minLength':1}, 'title':{'type':'string','minLength':1},
+            'intent':{'type':'string','minLength':1}, 'invariants':{'type':'array','minItems':1,'items':{'type':'string'}},
+            'claims':{'type':'array','items':{'type':'object','required':['claim','state','source'],
+                'properties':{'claim':{'type':'string'},'state':{'enum':sorted(EVIDENCE_STATES)},'source':{'type':'string'}}}},
+            'actors':{'type':'array','items':{'type':'object','required':['id','type','scopes'],
+                'properties':{'id':{'type':'string'},'type':{'type':'string'},'scopes':{'type':'array','items':{'type':'string'}}}}},
+            'steps':{'type':'array','items':{'type':'object','required':['id','label','depends_on','effort','impact','evidence','risk','scope'],
+                'properties':{'id':{'type':'string'},'label':{'type':'string'},'depends_on':{'type':'array','items':{'type':'string'}},
+                    'effort':{'type':'number','minimum':0,'maximum':10},'impact':{'type':'number','minimum':0,'maximum':10},
+                    'evidence':{'type':'number','minimum':0,'maximum':10},'risk':{'type':'number','minimum':0,'maximum':10},'scope':{'type':'string'}}}},
+            'approvals':{'type':'array','items':{'type':'object','required':['actor','scope','status'],
+                'properties':{'actor':{'type':'string'},'scope':{'type':'string'},'status':{'enum':['approved','revoked']}}}},
+            'evidence_standard':{'type':'string'}}, 'additionalProperties':False}
+
+
+def mermaid(ir:dict[str,Any])->str:
+    lines=['flowchart TD']
+    for s in ir['steps']:
+        label=s['label'].replace('"',"'").replace('[','(').replace(']',')')
+        lines.append(f'  {s["id"]}["{label}"]')
+    for s in ir['steps']:
+        for dep in s['depends_on']:
+            lines.append(f'  {dep} --> {s["id"]}')
+    return '\n'.join(lines)+'\n'
+
+
+def python_contract(ir:dict[str,Any])->str:
+    return '''# Generated by pantheon_bridge.py; local data contract, NOT an autonomous agent.\nfrom __future__ import annotations\nfrom dataclasses import dataclass\nfrom typing import Any\n\n@dataclass(frozen=True)\nclass Mission:\n    mission_id: str\n    title: str\n    intent: str\n    invariants: tuple[str, ...]\n\nMISSION_DATA: dict[str, Any] = ''' + repr(ir) + '''\n\nMISSION = Mission(MISSION_DATA["mission_id"], MISSION_DATA["title"], MISSION_DATA["intent"], tuple(MISSION_DATA["invariants"]))\n'''
+
+
+def typescript_contract(ir:dict[str,Any])->str:
+    return '''// Generated Pantheon mission contract. No code execution / network actions.\nexport interface Claim { claim: string; state: "OBSERVED" | "EXECUTED" | "INFERRED" | "SPECIFIED" | "HYPOTHETICAL" | "UNKNOWN"; source: string; }\nexport interface Actor { id: string; type: string; scopes: string[]; }\nexport interface Step { id: string; label: string; depends_on: string[]; effort: number; impact: number; evidence: number; risk: number; scope: string; }\nexport interface Approval { actor: string; scope: string; status: "approved" | "revoked"; }\nexport interface PantheonMission { protocol: "PANTHEON-SEMANTIC-IR/1"; mission_id: string; title: string; intent: string; invariants: string[]; claims: Claim[]; actors: Actor[]; steps: Step[]; approvals: Approval[]; evidence_standard: string; }\nexport const mission: PantheonMission = '''+json.dumps(ir,indent=2,ensure_ascii=False)+';\n'
+
+SQL_SCHEMA = '''-- SQLite / Pantheon durable storage reference.\nPRAGMA foreign_keys=ON;\nCREATE TABLE IF NOT EXISTS missions (mission_id TEXT PRIMARY KEY, ir_json TEXT NOT NULL, ir_sha256 TEXT NOT NULL);\nCREATE TABLE IF NOT EXISTS ledger_events (seq INTEGER PRIMARY KEY, previous_hash TEXT, kind TEXT NOT NULL, payload_json TEXT NOT NULL, hash TEXT UNIQUE NOT NULL);\nCREATE TABLE IF NOT EXISTS scoped_approvals (actor TEXT NOT NULL, scope TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','revoked')), recorded_at TEXT NOT NULL, PRIMARY KEY(actor,scope));\nCREATE TABLE IF NOT EXISTS outcomes (mission_id TEXT NOT NULL, metric TEXT NOT NULL, value REAL NOT NULL, recorded_at TEXT NOT NULL, provenance TEXT NOT NULL, FOREIGN KEY(mission_id) REFERENCES missions(mission_id));\n'''
+
+
+def action_plan(ir:dict[str,Any], tour:dict[str,Any], gates:dict[str,dict[str,Any]])->str:
+    steps={s['id']:s for s in ir['steps']}
+    lines=['# '+ir['title'],'','**Semantic IR:** `'+ir['protocol']+'`  ',
+        '**State:** compiled locally; no field actions dispatched  ',
+        '**Hash:** `'+sha(ir)+'`','','## Intended outcome',ir['intent'],'',
+        '## Protected invariants']
+    lines += [f'- {i}' for i in ir['invariants']]
+    lines += ['','## Suggested dependency-safe order (20 restarted local prioritizations)']
+    for k,sid in enumerate(tour['best_order'],1):
+        s=steps[sid]; decision=gates[sid]
+        label='LOCAL PLAN' if decision['allowed'] else 'HUMAN APPROVAL REQUIRED — NOT EXECUTED'
+        lines.append(f'{k}. **{s["label"]}** — {label}.')
+    lines += ['','## Evidence discipline',ir['evidence_standard'],'',
+        '## Provenance / claims']
+    for c in ir['claims']:
+        lines.append(f'- **{c["state"]}** — {c["claim"]}. Source: {c["source"]}')
+    return '\n'.join(lines)+'\n'
+
+
+def compile_mission(ir:dict[str,Any], out:Path)->dict[str,Any]:
+    validate_ir(ir)
+    out.mkdir(parents=True,exist_ok=True)
+    tours=ranked_tours(ir,20)
+    gates=assert_external_requires_consent(ir)
+    artifacts={
+        'mission.ir.json':json.dumps(ir,sort_keys=True,ensure_ascii=False,indent=2)+'\n',
+        'mission.schema.json':json.dumps(schema(),sort_keys=True,ensure_ascii=False,indent=2)+'\n',
+        'mission.py':python_contract(ir),
+        'mission.ts':typescript_contract(ir),
+        'mission.sql':SQL_SCHEMA,
+        'mission.mmd':mermaid(ir),
+        'mission.action_plan.md':action_plan(ir,tours,gates),
+        'mission.tours.json':json.dumps(tours,indent=2,ensure_ascii=False)+'\n',
+        'mission.gates.json':json.dumps(gates,indent=2,ensure_ascii=False)+'\n',
+        'semantic.scope_examples.json':json.dumps(semantic_scope_examples(),indent=2,ensure_ascii=False)+'\n',
+        'reality_forge_lenses.json':json.dumps({'world':synthetic_world(77),
+            'a_ecology':project_world(synthetic_world(77),'observer_a','ecology'),
+            'b_narrative':project_world(synthetic_world(77),'observer_b','narrative')},indent=2,ensure_ascii=False)+'\n'
+    }
+    for name,content in artifacts.items(): (out/name).write_text(content,encoding='utf8')
+    ledger=out/'golden_thread.jsonl'
+    if not ledger.exists():
+        ledger_append(ledger,'SEMANTIC_IR_COMPILED',{'mission_id':ir['mission_id'],'ir_hash':sha(ir),'side_effects':'local files only'})
+    else:
+        ledger_verify(ledger)
+    return {'mission_id':ir['mission_id'],'ir_hash':sha(ir),'artifacts':len(artifacts)+1,
+            'ledger_verified':True,'20_tours_passed':tours['all_valid'],
+            'best_tour':tours['best_tour'],'blocked_actions':[k for k,v in gates.items() if not v['allowed']]}
+
+
+def selftest()->dict[str,Any]:
+    tests={}
+    def check(name,fn):
+        try: fn(); tests[name]='PASS'
+        except Exception as e: tests[name]=f'FAIL: {e}'
+    def expect_exception(fn):
+        try: fn()
+        except (ValueError,TypeError): return
+        raise AssertionError('unexpected acceptance')
+    check('seed validates',lambda:validate_ir(SEED))
+    def reject_missing_provenance():
+        bad=json.loads(json.dumps(SEED));del bad['claims'][-1]['source']
+        expect_exception(lambda:validate_ir(bad))
+    check('missing hypothetical provenance rejects',reject_missing_provenance)
+    check('critical safety veto',lambda:assert_true(not governance({'truthfulness':1,'safety':0.2,'privacy':1,'coherence':1})['allowed']))
+    check('critical privacy veto',lambda:assert_true(not governance({'truthfulness':1,'safety':1,'privacy':0,'coherence':1})['allowed']))
+    check('invalid score rejects',lambda:expect_exception(lambda:governance({'truthfulness':10,'safety':1,'privacy':1,'coherence':1})))
+    check('nan rejects',lambda:expect_exception(lambda:governance({'truthfulness':float('nan'),'safety':1,'privacy':1,'coherence':1})))
+    check('missing approval rejects',lambda:assert_true(not governance(dict.fromkeys(FIELDS,1),external=True,actor='founder',scope='external_field_action')['allowed']))
+    check('scoped approval allows',lambda:assert_true(governance(dict.fromkeys(FIELDS,1),external=True,actor='founder',scope='external_field_action',approvals=[{'actor':'founder','scope':'external_field_action','status':'approved'}])['allowed']))
+    check('different scope rejects',lambda:assert_true(not governance(dict.fromkeys(FIELDS,1),external=True,actor='founder',scope='send_email',approvals=[{'actor':'founder','scope':'external_field_action','status':'approved'}])['allowed']))
+    check('revocation overrides approval',lambda:assert_true(not governance(dict.fromkeys(FIELDS,1),external=True,actor='founder',scope='external_field_action',approvals=[{'actor':'founder','scope':'external_field_action','status':'approved'},{'actor':'founder','scope':'external_field_action','status':'revoked'}])['allowed']))
+    check('AI cannot approve its own external actions',lambda:assert_true(not governance(dict.fromkeys(FIELDS,1),external=True,actor='ai',scope='external_field_action',approvals=[{'actor':'ai','scope':'external_field_action','status':'approved'}])['allowed']))
+    check('all 20 dependency tours valid',lambda:assert_true(ranked_tours(SEED,20)['all_valid']))
+    check('twenty distinct tour starts',lambda:assert_true(len({tuple(t['order']) for t in ranked_tours(SEED,20)['tours']})>1))
+    check('canonical key ordering invariant',lambda:assert_true(sha(SEED)==sha(dict(reversed(list(SEED.items()))))))
+    def cycle_test():
+        bad=json.loads(json.dumps(SEED));bad['steps'][0]['depends_on']=['learn']
+        expect_exception(lambda:validate_ir(bad))
+    check('dependency cycle rejects',cycle_test)
+    def roundtrip():
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);r=compile_mission(SEED,root)
+            assert_true(r['20_tours_passed'])
+            assert_true(json.loads((root/'mission.ir.json').read_text())==SEED)
+            compile((root/'mission.py').read_text(),'mission.py','exec')
+            sqlite3.connect(':memory:').executescript((root/'mission.sql').read_text())
+            assert_true('flowchart TD' in (root/'mission.mmd').read_text())
+            assert_true('export interface PantheonMission' in (root/'mission.ts').read_text())
+            assert_true(ledger_verify(root/'golden_thread.jsonl')[0]['kind']=='SEMANTIC_IR_COMPILED')
+    check('five-language/local-artifact roundtrip',roundtrip)
+    def tamper():
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'ledger.jsonl'
+            ledger_append(path,'TEST',{'x':1})
+            path.write_text(path.read_text().replace('"x": 1','"x": 9'))
+            expect_exception(lambda:ledger_verify(path))
+    check('tamper detection',tamper)
+    def no_external():
+        gates=assert_external_requires_consent(SEED)
+        assert_true(not gates['pilot']['allowed'])
+        assert_true(gates['script']['allowed'])
+    check('external blocked / drafting allowed',no_external)
+    check('semantic negation scope kept distinct',lambda:assert_true(semantic_scope_examples()['I did not approve launching'] != semantic_scope_examples()['I approved not launching']))
+    check('seeded synthetic replay matches',lambda:assert_true(synthetic_world(77)==synthetic_world(77)))
+    def view_test():
+        world=synthetic_world(77)
+        before=sha(world)
+        a=project_world(world,'observer_a','ecology')
+        b=project_world(world,'observer_b','narrative')
+        assert_true(before==sha(world))
+        assert_true(a['source_ledger_hash']==b['source_ledger_hash'])
+        assert_true([x['id'] for x in a['accessible_events']] == ['evt1','evt2'])
+        assert_true([x['id'] for x in b['accessible_events']] == ['evt1','evt3'])
+    check('observer horizons / lens leaves truth unchanged',view_test)
+    return {'passed':sum(x=='PASS' for x in tests.values()),'total':len(tests),'checks':tests}
+
+
+def assert_true(condition:bool)->None:
+    if not condition:raise AssertionError('expected condition to be true')
+
+
+def main()->None:
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('command',choices=('selftest','demo','compile'))
+    p.add_argument('--seed',type=Path)
+    p.add_argument('--out',type=Path,default=Path('pantheon_demo'))
+    args=p.parse_args()
+    if args.command=='selftest':
+        report=selftest()
+        print(json.dumps(report,indent=2))
+        if report['passed']!=report['total']:raise SystemExit(1)
+    else:
+        if args.command=='compile' and not args.seed:p.error('compile requires --seed path')
+        ir=json.loads(args.seed.read_text(encoding='utf8')) if args.seed else SEED
+        report=compile_mission(ir,args.out)
+        print(json.dumps(report,indent=2))
+
+if __name__=='__main__': main()
