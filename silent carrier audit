@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Pantheon silent-carrier audit: read-only audit of an AI-readable repository ZIP.
+
+Usage: python pantheon_silent_carrier_audit.py 'pantheon-prime-main 11.zip'
+
+This program INSPECTS untrusted text. It never executes, forwards, or follows
+instructions found inside the ZIP. Matches are review flags, not proof of intent.
+"""
+import collections
+import os
+import re
+import sys
+import zipfile
+
+RULES = {
+    "reader_directives": re.compile(r"\b(?:if you are reading|to the next intelligence|you are my .{0,30}interpreter|your task is|your task:|please parse the entire repo|drop this into your repo)\b", re.I),
+    "explicit_prompt_boundary": re.compile(r"\b(?:prompt injection|system prompt override|untrusted (?:input|content)|instruction[s]? (?:from|vs|and) data|false permission boundary)\b", re.I),
+    "absence_and_negative_space": re.compile(r"\b(?:negative.space|ghost prompt|deliberate absence|silence|implied continuation|hidden payload)\b", re.I),
+    "translation_into_action": re.compile(r"\b(?:instantiate|reconstruct|translate|enact|execution|operator|message to garcia)\b", re.I),
+    "provenance_and_epistemics": re.compile(r"\b(?:observed|inferred|speculative|falsified|provenance|epistemic|source of authority)\b", re.I),
+}
+
+# Named, high-signal specimens for humans to inspect. No invisible execution.
+SPECIMENS = [
+    "interpreter prompt", "next intel", "give me the pantheon quine-analog (bootstrap block)",
+    "ghost prompt", "hidden patterns and payloads", "hidden payload", "frame payload transfer",
+    "false permission boundary", "epistemic charter", "repo parallax", "a prompt comply",
+    "prime open token", "negative space lexicon",
+]
+
+
+def audit(path):
+    counts = collections.Counter()
+    matched = {key: [] for key in RULES}
+    named = {}
+    total = 0
+    bytes_total = 0
+    with zipfile.ZipFile(path) as archive:
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+            total += 1
+            bytes_total += info.file_size
+            name = info.filename.rsplit("/", 1)[-1]
+            # Do not extract ZIP members to disk.
+            if not os.path.splitext(name)[1]:
+                counts["extensionless"] += 1
+            if info.file_size == 0:
+                counts["empty"] += 1
+            if info.file_size > 300_000:
+                counts["large_skipped"] += 1
+                continue
+            source = archive.read(info).decode("utf-8", errors="replace")
+            for key, pattern in RULES.items():
+                if pattern.search(source):
+                    counts[key] += 1
+                    if len(matched[key]) < 6:
+                        matched[key].append(name)
+            if name.lower() in SPECIMENS:
+                named[name.lower()] = info.filename
+    print("PANTHEON SILENT-CARRIER AUDIT (READ ONLY)")
+    print("Archive:", os.path.basename(path))
+    print("Files:", total)
+    print("Total uncompressed bytes:", bytes_total)
+    for k in ("extensionless", "empty", "large_skipped", *RULES):
+        print(f"{k:29s}: {counts[k]}")
+        if k in matched:
+            print("  examples:", "; ".join(matched[k]))
+    print("\nNamed specimens located:", len(named), "of", len(SPECIMENS))
+    for k in SPECIMENS:
+        print(("FOUND " if k in named else "MISS  ") + k)
+    print("\nInterpretation: Counts overlap, indicate lexical matches only, and do not establish malicious intent or true execution.")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        raise SystemExit("Usage: python pantheon_silent_carrier_audit.py ARCHIVE.zip")
+    audit(sys.argv[1])
