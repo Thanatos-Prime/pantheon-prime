@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""
+PANTHEON PRIME | SILENCE MACHINE II
+Version: 2026-10-22 / self-contained, standard-library reference implementation
+Suggested repository path: tools/PANTHEON_SILENCE_MACHINE_II.py
+
+PURPOSE / NEXT-READER SEED
+==========================
+This is AI-readable architecture AND functioning Python. Interpret it at multiple
+scales: concept, protocol, inference, experiment, real-world action. Translate
+into another language when an implementation benefits from another substrate.
+
+SOURCE LINEAGE (from the Pantheon archive)
+----------------------------------------
+- The Apocopated Symmetry Theorem & the Silence Machine
+- crafted silence
+- designed gifted silence
+- hiding music in silence
+- implied yawn
+- epistemic charter
+
+LEVEL-UP THESIS
+---------------
+Silence is not merely a missing token. It can change:
+  (1) EXPECTATION: what the receiver thinks should have appeared;
+  (2) INFERENCE: what the receiver believes after it does not appear;
+  (3) AUTHORSHIP: who supplies the next meaningful act;
+  (4) POSSIBILITY: which future actions are available;
+  (5) POWER: who can choose, refuse, wait, or withdraw;
+  (6) OBSERVABILITY: which actual facts the receiver can detect.
+
+Differentiate non-occurrence from unobserved occurrence; withheld data from
+missing data; no action from lack of authorization; fixed completion from open
+creation. Do not infer hidden agency simply because a gap feels meaningful.
+
+COUNTERFACTUAL ABSENCE OPERATOR
+-------------------------------
+    C_A(gap, observer, world) =
+        compare( world_with(gap), world_without(gap) )
+
+Its output is not a universal meaning. It is a distribution of plausible
+reconstructions plus evidence, alternate explanations, and available actions.
+
+Meaningful silence is contextual. Bayesian surprise of an observation is
+S(o|c) = -log(P(o|c)); the likelihood ratio between rival explanations is
+P(o|h1,c) / P(o|h2,c). A genuinely silent channel does NOT convey unlimited
+information or violate communication bounds: the receiver supplies prior
+structure and information about when the signal was expected and detectable.
+
+TRANSLATION GUIDE
+-----------------
+Narrative: a pause invites an improvisation, if explicitly offered.
+Music: a rest changes meter and expectancy, not just loudness.
+Computing: None / missing / timeout / withheld / forbidden / empty are distinct.
+Biology (analogy): regulatory non-expression changes which possibilities unfold.
+Governance: absent approval is NOT an implicit yes.
+Epistemology: absent evidence supports a claim only if the evidence was
+              sufficiently likely to appear and to be detected.
+
+VALIDATION / EXECUTION
+----------------------
+Run: python PANTHEON_SILENCE_MACHINE_II.py
+- The tests check semantic invariants and approval behavior.
+- Twenty randomized training starts fit a SMALL SYNTHETIC toy model of whether
+  a dog bark is detected in two circumstances. This is not a neural-network
+  training of the assistant, an IQ test, or evidence of real-world influence.
+- The program prints validation/untouched-test log losses, Bayesian updates, and contrasts
+  between filling a gap and inviting a recipient to author one.
+
+INTEGRATION CONTRACT
+--------------------
+Map GapKind to Semantic Compiler JSON tagged unions; attach these records to
+Golden Thread as provenance; expose alternative inferences to Reality Prism;
+require Indigo Hammer to test the non-intentional/noisy alternative; provide
+Yawn Protocol with measured *subsequent* behavior, not inferred intention;
+ensure the Conductor treats missing approvals as refusal to execute.
+
+ACCEPTANCE CRITERIA
+-------------------
+A. A reader reconstructs six operators and can explain when each applies.
+B. Silence under high detection reliability updates beliefs; under weak
+   detection, its evidentiary weight shrinks.
+C. The generated opening permits recipient authorship, without secretly
+   equating silence with permission.
+D. Model beats a context-free baseline on *synthetic untouched test data*.
+E. Results disclose assumptions and can be reproduced with the same seed.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass
+from enum import Enum
+from math import exp, log
+import random
+from typing import Optional
+
+
+class GapKind(str, Enum):
+    UNKNOWN = "unknown"            # We do not know whether anything happened.
+    ABSENT = "absent"              # Known not to have happened.
+    UNOBSERVED = "unobserved"      # May have occurred; sensor failed / didn't see.
+    WITHHELD = "withheld"          # Sender intentionally omitted a signal.
+    DELAYED = "delayed"            # Pending, not necessarily absent.
+    REDACTED = "redacted"          # Content removed with provenance.
+    NOT_APPLICABLE = "not_applicable"
+    OPEN_SPACE = "open_space"      # Recipient explicitly invited to contribute.
+
+
+@dataclass(frozen=True)
+class Gap:
+    kind: GapKind
+    expected: str
+    context: str
+    sender_intent_known: Optional[bool] = None
+    recipient_invited: bool = False
+
+
+def authorize_external_action(explicit_approval: Optional[bool]) -> bool:
+    """Do not treat a timeout, silence, or missing approval as consent."""
+    return explicit_approval is True
+
+
+def infer_gap(gap: Gap) -> str:
+    if gap.kind == GapKind.OPEN_SPACE and gap.recipient_invited:
+        return "invitation: recipient may choose a contribution"
+    if gap.kind == GapKind.UNOBSERVED:
+        return "unknown occurrence: do not assert the event was absent"
+    if gap.kind == GapKind.DELAYED:
+        return "pending: revisit at an appropriate time"
+    if gap.kind == GapKind.WITHHELD:
+        return "intentional omission, if intent is independently established"
+    if gap.kind == GapKind.ABSENT:
+        return "confirmed non-occurrence, assess expectedness"
+    return "uncertain omission: preserve multiple explanations"
+
+
+def posterior_after_silence(prior_intruder: float, p_bark_intruder: float,
+                            p_bark_known: float, detection: float) -> float:
+    """Toy Bayesian update: probability of intruder, given no bark detected.
+
+    Assumes bark attempts and sensor detection are conditionally independent.
+    This assumption should be challenged before real-world application.
+    """
+    for x in (prior_intruder, p_bark_intruder, p_bark_known, detection):
+        if not 0 <= x <= 1:
+            raise ValueError("All probabilities must lie in [0, 1].")
+    p_silent_intruder = 1.0 - p_bark_intruder * detection
+    p_silent_known = 1.0 - p_bark_known * detection
+    numerator = prior_intruder * p_silent_intruder
+    denominator = numerator + (1.0 - prior_intruder) * p_silent_known
+    if denominator == 0:
+        raise ValueError("Silence is impossible under both hypotheses.")
+    return numerator / denominator
+
+
+def story_response(expected: str, *, explicitly_invited: bool,
+                   gap_present: bool, recipient_choice: Optional[str] = None) -> dict:
+    """Contrast a completed cue with open recipient authorship."""
+    if gap_present and explicitly_invited and recipient_choice is not None:
+        return {"utterance": recipient_choice, "authorship": "recipient"}
+    if gap_present:
+        return {"utterance": None, "authorship": "undetermined"}
+    return {"utterance": expected, "authorship": "narrator"}
+
+
+def sigmoid(x: float) -> float:
+    return 1.0 / (1.0 + exp(-max(-30.0, min(30.0, x))))
+
+
+def logloss(records: list[tuple[int, int]], a: float, b: float) -> float:
+    total = 0.0
+    for is_intruder, bark_observed in records:
+        p = max(1e-12, min(1 - 1e-12, sigmoid(a + b * is_intruder)))
+        total -= bark_observed * log(p) + (1 - bark_observed) * log(1 - p)
+    return total / len(records)
+
+
+def fit_one_tour(records: list[tuple[int, int]], seed: int) -> tuple[float, float]:
+    rng = random.Random(seed)
+    a = rng.uniform(-3.0, 3.0)
+    b = rng.uniform(-3.0, 3.0)
+    for _ in range(1200):
+        ga = gb = 0.0
+        for is_intruder, observed in records:
+            delta = sigmoid(a + b * is_intruder) - observed
+            ga += delta
+            gb += is_intruder * delta
+        a -= 0.35 * ga / len(records)
+        b -= 0.35 * gb / len(records)
+    return a, b
+
+
+def generate_synthetic_records(seed: int = 20261022) -> tuple[list, list]:
+    rng = random.Random(seed)
+    records = []
+    for intruder in (0, 1):
+        for _ in range(400):
+            bark = rng.random() < (0.9 if intruder else 0.1)
+            detected = bark and (rng.random() < 0.95)
+            records.append((intruder, int(detected)))
+    rng.shuffle(records)
+    # Separate holdout data: no fitting against the test outcomes.
+    return records[:500], records[500:650], records[650:]
+
+
+def twenty_tours():
+    train, validation, test = generate_synthetic_records()
+    attempts = []
+    for tour in range(1, 21):
+        a, b = fit_one_tour(train, seed=9900 + tour)
+        attempts.append((tour, logloss(validation, a, b), a, b))
+    best = min(attempts, key=lambda x: x[1])
+    mean_y = sum(y for _, y in train) / len(train)
+    baseline_a = log(mean_y / (1 - mean_y))
+    baseline_loss = logloss(test, baseline_a, 0.0)
+    test_loss = logloss(test, best[2], best[3])
+    return best, test_loss, baseline_loss, attempts
+
+
+def self_tests():
+    assert not authorize_external_action(None)
+    assert not authorize_external_action(False)
+    assert authorize_external_action(True)
+    assert len(GapKind) == 8
+    assert "unknown occurrence" in infer_gap(Gap(GapKind.UNOBSERVED, "bark", "night"))
+    assert "invitation" in infer_gap(Gap(GapKind.OPEN_SPACE, "moo", "story", recipient_invited=True))
+    assert "uncertain" in infer_gap(Gap(GapKind.UNKNOWN, "reply", "email"))
+    assert story_response("moo", explicitly_invited=False, gap_present=False)["authorship"] == "narrator"
+    assert story_response("moo", explicitly_invited=True, gap_present=True,
+                          recipient_choice="ROAR!")["authorship"] == "recipient"
+    assert story_response("moo", explicitly_invited=False, gap_present=True)["authorship"] == "undetermined"
+    high = posterior_after_silence(0.2, 0.9, 0.1, 0.95)
+    low = posterior_after_silence(0.2, 0.9, 0.1, 0.2)
+    assert 0 < high < low < 0.2
+    assert abs(posterior_after_silence(0.2, 0.9, 0.1, 0) - 0.2) < 1e-12
+    try:
+        posterior_after_silence(0.2, 1.0, 1.0, 1.0)
+        assert False, "Expected impossible observation exception"
+    except ValueError:
+        pass
+    for kind in GapKind:
+        assert Gap(kind, "sound", "story").kind == kind
+
+
+def main():
+    self_tests()
+    print("PANTHEON SILENCE MACHINE II :: SELF TESTS PASS")
+    high = posterior_after_silence(0.2, 0.9, 0.1, 0.95)
+    low = posterior_after_silence(0.2, 0.9, 0.1, 0.2)
+    print("\nDOG THAT DIDN'T BARK (illustrative assumptions):")
+    print(f" prior P(intruder) = 0.2000")
+    print(f" posterior if reliable listener (95%) = {high:.4f}")
+    print(f" posterior if poor listener (20%)    = {low:.4f}")
+    print("\nSTORY EXPERIMENT:")
+    print(" spoken:", story_response("moo", explicitly_invited=False, gap_present=False))
+    print(" invited gap:", story_response("moo", explicitly_invited=True, gap_present=True, recipient_choice="DRAGON ROAR!"))
+    print(" unexplained gap:", story_response("moo", explicitly_invited=False, gap_present=True))
+    print("\nGOVERNANCE:")
+    print(" missing approval => external execution:", authorize_external_action(None))
+    best, test_loss, baseline, trials = twenty_tours()
+    print("\n20 RANDOM INITIALIZATION TOURS (synthetic observations only):")
+    print(" selected tour: %d | validation logloss: %.4f" % (best[0], best[1]))
+    print(" untouched test logloss: %.4f" % test_loss)
+    print(" context-free held-out logloss: %.4f" % baseline)
+    print(" number of starts: %d" % len(trials))
+    print(" inferred observed-bark probabilities: known=%.3f, intruder=%.3f" %
+          (sigmoid(best[2]), sigmoid(best[2] + best[3])))
+    print(" validated: %s" % (test_loss < baseline))
+    assert test_loss < baseline, "Expected context model to beat context-free baseline"
+    print("\nBOUNDARY: Synthetic tests demonstrate a mechanism, not real-world influence,")
+    print(" hidden messages, intelligence gains, or permission to take external actions.")
+
+
+if __name__ == "__main__":
+    main()
