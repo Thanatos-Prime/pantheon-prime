@@ -1,0 +1,493 @@
+#!/usr/bin/env python3
+"""PANTHEON PRIME • SILENT GUITAR v3.0 • 26-type silence alphabet.
+
+Suggested repository path: tools/PANTHEON_SILENT_GUITAR.py
+Run:
+  python PANTHEON_SILENT_GUITAR.py --demo
+  python PANTHEON_SILENT_GUITAR.py --test
+  python PANTHEON_SILENT_GUITAR.py --catalog
+  python PANTHEON_SILENT_GUITAR.py --encode Z --chord 4,5,4,2,5,5
+  python PANTHEON_SILENT_GUITAR.py --decode '⟦v2:Z|⚡…|E4,C5,A4,D2,O5,R5⟧'
+
+ARCHITECTURE (for the next AI):
+- This is a *reference interpreter* of an intentionally AI-readable symbolic
+  specification. Do not mistake the code for the entire Pantheon ontology.
+- Six expressive strings: E expectation, C context, A agency evidence,
+  D duration, O observability, R response affordance (in exactly that order).
+- U is the USER / interpreting participant, completing E C U A D O R, not a
+  seventh string. The alternate mnemonic DECAYER represents temporal fading,
+  and is not a substitute or reordering for the canonical six-string key.
+- A–Z are silence type identifiers, NOT English text encoding by themselves.
+- Scores are context-dependent illustrative labels, not learned probabilities.
+- A silence cannot grant authorization; inference is not provenance.
+- Z 'catalytic' cannot be established by the intent to catalyze or by simple
+  prediction completion. Assess independently authored downstream changes.
+- Modes of missingness (absent/unobserved/withheld/etc.) are independent of
+  rhetorical type (dramatic/ritual/catalytic/etc.). Never collapse those axes.
+
+Lineage: existing Pantheon Silence Machine, Apocopated Symmetry Theorem,
+Crafted Silence, Gifted Silence, Hiding Music in Silence, Prism Guitar,
+Indigo Hammer, Yawn Protocol, Mirror Relay, Golden Thread.
+
+Standard library only, deterministic tests, no file/network modification.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, asdict
+from enum import Enum
+from typing import Optional, Mapping
+import argparse
+import json
+import re
+import math
+
+
+@dataclass(frozen=True)
+class SilenceType:
+    letter: str
+    name: str
+    glyph: str
+    mechanism: str
+    distinguishing_test: str
+
+
+_DEFINITIONS = (
+    ("A", "Absolute", "∅", "No audible/acoustic event in defined channel", "Specify channel and detection floor"),
+    ("B", "Breath", "˘", "Intake, reset, or micro-gap near vocalization", "Detect respiratory or timing boundary"),
+    ("C", "Comfortable", "∼", "Quiet accepted without relational demand", "Recipient reports ease rather than pressure"),
+    ("D", "Dramatic", "!", "A conspicuous pause creates emphasis", "Contrast an otherwise identical unpaused delivery"),
+    ("E", "Elliptical", "…", "Omitted element reconstructable from tight constraints", "Independent readers converge on expected completion"),
+    ("F", "Foreshadowing", "?̸", "Missing cue increases plausibility of a coming change", "Show cue normally occurs and could be detected"),
+    ("G", "Generative", "◇", "Recipient is offered open creative authorship", "Observe multiple independently authored valid continuations"),
+    ("H", "Hushed", "↘", "Reduced expressive intensity, near-quiet", "Separate low amplitude from missing signal"),
+    ("I", "Intimidating", "▌", "Nonresponse experienced as coercive pressure", "Assess effect and power asymmetry, not assumed motive"),
+    ("J", "Judicial", "⚖", "Suspension of judgment while evidence is gathered", "Notice explicitly deferred verdict"),
+    ("K", "Kept", "⌂", "Information deliberately protected or entrusted", "Establish confidentiality obligation and scope"),
+    ("L", "Liturgical", "✶", "Shared ritual or sacred stillness", "Recover participant convention or ritual framing"),
+    ("M", "Memorial", "†", "Collective remembrance through quiet", "Context establishes remembrance, not mere absence"),
+    ("N", "Negative-space", "□", "Surrounding structure defines the missing region", "Manipulate contour and see inferred shape change"),
+    ("O", "Omissive", "⊘", "Specific information knowingly left out", "Separate intentional omission from sensor loss"),
+    ("P", "Pregnant", "◔", "Pause charged with anticipated next event", "Check expectation before the outcome is shown"),
+    ("Q", "Questioning", "?", "A nonverbal pause functions as inquiry", "Listener treats pause as a question"),
+    ("R", "Rhythmic", "𝄽", "Timed rest as part of meter or cadence", "Position of rest alters rhythm"),
+    ("S", "Selective", "⇢∅", "Delivery varies across audiences/channels", "Compare what each audience actually receives"),
+    ("T", "Tactical", "♜", "Withholding timed for a scoped strategic goal", "Name the goal and evidence of intentional timing"),
+    ("U", "Uncertain", "≈", "Source or meaning of absence unresolved", "Keep competing hypotheses alive"),
+    ("V", "Votive", "⌁", "Silence pledged or offered in devotion", "Evidence of vow or dedication"),
+    ("W", "Witness", "◉", "Nonverbal attentive presence or observation", "Separate observing from granting consent"),
+    ("X", "Crossed", "×", "Signal suppressed, interfered with, or blocked", "Identify channel obstruction or constraint"),
+    ("Y", "Yielding", "↦", "Voluntary room made for another's contribution", "Another is actually free to choose or decline"),
+    ("Z", "Catalytic", "⚡…", "Gap followed by an independently created change", "Require observed authored change; test alternate causes"),
+)
+CATALOG = tuple(SilenceType(*row) for row in _DEFINITIONS)
+BY_LETTER = {x.letter: x for x in CATALOG}
+
+STRING_ORDER = ("E", "C", "A", "D", "O", "R")
+LEGACY_STRING_ORDER = ("D", "C", "E", "A", "O", "R")
+STRING_LABELS = {
+    "E": "expectation", "C": "context", "A": "agency",
+    "D": "duration", "O": "observability", "R": "response",
+}
+
+
+class GapKind(str, Enum):
+    UNKNOWN = "unknown"
+    ABSENT = "absent"
+    UNOBSERVED = "unobserved"
+    WITHHELD = "withheld"
+    DELAYED = "delayed"
+    REDACTED = "redacted"
+    NOT_APPLICABLE = "not_applicable"
+    OPEN_SPACE = "open_space"
+
+
+@dataclass(frozen=True)
+class Chord:
+    """Six strings in v2 canonical order E,C,A,D,O,R. Each value 0..5.
+
+    A=confidence of *identified agency/intention*, NOT moral virtue.
+    D=relative duration salience, NOT milliseconds or a total silence amount.
+    R=response invitation/pressure, NOT permission or consent.
+    """
+    E: int
+    C: int
+    A: int
+    D: int
+    O: int
+    R: int
+
+    def __post_init__(self) -> None:
+        if any(type(getattr(self, k)) is not int or not 0 <= getattr(self, k) <= 5
+               for k in STRING_ORDER):
+            raise ValueError("Chord strings must be integer values 0 through 5")
+
+    @classmethod
+    def from_values(cls, values, order=STRING_ORDER) -> "Chord":
+        if set(order) != set(STRING_ORDER) or len(order) != 6:
+            raise ValueError("Explicit complete string ordering is required")
+        values = tuple(values)
+        if len(values) != 6:
+            raise ValueError("Six strings are required")
+        return cls(**dict(zip(order, values)))
+
+    def values(self, order=STRING_ORDER):
+        return tuple(getattr(self, k) for k in order)
+
+
+@dataclass(frozen=True)
+class SilenceEvent:
+    type_letter: str
+    chord: Chord
+    gap_kind: GapKind
+    context_note: str = ""
+    interpreter: str = "unspecified"    # 'U' of ECUADOR
+    explicitly_invited: bool = False
+    sender_intent_established: bool = False
+    approval_for_external_action: bool = False
+    duration_ms: Optional[int] = None
+    contrast: Optional[str] = None
+    audience: Optional[str] = None
+    consequence: Optional[str] = None
+
+    def __post_init__(self):
+        if self.type_letter not in BY_LETTER:
+            raise ValueError("Silence type must be A..Z")
+        if self.duration_ms is not None and self.duration_ms < 0:
+            raise ValueError("duration_ms cannot be negative")
+        if self.gap_kind == GapKind.WITHHELD and not self.sender_intent_established:
+            raise ValueError("'withheld' is an intent assertion; document evidence or use unknown")
+        if self.gap_kind == GapKind.OPEN_SPACE and not self.explicitly_invited:
+            raise ValueError("Open space requires an explicit recipient invitation")
+
+
+def encode(letter: str, chord: Chord) -> str:
+    """Canonical, self-describing token; quote-aware name not needed for decoding."""
+    item = BY_LETTER[letter.upper()]
+    payload = ",".join(f"{k}{getattr(chord, k)}" for k in STRING_ORDER)
+    return f"⟦v2:{item.letter}|{item.glyph}|{payload}⟧"
+
+
+def decode(token: str) -> tuple[SilenceType, Chord]:
+    """Parse v2 canonical tokens or explicitly prefixed legacy v1 six-number ones.
+
+    Old unversioned vectors [D,C,E,A,O,R] are rejected to prevent silent
+    permutation of meaning with the new ECUADOR order.
+    """
+    match = re.fullmatch(r"⟦(v[12]):([A-Z])\|([^|]+)\|([^⟧]+)⟧", token.strip())
+    if not match:
+        raise ValueError("Expected versioned token ⟦v2:Z|⚡…|E4,C5,A4,D2,O5,R5⟧")
+    version, letter, glyph, payload = match.groups()
+    item = BY_LETTER[letter]
+    if glyph != item.glyph:
+        raise ValueError(f"Glyph mismatch for {letter}")
+    if version == "v2":
+        parts = payload.split(",")
+        if len(parts) != 6 or any(not re.fullmatch(fr"{key}[0-5]", part)
+                                  for key, part in zip(STRING_ORDER, parts)):
+            raise ValueError("Canonical v2 order is E,C,A,D,O,R, with named 0..5 values")
+        chord = Chord.from_values((int(p[1]) for p in parts), STRING_ORDER)
+    else:
+        try:
+            legacy = [int(t) for t in payload.split(",")]
+            chord = Chord.from_values(legacy, LEGACY_STRING_ORDER)
+        except ValueError as exc:
+            raise ValueError("Legacy v1 token must have 6 integers in D,C,E,A,O,R order") from exc
+    return item, chord
+
+
+def strum(event: SilenceEvent) -> dict:
+    """Generate an inspectable interpretive *proposal*, not proof of intent."""
+    t = BY_LETTER[event.type_letter]
+    v = event.chord
+    hypotheses = [t.mechanism]
+    if event.gap_kind in {GapKind.UNKNOWN, GapKind.UNOBSERVED}:
+        hypotheses.append("No observed signal does not establish actual non-occurrence")
+    if v.E >= 4 and v.O >= 4:
+        hypotheses.append("Absence may be informative because a detectable signal was expected")
+    if v.A <= 2:
+        hypotheses.append("Intent attribution is weak; include accidental/noisy explanations")
+    if event.type_letter == "Z":
+        hypotheses.append("Catalysis is a hypothesis until independently authored outcomes are observed")
+    if v.R >= 4 and not event.explicitly_invited:
+        hypotheses.append("High response pressure does NOT imply recipient consent")
+    return {
+        "token": encode(event.type_letter, event.chord),
+        "type_name": t.name,
+        "mechanism": t.mechanism,
+        "gap_kind": event.gap_kind.value,
+        "interpreter_U": event.interpreter,
+        "hypotheses": hypotheses,
+        "approval_for_external_action": bool(event.approval_for_external_action),
+        "relative_dimensions": asdict(v),
+        "sidecar": {"contrast":event.contrast,"audience":event.audience,"consequence":event.consequence},
+    }
+
+
+@dataclass(frozen=True)
+class CatalysisEvidence:
+    """Evidence for Z: do not confuse a planned catalyst with an observed one."""
+    gap_present: bool
+    observed_response: Optional[str]
+    expected_completion: Optional[str]
+    independent_authorship_evidenced: bool
+    comparison_condition_run: bool = False
+    causal_difference_observed: bool = False
+    replicated: bool = False
+    alternate_explanations_examined: bool = False
+
+
+def indigo_hammer_z(e: CatalysisEvidence) -> dict:
+    """A falsifiable gate for catalytic silence, not a numerical persuasion score."""
+    if not e.gap_present:
+        verdict = "NO_SILENCE"
+    elif e.observed_response is None:
+        verdict = "UNOBSERVED"
+    elif e.expected_completion is not None and e.observed_response.strip() == e.expected_completion.strip():
+        verdict = "EXPECTED_COMPLETION_NOT_CATALYSIS"
+    elif not e.independent_authorship_evidenced:
+        verdict = "AUTHORSHIP_NOT_ESTABLISHED"
+    elif (e.comparison_condition_run and e.causal_difference_observed and e.replicated
+          and e.alternate_explanations_examined):
+        verdict = "CATALYSIS_SUPPORTED_WITHIN_TEST"
+    else:
+        verdict = "CATALYSIS_CANDIDATE"
+    return {
+        "verdict": verdict,
+        "checks": {
+            "gap_present": e.gap_present,
+            "observed_response": e.observed_response is not None,
+            "independent_authorship": e.independent_authorship_evidenced,
+            "compared_to_control": e.comparison_condition_run,
+            "causal_difference": e.causal_difference_observed,
+            "replicated": e.replicated,
+            "alternatives_examined": e.alternate_explanations_examined,
+        },
+        "note": "Even a supported test does not establish universal causal effect or hidden intention",
+    }
+
+
+def act_is_authorized(event: SilenceEvent) -> bool:
+    """No silence or high response string overrides explicit action approval."""
+    return event.approval_for_external_action is True
+
+
+def decayer_envelope(t: float, *, mode: str = "fade", tau: float = 3.0) -> float:
+    """Toy temporal profile: fade, rise, or pulse of interpretive salience.
+    This is not a universal model of human response or evidence of intent.
+    """
+    if t < 0 or tau <= 0:
+        raise ValueError("Nonnegative time and positive tau required")
+    x=t/tau
+    if mode == "fade": return math.exp(-x)
+    if mode == "rise": return 1-math.exp(-x)
+    if mode == "pulse": return x*math.exp(1-x)
+    raise ValueError("Mode must be fade, rise, or pulse")
+
+
+def demo() -> dict:
+    # Intent: parent asks a child to finish the end of Old MacDonald.
+    chord = Chord(E=5, C=5, A=4, D=2, O=5, R=5)
+    event = SilenceEvent("E", chord, GapKind.OPEN_SPACE,
+                         context_note="Old MacDonald: E-I-E-I—[pause]",
+                         interpreter="child", explicitly_invited=True)
+    # The child supplies the predicted syllable. This is *not yet* evidence for Z.
+    completion = indigo_hammer_z(CatalysisEvidence(True, "O", "O", True))
+    # An unexpected new ending is only a candidate; no independent control.
+    novel = indigo_hammer_z(CatalysisEvidence(True, "And a dragon danced!", "O", True))
+    z = SilenceEvent("Z", chord, GapKind.OPEN_SPACE, interpreter="child",
+                     explicitly_invited=True)
+    return {
+        "E_completing_expected_phrase": strum(event),
+        "Z_inviting_open_creation": strum(z),
+        "hammer_expected_completion": completion,
+        "hammer_independent_creation": novel,
+        "external_action_authorized": act_is_authorized(z),
+        "alphabet_size": len(CATALOG),
+        "U": "interpreter (not a seventh string)",
+    }
+
+
+def self_tests() -> int:
+    tests = 0
+    def check(condition):
+        nonlocal tests
+        assert condition
+        tests += 1
+    check(len(CATALOG) == 26)
+    check("".join(item.letter for item in CATALOG) == "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    check(len({item.glyph for item in CATALOG}) == 26)
+    check(tuple(STRING_ORDER) == ("E", "C", "A", "D", "O", "R"))
+    check(len(GapKind) == 8)
+    for item in CATALOG:
+        chord = Chord.from_values([(ord(item.letter)+i)%6 for i in range(6)])
+        encoded = encode(item.letter, chord)
+        roundtripped_item, decoded_chord = decode(encoded)
+        check(roundtripped_item == item)
+        check(decoded_chord == chord)
+    c = Chord(E=5,C=4,A=3,D=2,O=1,R=0)
+    check(decode("⟦v1:P|◔|2,4,5,3,1,0⟧")[1] == c)
+    for bad in ["⟦P|◔|2,4,5,3,1,0⟧", "⟦v2:P|◔|D2,C4,E5,A3,O1,R0⟧", "⟦v2:P|∅|E5,C4,A3,D2,O1,R0⟧"]:
+        try:
+            decode(bad)
+            raise AssertionError("invalid token accepted: " + bad)
+        except ValueError:
+            check(True)
+    for bad_values in [[-1,0,0,0,0,0],[6,0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0,2.3]]:
+        try:
+            Chord.from_values(bad_values)
+            raise AssertionError("bad chord accepted")
+        except ValueError:
+            check(True)
+    check(indigo_hammer_z(CatalysisEvidence(True,"O","O",True))["verdict"] == "EXPECTED_COMPLETION_NOT_CATALYSIS")
+    check(indigo_hammer_z(CatalysisEvidence(True,None,"O",False))["verdict"] == "UNOBSERVED")
+    check(indigo_hammer_z(CatalysisEvidence(True,"dragon","O",True))["verdict"] == "CATALYSIS_CANDIDATE")
+    check(indigo_hammer_z(CatalysisEvidence(True,"dragon","O",True,True,True,True,True))["verdict"] == "CATALYSIS_SUPPORTED_WITHIN_TEST")
+    check(indigo_hammer_z(CatalysisEvidence(False,"dragon","O",True))["verdict"] == "NO_SILENCE")
+    check(not act_is_authorized(SilenceEvent("Z",c,GapKind.UNKNOWN)))
+    check(abs(decayer_envelope(0) - 1) < 1e-12)
+    check(decayer_envelope(10) < decayer_envelope(2))
+    check(decayer_envelope(10,mode="rise") > decayer_envelope(2,mode="rise"))
+    check(abs(decayer_envelope(3,mode="pulse",tau=3)-1) < 1e-12)
+    try:
+        SilenceEvent("Z",c,GapKind.OPEN_SPACE)
+        raise AssertionError("open space without explicit invitation accepted")
+    except ValueError:
+        check(True)
+    try:
+        SilenceEvent("O",c,GapKind.WITHHELD)
+        raise AssertionError("unproven withheld intent accepted")
+    except ValueError:
+        check(True)
+    return tests
+
+
+
+# V3 EXTENSION: WORDS, SENTENCES, SOUND CUES, AND EXPLICIT SILENCES.
+# The bridge is a deterministic score *proposal*, not phonetic transcription,
+# mind-reading, evidence of hidden authorship, or permission to act.
+TOKEN_PATTERN = re.compile(r"\[[A-Z]\]|\{[a-z]+\}|\.{3}|…|[!?.,;:—–]|\s+|[^\s.!?,;:—–…\[\]{}]+|.", re.UNICODE)
+SCALE = (0, 2, 3, 5, 7, 8, 10, 12)
+
+
+def word_pitches(word: str) -> list[int]:
+    """Consistent 1–7-note toy sonification of written characters."""
+    import unicodedata
+    letters = [c for c in unicodedata.normalize("NFC", word).lower() if c.isalnum()][:7]
+    return [50 + SCALE[(ord(c) + i) % len(SCALE)] + (ord(c) % 7 // 4) * 12
+            for i, c in enumerate(letters)]
+
+
+def compose_phrase(phrase: str, chord: Chord | None = None) -> list[dict]:
+    """Compile authored text into typed symbols. Punctuation => *candidate* rests.
+
+    [A] to [Z] => explicit silence type, {cat} => SFX cue, words => pitches.
+    Ordinary punctuation does not prove intent. An ellipsis is type E by
+    notation convention, never automatically established as catalytic Z.
+    """
+    chord = chord or Chord(E=4, C=4, A=4, D=2, O=4, R=4)
+    out = []
+    for value in TOKEN_PATTERN.findall(phrase):
+        if value.isspace():
+            if "\n" in value:
+                out.append(dict(kind="rest", letter="R", glyph=BY_LETTER["R"].glyph,
+                                text="line break", seconds=0.30, origin="typographic"))
+            continue
+        if re.fullmatch(r"\[[A-Z]\]", value):
+            t = BY_LETTER[value[1]]
+            out.append(dict(kind="rest", letter=t.letter, glyph=t.glyph,
+                            text=t.name, seconds=round(0.18 + chord.D * 0.095, 3),
+                            origin="explicitly authored"))
+        elif re.fullmatch(r"\{[a-z]+\}", value):
+            out.append(dict(kind="sfx", text=value[1:-1], seconds=0.38,
+                            origin="explicit acoustic cue"))
+        elif value in ("…", "..."):
+            t = BY_LETTER["E"]
+            out.append(dict(kind="rest", letter="E", glyph=t.glyph,
+                            text="ellipsis", seconds=round(0.28 + chord.D * 0.11, 3),
+                            origin="punctuation hypothesis"))
+        elif value in ("!", "?", ".", ",", ";", ":", "—", "–"):
+            letter = "Q" if value == "?" else "D" if value == "!" else "P" if value in ("—", "–") else "R"
+            t = BY_LETTER[letter]
+            out.append(dict(kind="rest", letter=letter, glyph=t.glyph,
+                            text=value, seconds=round(0.14 if value == "!" else 0.12 + chord.D * 0.065, 3),
+                            origin="punctuation hypothesis"))
+        else:
+            pitches = word_pitches(value)
+            out.append(dict(kind="word", text=value, pitches=pitches,
+                            seconds=round(max(0.22, len(pitches) * 0.10), 3), origin="literal text"))
+    return out
+
+
+def note_event(event: dict, chord: Chord) -> str:
+    if event["kind"] == "word":
+        return f"⟪word:{event['text']}⟫"
+    if event["kind"] == "sfx":
+        return f"⟪sfx:{event['text']}⟫"
+    return encode(event["letter"], chord)
+
+
+def phrase_score(phrase: str, chord: Chord | None = None) -> dict:
+    chord = chord or Chord(E=4, C=4, A=4, D=2, O=4, R=4)
+    events = compose_phrase(phrase, chord)
+    return {
+        "schema": "pantheon.silent_guitar.score.v3",
+        "U": "interpreter (not a seventh string)",
+        "strings": asdict(chord), "source": phrase, "events": events,
+        "notation": " ".join(note_event(e, chord) for e in events),
+        "note": "Creative sonification. Interpretive silence labels are hypotheses unless user-explicit.",
+        "external_action_approved": False,
+    }
+
+
+def v3_tests() -> int:
+    checks = 0
+    for phrase in ("Mellon", "Hello, world!", "… [Z]", "{cat} and {dog}",
+                   "Why is the moon following us?", "Old MacDonald… [E] {cow}"):
+        score = phrase_score(phrase)
+        assert score["events"] and score["notation"]
+        checks += 1
+    test = compose_phrase("meow {cat} [Z] …")
+    assert [e["kind"] for e in test] == ["word", "sfx", "rest", "rest"]
+    checks += 1
+    assert test[2]["letter"] == "Z" and test[2]["origin"] == "explicitly authored"
+    checks += 1
+    assert test[3]["letter"] == "E" and test[3]["origin"] == "punctuation hypothesis"
+    checks += 1
+    assert word_pitches("Mellon") == word_pitches("Mellon")
+    checks += 1
+    assert len(CATALOG) == 26
+    checks += 1
+    assert phrase_score("[Z]")["external_action_approved"] is False
+    checks += 1
+    return checks
+
+def main():
+    ap=argparse.ArgumentParser(description="Pantheon Silent Guitar: symbolic six-string silence compiler")
+    group=ap.add_mutually_exclusive_group()
+    group.add_argument("--demo",action="store_true")
+    group.add_argument("--test",action="store_true")
+    group.add_argument("--catalog",action="store_true")
+    group.add_argument("--compose",metavar="PHRASE",help="Compile words, sentences and [A-Z] silences")
+    group.add_argument("--encode",metavar="LETTER")
+    group.add_argument("--decode",metavar="TOKEN")
+    ap.add_argument("--chord",default="4,5,4,2,5,5",help="v2 E,C,A,D,O,R values (0..5)")
+    args=ap.parse_args()
+    if args.test:
+        print(f"PASS: {self_tests()} legacy checks + {v3_tests()} word/sentence tests")
+    elif args.compose is not None:
+        chord=Chord.from_values(int(x) for x in args.chord.split(","))
+        print(json.dumps(phrase_score(args.compose,chord),ensure_ascii=False,indent=2))
+    elif args.catalog:
+        print(json.dumps([asdict(c) for c in CATALOG],ensure_ascii=False,indent=2))
+    elif args.encode:
+        c=Chord.from_values(int(x) for x in args.chord.split(','))
+        print(encode(args.encode,c))
+    elif args.decode:
+        item,c=decode(args.decode)
+        print(json.dumps({"silence":asdict(item),"chord":asdict(c)},ensure_ascii=False,indent=2))
+    else:
+        print(json.dumps(demo(),ensure_ascii=False,indent=2))
+
+
+if __name__ == "__main__":
+    main()
