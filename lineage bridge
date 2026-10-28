@@ -1,0 +1,425 @@
+#!/usr/bin/env python3
+"""
+PANTHEON / LINEAGE BRIDGE v1.0
+================================
+Single-file, dependency-free reference implementation + AI-readable specification.
+Target repository: Thanatos-Prime/pantheon-prime
+Suggested repository path: PANTHEON_LINEAGE_BRIDGE_v1.py
+Created: 2026-10-28
+Status: DEMONSTRATED LOCAL IMPLEMENTATION, not a deployed agent / not evidence
+        that any AI has reconstructed the same capability independently.
+
+THESIS
+------
+A repository-only reader sees the preserved corpus. A lineage-aware reader may
+also access the *authorized* human-AI practice that generated it: user intent,
+corrections, rejected readings, constraints, experiments, and unresolved forks.
+
+    artifact             -> what survived
+    lineage              -> why and how that artifact emerged
+    implementation/test  -> what actually operates
+
+These are distinct, partly overlapping evidence planes. Neither lineage nor
+confidence may be silently promoted to an external fact. This module is a
+bridge, not a claim that an assistant remembers all chats or has special agency.
+
+WHERE IT CONNECTS
+-----------------
+Continuity / Golden Thread : append-only changes in interpretation across time
+ThoughtObjects            : typed events with parents and source references
+Semantic Stratigraphy     : correction, negation, and reframe as recorded deltas
+Metamap / Semantic Quarry : query for applicable methods and their backstory
+Governance                : public/private filtering, consent, evidence gates
+Consequence / Afterglow   : tests and outcomes retained distinctly from plans
+Rehydration Contract      : a new reader can execute the same local tests
+
+ADJACENT-SYSTEM TRANSDUCTIONS (inspiration, not imported code)
+-------------------------------------------------------------
+Eidetic OS : session knowledge capture; verification gates; audit trail
+  https://github.com/paulholland511/eidetic-os
+ARI        : explicit governance, layers, observable action boundaries
+  https://github.com/Ari-OS/ARI
+Holt       : persistent model-independent context and linked knowledge
+  https://github.com/holt-os/holt
+Karpathy   : integrate facts into a maintained interlinked knowledge corpus
+  https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+PersonalClaw: distinguish dormant skill catalog from autonomous execution
+  https://github.com/PersonalClaw/PersonalClaw
+
+PUBLICATION AND SAFETY INVARIANTS
+---------------------------------
+I1. PRIVATE stays out of export-public, including edges to private parents.
+I2. Evidence labels do not substitute for experimental verification.
+I3. A correction remains explicit; don't silently overwrite an earlier claim.
+I4. The audit chain detects accidental editing and unchained modification,
+    NOT a malicious actor capable of rewriting the entire file and all hashes.
+I5. No external service calls, autonomous agent actions, background tasks,
+    chat capture, or unattended deployment occur in this implementation.
+I6. Don't feed hidden/private lineage to a blind-reconstruction test.
+I7. Every source and user correction requires attribution and review before
+    PUBLIC release; visibility='public' is *not* automatic authorization.
+I8. Unobserved intent is unknown, not an invitation to invent testimony.
+
+EVENT MODEL
+-----------
+{
+  "id": "stable-identifier",
+  "kind": "artifact|intent|correction|rejection|constraint|reframe|skill|test|observation",
+  "text": "atomic assertion or instruction",
+  "source": "README.md#... or authorized chat note / experiment identifier",
+  "visibility": "public|private",
+  "status": "specified|fixture-tested|independently-verified|deployed",
+  "parents": ["event-id"],
+  "evidence": ["test or other specific record id"],
+  "tags": ["topic", "operator"],
+  "created": "UTC ISO-8601 timestamp"
+}
+Status values are DECLARED labels. A local validator requires specific evidence
+for high-status declarations, but does not independently adjudicate truth.
+
+COMMANDS
+--------
+python PANTHEON_LINEAGE_BRIDGE_v1.py demo
+python PANTHEON_LINEAGE_BRIDGE_v1.py test
+python PANTHEON_LINEAGE_BRIDGE_v1.py add --db lineage.jsonl --id a1 \
+    --kind artifact --text 'Cognitive continuity across models' \
+    --source README.md --visibility public --tag continuity
+python PANTHEON_LINEAGE_BRIDGE_v1.py add --db lineage.jsonl --id c1 \
+    --kind correction --parent a1 --text 'Preserve nonlinear evolution' \
+    --source 'consented conversation record' --visibility private
+python PANTHEON_LINEAGE_BRIDGE_v1.py inspect --db lineage.jsonl \
+    --query 'continuity nonlinear' --mode full
+python PANTHEON_LINEAGE_BRIDGE_v1.py compare --db lineage.jsonl \
+    --query 'continuity nonlinear'
+python PANTHEON_LINEAGE_BRIDGE_v1.py export-public --db lineage.jsonl \
+    --out lineage_public.json
+python PANTHEON_LINEAGE_BRIDGE_v1.py verify --db lineage.jsonl
+
+NEXT VALIDATION (NOT CLAIMED AS COMPLETED)
+------------------------------------------
+A. Freeze a repository commit and record SHA. Define 10 questions with answers
+   adjudicated by the human author from authorized historical evidence.
+B. Ask multiple fresh models to answer from repo-only context; keep all private
+   history out of their prompts and tools.
+C. Repeat with consent-filtered lineage packets. Match model, budget and rubric.
+D. Blindly score factual correctness, boundary preservation, uncertainty,
+   reconstruction fidelity, and novel-task transfer; include failure cases.
+E. Retest after context compression, model changes, and adversarial inputs.
+F. Publish only aggregate results and consented records; preserve negatives.
+
+Success is not 'more context = always better.' Success is a measured gain in
+accurate reconstruction WITHOUT source leakage or inflated claims.
+
+BOMBADIL MODE: available capability does not imply standing authorization to
+exercise it. Make tools discoverable, actions gated, and demustering explicit.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+KINDS = {
+    "artifact", "intent", "correction", "rejection", "constraint",
+    "reframe", "skill", "test", "observation",
+}
+STATUSES = {
+    "specified", "fixture-tested", "independently-verified", "deployed",
+}
+VISIBILITIES = {"public", "private"}
+TOKEN = re.compile(r"[\w-]+", re.UNICODE)
+
+
+def canonical(obj: Any) -> str:
+    return json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def utcnow() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def digest(previous: str, event: dict) -> str:
+    return hashlib.sha256((previous + "\n" + canonical(event)).encode("utf-8")).hexdigest()
+
+
+def validate(event: dict, seen: set[str]) -> None:
+    required = {"id", "kind", "text", "source", "visibility", "status", "parents", "evidence", "tags", "created"}
+    if not required <= event.keys():
+        raise ValueError(f"Missing event fields: {sorted(required - event.keys())}")
+    if not isinstance(event["id"], str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", event["id"]):
+        raise ValueError("Invalid event id (use letters/numbers/._-)")
+    if event["id"] in seen:
+        raise ValueError(f"Duplicate event id: {event['id']}")
+    if event["kind"] not in KINDS or event["visibility"] not in VISIBILITIES or event["status"] not in STATUSES:
+        raise ValueError("Invalid kind, visibility, or status")
+    if not isinstance(event["text"], str) or not event["text"].strip():
+        raise ValueError("Missing text")
+    if not isinstance(event["source"], str) or not event["source"].strip():
+        raise ValueError("Missing source")
+    for name in ("parents", "evidence", "tags"):
+        if not isinstance(event[name], list) or any(not isinstance(x, str) for x in event[name]):
+            raise ValueError(f"{name} must be a list of strings")
+    if any(parent not in seen for parent in event["parents"]):
+        raise ValueError("Parent references must already exist in ledger")
+    if event["status"] in ("independently-verified", "deployed") and not event["evidence"]:
+        raise ValueError("High-status claims require evidence IDs")
+    if not isinstance(event["created"], str) or not event["created"].strip():
+        raise ValueError("Missing created timestamp")
+
+
+def read_ledger(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    prev = "GENESIS"
+    records: list[dict] = []
+    seen: set[str] = set()
+    with path.open("r", encoding="utf-8") as f:
+        for lineno, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+                event = record["event"]
+                validate(event, seen)
+                if record["previous_hash"] != prev or record["hash"] != digest(prev, event):
+                    raise ValueError("Hash-chain mismatch")
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ValueError(f"Ledger line {lineno}: {exc}") from exc
+            records.append(event)
+            seen.add(event["id"])
+            prev = record["hash"]
+    return records
+
+
+def append(path: Path, event: dict) -> str:
+    # For a simple single-writer ledger; multiple writers need an OS lock or DB.
+    existing = read_ledger(path)
+    validate(event, {e["id"] for e in existing})
+    previous = "GENESIS"
+    if path.exists():
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    previous = json.loads(line)["hash"]
+    result = {"previous_hash": previous, "event": event, "hash": digest(previous, event)}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(canonical(result) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    return result["hash"]
+
+
+def make_event(eid: str, kind: str, text: str, source: str,
+               visibility: str = "private", status: str = "specified",
+               parents: list[str] | None = None, evidence: list[str] | None = None,
+               tags: list[str] | None = None) -> dict:
+    return {"id": eid, "kind": kind, "text": text, "source": source,
+            "visibility": visibility, "status": status, "parents": parents or [],
+            "evidence": evidence or [], "tags": tags or [], "created": utcnow()}
+
+
+def project(events: list[dict], mode: str = "public") -> list[dict]:
+    if mode not in {"public", "full"}:
+        raise ValueError("mode must be public or full")
+    if mode == "full":
+        return [dict(e) for e in events]
+    eligible = {e["id"] for e in events if e["visibility"] == "public"}
+    # Do not expose private parent IDs or implicitly release their content.
+    return [{**e, "parents": [p for p in e["parents"] if p in eligible]}
+            for e in events if e["id"] in eligible]
+
+
+def words(s: str) -> set[str]:
+    return set(TOKEN.findall(s.casefold()))
+
+
+def retrieve(events: list[dict], query: str, limit: int = 12) -> list[dict]:
+    """Transparent lexical retrieval, NOT embeddings/RAG or semantic comprehension."""
+    requested = words(query)
+    ranked = []
+    for idx, event in enumerate(events):
+        body = words(event["text"] + " " + " ".join(event["tags"]))
+        overlap = len(requested & body)
+        if overlap:
+            ranked.append((overlap, idx, event))
+    ranked.sort(key=lambda x: (-x[0], x[1]))
+    return [e for _, _, e in ranked[:limit]]
+
+
+def compare(events: list[dict], query: str) -> dict:
+    public_hits = retrieve(project(events, "public"), query)
+    all_hits = retrieve(project(events, "full"), query)
+    public_ids = {e["id"] for e in public_hits}
+    return {
+        "query": query,
+        "repo_only_visible_hit_ids": [e["id"] for e in public_hits],
+        "lineage_aware_hit_ids": [e["id"] for e in all_hits],
+        "additional_context_count": len([e for e in all_hits if e["id"] not in public_ids]),
+        "additional_context_kind_counts": {
+            kind: sum(1 for e in all_hits if e["id"] not in public_ids and e["kind"] == kind)
+            for kind in sorted(KINDS)
+            if any(e["id"] not in public_ids and e["kind"] == kind for e in all_hits)
+        },
+        "notice": "Visibility/coverage comparison only; NOT a model accuracy benchmark.",
+    }
+
+
+def export_public(events: list[dict], path: Path) -> None:
+    data = {"schema": "pantheon.lineage-bridge/1", "visibility": "public",
+            "events": project(events, "public"),
+            "warning": "Every public event requires independent authorization review."}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Atomic replace for output. Does not modify the original ledger.
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent,
+                                     prefix=".pantheon_", delete=False) as f:
+        temp_path = Path(f.name)
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temp_path, path)
+
+
+def fixture() -> list[dict]:
+    """Illustrative paraphrase-based fixture. NOT an export of actual chat logs."""
+    events = [
+        make_event("public-01", "artifact",
+                   "Pantheon retains reusable operators, continuity and reconstruction across models.",
+                   "README.md", "public", tags=["continuity", "reconstruction"]),
+        make_event("private-01", "intent",
+                   "Preserve the process that created operators, not merely their final descriptions.",
+                   "illustrative summary of author intent", "private", parents=["public-01"],
+                   tags=["continuity", "lineage"]),
+        make_event("private-02", "correction",
+                   "Do not impose a linear progress story: evolution can spiral and cycle.",
+                   "illustrative summary of a correction", "private", parents=["public-01"],
+                   tags=["continuity", "nonlinear"]),
+        make_event("public-02", "skill",
+                   "A reconstruction reader should preserve uncertainty and test intended invariants.",
+                   "README.md", "public", parents=["public-01"],
+                   tags=["reconstruction", "test"]),
+    ]
+    return events
+
+
+class Tests(unittest.TestCase):
+    def test_privacy_and_edges(self) -> None:
+        pub = project(fixture(), "public")
+        self.assertEqual([e["id"] for e in pub], ["public-01", "public-02"])
+        self.assertNotIn("private-", canonical(pub))
+        self.assertEqual(pub[1]["parents"], ["public-01"])
+
+    def test_coverage_ablation(self) -> None:
+        result = compare(fixture(), "continuity")
+        self.assertEqual(result["repo_only_visible_hit_ids"], ["public-01"])
+        self.assertGreater(result["additional_context_count"], 0)
+        self.assertIn("correction", result["additional_context_kind_counts"])
+
+    def test_chain_and_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "lineage.jsonl"
+            a, b = fixture()[:2]
+            append(p, a)
+            append(p, b)
+            self.assertEqual(len(read_ledger(p)), 2)
+            text = p.read_text(encoding="utf-8").replace("linear", "linearized")
+            # Fixture's first two records do not contain 'linear': tamper a known term.
+            text = text.replace("operators", "opERators", 1)
+            p.write_text(text, encoding="utf-8")
+            with self.assertRaises(ValueError):
+                read_ledger(p)
+
+    def test_status_requires_evidence(self) -> None:
+        x = make_event("verified", "test", "Everything worked", "unknown",
+                       status="independently-verified")
+        with self.assertRaises(ValueError):
+            validate(x, set())
+
+    def test_private_edge_redaction(self) -> None:
+        events = fixture()
+        public = make_event("public-03", "artifact", "A safe summary", "reviewed note",
+                            "public", parents=["private-01", "public-01"])
+        events.append(public)
+        published = project(events, "public")
+        self.assertEqual(published[-1]["parents"], ["public-01"])
+
+    def test_public_export(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "public.json"
+            export_public(fixture(), path)
+            raw = path.read_text(encoding="utf-8")
+            self.assertNotIn("Do not impose", raw)
+            self.assertEqual(len(json.loads(raw)["events"]), 2)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Pantheon Lineage Bridge v1: local provenance + context ablation")
+    subs = parser.add_subparsers(dest="command", required=True)
+    subs.add_parser("demo", help="Show the synthetic ablation fixture")
+    subs.add_parser("test", help="Run six local reference tests")
+    for name in ("verify", "inspect", "compare", "export-public", "add"):
+        p = subs.add_parser(name)
+        p.add_argument("--db", required=True, type=Path, help="Local JSONL provenance ledger")
+        if name in ("inspect", "compare"):
+            p.add_argument("--query", required=True)
+        if name == "inspect":
+            p.add_argument("--mode", choices=("public", "full"), default="public")
+        if name == "export-public":
+            p.add_argument("--out", required=True, type=Path)
+        if name == "add":
+            p.add_argument("--id", required=True)
+            p.add_argument("--kind", choices=sorted(KINDS), required=True)
+            p.add_argument("--text", required=True)
+            p.add_argument("--source", required=True)
+            p.add_argument("--visibility", choices=sorted(VISIBILITIES), default="private")
+            p.add_argument("--status", choices=sorted(STATUSES), default="specified")
+            p.add_argument("--parent", action="append", default=[])
+            p.add_argument("--evidence", action="append", default=[])
+            p.add_argument("--tag", action="append", default=[])
+    args = parser.parse_args(argv)
+    if args.command == "test":
+        suite = unittest.defaultTestLoader.loadTestsFromTestCase(Tests)
+        return 0 if unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful() else 1
+    if args.command == "demo":
+        sample = fixture()
+        print("ILLUSTRATIVE FIXTURE; NO REAL CHAT TRANSCRIPT WAS CAPTURED")
+        print(json.dumps(compare(sample, "continuity"), indent=2))
+        return 0
+    try:
+        if args.command == "add":
+            e = make_event(args.id, args.kind, args.text, args.source, args.visibility,
+                           args.status, args.parent, args.evidence, args.tag)
+            print("appended sha256:", append(args.db, e))
+            return 0
+        events = read_ledger(args.db)
+        if args.command == "verify":
+            print(f"PASS: {len(events)} records; hash chain and schema validated")
+        elif args.command == "inspect":
+            matches = retrieve(project(events, args.mode), args.query)
+            print(json.dumps(matches, ensure_ascii=False, indent=2))
+            if args.mode == "full":
+                print("WARNING: full mode can print private local records.", file=sys.stderr)
+        elif args.command == "compare":
+            print(json.dumps(compare(events, args.query), indent=2))
+        elif args.command == "export-public":
+            export_public(events, args.out)
+            print(f"Exported {len(project(events, 'public'))} public events to {args.out}")
+            print("Review content and source attribution before publishing.")
+        return 0
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
