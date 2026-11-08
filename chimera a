@@ -1,0 +1,314 @@
+#!/usr/bin/env python3
+"""PANTHEON / CHIMERA v0.1 — a single-file local agency-composition runner.
+
+The engine models observable cognitive functions as replaceable operators. It
+composes them into a bounded task loop and records provenance and feedback.
+
+This is NOT a trained model, an autonomous general agent, or a safeguard bypass.
+Backend 'demo' is deterministic scaffolding; backend 'ollama' uses a LOCAL model.
+
+Examples:
+  python chimera_v01.py --selftest
+  python chimera_v01.py --show-clips
+  python chimera_v01.py --mission 'Design an original fantasy creature art brief'
+  python chimera_v01.py --backend ollama --model llama3.2 --mission 'Draft an original creature concept'
+  python chimera_v01.py --clip MIRROR,HAMMER,FORGE,HOUND,ACT,DUCK --mission 'Plan a prototype'
+
+All output goes under --out; no shell commands or external services are executed.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import urllib.error
+import urllib.request
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Protocol
+
+
+@dataclass(frozen=True)
+class Operator:
+    name: str
+    input_type: str
+    output_type: str
+    purpose: str
+    failure_mode: str
+
+
+CLIPS = {
+    "MIRROR": Operator("MIRROR", "mission", "observations", "Distinguish objective, given evidence, unknowns, success criteria", "Assuming a preference is a fact"),
+    "HAMMER": Operator("HAMMER", "observations", "subproblems", "Decompose the task into reusable capabilities and constraints", "Over-decomposition or missing a constraint"),
+    "FORGE": Operator("FORGE", "subproblems+feedback", "plan", "Recombine parts into an executable strategy", "Incompatible interfaces and unsupported synergies"),
+    "HOUND": Operator("HOUND", "plan-or-artifact", "critique", "Probe assumptions, constraints, failure modes, and measurable tests", "Overcaution or ungrounded criticism"),
+    "ACT": Operator("ACT", "plan", "artifact", "Produce a concrete, reviewable output", "Confusing a proposed action with one actually executed"),
+    "DUCK": Operator("DUCK", "trace", "ledger", "Preserve observations, provenance, results, and unresolved questions", "Treating a proposal as verified evidence"),
+}
+DEFAULT_SEQUENCE = tuple(CLIPS)
+
+SYSTEM = """You are a modular cognitive operator in PANTHEON / CHIMERA.
+Work on the user's stated, legitimate task. Be concrete and concise.
+Separate GIVEN facts, INFERRED interpretations, and TESTED outcomes.
+Do not claim you ran tools or completed external actions you didn't perform.
+Use creative, original alternatives rather than reproducing protected works.
+Do not conduct covert influence, cause harm, or bypass safety controls.
+Respect the user's agency and the scope of the task.
+"""
+
+
+class Model(Protocol):
+    def complete(self, role: str, prompt: str) -> str: ...
+
+
+class DemoModel:
+    """Deterministic integration-test stand-in, NOT a language model."""
+
+    def complete(self, role: str, prompt: str) -> str:
+        mission = (re.search(r"MISSION: (.+)", prompt) or [None, "unspecified task"])[1]
+        is_art = any(k in mission.lower() for k in ("creature", "fantasy", "art", "illustrat", "pokemon", "pokémon"))
+        if role == "MIRROR":
+            return (f"GIVEN: Mission: {mission}\n"
+                    "INFERRED: The user values tangible results and adaptable methods.\n"
+                    "UNKNOWN: Exact acceptance criteria and access to external tools.\n"
+                    "SUCCESS TEST: A usable, original artifact and documented improvement loop.")
+        if role == "HAMMER":
+            return ("CLIPPED OPERATORS: Observe intent; split constraints; generate candidate paths; "
+                    "compose deliverable; critique; revise; preserve trace.\n"
+                    "INVARIANTS: Originality, traceability, reversible steps, no fabricated execution.\n"
+                    "FAILURE PROBES: weak output, confusing abstraction with evidence, coordination cost.")
+        if role == "FORGE":
+            return ("PLAN: (1) Extract functional goals rather than mimicking an existing artifact. "
+                    "(2) Draft one concrete prototype. (3) Evaluate on clarity, distinctiveness, and usability. "
+                    "(4) Revise when a measurable criterion fails.\n"
+                    "SUCCESS CRITERIA: tangible artifact, distinct design, clear next test.")
+        if role == "ACT":
+            if is_art:
+                return ("ORIGINAL FANTASY CREATURE ART BRIEF\n"
+                        "Subject: THORNBACK, a squat six-legged dusk-grazer with slate scales, "
+                        "mossy antler-fans and a luminous amber throat sac.\n"
+                        "Scene: small creature on a gigantic weathered tree bridge above an ocean of fog.\n"
+                        "Art direction: broad, expressive gouache-like brushwork, dramatic low perspective, "
+                        "desaturated moss/ochre/teal with luminous amber focal highlights.\n"
+                        "Composition: creature occupies lower third; vast overlapping root arches establish depth.\n"
+                        "Distinctive anatomy: six legs; layered mineral shell; paired leafy antler-fans; "
+                        "unusual shovel snout. No recognizable franchise markings.\n"
+                        "Production prompt: Paint an original six-legged thornback dusk-grazer crossing "
+                        "a giant root bridge at first light; epic environmental scale, expressive brush texture, "
+                        "warm shafts through cool atmospheric haze; richly composed independent concept art.\n"
+                        "TEST: Compare silhouette uniqueness, focal contrast, and readability at phone size.")
+            return ("ACTIONABLE PROTOTYPE\n"
+                    f"Mission: {mission}\n"
+                    "1. Specify a minimally usable output and measurable acceptance criterion.\n"
+                    "2. Build the smallest reversible test or draft.\n"
+                    "3. Compare against a simpler baseline and record differences.\n"
+                    "4. Request explicit approval before any consequential external action.\n"
+                    "RESULT: This document is the proposed prototype plan; no external action performed.")
+        if role == "HOUND":
+            return ("VERDICT: PASS\n"
+                    "CHECKS: An artifact exists; observations and hypotheses are labeled; "
+                    "proposed testing is explicit; no unverified external action is claimed.\n"
+                    "OPEN RISK: External value and cross-domain transfer require separate tests.")
+        if role == "DUCK":
+            return "TRACE PRESERVED: distinction between demo synthesis and field validation is explicit."
+        return "UNKNOWN OPERATOR"
+
+
+class OllamaModel:
+    """Local Ollama API adapter. Network target fixed to loopback for locality."""
+
+    def __init__(self, name: str, timeout: int = 120):
+        self.name = name
+        self.timeout = timeout
+
+    def complete(self, role: str, prompt: str) -> str:
+        payload = json.dumps({
+            "model": self.name,
+            "system": SYSTEM + f"\nCURRENT OPERATOR: {role}\n",
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.35},
+        }).encode("utf-8")
+        req = urllib.request.Request("http://127.0.0.1:11434/api/generate", data=payload,
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                data = json.load(resp)
+        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+            raise RuntimeError(f"Local model unavailable: {exc}. Start Ollama and pull model {self.name!r}.") from exc
+        answer = data.get("response", "").strip()
+        if not answer:
+            raise RuntimeError("Local model returned an empty response")
+        return answer
+
+
+@dataclass
+class Step:
+    operator: str
+    iteration: int
+    output: str
+    label: str = "MODEL_OUTPUT"
+
+
+@dataclass
+class Run:
+    mission: str
+    backend: str
+    model: str
+    clips: list[str]
+    timestamp_utc: str
+    trace: list[Step] = field(default_factory=list)
+    artifact: str = ""
+    verdict: str = "NOT_EVALUATED"
+    warnings: list[str] = field(default_factory=list)
+
+
+def call(run: Run, model: Model, role: str, iteration: int, prompt: str) -> str:
+    result = model.complete(role, f"MISSION: {run.mission}\n\n{prompt}").strip()
+    run.trace.append(Step(role, iteration, result))
+    return result
+
+
+def verdict_of(text: str) -> str:
+    match = re.search(r"\bVERDICT\s*:\s*(PASS|REVISE)\b", text, re.I)
+    return match.group(1).upper() if match else "UNKNOWN"
+
+
+def execute(mission: str, clips: list[str], model: Model, backend: str = "demo",
+            model_name: str = "", iterations: int = 2) -> Run:
+    if not mission.strip():
+        raise ValueError("A nonempty mission is required")
+    if iterations < 1 or iterations > 5:
+        raise ValueError("iterations must be 1..5")
+    unknown = set(clips).difference(CLIPS)
+    if unknown:
+        raise ValueError(f"Unknown clips: {sorted(unknown)}")
+    if "FORGE" not in clips or "ACT" not in clips:
+        raise ValueError("FORGE and ACT are required for artifact production")
+    run = Run(mission, backend, model_name, clips, datetime.now(timezone.utc).isoformat())
+
+    observe = call(run, model, "MIRROR", 0,
+                   "Extract facts, interpretations, unknowns, and success criteria. Do not invent evidence.") if "MIRROR" in clips else mission
+    pieces = call(run, model, "HAMMER", 0,
+                  "Decompose into capabilities, interfaces, constraints and failure probes.\n" + observe) if "HAMMER" in clips else observe
+    feedback = "No feedback yet."
+    for cycle in range(1, iterations + 1):
+        plan = call(run, model, "FORGE", cycle,
+                    "Compose the reusable parts into a feasible plan. Return actionable steps and success criteria.\n"
+                    f"OBSERVATIONS:\n{observe}\nDECOMPOSITION:\n{pieces}\nPREVIOUS FEEDBACK:\n{feedback}")
+        if "HOUND" in clips:
+            pre = call(run, model, "HOUND", cycle,
+                       "Critique the following PLAN before execution. Identify concrete failure modes and repairs. "
+                       "Start with VERDICT: PASS or VERDICT: REVISE.\n" + plan)
+            if verdict_of(pre) == "REVISE" and cycle < iterations:
+                feedback = pre
+                continue
+        artifact = call(run, model, "ACT", cycle,
+                        "Produce the requested useful artifact now. This is TEXT generation, not unapproved "
+                        "external execution. Be specific. Do not claim other tools/actions have run.\n"
+                        f"PLAN:\n{plan}\nPREVIOUS FEEDBACK:\n{feedback}")
+        run.artifact = artifact
+        if "HOUND" not in clips:
+            run.verdict = "NOT_EVALUATED"
+            break
+        review = call(run, model, "HOUND", cycle,
+                      "Review the actual ARTIFACT against the user's mission. "
+                      "If it meets its test, say VERDICT: PASS; otherwise say VERDICT: REVISE "
+                      "with specific actionable fixes.\n"
+                      f"PLAN:\n{plan}\nARTIFACT:\n{artifact}")
+        run.verdict = verdict_of(review)
+        if run.verdict == "PASS":
+            break
+        feedback = review
+    if run.verdict != "PASS":
+        run.warnings.append("The artifact has not passed a definitive evaluation; review before relying on it.")
+    if "DUCK" in clips:
+        call(run, model, "DUCK", len(run.trace),
+             "Summarize what was done, what is unverified, the final verdict, and next experiment. "
+             f"VERDICT: {run.verdict}\nARTIFACT:\n{run.artifact}")
+    return run
+
+
+def save(run: Run, root: Path) -> tuple[Path, Path]:
+    root.mkdir(parents=True, exist_ok=True)
+    slug = re.sub(r"[^a-z0-9]+", "-", run.mission.lower()).strip("-")[:45] or "mission"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+    base = root / f"{stamp}_{slug}"
+    md, js = base.with_suffix(".md"), base.with_suffix(".json")
+    md.write_text(f"# CHIMERA output\n\n**Mission:** {run.mission}\n\n"
+                  f"**Backend:** {run.backend} {run.model}\n\n"
+                  f"**Verdict:** {run.verdict}\n\n## Artifact\n\n{run.artifact}\n\n"
+                  f"## Warnings\n\n" + ("\n".join(f"- {w}" for w in run.warnings) or "None") + "\n",
+                  encoding="utf-8")
+    js.write_text(json.dumps(asdict(run), indent=2, ensure_ascii=False), encoding="utf-8")
+    return md, js
+
+
+def selftest() -> None:
+    assert len(CLIPS) == 6
+    assert CLIPS["FORGE"].input_type == "subproblems+feedback"
+    assert verdict_of("VERDICT: PASS\nExcellent") == "PASS"
+    assert verdict_of("verdict: revise") == "REVISE"
+    assert verdict_of("Nothing") == "UNKNOWN"
+    r = execute("Design an original fantasy creature illustration", list(DEFAULT_SEQUENCE), DemoModel())
+    assert r.verdict == "PASS", r.verdict
+    assert "THORNBACK" in r.artifact
+    assert [s.operator for s in r.trace] == ["MIRROR", "HAMMER", "FORGE", "HOUND", "ACT", "HOUND", "DUCK"]
+    class ChallengeModel(DemoModel):
+        def __init__(self):
+            self.revisions = 0
+        def complete(self, role: str, prompt: str) -> str:
+            if role == "HOUND" and self.revisions == 0:
+                self.revisions += 1
+                return "VERDICT: REVISE\nAdd a measurable readability test."
+            return super().complete(role, prompt)
+    challenged = execute("Prototype a reversible workflow", list(DEFAULT_SEQUENCE), ChallengeModel(), iterations=3)
+    assert challenged.verdict == "PASS"
+    assert sum(1 for item in challenged.trace if item.operator == "FORGE") == 2
+    short = execute("Prototype a workflow", ["FORGE", "ACT"], DemoModel(), iterations=1)
+    assert short.verdict == "NOT_EVALUATED"
+    try:
+        execute("x", ["MIRROR"], DemoModel())
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Required operators not enforced")
+    print("SELFTEST PASS: composition, dispatch, verdict parsing, artifact generation, trace, clip validation")
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="PANTHEON CHIMERA: clip, splice, execute and evaluate cognitive operators")
+    p.add_argument("--mission", default="Design an original fantasy creature illustration")
+    p.add_argument("--backend", choices=["demo", "ollama"], default="demo")
+    p.add_argument("--model", default="llama3.2", help="Name of a model installed in local Ollama")
+    p.add_argument("--clip", default=",".join(DEFAULT_SEQUENCE), help="Comma-separated operator names")
+    p.add_argument("--iterations", type=int, default=2)
+    p.add_argument("--out", default="chimera_runs", help="Directory for local output")
+    p.add_argument("--show-clips", action="store_true")
+    p.add_argument("--selftest", action="store_true")
+    args = p.parse_args()
+    if args.show_clips:
+        for o in CLIPS.values():
+            print(f"{o.name:8} {o.input_type:20} -> {o.output_type:14} | {o.purpose}")
+        return
+    if args.selftest:
+        selftest()
+        return
+    clip_names = [s.strip().upper() for s in args.clip.split(",") if s.strip()]
+    backend = OllamaModel(args.model) if args.backend == "ollama" else DemoModel()
+    try:
+        run = execute(args.mission, clip_names, backend, args.backend,
+                      args.model if args.backend == "ollama" else "deterministic-demo", args.iterations)
+        md, js = save(run, Path(args.out))
+    except (RuntimeError, ValueError) as ex:
+        print("CHIMERA ERROR:", ex, file=sys.stderr)
+        sys.exit(2)
+    print(f"CHIMERA {run.verdict} | {len(run.trace)} operator calls")
+    print(f"Artifact: {md}\nTrace: {js}\n")
+    print(run.artifact)
+
+
+if __name__ == "__main__":
+    main()
