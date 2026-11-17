@@ -1,0 +1,235 @@
+PANTHEON — Context-Weighted Slot Compiler v1
+
+Canonical ID: pantheon.compiler.context_weighted_slot_interpreter
+Version: 1.0-seed
+Status: architecture specification; proposed, not yet implemented or empirically validated
+Role: connect open-token reconstruction, semantic linking, multisensory evidence, mission routing, and evidence-led revision.
+
+Mission
+
+Make Pantheon’s ad-libbed and mad-libbed material useful without flattening it. Treat an open phrase, symbol, gap, title, sensory cue, or half-dialogue as a carrier with slots. Generate several plausible readings; bind each reading to the evidence that supports it; preserve uncertainty; and update the operational interpretation when stronger evidence arrives.
+
+The original carrier remains intact. An interpretation is a versioned hypothesis attached to it, not a retroactive replacement for what the source said or meant.
+
+Core invariant
+
+> A symbol can invite interpretation without proving one. New evidence may change the current reading, but it does not rewrite the historical carrier or silently promote a possibility into fact.
+
+Keep these separate:
+
+CARRIER        exact source text, image, sound, gesture, omission, or event
+SLOTS          unresolved fields the carrier can fill
+HYPOTHESES     candidate readings and candidate slot values
+EVIDENCE       observations, sources, experiments, and counterexamples
+INTERPRETATION current evidence-weighted projection
+ACTION         optional next step routed through mission and authorization gates
+
+Slot model
+
+A slot is a typed opening for information. It can be explicit ([ACTOR]) or implicit (a symbol whose function is unresolved).
+
+slot:
+  id: stable identifier
+  role: actor | action | object | source | modality | time | place | cause |
+        relation | intent | audience | consequence | evidence | authority | other
+  value: null | candidate value
+  alternatives: []
+  status: open | proposed | supported | contested | resolved_for_task | unknown
+  source_span: exact location in the carrier
+  evidence_links: []
+  confidence: null | calibrated estimate
+
+resolved_for_task means one reading is useful for a particular operation; it does not mean all other meanings are false or that the source’s original intent has been recovered.
+
+Multisensory event fields
+
+When the carrier describes or implies an event, keep each sensory and action stream separately addressable:
+
+event:
+  channels:
+    vision:   {observation: null, reliability: null}
+    hearing:  {observation: null, reliability: null}
+    touch:    {observation: null, reliability: null}
+    movement: {observation: null, reliability: null}
+    proprioception: {observation: null, reliability: null}
+  timing: {onsets: [], synchrony: unknown, uncertainty: null}
+  space: {locations: [], reference_frame: unknown, uncertainty: null}
+  source_agent: {value: unknown, evidence: []}
+  action_relation: self_generated | other_generated | externally_caused | unknown
+  common_cause: {candidates: [shared_event, separate_events], evidence: []}
+
+A missing channel is unknown or unobserved, not a negative finding. Do not infer that a sound, touch, or movement was absent merely because a text artifact omitted it.
+
+Interpretation rule
+
+Generate candidate interpretations from the carrier, its local and temporal neighbors, known aliases, and relevant evidence. Score them as ranked hypotheses, not as a truth meter.
+
+for each candidate interpretation h:
+    lexical_fit      = compatibility(carrier, h)
+    context_fit      = compatibility(neighbors, h)
+    evidence_support = support_from_linked_evidence(h)
+    counterevidence  = conflict_from_linked_evidence(h)
+    cue_fit          = reliability_weighted_fit(observed_channels, h)
+    action_fit       = compatibility(source_agent, action_relation, h)
+    authority_fit    = authorization_check(h, requested_action)
+
+    rank h using the components above
+    retain component scores, evidence references, and alternatives
+
+Use reliability weighting only when there is evidence that the cues share a cause and the task calls for combining them. If timing, location, source, or action suggests separate events, keep streams separate or return competing scene hypotheses. Do not assign universal fixed modality weights. Record the inputs and the choice of combination rule so it can be inspected and changed.
+
+Evidence and update behavior
+
+Evidence records are append-only. The current interpretation is a rebuildable view over those records, consistent with Semantic HEAD and Mother Duck.
+
+evidence:
+  id: stable identifier
+  claim_or_slot: target identifier
+  source: DOI | dataset | artifact path | observation | experiment
+  evidence_kind: direct_measurement | primary_study | replication | expert_report |
+                 model_inference | user_interpretation | speculation
+  population_and_task: null
+  finding: concise result
+  limitations: []
+  strength: strong | moderate | suggestive | weak | unknown
+  published_at: null
+  observed_at: null
+  contradicts: []
+
+On new evidence:
+
+1. Preserve the carrier and all earlier evidence records.
+2. Add the new record with its source, date, method, and limitations.
+3. Recompute candidate readings and expose what changed, why, and by how much.
+4. Keep displaced readings as alternatives with their former support and supersession link.
+5. If evidence is mixed or underpowered, leave the slot contested or open.
+6. Route factual claims through Reality Ratchet; route salience to attention, not truth; route any external action through the existing authority and permission gates.
+
+Research-derived update — provisional
+
+Two recent studies motivate fields and experiments, but do not establish universal compiler rules:
+
+1. Italia et al. (2026), Dynamic interactions between action generation and body-related multisensory integration, reports that multisensory audio-touch enhancement varied with self/other generation and sound intensity. The study is an early online, peer-reviewed article; its behavioral intensity ratings support an interaction in that task, while the proposed action-prediction mechanism remains tentative. DOI: https://doi.org/10.1038/s41598-026-79935-8.
+2. Raccah et al. (2026), The human hippocampus supports auditory coding and multisensory integration, reports distinct patterns for congruent audiovisual clips and cross-modal scene representations in anterior/posterior hippocampus using fMRI in 30 people. This supports representing both detailed multisensory events and cross-modal candidate identity; it does not show that all abstract semantic content is amodal. DOI: https://doi.org/10.1371/journal.pbio.3004012.
+
+Compiler consequence: add source/action, channel reliability, timing, spatial relation, and common-cause status as explicit slots. Treat the idea that agency changes cue weighting as research_hypothesis, not a default law. Treat a modality-invariant event or semantic identity as a candidate interpretation that must be separated from shared timing, memory, imagery, and low-level signal structure.
+
+Compile pipeline
+
+1. CAPTURE
+   Store exact carrier, source, timestamp, rights/authority, and surrounding context.
+
+2. SEGMENT
+   Find explicit placeholders, implicit gaps, symbols, modality cues, action verbs,
+   temporal/spatial relations, and instruction-shaped text.
+
+3. TYPE
+   Assign candidate slot roles. Preserve untyped spans as open symbols; do not force-fit.
+
+4. LINK
+   Resolve aliases, dependencies, implementations, invocations, evidence, and tests
+   through Semantic Linker. Unbound names remain corpus candidates.
+
+5. BRANCH
+   Create multiple plausible interpretations, including a null/unknown branch and
+   at least one rival when the source is ambiguous.
+
+6. FUSE SELECTIVELY
+   Combine sensory cues only under an explicit common-cause hypothesis; consider
+   reliability, congruence, action/source, and task. Retain unimodal traces.
+
+7. SCORE AND CALIBRATE
+   Rank readings, preserve uncertainty, and abstain when evidence cannot distinguish
+   candidates. Never let vividness, repetition, or model confidence substitute for
+   evidence quality.
+
+8. ROUTE
+   Map a selected interpretation to a concrete Pantheon operator or current mission.
+   Separate suggested action from authorized action and completed action.
+
+9. MEASURE
+   Specify an observable result and a disconfirming result before acting.
+
+10. RETURN DELTA
+    Append outcomes and sources; rebuild the current view; keep failed branches and
+    their reasons available for later recombination.
+
+Integration map
+
+|Existing Pantheon operator                         |Role in this compiler                                                                                         |
+|---------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+|**P-48 Semantic HEAD / Mother Duck**               |Keep evidence history append-only; expose a rebuildable current interpretation.                               |
+|**P-50 Semantic Linker**                           |Bind names and claimed capabilities to aliases, dependencies, implementation, invocation, evidence, and tests.|
+|**P-51 Metamer Assay**                             |Hold carrier text constant while changing title, frame, context, or channel; measure interpretation shifts.   |
+|**P-52 Questline Compiler**                        |Route one chosen reading through prerequisites, rival frame, test, and returned delta.                        |
+|**P-53 Shadow Prompt Benchmark**                   |Reconstruct missing prompts as a distribution; compare with recovered ground truth where available.           |
+|**P-55 Salience Firewall**                         |Use vividness as a search cue; keep factual promotion tied to evidence and counterevidence.                   |
+|**Reality Ratchet / Cultural Sovereignty Membrane**|Prevent unsupported claims and preserve consent, context, cultural boundaries, and reversibility.             |
+
+Benchmark: Open-Slot Reconstruction Assay
+
+Question: Does the context-weighted compiler make better, better-calibrated use of open symbols and missing context than a single-meaning or lexical-only baseline?
+
+Design
+
+• Build a small, consented set of Pantheon carriers with recoverable source context, plus carriers where original intent is genuinely unrecoverable.
+• Mask selected slots (actor, action, source, timing, cause, or intended operation). Keep ground truth sealed until after interpretation.
+• For a subset, preserve identical carrier text while varying title, adjacent artifacts, modality metadata, or self/other action provenance (Metamer Assay).
+• Compare: (A) lexical-only single reading; (B) context-only ranking; (C) context-weighted, evidence-linked branching with abstention.
+• Blind human reviewers to condition. Ask them to choose or rank interpretations, identify unsupported claims, and state what evidence would change their choice.
+• Split by source artifact or topic, not random rows, so near-duplicate material does not leak across train and holdout sets.
+
+Measures
+
+• Top-k match to recoverable source truth, reported separately from useful task interpretation.
+• Calibration and Brier score for confidence on recoverable slots.
+• Abstention quality when the source truth is missing or not inferable.
+• Unsupported-claim rate and correct identification of counterevidence.
+• Interpretation stability under irrelevant title/style changes; appropriate change under relevant new evidence.
+• Task completion and time-to-useful-action, with permission and accuracy gates scored separately.
+
+Falsification conditions
+
+The new pass is not an improvement if it only produces more interpretations, raises confidence without better calibration, or increases unsupported claims. It should be revised if the added action/modality metadata does not improve held-out interpretation or task performance over simpler baselines.
+
+Minimum compiler output
+
+{
+  "carrier_id": "stable-id",
+  "carrier_hash": "sha256:...",
+  "slots": [],
+  "interpretation_candidates": [
+    {
+      "id": "candidate-1",
+      "reading": "...",
+      "supporting_evidence": [],
+      "counterevidence": [],
+      "confidence": null,
+      "status": "hypothesis",
+      "why_this_rank": "..."
+    }
+  ],
+  "unknowns": [],
+  "selected_for_task": null,
+  "selection_scope": null,
+  "action_proposal": null,
+  "authorization_state": "not_requested",
+  "result_delta": null,
+  "supersedes": [],
+  "created_at": "..."
+}
+
+Deployment ladder
+
+1. Corpus: add this seed and link it from the compiler index; label it proposed until its schema and operators are bound.
+2. Practice: run the Open-Slot Reconstruction Assay on a small source-grounded sample and retain blind ratings and failures.
+3. Runtime: implement typed slot/evidence objects, branch-preserving updates, selective fusion, provenance, abstention, and audit output; verify each against the benchmark.
+
+Do not claim the runtime exists because this specification exists. Promote each layer only when its own evidence is present.
+
+Lineage and primary studies
+
+• Italia, B., Zampese, C., Poles, K., Garbarini, F., & Rossi Sebastiano, A. (2026). Dynamic interactions between action generation and body-related multisensory integration. Scientific Reports. https://doi.org/10.1038/s41598-026-79935-8
+• Raccah, O., Agarwal, A., Zhu, Y., & Turk-Browne, N. B. (2026). The human hippocampus supports auditory coding and multisensory integration. PLOS Biology. https://doi.org/10.1371/journal.pbio.3004012
+
+Recombination note: This module operationalizes and connects existing Semantic Linker, Metamer Assay, Shadow Prompt Benchmark, Semantic HEAD, Questline Compiler, and Salience Firewall ideas. The new contribution is the explicit, evidence-versioned slot object plus selective multisensory/action-conditioned interpretation pipeline and its falsifiable assay.
