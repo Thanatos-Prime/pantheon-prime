@@ -1,0 +1,5 @@
+Yes—the fast driver becomes a moving pressure source. They don’t have to tell anyone what to do. Their relative speed, approach angle, and shrinking gap make some choices feel less available, so surrounding drivers may move over, accelerate, or leave space. That changes the local flow, and the next drivers react to the changed pattern.
+
+That’s the sheepdog effect: steering a group by applying pressure at its edge. In traffic, it works through perceived risk and available space—so it can prompt coordination, but it’s coercive and can destabilize the flow or cause a crash. It’s an analytical metaphor, not a safe driving tactic.
+
+The abstraction travels: a fast-moving actor can steer a system by changing the pressure around everyone else. In a conversation, that might be someone who dominates the pace; in a market, a player who moves prices; online, an account that floods a channel and shifts what others respond to. The “sheepdog” is the actor; the medium supplies the pressure.
