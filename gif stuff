@@ -1,0 +1,25 @@
+The needed change is in the app’s paste and media-rendering code: preserve the animated bytes when pasting, then render the GIF as a normal inline <img> instead of a still thumbnail with a tap-to-open overlay.
+
+// 1. On paste: prefer the animated clipboard item and preserve its bytes.
+function handlePaste(event: React.ClipboardEvent) {
+  const items = Array.from(event.clipboardData.items);
+  const item =
+    items.find((item) => item.type === "image/gif") ??
+    items.find((item) => item.type === "image/webp") ??
+    items.find((item) => item.type.startsWith("image/"));
+  const file = item?.getAsFile();
+  if (file) uploadOriginalFile(file); // Don't convert it through canvas to PNG.
+}
+// 2. In the message: render animated formats directly, without a click overlay.
+function InlineMedia({ src, mimeType, alt }: {
+  src: string;
+  mimeType: string;
+  alt: string;
+}) {
+  if (mimeType === "image/gif" || mimeType === "image/webp") {
+    return <img className="inline-animation" src={src} alt={alt} />;
+  }
+  return <ImagePreview src={src} alt={alt} />;
+}
+
+The important part is preserving the original GIF through paste and upload. If iOS gives the app only a PNG frame, the lost animation can’t be reconstructed from that frame; the app needs to receive the original GIF data or URL. I can’t install this change into ChatGPT from our conversation, but this is the client-side fix that would make inline GIF playback work.
