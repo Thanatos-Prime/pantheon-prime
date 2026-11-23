@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""Fractal Helix | Versioned translation rungs for Pantheon Prime.
+
+Each record pins a source span and carries one reading. A revision names its
+parent by content hash. Keep parent records when sharing or committing a
+revision. JSON output is suitable for checking into Git beside the snapshot.
+"""
+import argparse
+import base64
+import difflib
+import hashlib
+import json
+import random
+import secrets
+import subprocess
+from pathlib import Path
+
+SCHEMA = 'pantheon.fractal-helix/1'
+
+
+def git(repo, *args):
+    return subprocess.check_output(['git', '-C', repo, *args])
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def canonical(record):
+    return json.dumps(record, sort_keys=True, separators=(',', ':'),
+                      ensure_ascii=False).encode('utf-8')
+
+
+def identify(record):
+    body = {key: value for key, value in record.items() if key != 'id'}
+    return digest(canonical(body))
+
+
+def bind(repo, revision, path, first, last):
+    commit = git(repo, 'rev-parse', '--verify', '--end-of-options',
+                 revision + '^{commit}').decode().strip()
+    content = git(repo, 'show', f'{commit}:{path}')
+    lines = content.splitlines(keepends=True)
+    if not 1 <= first <= last <= len(lines):
+        raise ValueError(f'Line range outside {path!r}')
+    start = sum(map(len, lines[:first - 1]))
+    excerpt = b''.join(lines[first - 1:last])
+    return {
+        'commit': commit, 'path': path, 'lines': [first, last],
+        'bytes': [start, start + len(excerpt)], 'file_sha256': digest(content),
+        'excerpt_sha256': digest(excerpt), 'excerpt_base64': base64.b64encode(excerpt).decode(),
+    }
+
+
+def create(source, reading, medium, preserves, adapts, uncertainty, parent=None):
+    record = {
+        'schema': SCHEMA, 'source': source, 'parent': parent, 'reading': reading,
+        'medium': medium, 'preserves': preserves, 'adapts': adapts, 'uncertainty': uncertainty,
+    }
+    record['id'] = identify(record)
+    return record
+
+
+def excerpt(record):
+    return base64.b64decode(record['source']['excerpt_base64'], validate=True)
+
+
+def load(path):
+    records = json.loads(Path(path).read_text(encoding='utf-8')) if path else DEMO
+    if not isinstance(records, list):
+        raise ValueError('Expected a JSON list of rungs')
+    seen = set()
+    for record in records:
+        if record['schema'] != SCHEMA or record['id'] != identify(record):
+            raise ValueError('Rung failed schema or content-hash verification')
+        if record['id'] in seen or (record['parent'] and record['parent'] not in seen):
+            raise ValueError('Duplicate rung or missing earlier parent')
+        start, end = record['source']['bytes']
+        data = excerpt(record)
+        if start < 0 or end - start != len(data) or digest(data) != record['source']['excerpt_sha256']:
+            raise ValueError('Source excerpt failed verification')
+        seen.add(record['id'])
+    return records
+
+
+def select(records, selector):
+    found = [record for record in records if record['id'].startswith(selector)]
+    if len(found) != 1:
+        raise ValueError(f'ID prefix matches {len(found)} rungs: {selector!r}')
+    return found[0]
+
+
+def describe(record):
+    source = record['source']
+    return f"{record['id'][:12]}  {source['path']}:{source['lines'][0]}–{source['lines'][1]}"
+
+
+def diff(old, new):
+    if new['parent'] != old['id']:
+        raise ValueError('The second rung must name the first rung as its parent')
+    print(f"Source {'identical' if old['source'] == new['source'] else 'binding changed'}")
+    for key in ('reading', 'medium', 'preserves', 'adapts', 'uncertainty'):
+        if old[key] == new[key]:
+            continue
+        changes = difflib.unified_diff(old[key].split('\n'), new[key].split('\n'),
+                                       key + ' before', key + ' after', lineterm='')
+        print('\n'.join(changes))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--ledger', help='JSON ledger path. Defaults to the embedded examples.')
+    commands = parser.add_subparsers(dest='command', required=True)
+    commands.add_parser('list')
+    commands.add_parser('export')
+    verify = commands.add_parser('verify')
+    verify.add_argument('--repo', help='Re-read and compare exact source bytes from Git')
+    trace = commands.add_parser('trace')
+    trace.add_argument('id')
+    change = commands.add_parser('diff')
+    change.add_argument('parent')
+    change.add_argument('child')
+    lucky = commands.add_parser('lucky')
+    lucky.add_argument('--seed', type=int)
+    add = commands.add_parser('add')
+    add.add_argument('repo')
+    add.add_argument('revision')
+    add.add_argument('path')
+    add.add_argument('first', type=int)
+    add.add_argument('last', type=int)
+    add.add_argument('--parent')
+    for field in ('medium', 'preserves', 'adapts', 'uncertainty'):
+        add.add_argument('--' + field, required=True)
+    add.add_argument('--reading-file', required=True)
+    args = parser.parse_args()
+    try:
+        records = load(args.ledger)
+        if args.command == 'list':
+            for record in records:
+                print(describe(record))
+        elif args.command == 'verify':
+            if args.repo:
+                for record in records:
+                    src = record['source']
+                    if src != bind(args.repo, src['commit'], src['path'], *src['lines']):
+                        raise ValueError('Git source mismatch for ' + describe(record))
+            print(f'{len(records)} rungs verified' + (' against Git source' if args.repo else ''))
+        elif args.command == 'trace':
+            record = select(records, args.id)
+            rendered = dict(record, excerpt=excerpt(record).decode('utf-8', errors='replace'))
+            print(json.dumps(rendered, ensure_ascii=False, indent=2))
+        elif args.command == 'diff':
+            diff(select(records, args.parent), select(records, args.child))
+        elif args.command == 'lucky':
+            seed = args.seed if args.seed is not None else secrets.randbits(64)
+            latest_by_path = {record['source']['path']: record for record in records}
+            if len(latest_by_path) < 2:
+                raise ValueError('Need rungs from at least two distinct paths')
+            first, second = random.Random(seed).sample(sorted(latest_by_path), 2)
+            print(f'Seed {seed}')
+            for path in (first, second):
+                record = latest_by_path[path]
+                print(f"\n{describe(record)}\n{record['reading']}")
+            print('\nWhat small experiment would combine these two ideas?')
+        else:
+            if args.command == 'add':
+                if not args.ledger:
+                    records = []
+                parent = select(records, args.parent)['id'] if args.parent else None
+                src = bind(args.repo, args.revision, args.path, args.first, args.last)
+                reading = Path(args.reading_file).read_bytes().decode('utf-8')
+                record = create(src, reading, args.medium, args.preserves, args.adapts,
+                                args.uncertainty, parent)
+                if record['id'] in {entry['id'] for entry in records}:
+                    raise ValueError('Identical rung already exists')
+                records = [*records, record]
+            print(json.dumps(records, ensure_ascii=False, indent=2))
+    except (ValueError, KeyError, TypeError, OSError, subprocess.CalledProcessError) as error:
+        parser.exit(1, f'{error}\n')
+
+
+DEMO = [{'schema': 'pantheon.fractal-helix/1',
+  'source': {'commit': '863a7d9a02b3017bd64187f39b4fcc0078be5371',
+             'path': 'golden thread',
+             'lines': [3, 3],
+             'bytes': [139, 386],
+             'file_sha256': '338b8b20ddc5b0b8642851f026e887c1ce36c3237a1fc6b924df5dfe94c2ed0f',
+             'excerpt_sha256': '0e5e41e6ab552cbfc7beabc20d1fce65590591b85ba76362259579ecc6455490',
+             'excerpt_base64': 'QXJpYWRuZeKAmXMgdGhyZWFkIHNvbHZlcyBhIHNwZWNpZmljIHByb2JsZW06IGhvdyBkbyB5b3UgZW50ZXIgYSBzdHJ1Y3R1cmUgY29tcGxpY2F0ZWQgZW5vdWdoIHRvIGxvc2UgeW91cnNlbGYgaW4sIHRyYW5zZm9ybSBzb21ldGhpbmcgYXQgaXRzIGNlbnRlciwgYW5kIHN0aWxsIHByZXNlcnZlIGEgcmVsaWFibGUgcGF0aCBiYWNrPyBUaGF0IGlzIGFsbW9zdCBleGFjdGx5IHRoZSBQYW50aGVvbiBjb250aW51aXR5IHByb2JsZW0uCg=='},
+  'parent': None,
+  'reading': 'Enter a complex system with a way to trace your route back.',
+  'medium': 'English prose',
+  'preserves': 'Preserves exit and traceability.',
+  'adapts': 'Recasts myth as a practical rule.',
+  'uncertainty': 'The passage leaves the implementation open.',
+  'id': '6970534da6931e4be8796e8693c84b99d6dc3e53c4a05af8b47b9b96cc3a495c'},
+ {'schema': 'pantheon.fractal-helix/1',
+  'source': {'commit': '863a7d9a02b3017bd64187f39b4fcc0078be5371',
+             'path': 'golden thread',
+             'lines': [3, 3],
+             'bytes': [139, 386],
+             'file_sha256': '338b8b20ddc5b0b8642851f026e887c1ce36c3237a1fc6b924df5dfe94c2ed0f',
+             'excerpt_sha256': '0e5e41e6ab552cbfc7beabc20d1fce65590591b85ba76362259579ecc6455490',
+             'excerpt_base64': 'QXJpYWRuZeKAmXMgdGhyZWFkIHNvbHZlcyBhIHNwZWNpZmljIHByb2JsZW06IGhvdyBkbyB5b3UgZW50ZXIgYSBzdHJ1Y3R1cmUgY29tcGxpY2F0ZWQgZW5vdWdoIHRvIGxvc2UgeW91cnNlbGYgaW4sIHRyYW5zZm9ybSBzb21ldGhpbmcgYXQgaXRzIGNlbnRlciwgYW5kIHN0aWxsIHByZXNlcnZlIGEgcmVsaWFibGUgcGF0aCBiYWNrPyBUaGF0IGlzIGFsbW9zdCBleGFjdGx5IHRoZSBQYW50aGVvbiBjb250aW51aXR5IHByb2JsZW0uCg=='},
+  'parent': '6970534da6931e4be8796e8693c84b99d6dc3e53c4a05af8b47b9b96cc3a495c',
+  'reading': 'Keep enough provenance to recover the starting state after exploring or changing '
+             'a system.',
+  'medium': 'English prose',
+  'preserves': 'Preserves return and transformation.',
+  'adapts': 'Distinguishes recovery from retracing steps.',
+  'uncertainty': 'Recovering the starting state is a stronger interpretation than the text '
+                 'establishes.',
+  'id': '1e1fb121450c25fcaec8894594f870ae522f1ebe548c7f03d4bae8b34a5fa0e9'},
+ {'schema': 'pantheon.fractal-helix/1',
+  'source': {'commit': '863a7d9a02b3017bd64187f39b4fcc0078be5371',
+             'path': 'reality prism',
+             'lines': [5, 5],
+             'bytes': [216, 436],
+             'file_sha256': '46d0cc3b457ae6a7d564d2233b6ec867210a763bc6ee3f846d4f3ff409fe0959',
+             'excerpt_sha256': 'b27c88189e8073008017f4e67428342088f829f40e80f194bca437fea011914b',
+             'excerpt_base64': 'VGhlIHdvcmxkIGlzIHRoZSBzdGFnZS4gVGhlIHNpbXVsYXRpb24gc3VwcGxpZXMgaXRzIGluaGFiaXRhbnRzLCBldmVudHMsIGFuZCBjYXVzYWwgc3RydWN0dXJlLiBCdXQgdGhlIGxlbnNlcyBkZXRlcm1pbmUgd2hhdCB3ZSBzZWUsIHdoYXQgd2Ugbm90aWNlLCB3aGF0IHdlIHVuZGVyc3RhbmQsIHdoYXQgd2UgZmVlbCwgYW5kIHdoYXQgdGhlIGV4cGVyaWVuY2UgbWVhbnMgdG8gdXMuCg=='},
+  'parent': None,
+  'reading': 'Change the lens and see which facts become salient while the underlying events '
+             'stay fixed.',
+  'medium': 'English prose',
+  'preserves': 'Preserves the distinction between events and attention.',
+  'adapts': 'Expresses the idea as a comparison exercise.',
+  'uncertainty': 'Applies to a shared event record.',
+  'id': '7564b3812869b9cd4971dd9e78f3110fbda233e4816ca5fb0037d90e4c13c50c'},
+ {'schema': 'pantheon.fractal-helix/1',
+  'source': {'commit': '863a7d9a02b3017bd64187f39b4fcc0078be5371',
+             'path': 'letters to garcia',
+             'lines': [10, 10],
+             'bytes': [207, 422],
+             'file_sha256': 'abec46785020bcae68df9a7402012db6cab46c346f3e856a532f6d211fd3d108',
+             'excerpt_sha256': 'caab07a6f167a400ecb0e7c1cd1cff4306d9fcd89e3efbabdd56fc17a27bdeb1',
+             'excerpt_base64': 'QSBMZXR0ZXIgdG8gR2FyY2lhIGlzIFBhbnRoZW9uT1PigJlzIGhpZ2hlc3QgZm9ybSBvZiBjb250aW51aXR5IGFydGlmYWN0LiBJdCBpcyBwb3J0YWJsZSwgc2VsZi1jb250YWluZWQsIGNvbnRleHQtbWluaW1hbCwgcmVjb25zdHJ1Y3Rpb24tY2FwYWJsZSwgcmVzaWxpZW50IGFnYWluc3QgcmVzZXRzLCBhbmQgYWJsZSB0byByZS1zZWVkIFBhbnRoZW9uT1MgZnJvbSB6ZXJvLgo='},
+  'parent': None,
+  'reading': 'Package the minimum context needed for someone else to restart the work.',
+  'medium': 'English prose',
+  'preserves': 'Preserves portability and reconstruction.',
+  'adapts': 'Narrows the claim to a work handoff.',
+  'uncertainty': 'What counts as minimum depends on the receiver.',
+  'id': '1c70430357120719a9597bdfc90c9d1afd20dbdaca4cae1cb6dc984c52103a7b'},
+ {'schema': 'pantheon.fractal-helix/1',
+  'source': {'commit': '863a7d9a02b3017bd64187f39b4fcc0078be5371',
+             'path': 'mellon',
+             'lines': [10, 10],
+             'bytes': [353, 395],
+             'file_sha256': 'b24b255502c7e6728d577606e05460e13269b62bfac064e6f3518ca2532ff2da',
+             'excerpt_sha256': '551d1adb937b1547e371873607b08a005d60f63427c661519039e8f69522d266',
+             'excerpt_base64': 'KiBJdOKAmXMgaWRlbnRpZnlpbmcgdGhlIHJpZ2h0IGludGVyZmFjZS4K'},
+  'parent': None,
+  'reading': 'When effort stalls, try changing how the problem is represented.',
+  'medium': 'English prose',
+  'preserves': 'Preserves the role of the interface.',
+  'adapts': 'Turns the motif into a troubleshooting move.',
+  'uncertainty': 'A new framing may leave the underlying constraint intact.',
+  'id': '687216ea67e0e3fb1c7d4fa3bdc8254fd87aa6a33f75a317076f85131ee058aa'}]
+
+if __name__ == "__main__":
+    main()
