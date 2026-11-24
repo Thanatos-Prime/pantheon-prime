@@ -1,0 +1,53 @@
+# Ghost Knot: weighted-sum gates let a fully violated invariant through
+
+**Run it (stdlib only, ~1 second):**
+
+```
+python3 ghost_knot_repro.py
+```
+
+## The claim
+
+If a gate passes an action whenever a weighted average of invariant scores
+clears a threshold, one critical invariant scored 0.0 can be diluted by
+unrelated high scores. The action passes, and the log looks identical to a
+clean pass. That near-miss is the "ghost knot."
+
+## The fix
+
+1. **Hard floor per critical dimension.** Any critical score below the floor
+   blocks the action, whatever the average says.
+2. **Margin-aware logging.** Verdicts carry a margin. A pass within 0.10 of a
+   floor or the threshold is logged `PASS_NEAR_MISS`, not `PASS`.
+3. **Hash-chained ledger.** Every verdict is appended; editing history breaks
+   verification.
+
+## Output
+
+| case | weighted-sum gate | hard-floor gate |
+|---|---|---|
+| benign | PASS (1.000) | PASS_CLEAN |
+| adversarial (I6 = 0.0, rest high) | **PASS (0.885)** | **BLOCK_VETO** |
+| near-miss (I8 = 0.55) | PASS (0.955) | PASS_NEAR_MISS |
+
+Sweep over 10,000 simulated actions: of the 994 with a flagged critical
+dimension, the weighted-sum gate passed all 994 and the hard-floor gate
+passed none.
+
+## Scope and limits (read before citing)
+
+- This is a **model of the failure mode**, not the PantheonOS kernel. It shows
+  the design flaw is real in general; it does not show the live kernel's
+  numbers.
+- The sweep's 100% / 0% split is **by construction**: non-critical scores are
+  drawn from 0.75 to 1.0, so the weighted average always clears 0.7. The point
+  is that the average can never see the flag, not that real traffic looks like
+  this. Change the distribution in `sweep()` and see where it breaks.
+- Weights are equal and floors are arbitrary (0.5). Real systems need
+  calibration.
+
+## Break it
+
+Open an issue with a case where the hard-floor gate fails: a critical
+violation that passes, or a benign action that gets vetoed. Counterexamples
+are the point.
