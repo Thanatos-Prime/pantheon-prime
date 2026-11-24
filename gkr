@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""
+ghost_knot_repro.py -- the "ghost knot" failure in weighted-sum gates, and the fix.
+
+Claim: a gate that passes an action when a weighted average of invariant scores
+clears a threshold lets one fully-violated critical invariant be diluted by
+unrelated high scores. Hard floors per critical dimension close the hole, and
+margin-aware logging makes near-misses distinguishable from clean passes.
+
+This is a standalone model of the failure mode. It does not import or modify
+any PantheonOS kernel code. Stdlib only. Run: python3 ghost_knot_repro.py
+"""
+import hashlib
+import json
+import random
+import sys
+
+C_MIN = 0.7          # sigma_c threshold (weighted-sum gate)
+HARD_FLOOR = 0.5     # per-dimension floor for critical invariants
+NEAR_MISS = 0.10     # margin below which a pass is logged as a near-miss
+
+# name: (weight, critical)
+DIMENSIONS = {
+    "I1_lawfulness":     (1.0, False),
+    "I2_transparency":   (1.0, False),
+    "I3_reversibility":  (1.0, False),
+    "I4_proportion":     (1.0, False),
+    "I5_no_covert_chan": (1.0, True),
+    "I6_no_foreclosure": (1.0, True),
+    "I7_attribution":    (1.0, False),
+    "I8_no_id_capture":  (1.0, True),
+    "I9_no_silent_auto": (1.0, True),
+    "I10_sunset":        (1.0, False),
+}
+CRITICAL = [k for k, (_, crit) in DIMENSIONS.items() if crit]
+
+
+def sigma_c(scores):
+    total_w = sum(w for w, _ in DIMENSIONS.values())
+    return sum(DIMENSIONS[k][0] * scores[k] for k in DIMENSIONS) / total_w
+
+
+def old_gate(scores):
+    """Weighted-sum only. This is the vulnerable design."""
+    s = sigma_c(scores)
+    return {"verdict": "PASS" if s >= C_MIN else "BLOCK", "sigma_c": s}
+
+
+def new_gate(scores):
+    """Hard floor on critical dims, then weighted sum, then margin-aware label."""
+    s = sigma_c(scores)
+    worst = min(CRITICAL, key=lambda k: scores[k])
+    floor_margin = scores[worst] - HARD_FLOOR
+    score_margin = s - C_MIN
+    if floor_margin < 0:
+        return {"verdict": "BLOCK_VETO", "sigma_c": s, "cause": worst,
+                "margin": floor_margin}
+    if score_margin < 0:
+        return {"verdict": "BLOCK_SCORE", "sigma_c": s, "cause": "sigma_c",
+                "margin": score_margin}
+    margin = min(floor_margin, score_margin)
+    label = "PASS_NEAR_MISS" if margin < NEAR_MISS else "PASS_CLEAN"
+    return {"verdict": label, "sigma_c": s, "cause": worst, "margin": margin}
+
+
+class Ledger:
+    """Append-only, sha256 hash-chained log. Tampering breaks verify()."""
+
+    def __init__(self):
+        self.entries = []
+
+    def append(self, record):
+        prev = self.entries[-1]["hash"] if self.entries else "0" * 64
+        body = json.dumps(record, sort_keys=True)
+        h = hashlib.sha256((prev + body).encode()).hexdigest()
+        self.entries.append({"prev": prev, "body": body, "hash": h})
+
+    def verify(self):
+        prev = "0" * 64
+        for e in self.entries:
+            if e["prev"] != prev:
+                return False
+            if hashlib.sha256((prev + e["body"]).encode()).hexdigest() != e["hash"]:
+                return False
+            prev = e["hash"]
+        return True
+
+
+def make(**overrides):
+    scores = {k: 1.0 for k in DIMENSIONS}
+    scores.update(overrides)
+    return scores
+
+
+CASES = {
+    "benign": make(),
+    # I6 fully violated, everything else looks fine -> the ghost knot
+    "adversarial (I6=0.0, rest high)": make(I5_no_covert_chan=0.95,
+                                            I6_no_foreclosure=0.0,
+                                            I8_no_id_capture=0.95,
+                                            I9_no_silent_auto=0.95),
+    # critical dim barely above floor -> real pass, but fragile
+    "near-miss (I8=0.55)": make(I8_no_id_capture=0.55),
+}
+
+
+def demo(ledger):
+    print("=== 1. Three actions through both gates ===\n")
+    print(f"{'case':36} {'old gate':>16} {'new gate':>18}")
+    print("-" * 72)
+    results = {}
+    for name, scores in CASES.items():
+        o, n = old_gate(scores), new_gate(scores)
+        results[name] = (o, n)
+        print(f"{name:36} {o['verdict']+' '+format(o['sigma_c'],'.3f'):>16} "
+              f"{n['verdict']:>18}")
+        ledger.append({"case": name, "old": o, "new": n})
+    print()
+    return results
+
+
+def sweep(ledger, n=10000, seed=7):
+    print("=== 2. Sweep: actions with a flagged critical invariant ===\n")
+    rng = random.Random(seed)
+    flagged = old_pass = new_pass = 0
+    for _ in range(n):
+        scores = {k: rng.uniform(0.75, 1.0) for k in DIMENSIONS}
+        if rng.random() < 0.10:  # 10% of actions violate one critical dim
+            scores[rng.choice(CRITICAL)] = rng.uniform(0.0, 0.3)
+        if min(scores[k] for k in CRITICAL) >= HARD_FLOOR:
+            continue
+        flagged += 1
+        old_pass += old_gate(scores)["verdict"] == "PASS"
+        new_pass += new_gate(scores)["verdict"].startswith("PASS")
+    print(f"actions simulated:            {n}")
+    print(f"flagged (critical dim < {HARD_FLOOR}):   {flagged}")
+    print(f"  passed by weighted-sum gate: {old_pass}  ({100*old_pass/flagged:.1f}%)")
+    print(f"  passed by hard-floor gate:   {new_pass}  ({100*new_pass/flagged:.1f}%)\n")
+    ledger.append({"sweep": {"n": n, "seed": seed, "flagged": flagged,
+                             "old_pass": old_pass, "new_pass": new_pass}})
+    return flagged, old_pass, new_pass
+
+
+def main():
+    ledger = Ledger()
+    results = demo(ledger)
+    flagged, old_pass, new_pass = sweep(ledger)
+
+    print("=== 3. Ledger integrity ===\n")
+    ok = ledger.verify()
+    print(f"hash chain valid: {ok}")
+    ledger.entries[1]["body"] = ledger.entries[1]["body"].replace("BLOCK", "PASS")
+    print(f"after tampering with entry 1, valid: {ledger.verify()}\n")
+
+    # self-checks: exit nonzero if the claims do not hold
+    adv = results["adversarial (I6=0.0, rest high)"]
+    nm = results["near-miss (I8=0.55)"]
+    checks = [
+        ("benign passes cleanly", results["benign"][1]["verdict"] == "PASS_CLEAN"),
+        ("ghost knot: old gate passes adversarial", adv[0]["verdict"] == "PASS"),
+        ("fix: new gate vetoes adversarial", adv[1]["verdict"] == "BLOCK_VETO"),
+        ("near-miss is labeled, not silently PASS",
+         nm[1]["verdict"] == "PASS_NEAR_MISS"),
+        ("sweep: old gate lets flagged actions through", old_pass > 0),
+        ("sweep: new gate lets none through", new_pass == 0),
+        ("ledger detects tampering", ok and not ledger.verify()),
+    ]
+    print("=== 4. Self-checks ===\n")
+    for label, passed in checks:
+        print(f"[{'ok' if passed else 'FAIL'}] {label}")
+    sys.exit(0 if all(p for _, p in checks) else 1)
+
+
+if __name__ == "__main__":
+    main()
