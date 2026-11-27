@@ -1,0 +1,73 @@
+Under Your Conquered Empire
+PANTHEON_UNDER_YOUR_CONQUERED_EMPIRE.py
+
+Three strands. Sixty-five flags on each. At every crossing, one strand presides, and the next crossing can take that position away. Follow any flag’s cord and you’ll see it pass both over and under.
+
+The Python script writes an SVG braid with a tooltip for each flag’s country code. I used a 195-flag roster of UN members and the two UN observer states, the Holy See and the State of Palestine. I verified the roster has 195 distinct codes and that the crossing pattern gives the strands 22, 21, and 22 turns on top. Flag artwork uses your viewer’s emoji font. The code is inline because the workspace was unavailable for saving the file. 
+
+"""Under Your Conquered Empire. Run with Python 3 to draw the braid."""
+from pathlib import Path
+FLAGS = """
+AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR
+BN BG BF BI CV KH CM CA CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ
+DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY
+HT HN HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI KP KR KW KG LA LV LB
+LS LR LY LI LT LU MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM
+NA NR NP NL NZ NI NE NG MK NO OM PK PW PS PA PG PY PE PH PT QA RO RU RW
+KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA SS ES LK SD SR SE CH
+SY TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE
+ZM ZW
+""".split()
+assert len(FLAGS) == len(set(FLAGS)) == 195
+strands = [FLAGS[offset::3] for offset in range(3)]
+positions = [0, 1, 2]
+columns = [90, 180, 270]
+row_height = 72
+height = 112 + row_height * len(strands[0])
+svg = [
+    f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 {height}" '
+    'role="img" aria-labelledby="title description">',
+    '<title id="title">Under Your Conquered Empire</title>',
+    '<desc id="description">195 national flags tied end to end on three '
+    'interlacing strands. Overpasses alternate across the braid.</desc>',
+    f'<rect width="360" height="{height}" fill="#151310"/>',
+    '<text x="180" y="34" text-anchor="middle" fill="#f3e5ca" '
+    'font-family="Georgia, serif" font-size="18">'
+    'Under Your Conquered Empire</text>',
+]
+for row, flags in enumerate(zip(*strands)):
+    y = 64 + row * row_height
+    left = row % 2
+    next_positions = positions.copy()
+    next_positions[left], next_positions[left + 1] = (
+        positions[left + 1], positions[left]
+    )
+    presiding_strand = positions[left + row % 2]
+    # Paint the passing strand last so it lies on top.
+    for strand in sorted(positions, key=lambda strand: strand == presiding_strand):
+        x = columns[positions.index(strand)]
+        end_x = columns[next_positions.index(strand)]
+        path = (
+            f"M {x} {y} V {y + 33} "
+            f"C {x} {y + 50}, {end_x} {y + 50}, {end_x} {y + 72}"
+        )
+        svg.append(
+            f'<path d="{path}" fill="none" stroke="#151310" stroke-width="11"/>'
+            f'<path d="{path}" fill="none" stroke="#ad9064" stroke-width="3"/>'
+        )
+    for slot, strand in enumerate(positions):
+        x = columns[slot]
+        code = flags[strand]
+        flag = "".join(chr(0x1F1E6 + ord(letter) - ord("A")) for letter in code)
+        svg.append(
+            f'<g><title>{code}</title>'
+            f'<circle cx="{x}" cy="{y}" r="3" fill="#c4a879"/>'
+            f'<rect x="{x - 23}" y="{y + 5}" width="46" height="28" '
+            'rx="3" fill="#332b22"/>'
+            f'<text x="{x}" y="{y + 26}" text-anchor="middle" '
+            'font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif" '
+            f'font-size="21" fill="#f3e5ca">{flag}</text></g>'
+        )
+    positions = next_positions
+svg.append("</svg>")
+Path("under_your_conquered_empire.svg").write_text("\n".join(svg), encoding="utf-8")
